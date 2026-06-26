@@ -1,0 +1,20 @@
+{
+  "name": "@raqmi/licensing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo \"No licensing tests yet\"",
+    "lint": "echo \"No licensing lint yet\""
+  },
+  "dependencies": {
+    "@raqmi/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
