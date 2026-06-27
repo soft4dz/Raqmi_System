@@ -7,14 +7,29 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "dev": "pnpm --parallel dev",
+    "setup": "powershell -ExecutionPolicy Bypass -File scripts/setup.ps1",
+    "setup:sh": "bash scripts/setup.sh",
+    "infra:up": "docker compose -f docker/docker-compose.local.yml up -d",
+    "infra:down": "docker compose -f docker/docker-compose.local.yml down",
+    "infra:logs": "docker compose -f docker/docker-compose.local.yml logs -f",
+    "db:generate": "pnpm --filter @raqmi/database db:generate",
+    "db:push": "pnpm --filter @raqmi/database db:push",
+    "db:seed": "pnpm --filter @raqmi/database db:seed",
+    "db:setup": "pnpm db:generate && pnpm db:push && pnpm db:seed",
+    "dev": "pnpm --parallel --filter @raqmi/server --filter @raqmi/client dev",
+    "dev:server": "pnpm --filter @raqmi/server dev",
+    "dev:client": "pnpm --filter @raqmi/client dev",
     "build": "pnpm -r build",
-    "test": "pnpm -r test",
+    "test": "vitest run",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck"
   },
   "packageManager": "pnpm@9.15.0",
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
   }
 }

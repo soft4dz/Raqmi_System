@@ -5,10 +5,15 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./src/license-policy.ts",
+    "./packs": "./src/license-packs.ts",
+    "./types": "./src/license-types.ts"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "test": "vitest run --config ../../vitest.config.ts --dir src",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "echo \"No licensing tests yet\"",
     "lint": "echo \"No licensing lint yet\""
   },
   "dependencies": {

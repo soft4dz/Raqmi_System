@@ -1,0 +1,15 @@
+export const env = {
+  PORT: Number(process.env.PORT ?? 3000),
+  CLIENT_ORIGIN: process.env.CLIENT_ORIGIN ?? 'http://localhost:5173',
+  JWT_SECRET: process.env.JWT_SECRET ?? 'raqmi-dev-secret-change-in-production',
+  DEMO_MODE: process.env.DEMO_MODE === 'true' ? true : !process.env.DATABASE_URL,
+  DATABASE_URL: process.env.DATABASE_URL,
+  FILE_STORAGE_DRIVER: process.env.FILE_STORAGE_DRIVER ?? 'local',
+  FILE_STORAGE_LOCAL_PATH: process.env.FILE_STORAGE_LOCAL_PATH ?? './storage',
+  S3_ENDPOINT: process.env.S3_ENDPOINT ?? 'http://localhost:9000',
+  S3_REGION: process.env.S3_REGION ?? 'us-east-1',
+  S3_BUCKET: process.env.S3_BUCKET ?? 'raqmi-system',
+  S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID ?? 'raqmi',
+  S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY ?? 'raqmi_password',
+  LICENSE_MODE: process.env.LICENSE_MODE ?? 'offline',
+};

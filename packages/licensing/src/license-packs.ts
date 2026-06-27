@@ -1,4 +1,4 @@
-import type { RaqmiModuleCode } from '../../shared/src/modules';
+import type { RaqmiModuleCode } from '@raqmi/shared';
 import type { LicenseKind, LicenseLimits } from './license-types';
 
 export interface LicensePackDefinition {

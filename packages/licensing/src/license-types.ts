@@ -1,4 +1,4 @@
-import type { RaqmiModuleCode } from '../../shared/src/modules';
+import type { RaqmiModuleCode } from '@raqmi/shared';
 
 export type LicenseKind = 'trial' | 'starter' | 'professional' | 'enterprise' | 'custom';
 export type LicenseMode = 'online' | 'offline' | 'hybrid';

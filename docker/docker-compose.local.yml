@@ -11,6 +11,11 @@ services:
       - "5432:5432"
     volumes:
       - raqmi_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raqmi -d raqmi_system"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   minio:
     image: minio/minio:latest
@@ -25,6 +30,25 @@ services:
       - "9001:9001"
     volumes:
       - raqmi_minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: raqmi-minio-init
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 raqmi raqmi_password; do sleep 2; done;
+      mc mb local/raqmi-system --ignore-existing;
+      mc anonymous set download local/raqmi-system;
+      exit 0;
+      "
 
 volumes:
   raqmi_postgres_data:

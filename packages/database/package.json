@@ -1,0 +1,29 @@
+{
+  "name": "@raqmi/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:push": "dotenv -e ../../.env -- prisma db push",
+    "db:seed": "dotenv -e ../../.env -- tsx src/seed.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.2",
+    "@raqmi/licensing": "workspace:*",
+    "@raqmi/shared": "workspace:*",
+    "bcryptjs": "^3.0.2"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^10.0.0",
+    "prisma": "^6.16.2",
+    "tsx": "^4.22.4"
+  },
+  "prisma": {
+    "schema": "prisma/schema.prisma"
+  }
+}

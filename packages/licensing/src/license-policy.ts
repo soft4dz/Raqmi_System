@@ -1,4 +1,4 @@
-import { RAQMI_MODULES, type RaqmiModuleCode } from '../../shared/src/modules';
+import { RAQMI_MODULES, type RaqmiModuleCode } from '@raqmi/shared';
 import type { LicenseEvaluationContext, LicenseEvaluationResult, RaqmiLicensePayload } from './license-types';
 
 function daysBetween(a: Date, b: Date): number {
