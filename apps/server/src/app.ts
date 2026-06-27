@@ -14,26 +14,26 @@ import { adminAuditRouter } from './routes/admin-audit.routes';
 import { adminBackupsRouter } from './routes/admin-backups.routes';
 import { coreSystemHealthRouter } from './routes/core-system-health.routes';
 import { coreLicenseStatusRouter } from './routes/core-license-status.routes';
+import { v1AuthRouter } from './routes/v1-auth.routes';
+import { v1CoreRouter } from './routes/v1-core.routes';
+import { v1AdminRouter } from './routes/v1-admin.routes';
+import { v1SettingsRouter, v1SitesRouter } from './routes/v1-sites-settings.routes';
 
 export function createApp() {
   const app = express();
-
   app.use(helmet());
   app.use(cors());
   app.use(express.json({ limit: '2mb' }));
 
-  app.get('/', (_request, response) => {
-    response.json({ service: 'Raqmi System Server', status: 'running' });
-  });
+  app.get('/', (_request, response) => response.json({ service: 'Raqmi System Server', status: 'running' }));
 
+  app.use('/health', healthRouter);
   app.use('/api/health', healthRouter);
   app.use('/api/modules', modulesRouter);
   app.use('/api/tenants', tenantsRouter);
   app.use('/api/licenses', licensesRouter);
-
   app.use('/api/core/system-health', coreSystemHealthRouter);
   app.use('/api/core/license-status', coreLicenseStatusRouter);
-
   app.use('/api/admin/dashboard', adminDashboardRouter);
   app.use('/api/admin/users', adminUsersRouter);
   app.use('/api/admin/roles', adminRolesRouter);
@@ -43,9 +43,12 @@ export function createApp() {
   app.use('/api/admin/audit-logs', adminAuditRouter);
   app.use('/api/admin/backups', adminBackupsRouter);
 
-  app.use((_request, response) => {
-    response.status(404).json({ error: 'Route introuvable.' });
-  });
+  app.use('/api/v1/auth', v1AuthRouter);
+  app.use('/api/v1', v1CoreRouter);
+  app.use('/api/v1/admin', v1AdminRouter);
+  app.use('/api/v1/sites', v1SitesRouter);
+  app.use('/api/v1/settings', v1SettingsRouter);
 
+  app.use((_request, response) => response.status(404).json({ error: 'Route introuvable.' }));
   return app;
 }
