@@ -1,0 +1,314 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum LicenseKind {
+  TRIAL
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+  CUSTOM
+}
+
+enum LicenseMode {
+  ONLINE
+  OFFLINE
+  HYBRID
+}
+
+enum LicenseStatus {
+  DRAFT
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+  REVOKED
+}
+
+enum StorageDriver {
+  LOCAL
+  S3
+  HYBRID
+}
+
+model Tenant {
+  id        String       @id @default(uuid())
+  code      String       @unique
+  name      String
+  legalName String?
+  email     String?
+  phone     String?
+  address   String?
+  status    TenantStatus @default(ACTIVE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  sites     Site[]
+  users     User[]
+  licenses  License[]
+  settings  TenantSetting[]
+  files     FileObject[]
+
+  @@map("tenants")
+}
+
+model Site {
+  id        String   @id @default(uuid())
+  tenantId  String
+  code      String
+  name      String
+  type      String   @default("site")
+  city      String?
+  address   String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  userSites UserSiteAccess[]
+
+  @@unique([tenantId, code])
+  @@map("sites")
+}
+
+model User {
+  id                String    @id @default(uuid())
+  tenantId          String
+  email             String
+  credentialHash    String
+  fullName          String
+  phone             String?
+  active            Boolean   @default(true)
+  forceSecretChange Boolean   @default(false)
+  lastLoginAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  roles             UserRole[]
+  sites             UserSiteAccess[]
+  sessions          UserSession[]
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  tenantId    String?
+  code        String
+  label       String
+  description String?
+  system      Boolean  @default(false)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@unique([tenantId, code])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  moduleCode  String
+  action      String
+  label       String
+  description String?
+  createdAt   DateTime @default(now())
+
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  roleId       String
+  permissionId String
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id        String @id @default(uuid())
+  userId    String
+  roleId    String
+
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model UserSiteAccess {
+  id     String @id @default(uuid())
+  userId String
+  siteId String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  site   Site   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, siteId])
+  @@map("user_site_access")
+}
+
+model UserSession {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String
+  ipAddress String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("user_sessions")
+}
+
+model ModuleDefinition {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  label       String
+  family      String
+  commercial  Boolean  @default(true)
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  licenseModules LicenseModule[]
+
+  @@map("module_definitions")
+}
+
+model License {
+  id                String        @id @default(uuid())
+  tenantId          String
+  kind              LicenseKind
+  mode              LicenseMode
+  status            LicenseStatus @default(DRAFT)
+  startsAt          DateTime
+  expiresAt         DateTime
+  maxUsers          Int
+  maxSites          Int
+  maxStorageGb      Int
+  offlineGraceDays  Int           @default(30)
+  lastOnlineCheckAt DateTime?
+  signedPayload     String?
+  signature         String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  tenant            Tenant        @relation(fields: [tenantId], references: [id])
+  modules           LicenseModule[]
+
+  @@index([tenantId, status])
+  @@map("licenses")
+}
+
+model LicenseModule {
+  id        String   @id @default(uuid())
+  licenseId String
+  moduleId  String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  license   License          @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  module    ModuleDefinition @relation(fields: [moduleId], references: [id])
+
+  @@unique([licenseId, moduleId])
+  @@map("license_modules")
+}
+
+model TenantSetting {
+  id        String   @id @default(uuid())
+  tenantId  String
+  category  String
+  key       String
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@map("tenant_settings")
+}
+
+model FileObject {
+  id             String        @id @default(uuid())
+  tenantId       String
+  siteId         String?
+  storageDriver  StorageDriver @default(LOCAL)
+  path           String
+  originalName   String
+  mimeType       String?
+  sizeBytes      BigInt
+  checksumSha256 String?
+  moduleCode     String?
+  entityType     String?
+  entityId       String?
+  uploadedBy     String?
+  uploadedAt     DateTime      @default(now())
+  cloudSyncedAt  DateTime?
+
+  tenant         Tenant        @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, moduleCode, entityType, entityId])
+  @@map("file_objects")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  tenantId    String?
+  userId      String?
+  action      String
+  moduleCode  String?
+  entityType  String?
+  entityId    String?
+  description String
+  oldValue    Json?
+  newValue    Json?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@map("audit_logs")
+}
+
+model BackupJob {
+  id         String   @id @default(uuid())
+  tenantId   String
+  type       String
+  status     String
+  storage    String
+  startedAt  DateTime @default(now())
+  finishedAt DateTime?
+  sizeMb     Float?
+  note       String?
+
+  @@index([tenantId, startedAt])
+  @@map("backup_jobs")
+}
