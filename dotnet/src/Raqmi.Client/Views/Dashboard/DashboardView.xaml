@@ -1,0 +1,95 @@
+<UserControl x:Class="Raqmi.Client.Views.Dashboard.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:Raqmi.Client.Ui">
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="0,0,8,24" MaxWidth="1100">
+      <Border Style="{StaticResource CardBorder}" Padding="24" Margin="0,0,0,16">
+        <Grid>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock x:Name="DashboardEyebrow" Style="{StaticResource EyebrowText}"/>
+            <TextBlock x:Name="WelcomeText" FontSize="24" FontWeight="Bold" Foreground="{StaticResource TextBrush}"/>
+            <TextBlock x:Name="LicenseText" Style="{StaticResource SubtitleText}" Margin="0,8,0,0"/>
+          </StackPanel>
+          <Border x:Name="LicenseBadge" HorizontalAlignment="Right" VerticalAlignment="Center"
+                  Background="{StaticResource Panel2Brush}" BorderThickness="1" CornerRadius="14"
+                  Padding="16,14" MinWidth="180">
+            <StackPanel>
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{x:Static ui:ModuleIcons.License}" Style="{StaticResource IconGlyph}" Margin="0,0,6,0"/>
+                <TextBlock x:Name="LicenseLabel" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+              </StackPanel>
+              <TextBlock x:Name="LicenseStatusText" FontSize="18" FontWeight="Bold" Foreground="{StaticResource SuccessBrush}"/>
+              <TextBlock x:Name="LicenseExpiryText" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,4,0,0"/>
+            </StackPanel>
+          </Border>
+        </Grid>
+      </Border>
+
+      <UniformGrid Columns="4" Margin="0,0,0,16">
+        <Border Style="{StaticResource CardBorder}" Padding="16" Margin="0,0,8,0">
+          <StackPanel>
+            <TextBlock x:Name="StatModulesLabel" Style="{StaticResource LabelText}"/>
+            <TextBlock x:Name="StatModules" FontSize="26" FontWeight="Bold" Foreground="{StaticResource TextBrush}"/>
+          </StackPanel>
+        </Border>
+        <Border Style="{StaticResource CardBorder}" Padding="16" Margin="4,0">
+          <StackPanel>
+            <TextBlock x:Name="StatFamiliesLabel" Style="{StaticResource LabelText}"/>
+            <TextBlock x:Name="StatFamilies" FontSize="26" FontWeight="Bold" Foreground="{StaticResource TextBrush}"/>
+          </StackPanel>
+        </Border>
+        <Border Style="{StaticResource CardBorder}" Padding="16" Margin="4,0">
+          <StackPanel>
+            <TextBlock x:Name="StatPackLabel" Style="{StaticResource LabelText}"/>
+            <TextBlock x:Name="StatPack" FontSize="26" FontWeight="Bold" Foreground="{StaticResource TextBrush}"/>
+          </StackPanel>
+        </Border>
+        <Border Style="{StaticResource CardBorder}" Padding="16" Margin="8,0,0,0">
+          <StackPanel>
+            <TextBlock x:Name="StatModeLabel" Style="{StaticResource LabelText}"/>
+            <TextBlock x:Name="StatMode" FontSize="26" FontWeight="Bold" Foreground="{StaticResource TextBrush}"/>
+          </StackPanel>
+        </Border>
+      </UniformGrid>
+
+      <StackPanel>
+        <TextBlock x:Name="ModulesTitle" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"/>
+        <TextBlock x:Name="ModulesHint" Style="{StaticResource SubtitleText}" Margin="0,6,0,14"/>
+        <ItemsControl x:Name="ModulesList" PreviewMouseLeftButtonUp="OnModulesListClick">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Width="280" Margin="0,0,12,12" Padding="16" CornerRadius="16"
+                      Background="{StaticResource PanelBrush}" BorderThickness="1"
+                      Cursor="Hand" Tag="{Binding Code}">
+                <Border.Style>
+                  <Style TargetType="Border">
+                    <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+                    <Setter Property="Opacity" Value="1"/>
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding IsEnabled}" Value="True">
+                        <Setter Property="BorderBrush" Value="#593B82F6"/>
+                      </DataTrigger>
+                      <DataTrigger Binding="{Binding IsEnabled}" Value="False">
+                        <Setter Property="Opacity" Value="0.55"/>
+                        <Setter Property="Cursor" Value="Arrow"/>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </Border.Style>
+                <StackPanel>
+                  <TextBlock Text="{Binding Label}" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"/>
+                  <TextBlock Text="{Binding Description}" Style="{StaticResource SubtitleText}" Margin="0,6,0,8"/>
+                  <TextBlock Text="{Binding Status}" FontSize="12" Foreground="{StaticResource MutedBrush}"/>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

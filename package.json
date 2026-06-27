@@ -16,19 +16,36 @@
     "db:push": "pnpm --filter @raqmi/database db:push",
     "db:seed": "pnpm --filter @raqmi/database db:seed",
     "db:setup": "pnpm db:generate && pnpm db:push && pnpm db:seed",
-    "dev": "pnpm --parallel --filter @raqmi/server --filter @raqmi/client dev",
+    "dev": "pnpm --parallel --filter @raqmi/server --filter raqmi-system-client dev",
+    "dev:desktop": "concurrently -k \"cross-env DEMO_MODE=true pnpm --filter @raqmi/server dev\" \"pnpm --filter raqmi-system-client dev:desktop:all\"",
+    "dev:desktop:license-manager": "pnpm --filter raqmi-license-manager dev:desktop:all",
     "dev:server": "pnpm --filter @raqmi/server dev",
-    "dev:client": "pnpm --filter @raqmi/client dev",
+    "dev:client": "pnpm --filter raqmi-system-client dev",
     "build": "pnpm -r build",
     "test": "vitest run",
     "lint": "pnpm -r lint",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "dist:server": "pnpm --filter @raqmi/server dist",
+    "dist:client": "pnpm --filter raqmi-system-client dist",
+    "dist:license-manager": "pnpm --filter raqmi-license-manager dist",
+    "dist:all": "pnpm dist:server && pnpm dist:client && pnpm dist:license-manager",
+    "keys:generate": "pnpm --filter @raqmi/server exec tsx ../../scripts/generate-license-keys.ts",
+    "postinstall": "node scripts/install-electron.cjs",
+    "dotnet:build": "dotnet build dotnet/RaqmiSystem.sln",
+    "dotnet:test": "dotnet test dotnet/RaqmiSystem.sln",
+    "db:migrate:dotnet": "dotnet ef database update --project dotnet/src/Raqmi.Data/Raqmi.Data.csproj --startup-project dotnet/src/Raqmi.Server/Raqmi.Server.csproj",
+    "dotnet:server": "dotnet run --project dotnet/src/Raqmi.Server/Raqmi.Server.csproj",
+    "dotnet:client": "dotnet run --project dotnet/src/Raqmi.Client/Raqmi.Client.csproj",
+    "dotnet:license-manager": "dotnet run --project dotnet/src/Raqmi.LicenseManager/Raqmi.LicenseManager.csproj"
   },
   "packageManager": "pnpm@9.15.0",
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
+    "@rollup/rollup-win32-x64-msvc": "^4.62.2",
+    "concurrently": "^9.2.1",
+    "cross-env": "^7.0.3",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   }

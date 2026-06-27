@@ -1,0 +1,42 @@
+<UserControl x:Class="Raqmi.Client.Views.Finance.BillingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid Margin="0,0,8,8">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="1.2*"/>
+      <ColumnDefinition Width="0.8*"/>
+    </Grid.ColumnDefinitions>
+    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+      <Border Style="{StaticResource CardBorder}" Padding="16" Margin="0,0,0,12">
+        <StackPanel>
+          <TextBlock Text="Nouvelle facture" Style="{StaticResource LabelText}"/>
+          <TextBlock Text="Client" Style="{StaticResource LabelText}" Margin="0,8,0,0"/>
+          <TextBox x:Name="ClientBox" Text="Client demo"/>
+          <Button x:Name="CreateButton" Content="Créer brouillon" Style="{StaticResource PrimaryButton}" Margin="0,12,0,0" Click="OnCreate"/>
+          <TextBlock x:Name="ErrorText" Foreground="#FCA5A5" Margin="0,8,0,0" Visibility="Collapsed"/>
+        </StackPanel>
+      </Border>
+      <DataGrid x:Name="InvoiceGrid" AutoGenerateColumns="False" IsReadOnly="True" SelectionChanged="OnInvoiceSelected">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="N°" Binding="{Binding Number}" Width="120"/>
+          <DataGridTextColumn Header="Client" Binding="{Binding ClientName}" Width="*"/>
+          <DataGridTextColumn Header="Statut" Binding="{Binding Status}" Width="80"/>
+          <DataGridTextColumn Header="Total" Binding="{Binding TotalAmount}" Width="100"/>
+        </DataGrid.Columns>
+      </DataGrid>
+    </StackPanel>
+    <Border Grid.Column="1" Style="{StaticResource CardBorder}" Padding="16">
+      <StackPanel>
+        <TextBlock Text="Détail facture" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"/>
+        <TextBlock x:Name="DetailHeader" Style="{StaticResource SubtitleText}" Margin="0,8,0,12"/>
+        <DataGrid x:Name="LinesGrid" AutoGenerateColumns="False" IsReadOnly="True" MaxHeight="300">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+            <DataGridTextColumn Header="Qté" Binding="{Binding Quantity}" Width="50"/>
+            <DataGridTextColumn Header="PU" Binding="{Binding UnitPrice}" Width="70"/>
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

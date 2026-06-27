@@ -6,14 +6,26 @@ import { prisma } from '@raqmi/database';
 import { DEMO_LICENSE, DEMO_TENANT, DEMO_USAGE } from '../demo-data.js';
 import { env } from '../env.js';
 import { authMiddleware } from '../middleware/auth.js';
+import {
+  evaluateActiveLicense,
+  getActiveLicensePayload,
+} from '../middleware/require-module.js';
+import {
+  getServerFingerprint,
+  importLicenseFile,
+  loadLicenseFromDisk,
+} from '../services/license-store.js';
 
 export const licenseRoutes = new Hono();
 
-licenseRoutes.use('*', authMiddleware);
+licenseRoutes.get('/fingerprint', (c) =>
+  c.json({ fingerprint: getServerFingerprint() }),
+);
+
+licenseRoutes.use('/status', authMiddleware);
+licenseRoutes.use('/import', authMiddleware);
 
 licenseRoutes.get('/status', async (c) => {
-  const tenantId = c.get('tenantId');
-
   if (env.DEMO_MODE) {
     const evaluation = evaluateLicense(DEMO_LICENSE, {
       now: new Date(),
@@ -25,9 +37,24 @@ licenseRoutes.get('/status', async (c) => {
       license: DEMO_LICENSE,
       evaluation,
       pack: RAQMI_LICENSE_PACKS.find((p) => p.kind === DEMO_LICENSE.kind),
+      mode: env.LICENSE_MODE,
     });
   }
 
+  const fileLicense = await loadLicenseFromDisk();
+  if (fileLicense) {
+    const evaluation = await evaluateActiveLicense();
+    return c.json({
+      tenant: { id: fileLicense.tenantId, code: fileLicense.tenantId, name: fileLicense.tenantName },
+      license: fileLicense,
+      evaluation,
+      pack: RAQMI_LICENSE_PACKS.find((p) => p.kind === fileLicense.kind),
+      mode: env.LICENSE_MODE,
+      fingerprint: getServerFingerprint(),
+    });
+  }
+
+  const tenantId = c.get('tenantId');
   const license = await loadTenantLicense(tenantId);
   if (!license) {
     return c.json({ error: 'Aucune licence active' }, 404);
@@ -50,7 +77,35 @@ licenseRoutes.get('/status', async (c) => {
     license: license.payload,
     evaluation,
     pack: RAQMI_LICENSE_PACKS.find((p) => p.kind === license.payload.kind),
+    mode: env.LICENSE_MODE,
   });
+});
+
+licenseRoutes.post('/import', async (c) => {
+  if (c.get('roleCode') !== 'admin') {
+    return c.json({ error: 'Accès réservé aux administrateurs' }, 403);
+  }
+
+  const body = await c.req.json<{ content?: string }>();
+  if (!body.content) {
+    return c.json({ error: 'Contenu licence requis' }, 400);
+  }
+
+  try {
+    const payload = await importLicenseFile(body.content);
+    const evaluation = await evaluateActiveLicense();
+    return c.json({
+      message: 'Licence importée',
+      license: payload,
+      evaluation,
+      fingerprint: getServerFingerprint(),
+    });
+  } catch (error) {
+    return c.json(
+      { error: error instanceof Error ? error.message : 'Import licence impossible' },
+      400,
+    );
+  }
 });
 
 async function loadTenantLicense(tenantId: string) {
@@ -90,3 +145,5 @@ async function loadTenantLicense(tenantId: string) {
 
   return { tenant: { id: tenant.id, code: tenant.code, name: tenant.name }, payload };
 }
+
+export { getActiveLicensePayload } from '../services/license-store.js';

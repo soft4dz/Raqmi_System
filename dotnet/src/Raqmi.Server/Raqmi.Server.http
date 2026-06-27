@@ -1,0 +1,6 @@
+@Raqmi.Server_HostAddress = http://localhost:3000
+
+GET {{Raqmi.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

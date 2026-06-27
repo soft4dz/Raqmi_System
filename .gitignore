@@ -16,3 +16,13 @@ storage/
 uploads/
 .tmp/
 .cache/
+keys/private.jwk.json
+**/private.jwk.json
+apps/server/keys/private.jwk.json
+
+# .NET build artifacts
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+.vs/

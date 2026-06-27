@@ -4,6 +4,7 @@ import { prisma } from '@raqmi/database';
 import { getDemoModules } from '../demo-data.js';
 import { env } from '../env.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { getActiveLicensePayload } from '../services/license-store.js';
 
 export const moduleRoutes = new Hono();
 
@@ -12,6 +13,16 @@ moduleRoutes.use('*', authMiddleware);
 moduleRoutes.get('/', async (c) => {
   if (env.DEMO_MODE) {
     return c.json({ modules: getDemoModules() });
+  }
+
+  const fileLicense = await getActiveLicensePayload();
+  if (fileLicense) {
+    const allowed = new Set(fileLicense.allowedModules);
+    const modules = RAQMI_MODULES.map((module) => ({
+      ...module,
+      enabled: !module.commercial || allowed.has(module.code),
+    }));
+    return c.json({ modules });
   }
 
   const tenantId = c.get('tenantId');

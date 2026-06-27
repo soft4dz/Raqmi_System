@@ -1,0 +1,49 @@
+<UserControl x:Class="Raqmi.Client.Views.Finance.TreasuryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid Margin="0,0,8,8">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+    <Border Style="{StaticResource CardBorder}" Padding="16" Margin="0,0,0,12">
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Text="Solde :" Style="{StaticResource LabelText}" VerticalAlignment="Center"/>
+        <TextBlock x:Name="BalanceText" FontSize="22" FontWeight="Bold" Foreground="{StaticResource SuccessBrush}" Margin="12,0,0,0"/>
+      </StackPanel>
+    </Border>
+    <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="16" Margin="0,0,0,12">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+          <TextBlock Text="Type (in/out)" Style="{StaticResource LabelText}"/>
+          <TextBox x:Name="TypeBox" Text="in"/>
+        </StackPanel>
+        <StackPanel Grid.Column="1" Margin="0,0,8,0">
+          <TextBlock Text="Montant" Style="{StaticResource LabelText}"/>
+          <TextBox x:Name="AmountBox" Text="0"/>
+        </StackPanel>
+        <StackPanel Grid.Column="2" Margin="0,0,8,0">
+          <TextBlock Text="Libellé" Style="{StaticResource LabelText}"/>
+          <TextBox x:Name="LabelBox" Text="Encaissement"/>
+        </StackPanel>
+        <Button Grid.Column="3" Content="Ajouter" Style="{StaticResource PrimaryButton}" VerticalAlignment="Bottom" Click="OnAdd"/>
+      </Grid>
+    </Border>
+    <DataGrid x:Name="Grid" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="True">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Date" Binding="{Binding MovementDate}" Width="*"/>
+        <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="80"/>
+        <DataGridTextColumn Header="Compte" Binding="{Binding Account}" Width="80"/>
+        <DataGridTextColumn Header="Montant" Binding="{Binding Amount}" Width="100"/>
+        <DataGridTextColumn Header="Libellé" Binding="{Binding Label}" Width="*"/>
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

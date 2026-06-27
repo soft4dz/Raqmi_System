@@ -2,76 +2,67 @@
 
 ## Décision
 
-Raqmi System doit être livré comme un logiciel installable, pas comme une simple application web.
+Raqmi System est livré comme logiciels Windows installables :
 
-Cela signifie :
-
-- installateur Windows pour les postes clients ;
-- raccourci bureau et menu démarrer ;
-- configuration de l'adresse serveur ;
-- contrôle licence côté serveur ;
-- interface desktop basée sur Electron ou Tauri ;
-- serveur local ou cloud séparé.
-
-## Composants installables
-
-### Raqmi System Client
-
-Installé chez les utilisateurs finaux.
-
-Fonctions :
-
-- connexion au serveur local ou cloud ;
-- affichage des modules autorisés ;
-- saisie métier ;
-- consultation des rapports ;
-- upload de documents ;
-- cache local optionnel.
-
-### Raqmi License Manager
-
-Installé uniquement chez l'éditeur.
-
-Fonctions :
-
-- créer les clients ;
-- créer et modifier les licences ;
-- activer les modules ;
-- limiter utilisateurs, sites et stockage ;
-- suspendre ou renouveler une licence ;
-- générer une licence offline.
-
-### Raqmi System Server
-
-Installé chez le client ou hébergé dans le cloud.
-
-Fonctions :
-
-- API métier ;
-- PostgreSQL ;
-- stockage fichiers ;
-- audit ;
-- vérification licence ;
-- sauvegardes ;
-- synchronisation cloud optionnelle.
+| Logiciel | Installateur | Qui l'installe |
+|----------|--------------|----------------|
+| **Raqmi System Server** | `RaqmiSystemServer-Setup.exe` | IT du client (1 par site) |
+| **Raqmi System Client** | `RaqmiSystemClient-Setup.exe` | Chaque poste utilisateur |
+| **Raqmi License Manager** | `RaqmiLicenseManager-Setup.exe` | Éditeur uniquement |
 
 ## Schéma
 
 ```text
-Raqmi System Client installé
-→ Raqmi System Server local ou cloud
-→ PostgreSQL
-→ Stockage fichiers local ou cloud
-→ Vérification licence
+Postes utilisateurs (Client NSIS)
+        │
+        ▼ HTTP (ex. http://192.168.1.10:3000)
+Raqmi System Server (NSIS)
+        ├── API Hono
+        ├── PostgreSQL embarqué (%ProgramData%\Raqmi System\data\postgres)
+        ├── Stockage fichiers (%ProgramData%\Raqmi System\storage)
+        └── Fichier licence signé (%ProgramData%\Raqmi System\license.license)
 
-Raqmi License Manager installé côté éditeur
-→ crée / modifie les licences
-→ contrôle les activations
-→ génère licences offline
+Éditeur (License Manager NSIS)
+        └── Génère fichier .license signé (Ed25519)
 ```
+
+## Build des installateurs
+
+Depuis la racine du monorepo :
+
+```powershell
+pnpm install
+pnpm keys:generate          # paire Ed25519 éditeur (1 fois)
+pnpm dist:server            # apps/server/installers/RaqmiSystemServer-Setup.exe
+pnpm dist:client            # apps/client/installers/
+pnpm dist:license-manager     # apps/license-manager/installers/
+pnpm dist:all               # les trois
+```
+
+Prérequis serveur :
+
+- Binaires PostgreSQL 16 dans `apps/server/installer/assets/postgresql/` (voir README du dossier)
+- Node.js portable optionnel dans `apps/server/installer/assets/node/node.exe`
+- NSIS (`makensis`) pour produire l'exe — sinon `pnpm --filter @raqmi/server dist:stage` prépare le staging
+
+## Procédure client (résumé)
+
+1. Installer **Raqmi System Server** sur le PC/serveur du réseau local
+2. Ouvrir **Raqmi Server Admin** (raccourci bureau) → copier l'empreinte serveur
+3. L'éditeur crée la licence dans **License Manager** et exporte le fichier `.license`
+4. Importer la licence (admin API ou page Raqmi Server Admin)
+5. Sur chaque poste : installer **Raqmi System Client** et configurer l'URL du serveur
+
+## Configuration client desktop
+
+Fichier `%APPDATA%\Raqmi System Client\config.json` :
+
+```json
+{ "serverUrl": "http://192.168.1.10:3000" }
+```
+
+Configurable au premier lancement via l'écran Paramètres.
 
 ## Pourquoi pas application web pure
 
-Un ERP vendu aux clients doit pouvoir être installé, contrôlé et configuré. Une application web pure impose souvent un hébergement central et ne convient pas toujours aux clients qui veulent un serveur local.
-
-L'interface peut être développée en React, mais emballée dans Electron/Tauri pour produire un vrai logiciel installable.
+Un ERP vendu aux clients doit pouvoir être installé, contrôlé et configuré sur le réseau local. L'interface React est emballée dans Electron pour produire un logiciel installable avec raccourcis bureau.

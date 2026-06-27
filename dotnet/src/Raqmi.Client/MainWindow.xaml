@@ -1,0 +1,107 @@
+﻿<Window x:Class="Raqmi.Client.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:Raqmi.Client.Ui"
+        xmlns:shell="clr-namespace:Raqmi.Client.Views.Shell"
+        Title="Raqmi System" Height="900" Width="1320" MinHeight="720" MinWidth="1024"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource WindowBackgroundBrush}"
+        FontFamily="{StaticResource AppFont}">
+
+  <Grid>
+    <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="20" Panel.ZIndex="10"
+            Background="{StaticResource Panel2Brush}" BorderBrush="{StaticResource BorderBrush}"
+            BorderThickness="1" CornerRadius="999" Padding="4">
+      <StackPanel Orientation="Horizontal">
+        <Button x:Name="LangFr" Content="FR" Style="{StaticResource LangPillButton}" Click="OnLocaleFr"/>
+        <Button x:Name="LangEn" Content="EN" Style="{StaticResource LangPillButton}" Click="OnLocaleEn"/>
+        <Button x:Name="LangAr" Content="AR" Style="{StaticResource LangPillButton}" Click="OnLocaleAr"/>
+      </StackPanel>
+    </Border>
+
+    <Grid x:Name="SettingsPanel" Visibility="Visible">
+      <Border Style="{StaticResource CardBorder}" Width="480" VerticalAlignment="Center" HorizontalAlignment="Center">
+        <StackPanel>
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+            <Border Style="{StaticResource BrandMark}">
+              <TextBlock Text="R" FontSize="22" FontWeight="Bold" Foreground="#BFDBFE"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
+              <TextBlock x:Name="SettingsTitle" Style="{StaticResource TitleText}" FontSize="22"/>
+              <TextBlock x:Name="SettingsHint" Style="{StaticResource SubtitleText}"/>
+            </StackPanel>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+            <TextBlock Text="{x:Static ui:ModuleIcons.Server}" Style="{StaticResource IconGlyph}" Margin="0,0,8,0"/>
+            <TextBlock x:Name="ServerUrlLabel" Style="{StaticResource LabelText}" Margin="0"/>
+          </StackPanel>
+          <TextBox x:Name="ServerUrlBox"/>
+          <Border x:Name="SettingsErrorPanel" Background="#1F1414" BorderBrush="#7F1D1D" BorderThickness="1"
+                  CornerRadius="10" Padding="12" Margin="0,12,0,0" Visibility="Collapsed">
+            <TextBlock x:Name="SettingsError" Foreground="#FECACA" TextWrapping="Wrap"/>
+          </Border>
+          <Button x:Name="SaveSettingsButton" Style="{StaticResource PrimaryButton}"
+                  Margin="0,20,0,0" Click="OnSaveSettings"/>
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <Grid x:Name="LoginPanel" Visibility="Collapsed">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="1.1*"/>
+        <ColumnDefinition Width="0.9*"/>
+      </Grid.ColumnDefinitions>
+      <Border Grid.Column="0" Style="{StaticResource CardBorder}" Margin="32" VerticalAlignment="Center">
+        <StackPanel MaxWidth="440">
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,28">
+            <Border Style="{StaticResource BrandMark}">
+              <TextBlock Text="R" FontSize="22" FontWeight="Bold" Foreground="#BFDBFE"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
+              <TextBlock x:Name="LoginAppName" Style="{StaticResource TitleText}"/>
+              <TextBlock x:Name="LoginTagline" Style="{StaticResource SubtitleText}"/>
+            </StackPanel>
+          </StackPanel>
+          <TextBlock x:Name="EmailLabel" Style="{StaticResource LabelText}"/>
+          <TextBox x:Name="EmailBox" Text="admin@demo.raqmi.local" Margin="0,0,0,14"/>
+          <TextBlock x:Name="PasswordLabel" Style="{StaticResource LabelText}"/>
+          <PasswordBox x:Name="PasswordBox" Margin="0,0,0,8"/>
+          <Border x:Name="LoginErrorPanel" Background="#1F1414" BorderBrush="#7F1D1D" BorderThickness="1"
+                  CornerRadius="10" Padding="12" Margin="0,8,0,0" Visibility="Collapsed">
+            <TextBlock x:Name="LoginError" Foreground="#FECACA" TextWrapping="Wrap"/>
+          </Border>
+          <Button x:Name="LoginButton" Style="{StaticResource PrimaryButton}"
+                  Margin="0,20,0,0" Click="OnLogin"/>
+          <TextBlock x:Name="DemoAccountText" Margin="0,16,0,0" Style="{StaticResource SubtitleText}"/>
+        </StackPanel>
+      </Border>
+      <Border Grid.Column="1" Style="{StaticResource CardBorder}" Margin="0,32,32,32" VerticalAlignment="Center">
+        <StackPanel>
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock Text="{x:Static ui:ModuleIcons.License}" Style="{StaticResource IconGlyph}" FontSize="20" Margin="0,0,10,0"/>
+            <TextBlock x:Name="LoginAsideTitle" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"/>
+          </StackPanel>
+          <TextBlock x:Name="LoginAsideText" Style="{StaticResource SubtitleText}" Margin="0,0,0,16"/>
+          <StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,6">
+              <TextBlock Text="{x:Static ui:ModuleIcons.Check}" Style="{StaticResource IconGlyph}" Margin="0,0,8,0"/>
+              <TextBlock x:Name="LoginAsideItem1" Foreground="{StaticResource MutedBrush}"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,6">
+              <TextBlock Text="{x:Static ui:ModuleIcons.Shield}" Style="{StaticResource IconGlyph}" Margin="0,0,8,0"/>
+              <TextBlock x:Name="LoginAsideItem2" Foreground="{StaticResource MutedBrush}"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,6">
+              <TextBlock Text="{x:Static ui:ModuleIcons.Server}" Style="{StaticResource IconGlyph}" Margin="0,0,8,0"/>
+              <TextBlock x:Name="LoginAsideItem3" Foreground="{StaticResource MutedBrush}"/>
+            </StackPanel>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <shell:MainShellView x:Name="ShellView" Visibility="Collapsed"/>
+  </Grid>
+</Window>

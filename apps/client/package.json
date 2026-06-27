@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
     "dev:desktop": "electron .",
+    "dev:desktop:all": "concurrently -k \"vite --host 0.0.0.0 --port 5173\" \"wait-on http://localhost:5173 && electron .\"",
     "build": "vite build",
     "dist": "npm run build && electron-builder",
     "preview": "vite preview --port 4173",
@@ -22,10 +23,13 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@rollup/rollup-win32-x64-msvc": "^4.62.2",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
+    "concurrently": "^9.2.1",
     "electron": "^36.7.4",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^25.1.8",
+    "wait-on": "^8.0.5"
   },
   "build": {
     "appId": "dz.raqmi.system.client",

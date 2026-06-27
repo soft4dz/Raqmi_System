@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Raqmi Server Admin</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 32px; background: #f8fafc; color: #0f172a; }
+      .panel { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+      button { background: #1d4ed8; color: white; border: 0; padding: 10px 16px; border-radius: 8px; cursor: pointer; }
+      textarea { width: 100%; min-height: 180px; font-family: monospace; }
+      code { background: #e2e8f0; padding: 2px 6px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>Raqmi System Server — Administration</h1>
+    <div class="panel">
+      <h2>Empreinte serveur</h2>
+      <p>Communiquez cette empreinte à l'éditeur pour lier la licence à ce serveur.</p>
+      <code id="fingerprint">Chargement…</code>
+    </div>
+    <div class="panel">
+      <h2>Import licence</h2>
+      <p>Collez le contenu du fichier <code>.license</code> reçu de l'éditeur.</p>
+      <textarea id="licenseContent" placeholder='{"version":1,"payload":{...},"signature":"..."}'></textarea>
+      <p><button id="importBtn">Importer la licence</button></p>
+      <pre id="result"></pre>
+    </div>
+    <script>
+      const serverUrl = 'http://127.0.0.1:3000';
+      fetch(`${serverUrl}/api/v1/license/fingerprint`)
+        .then((r) => r.json())
+        .then((d) => { document.getElementById('fingerprint').textContent = d.fingerprint; })
+        .catch(() => { document.getElementById('fingerprint').textContent = 'Serveur indisponible'; });
+
+      document.getElementById('importBtn').addEventListener('click', async () => {
+        const content = document.getElementById('licenseContent').value.trim();
+        const token = prompt('Token admin JWT (connexion préalable au client)');
+        if (!token) return;
+        const response = await fetch(`${serverUrl}/api/v1/license/import`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ content }),
+        });
+        const body = await response.json();
+        document.getElementById('result').textContent = JSON.stringify(body, null, 2);
+      });
+    </script>
+  </body>
+</html>

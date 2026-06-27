@@ -1,0 +1,22 @@
+<UserControl x:Class="Raqmi.Client.Views.Stocks.InventoryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid Margin="0,0,8,8">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+    <Border Style="{StaticResource CardBorder}" Padding="16" Margin="0,0,0,12">
+      <StackPanel Orientation="Horizontal">
+        <Button Content="Nouvelle session" Style="{StaticResource PrimaryButton}" Click="OnCreate"/>
+      </StackPanel>
+    </Border>
+    <DataGrid x:Name="Grid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Site" Binding="{Binding SiteId}" Width="*"/>
+        <DataGridTextColumn Header="Date" Binding="{Binding SessionDate}" Width="120"/>
+        <DataGridTextColumn Header="Statut" Binding="{Binding Status}" Width="100"/>
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

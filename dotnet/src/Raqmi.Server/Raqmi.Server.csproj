@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.26" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.19.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="keys\public.jwk.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('keys\public.jwk.json')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Raqmi.Data\Raqmi.Data.csproj" />
+    <ProjectReference Include="..\Raqmi.Licensing\Raqmi.Licensing.csproj" />
+    <ProjectReference Include="..\Raqmi.Shared\Raqmi.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

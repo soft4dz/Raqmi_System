@@ -2,133 +2,103 @@
 
 ## Objectif
 
-Le système de licence doit permettre de vendre Raqmi System sous forme de packs ou de licences personnalisées, en activant uniquement les modules contractuels.
+Vendre Raqmi System par packs ou licences personnalisées, avec activation offline via fichier signé.
 
-## Entités principales
-
-```text
-Client / Tenant
-→ Licence
-→ Modules autorisés
-→ Limites commerciales
-→ Activations
-→ Historique
-```
-
-## Champs d'une licence
-
-Une licence contient au minimum :
-
-- identifiant unique ;
-- client / tenant ;
-- type de licence : trial, standard, pro, enterprise, custom ;
-- date de début ;
-- date d'expiration ;
-- statut : active, suspendue, expirée, révoquée ;
-- nombre maximum d'utilisateurs ;
-- nombre maximum de sites / unités ;
-- modules autorisés ;
-- mode : online, offline, hybride ;
-- empreinte serveur optionnelle ;
-- signature cryptographique ;
-- période de tolérance hors ligne.
-
-## Packs commerciaux proposés
-
-### Starter
-
-Pour une petite structure.
-
-Modules typiques :
-
-- Administration ;
-- Utilisateurs ;
-- Unités ;
-- Recettes ;
-- Facturation ;
-- Rapports simples.
-
-### Professional
-
-Pour hôtel ou entreprise moyenne.
-
-Modules typiques :
-
-- Starter ;
-- Trésorerie ;
-- Créances ;
-- RH ;
-- Stocks ;
-- Achats ;
-- GED ;
-- Dashboards.
-
-### Enterprise
-
-Pour groupes multi-sites.
-
-Modules typiques :
-
-- Professional ;
-- Maintenance ;
-- Qualité ;
-- Checklists ;
-- Synchronisation ;
-- Stockage cloud ;
-- rapports avancés.
-
-### Custom
-
-Licence sur mesure.
-
-Exemples :
-
-- PortMaster uniquement ;
-- Hôtels + PortMaster ;
-- RH + paie ;
-- Finance uniquement ;
-- installation cloud dédiée.
-
-## Fonctionnement online
+## Flux offline (implémenté)
 
 ```text
-Raqmi System Server
-→ contacte Raqmi License Manager
-→ vérifie état licence
-→ récupère modules autorisés
-→ met à jour cache local signé
+License Manager (éditeur)
+  → clé privée Ed25519 (%APPDATA%\Raqmi License Manager\keys\)
+  → signLicenseFile() via @raqmi/licensing
+  → export client.license
+
+Serveur client
+  → clé publique embarquée (public.jwk.json)
+  → POST /api/v1/license/import
+  → verifyLicenseFile() + evaluateLicense()
+  → modules activés localement
 ```
 
-La vérification peut être quotidienne, hebdomadaire ou selon un intervalle défini dans la licence.
+## Format fichier `.license`
 
-## Fonctionnement offline
-
-```text
-Raqmi License Manager
-→ génère fichier licence signé
-→ client importe la licence
-→ serveur client vérifie signature
-→ modules activés localement
+```json
+{
+  "version": 1,
+  "payload": {
+    "licenseId": "lic-...",
+    "tenantId": "tenant-...",
+    "tenantName": "Hotel Demo",
+    "kind": "professional",
+    "mode": "offline",
+    "status": "active",
+    "issuedAt": "2026-06-26T00:00:00.000Z",
+    "startsAt": "2026-01-01T00:00:00Z",
+    "expiresAt": "2027-01-01T00:00:00Z",
+    "allowedModules": ["billing", "reports"],
+    "limits": {
+      "maxUsers": 50,
+      "maxSites": 5,
+      "maxStorageGb": 100,
+      "offlineGraceDays": 30
+    },
+    "serverFingerprint": "optional-32-char-hash"
+  },
+  "signature": "<JWT EdDSA contenant le payload>"
+}
 ```
 
-Le client ne peut pas modifier le fichier sans invalider la signature.
+## Crypto (`@raqmi/licensing`)
+
+| Module | Rôle |
+|--------|------|
+| `license-crypto.ts` | Paire Ed25519, sign/verify JWT |
+| `license-file.ts` | Format `.license`, parse/serialize |
+| `server-fingerprint.ts` | SHA256(hostname + platform + arch + salt) |
+
+Génération des clés éditeur :
+
+```powershell
+pnpm keys:generate
+# keys/public.jwk.json  → serveur / installateur
+# keys/private.jwk.json → License Manager uniquement (ne pas committer)
+```
+
+## Packs commerciaux
+
+Définis dans `packages/licensing/src/license-packs.ts` :
+
+- **trial** — découverte limitée
+- **starter** — petite structure
+- **professional** — hôtel / PME
+- **enterprise** — multi-sites
+- **custom** — sur mesure
+
+## Évaluation côté serveur
+
+`evaluateLicense()` dans `@raqmi/licensing` vérifie :
+
+- statut (active, suspended, expired, revoked)
+- dates de validité
+- limites utilisateurs / sites / stockage
+- module demandé (`requireModule` middleware)
+- mode offline + `lastOnlineCheckAt` + `offlineGraceDays`
 
 ## Règles de blocage
 
-Si la licence est expirée :
-
-- accès lecture possible selon politique ;
-- création de nouvelles opérations bloquée ;
-- exports éventuellement bloqués ;
-- notification administrateur affichée.
-
-Si un module n'est pas inclus :
-
-- route non accessible ;
-- menu masqué ;
-- API serveur refuse l'action ;
-- tentative journalisée.
+| Situation | Comportement |
+|-----------|--------------|
+| Licence expirée | `readonlyMode`, création bloquée |
+| Module non inclus | HTTP 403 via `requireModule` |
+| Signature invalide | Import refusé |
+| Empreinte incorrecte | Import refusé si `serverFingerprint` défini |
 
 ## Règle importante
 
-Le contrôle de licence doit être appliqué côté serveur, pas seulement dans l'interface. Cacher un bouton dans le client n'est pas une sécurité, c'est une décoration avec des illusions.
+Le contrôle de licence est appliqué **côté serveur** (`requireModule`, `evaluateActiveLicense`), pas seulement dans l'interface client.
+
+## Rotation de clés
+
+1. Générer une nouvelle paire (`pnpm keys:generate`)
+2. Redistribuer la clé publique avec le prochain installateur serveur
+3. Re-signer et ré-exporter les licences clients actives
+4. Conserver l'ancienne clé privée pour l'historique si nécessaire

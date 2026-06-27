@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { env } from './env.js';
 import { authRoutes } from './routes/auth.js';
+import { adminRoutes, businessStubRoutes } from './routes/admin.js';
 import { healthRoutes } from './routes/health.js';
 import { licenseRoutes } from './routes/license.js';
 import { moduleRoutes } from './routes/modules.js';
@@ -22,6 +23,10 @@ app.route('/', healthRoutes);
 app.route('/api/v1/auth', authRoutes);
 app.route('/api/v1/license', licenseRoutes);
 app.route('/api/v1/modules', moduleRoutes);
+app.route('/api/v1/admin', adminRoutes);
+app.route('/api/v1/sites', siteRoutes);
+app.route('/api/v1/settings', settingsRoutes);
+app.route('/api/v1', businessStubRoutes);
 
 serve({ fetch: app.fetch, port: env.PORT }, (info) => {
   console.log(`Raqmi System Server → http://localhost:${info.port}`);

@@ -8,7 +8,10 @@
   "exports": {
     ".": "./src/license-policy.ts",
     "./packs": "./src/license-packs.ts",
-    "./types": "./src/license-types.ts"
+    "./types": "./src/license-types.ts",
+    "./crypto": "./src/license-crypto.ts",
+    "./file": "./src/license-file.ts",
+    "./fingerprint": "./src/server-fingerprint.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -17,7 +20,8 @@
     "lint": "echo \"No licensing lint yet\""
   },
   "dependencies": {
-    "@raqmi/shared": "workspace:*"
+    "@raqmi/shared": "workspace:*",
+    "jose": "^6.1.0"
   },
   "devDependencies": {
     "typescript": "^5.7.3"

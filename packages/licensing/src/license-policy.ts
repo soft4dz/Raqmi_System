@@ -90,14 +90,20 @@ export function evaluateLicense(
     }
   }
 
-  if (context.requestedModule && !license.allowedModules.includes(context.requestedModule)) {
-    return {
-      valid: false,
-      readonlyMode: false,
-      reason: `Module non inclus dans la licence: ${context.requestedModule}`,
-      allowedModules: license.allowedModules,
-      blockedModules,
-    };
+  if (context.requestedModule) {
+    const moduleDef = RAQMI_MODULES.find((m) => m.code === context.requestedModule);
+    const moduleAllowed =
+      (moduleDef !== undefined && !moduleDef.commercial) ||
+      license.allowedModules.includes(context.requestedModule);
+    if (!moduleAllowed) {
+      return {
+        valid: false,
+        readonlyMode: false,
+        reason: `Module non inclus dans la licence: ${context.requestedModule}`,
+        allowedModules: license.allowedModules,
+        blockedModules,
+      };
+    }
   }
 
   return {
