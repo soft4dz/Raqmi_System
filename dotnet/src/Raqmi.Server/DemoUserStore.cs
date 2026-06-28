@@ -23,8 +23,15 @@ public static class DemoUserStore
             [DemoSites.AnnexeSiteId]),
     ];
 
-    public static IReadOnlyList<object> ListForTenant(string tenantId) =>
-        Users.Where(u => u.TenantId == tenantId).Select(ToDto).ToList();
+    public static DemoUserRecord? FindByEmail(string tenantId, string email) =>
+        Users.FirstOrDefault(u => u.TenantId == tenantId && u.Email.Equals(email.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    public static IReadOnlyList<object> ListForTenant(string tenantId, IReadOnlyList<string>? restrictToSiteIds = null) =>
+        Users
+            .Where(u => u.TenantId == tenantId)
+            .Where(u => restrictToSiteIds is null || u.SiteIds.Any(restrictToSiteIds.Contains))
+            .Select(ToDto)
+            .ToList();
 
     public static DemoUserRecord? Find(string tenantId, string id) =>
         Users.FirstOrDefault(u => u.TenantId == tenantId && u.Id == id);

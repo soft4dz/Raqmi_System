@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { api, type SiteDto, type UserDto } from '../../api';
+import { api, type AuthUser, type SiteDto, type UserDto } from '../../api';
 import { TableSkeleton } from '../../components/LoadingShell';
 import { IconPlus } from '../../components/icons';
+import { canWriteAdmin } from '../../lib/permissions';
 
 function siteNames(siteIds: string[], sites: SiteDto[]) {
   return siteIds
@@ -24,7 +25,8 @@ function roleBadgeClass(role: string) {
   return 'ux-badge ux-badge--user';
 }
 
-export function UsersPage() {
+export function UsersPage({ user }: { user: AuthUser }) {
+  const canWrite = canWriteAdmin(user.permissions, user.roleCode);
   const [users, setUsers] = useState<UserDto[]>([]);
   const [sites, setSites] = useState<SiteDto[]>([]);
   const [roles, setRoles] = useState<{ code: string; label: string }[]>([]);
@@ -161,121 +163,135 @@ export function UsersPage() {
   if (loading) return <TableSkeleton rows={6} />;
 
   return (
-    <div className="module-panel ux-users-panel">
+    <div className="module-panel">
       {error && (
         <div className="module-error ux-alert" role="alert">
           <p>{error}</p>
         </div>
       )}
 
-      <section className="ux-card ux-form-card">
+      {canWrite && (
+      <section className="ux-card">
         <div className="ux-card-head">
           <div>
             <h3 className="ux-card-title">Nouvel utilisateur</h3>
             <p className="ux-card-desc">Créez un compte et affectez-le à un ou plusieurs sites.</p>
           </div>
         </div>
-        <form className="ux-form" onSubmit={onSubmit}>
-          <div className="ux-form-grid">
-            <label className="ux-field">
-              <span className="ux-field-label">Email</span>
-              <input className="ux-field-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </label>
-            <label className="ux-field">
-              <span className="ux-field-label">Nom complet</span>
-              <input className="ux-field-input" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-            </label>
-            <label className="ux-field">
-              <span className="ux-field-label">Rôle</span>
-              <select className="ux-field-input" value={roleCode} onChange={(e) => setRoleCode(e.target.value)}>
-                {roles.map((r) => (
-                  <option key={r.code} value={r.code}>{r.label}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <fieldset className="site-picker ux-site-picker">
-            <legend>Sites affectés</legend>
-            <label className="site-picker-all ux-checkbox">
-              <input type="checkbox" checked={allSitesSelected} onChange={(e) => toggleAllSites(e.target.checked, 'create')} />
-              Tous les sites
-            </label>
-            <div className="ux-site-grid">
-              {sites.map((site) => (
-                <label key={site.id} className="site-picker-item ux-checkbox ux-site-chip">
-                  <input
-                    type="checkbox"
-                    checked={selectedSiteIds.includes(site.id)}
-                    onChange={(e) => toggleSite(site.id, e.target.checked, 'create')}
-                  />
-                  <span>
-                    <strong>{site.name}</strong>
-                    {site.city && <small>{site.city}</small>}
-                  </span>
-                </label>
-              ))}
+        <form onSubmit={onSubmit}>
+          <div className="ux-form-section">
+            <div className="ux-form-grid">
+              <label className="ux-field">
+                <span className="ux-field-label">Email</span>
+                <input className="ux-field-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              </label>
+              <label className="ux-field">
+                <span className="ux-field-label">Nom complet</span>
+                <input className="ux-field-input" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+              </label>
+              <label className="ux-field">
+                <span className="ux-field-label">Rôle</span>
+                <select className="ux-field-input" value={roleCode} onChange={(e) => setRoleCode(e.target.value)}>
+                  {roles.map((r) => (
+                    <option key={r.code} value={r.code}>{r.label}</option>
+                  ))}
+                </select>
+              </label>
             </div>
-          </fieldset>
-          <button type="submit" className="db-primary-btn ux-btn-primary" disabled={submitting}>
-            <IconPlus size={16} />
-            {submitting ? 'Ajout…' : 'Ajouter l\'utilisateur'}
-          </button>
+            <fieldset className="ux-site-picker">
+              <legend style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 10, display: 'block' }}>Sites affectés</legend>
+              <label className="ux-checkbox" style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                <input type="checkbox" checked={allSitesSelected} onChange={(e) => toggleAllSites(e.target.checked, 'create')} />
+                Tous les sites
+              </label>
+              <div className="ux-site-grid">
+                {sites.map((site) => (
+                  <label key={site.id} className="ux-checkbox ux-site-chip">
+                    <input type="checkbox" checked={selectedSiteIds.includes(site.id)} onChange={(e) => toggleSite(site.id, e.target.checked, 'create')} />
+                    <span>
+                      <strong>{site.name}</strong>
+                      {site.city && <small>{site.city}</small>}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          </div>
+          <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)' }}>
+            <button type="submit" className="ux-btn-primary" disabled={submitting}>
+              <IconPlus size={15} />
+              {submitting ? 'Ajout…' : 'Ajouter l\'utilisateur'}
+            </button>
+          </div>
         </form>
       </section>
+      )}
+
+      {!canWrite && (
+        <div className="ux-alert ux-alert-info">
+          <p>Mode lecture seule — vous pouvez consulter les utilisateurs de vos sites.</p>
+        </div>
+      )}
 
       {profileUser && (
-        <section className="ux-card ux-form-card site-edit-panel ux-slide-in">
-          <h3 className="ux-card-title">Profil — {profileUser.email}</h3>
-          <div className="ux-form-grid">
-            <label className="ux-field">
-              <span className="ux-field-label">Nom complet</span>
-              <input className="ux-field-input" value={profileFullName} onChange={(e) => setProfileFullName(e.target.value)} />
-            </label>
-            <label className="ux-field">
-              <span className="ux-field-label">Rôle</span>
-              <select className="ux-field-input" value={profileRole} onChange={(e) => setProfileRole(e.target.value)}>
-                {roles.map((r) => <option key={r.code} value={r.code}>{r.label}</option>)}
-              </select>
-            </label>
-            <label className="ux-field">
-              <span className="ux-field-label">Nouveau mot de passe (optionnel)</span>
-              <input className="ux-field-input" type="password" value={profilePassword} onChange={(e) => setProfilePassword(e.target.value)} autoComplete="new-password" />
-            </label>
+        <section className="ux-card ux-slide-in">
+          <div className="ux-card-head">
+            <div>
+              <h3 className="ux-card-title">Modifier le profil</h3>
+              <p className="ux-card-desc">{profileUser.email}</p>
+            </div>
+            <button type="button" className="db-ghost-btn" onClick={() => setProfileUser(null)}>Annuler</button>
           </div>
-          <div className="site-edit-actions">
-            <button type="button" className="db-primary-btn" onClick={() => void saveProfile()}>Enregistrer</button>
+          <div className="ux-form-section">
+            <div className="ux-form-grid">
+              <label className="ux-field">
+                <span className="ux-field-label">Nom complet</span>
+                <input className="ux-field-input" value={profileFullName} onChange={(e) => setProfileFullName(e.target.value)} />
+              </label>
+              <label className="ux-field">
+                <span className="ux-field-label">Rôle</span>
+                <select className="ux-field-input" value={profileRole} onChange={(e) => setProfileRole(e.target.value)}>
+                  {roles.map((r) => <option key={r.code} value={r.code}>{r.label}</option>)}
+                </select>
+              </label>
+              <label className="ux-field">
+                <span className="ux-field-label">Nouveau mot de passe</span>
+                <input className="ux-field-input" type="password" value={profilePassword} onChange={(e) => setProfilePassword(e.target.value)} autoComplete="new-password" placeholder="Laisser vide pour ne pas changer" />
+              </label>
+            </div>
+          </div>
+          <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10 }}>
+            <button type="button" className="ux-btn-primary" onClick={() => void saveProfile()}>Enregistrer</button>
             <button type="button" className="db-ghost-btn" onClick={() => setProfileUser(null)}>Annuler</button>
           </div>
         </section>
       )}
 
       {editingUser && (
-        <section className="ux-card ux-form-card site-edit-panel ux-slide-in">
+        <section className="ux-card ux-slide-in">
           <div className="ux-card-head">
-            <h3 className="ux-card-title">Sites — {editingUser.fullName}</h3>
+            <div>
+              <h3 className="ux-card-title">Affectation des sites</h3>
+              <p className="ux-card-desc">{editingUser.fullName}</p>
+            </div>
+            <button type="button" className="db-ghost-btn" onClick={() => setEditingUser(null)}>Annuler</button>
           </div>
-          <label className="site-picker-all ux-checkbox">
-            <input
-              type="checkbox"
-              checked={editSiteIds.length === sites.length && sites.length > 0}
-              onChange={(e) => toggleAllSites(e.target.checked, 'edit')}
-            />
-            Tous les sites
-          </label>
-          <div className="ux-site-grid">
-            {sites.map((site) => (
-              <label key={site.id} className="site-picker-item ux-checkbox ux-site-chip">
-                <input
-                  type="checkbox"
-                  checked={editSiteIds.includes(site.id)}
-                  onChange={(e) => toggleSite(site.id, e.target.checked, 'edit')}
-                />
-                <span><strong>{site.name}</strong></span>
-              </label>
-            ))}
+          <div className="ux-form-section">
+            <label className="ux-checkbox" style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+              <input type="checkbox" checked={editSiteIds.length === sites.length && sites.length > 0} onChange={(e) => toggleAllSites(e.target.checked, 'edit')} />
+              Tous les sites
+            </label>
+            <div className="ux-site-grid">
+              {sites.map((site) => (
+                <label key={site.id} className="ux-checkbox ux-site-chip">
+                  <input type="checkbox" checked={editSiteIds.includes(site.id)} onChange={(e) => toggleSite(site.id, e.target.checked, 'edit')} />
+                  <span><strong>{site.name}</strong></span>
+                </label>
+              ))}
+            </div>
           </div>
-          <div className="site-edit-actions">
-            <button type="button" className="db-primary-btn ux-btn-primary" onClick={() => void saveSites()}>Enregistrer</button>
+          <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10 }}>
+            <button type="button" className="ux-btn-primary" onClick={() => void saveSites()}>Enregistrer</button>
             <button type="button" className="db-ghost-btn" onClick={() => setEditingUser(null)}>Annuler</button>
           </div>
         </section>
@@ -284,8 +300,8 @@ export function UsersPage() {
       <section className="ux-card">
         <div className="ux-card-head">
           <div>
-            <h3 className="ux-card-title">Utilisateurs ({users.length})</h3>
-            <p className="ux-card-desc">Gestion des accès multi-sites.</p>
+            <h3 className="ux-card-title">Utilisateurs</h3>
+            <p className="ux-card-desc">{users.length} compte{users.length > 1 ? 's' : ''} · Gestion des accès multi-sites</p>
           </div>
         </div>
 
@@ -294,8 +310,8 @@ export function UsersPage() {
             <p>Aucun utilisateur pour le moment.</p>
           </div>
         ) : (
-          <div className="module-table-wrap ux-table-wrap">
-            <table className="module-table ux-table">
+          <div className="ux-table-wrap">
+            <table className="ux-table">
               <thead>
                 <tr>
                   <th>Utilisateur</th>
@@ -327,12 +343,16 @@ export function UsersPage() {
                         {u.active ? 'Actif' : 'Inactif'}
                       </span>
                     </td>
-                    <td className="module-table-actions">
-                      <button type="button" className="db-ghost-btn ux-btn-sm" onClick={() => startProfileEdit(u)}>Modifier</button>
-                      <button type="button" className="db-ghost-btn ux-btn-sm" onClick={() => startEdit(u)}>Sites</button>
-                      <button type="button" className="db-ghost-btn ux-btn-sm" onClick={() => void toggleActive(u)}>
-                        {u.active ? 'Désactiver' : 'Activer'}
-                      </button>
+                    <td>
+                      {canWrite && (
+                        <div className="ux-table-actions">
+                          <button type="button" className="db-ghost-btn ux-btn-sm" onClick={() => startProfileEdit(u)}>Modifier</button>
+                          <button type="button" className="db-ghost-btn ux-btn-sm" onClick={() => startEdit(u)}>Sites</button>
+                          <button type="button" className="db-ghost-btn ux-btn-sm" onClick={() => void toggleActive(u)}>
+                            {u.active ? 'Désactiver' : 'Activer'}
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

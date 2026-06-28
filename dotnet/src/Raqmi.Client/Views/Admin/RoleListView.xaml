@@ -1,0 +1,71 @@
+<UserControl x:Class="Raqmi.Client.Views.Admin.RoleListView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid Margin="0,0,8,8">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+    <Border Grid.Row="0" Style="{StaticResource CardBorder}" Padding="16" Margin="0,0,0,12">
+      <StackPanel>
+        <TextBlock Text="Nouveau rôle personnalisé" Style="{StaticResource LabelText}"/>
+        <Grid Margin="0,8,0,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" Margin="0,0,8,0">
+            <TextBlock Text="Code" Style="{StaticResource LabelText}"/>
+            <TextBox x:Name="CodeBox"/>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
+            <TextBlock Text="Libellé" Style="{StaticResource LabelText}"/>
+            <TextBox x:Name="LabelBox"/>
+          </StackPanel>
+          <Button Grid.Column="2" Content="Créer" Style="{StaticResource PrimaryButton}" VerticalAlignment="Bottom" Click="OnCreate"/>
+        </Grid>
+        <TextBlock Text="Permissions" Style="{StaticResource LabelText}" Margin="0,12,0,6"/>
+        <ItemsControl x:Name="CreatePermissionsPicker"/>
+        <TextBlock x:Name="ErrorText" Foreground="#FCA5A5" Margin="0,8,0,0" Visibility="Collapsed"/>
+      </StackPanel>
+    </Border>
+    <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="16" Margin="0,0,0,12" Visibility="Collapsed" x:Name="EditPanel">
+      <StackPanel>
+        <TextBlock x:Name="EditTitle" Style="{StaticResource LabelText}" Margin="0,0,0,8"/>
+        <StackPanel Margin="0,0,0,8">
+          <TextBlock Text="Libellé" Style="{StaticResource LabelText}"/>
+          <TextBox x:Name="EditLabelBox"/>
+        </StackPanel>
+        <TextBlock x:Name="EditPermissionsLabel" Text="Permissions" Style="{StaticResource LabelText}" Margin="0,0,0,6"/>
+        <ItemsControl x:Name="EditPermissionsPicker"/>
+        <TextBlock x:Name="SystemRoleHint" Foreground="{StaticResource MutedBrush}" Margin="0,8,0,0" Visibility="Collapsed"
+                   Text="Les permissions des rôles système ne sont pas modifiables."/>
+        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+          <Button Content="Enregistrer" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" Click="OnSaveEdit"/>
+          <Button Content="Annuler" Style="{StaticResource GhostButton}" Click="OnCancelEdit"/>
+        </StackPanel>
+      </StackPanel>
+    </Border>
+    <DataGrid x:Name="Grid" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="True">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="100"/>
+        <DataGridTextColumn Header="Libellé" Binding="{Binding Label}" Width="*"/>
+        <DataGridTextColumn Header="Type" Binding="{Binding TypeLabel}" Width="100"/>
+        <DataGridTextColumn Header="Permissions" Binding="{Binding PermissionsLabel}" Width="*"/>
+        <DataGridTemplateColumn Header="Action" Width="160">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <StackPanel Orientation="Horizontal">
+                <Button Content="Modifier" Style="{StaticResource GhostButton}" Margin="0,0,4,0" Click="OnEdit" Tag="{Binding Code}"/>
+                <Button Content="Supprimer" Style="{StaticResource GhostButton}" Click="OnDelete" Tag="{Binding Code}"
+                        Visibility="{Binding DeleteVisibility}"/>
+              </StackPanel>
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

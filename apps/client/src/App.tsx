@@ -5,7 +5,6 @@ import { LoadingShell } from './components/LoadingShell';
 import { useI18n } from './i18n/I18nProvider';
 import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
-import { ModuleScreen } from './pages/modules/ModuleScreen';
 import { SitesPage } from './pages/modules/SitesPage';
 import { TenantSettingsPage } from './pages/modules/TenantSettingsPage';
 import { RolesPage } from './pages/modules/RolesPage';
@@ -38,7 +37,6 @@ export function App() {
 
   useEffect(() => {
     if (!configured || !api.getToken()) return;
-
     void (async () => {
       try {
         setLoading(true);
@@ -54,6 +52,8 @@ export function App() {
           email: meResponse.user.email,
           fullName: meResponse.user.fullName,
           roleCode: meResponse.user.roleCode,
+          permissions: meResponse.user.permissions,
+          siteIds: meResponse.user.siteIds,
           tenant: licenseResponse.tenant,
         });
       } catch (err) {
@@ -71,7 +71,6 @@ export function App() {
     api.setToken(response.token);
     setUser(response.user);
     setScreen('dashboard');
-
     const [modulesResponse, licenseResponse] = await Promise.all([
       api.getModules(),
       api.getLicenseStatus(),
@@ -93,44 +92,32 @@ export function App() {
     if (target) setScreen(target);
   }
 
+  void handleModuleOpen; // used by future module cards
+
   function renderScreen() {
-    if (screen === 'dashboard') {
-      return (
-        <DashboardPage
-          user={user!}
-          modules={modules}
-          license={license!}
-          onModuleOpen={handleModuleOpen}
-        />
-      );
+    switch (screen) {
+      case 'dashboard':     return <DashboardPage user={user!} modules={modules} license={license!} onNavigate={(s) => setScreen(s as AppScreen)} />;
+      case 'admin_users':   return <UsersPage user={user!} />;
+      case 'admin_roles':   return <RolesPage user={user!} />;
+      case 'admin_audit':   return <AuditLogPage user={user!} />;
+      case 'core_sites':    return <SitesPage user={user!} />;
+      case 'core_settings': return <TenantSettingsPage user={user!} />;
+      default:              return null;
     }
-    if (screen === 'admin_users') return <UsersPage />;
-    if (screen === 'admin_roles') return <RolesPage />;
-    if (screen === 'admin_audit') return <AuditLogPage />;
-    if (screen === 'core_sites') return <SitesPage />;
-    if (screen === 'core_settings') return <TenantSettingsPage />;
-    return <ModuleScreen screen={screen} />;
   }
 
   if (configured === null) {
     return (
-      <div className="shell center">
-        <p className="muted">{t('init')}</p>
+      <div className="ux-loading-screen">
+        <div className="ux-loading-spinner" />
+        <p className="ux-loading-text">{t('init')}</p>
       </div>
     );
   }
 
-  if (!configured) {
-    return <SettingsPage onConfigured={() => setConfigured(true)} />;
-  }
-
-  if (loading) {
-    return <LoadingShell />;
-  }
-
-  if (!user || !license) {
-    return <LoginPage onLogin={handleLogin} error={error} />;
-  }
+  if (!configured) return <SettingsPage onConfigured={() => setConfigured(true)} />;
+  if (loading) return <LoadingShell />;
+  if (!user || !license) return <LoginPage onLogin={handleLogin} error={error} />;
 
   return (
     <SiteProvider userRole={user.roleCode}>

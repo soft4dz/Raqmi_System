@@ -17,6 +17,8 @@ public partial class MainShellView : UserControl
     private AppLocale _locale = AppLocale.Fr;
     private string _userName = "Admin";
     private string _currentScreen = "dashboard";
+    private List<SiteDto> _sites = [];
+    private bool _suppressSiteChange;
 
     public event Action? LogoutRequested;
 
@@ -25,7 +27,7 @@ public partial class MainShellView : UserControl
         InitializeComponent();
     }
 
-    public void Initialize(RaqmiApiClient api, DashboardData data, AppLocale locale, string userName)
+    public async void Initialize(RaqmiApiClient api, DashboardData data, AppLocale locale, string userName)
     {
         _api = api;
         _navigator = new ModuleNavigator(api);
@@ -38,6 +40,7 @@ public partial class MainShellView : UserControl
         TenantText.Text = ExtractTenantName(data.License);
 
         BuildSidebar(data.Modules);
+        await LoadSitesAsync();
         ShowDashboard();
     }
 
@@ -59,6 +62,58 @@ public partial class MainShellView : UserControl
     {
         var screen = ModuleNavigator.DefaultScreenForModule(moduleCode);
         if (screen is not null) NavigateTo(screen);
+    }
+
+    private async Task LoadSitesAsync()
+    {
+        if (_navigator is null) return;
+
+        try
+        {
+            var res = await _navigator.Business.GetSitesAsync();
+            _sites = res.Items.Where(s => s.Active).ToList();
+
+            _suppressSiteChange = true;
+            SiteCombo.ItemsSource = _sites;
+            SiteCombo.DisplayMemberPath = nameof(SiteDto.Name);
+            SiteCombo.SelectedValuePath = nameof(SiteDto.Id);
+
+            var config = await ConfigStore.LoadAsync();
+            var savedId = config.ActiveSiteId;
+            if (!string.IsNullOrWhiteSpace(savedId) && _sites.Any(s => s.Id == savedId))
+                SiteCombo.SelectedValue = savedId;
+            else if (_sites.Count > 0)
+                SiteCombo.SelectedIndex = 0;
+
+            ApplyActiveSite();
+            _suppressSiteChange = false;
+        }
+        catch
+        {
+            SiteCombo.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private async void OnSiteChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressSiteChange || _navigator is null) return;
+        ApplyActiveSite();
+
+        var siteId = SiteCombo.SelectedValue?.ToString();
+        var config = await ConfigStore.LoadAsync();
+        config.ActiveSiteId = siteId;
+        await ConfigStore.SaveAsync(config);
+
+        if (_currentScreen != "dashboard")
+            NavigateTo(_currentScreen);
+        else if (_dashboard is not null && _dashboardData is not null)
+            _dashboard.Bind(_dashboardData, _locale, _userName);
+    }
+
+    private void ApplyActiveSite()
+    {
+        var siteId = SiteCombo.SelectedValue?.ToString();
+        _navigator?.SetActiveSiteId(siteId);
     }
 
     private void BuildSidebar(IEnumerable<ModuleDto> modules)

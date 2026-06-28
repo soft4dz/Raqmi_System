@@ -1,5 +1,6 @@
 using System.Windows.Controls;
 using Raqmi.Client.Views.Admin;
+using Raqmi.Client.Views.Core;
 using Raqmi.Client.Views.Finance;
 using Raqmi.Client.Views.Ged;
 using Raqmi.Client.Views.Hr;
@@ -13,9 +14,15 @@ public sealed class ModuleNavigator
 
     public ModuleNavigator(RaqmiApiClient api) => _business = new BusinessApiClient(api);
 
+    public BusinessApiClient Business => _business;
+
+    public void SetActiveSiteId(string? siteId) => _business.SetActiveSiteId(siteId);
+
     public static string? DefaultScreenForModule(string moduleCode) => moduleCode switch
     {
         "administration" => "admin_users",
+        "settings" => "core_settings",
+        "sites" => "core_sites",
         "daily_revenue" => "daily_revenue",
         "billing" => "billing",
         "treasury" => "treasury",
@@ -30,7 +37,14 @@ public sealed class ModuleNavigator
         var enabled = modules.Where(m => m.Enabled).Select(m => m.Code).ToHashSet(StringComparer.Ordinal);
         var items = new List<NavItem> { new("dashboard", "Dashboard", "core") };
 
-        if (enabled.Contains("administration")) items.Add(new("admin_users", "Utilisateurs", "core"));
+        if (enabled.Contains("sites")) items.Add(new("core_sites", "Sites / unités", "core"));
+        if (enabled.Contains("settings")) items.Add(new("core_settings", "Paramétrage global", "core"));
+        if (enabled.Contains("administration"))
+        {
+            items.Add(new("admin_users", "Utilisateurs", "core"));
+            items.Add(new("admin_roles", "Rôles & permissions", "core"));
+            items.Add(new("admin_audit", "Journal d'audit", "core"));
+        }
         if (enabled.Contains("daily_revenue")) items.Add(new("daily_revenue", "Recettes journalières", "finance"));
         if (enabled.Contains("billing")) items.Add(new("billing", "Facturation", "finance"));
         if (enabled.Contains("treasury")) items.Add(new("treasury", "Trésorerie", "finance"));
@@ -53,7 +67,11 @@ public sealed class ModuleNavigator
 
     public UserControl CreateView(string screenKey) => screenKey switch
     {
+        "core_sites" => new SiteListView(_business),
+        "core_settings" => new TenantSettingsView(_business),
         "admin_users" => new UserListView(_business),
+        "admin_roles" => new RoleListView(_business),
+        "admin_audit" => new AuditLogView(_business),
         "daily_revenue" => new DailyRevenueView(_business),
         "billing" => new BillingView(_business),
         "treasury" => new TreasuryView(_business),

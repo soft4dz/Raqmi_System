@@ -3,18 +3,13 @@ import type { AuthUser, LicenseStatusResponse, ModuleItem } from '../api';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { ThemeToggle } from './ThemeToggle';
 import { useI18n } from '../i18n/I18nProvider';
-import type { Messages } from '../i18n/messages';
 import {
   buildNavGroups,
-  screenFamily,
   screenTitle,
   type AppScreen,
-  type NavFamily,
 } from '../navigation/moduleRoutes';
 import { useSiteContext } from '../context/SiteContext';
 import {
-  FamilyIcon,
-  IconChevron,
   IconClose,
   IconDashboard,
   IconLicense,
@@ -33,21 +28,6 @@ interface ShellLayoutProps {
   children: ReactNode;
 }
 
-const COLLAPSE_KEY = 'raqmi_nav_collapsed';
-
-function familyLabel(tf: (key: keyof Messages['family']) => string, family: NavFamily) {
-  return tf(family);
-}
-
-function loadCollapsed(): Set<string> {
-  try {
-    const raw = localStorage.getItem(COLLAPSE_KEY);
-    if (raw) return new Set(JSON.parse(raw) as string[]);
-  } catch {
-    /* ignore */
-  }
-  return new Set();
-}
 
 export function ShellLayout({
   user,
@@ -58,19 +38,12 @@ export function ShellLayout({
   onLogout,
   children,
 }: ShellLayoutProps) {
-  const { t, tf } = useI18n();
+  const { t } = useI18n();
   const { sites, activeSiteId, setActiveSiteId, loading: sitesLoading } = useSiteContext();
-  const navGroups = buildNavGroups(modules);
-  const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
+  const navGroups = buildNavGroups(modules, user.permissions, user.roleCode);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  useEffect(() => {
-    localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...collapsed]));
-  }, [collapsed]);
-
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [screen]);
+  useEffect(() => { setMobileOpen(false); }, [screen]);
 
   const initials = user.fullName
     .split(' ')
@@ -79,75 +52,33 @@ export function ShellLayout({
     .join('')
     .toUpperCase();
 
-  const family = screenFamily(screen);
   const crumbs =
     screen === 'dashboard'
       ? [{ label: t('dashboard') }]
       : [
           { label: t('dashboard'), screen: 'dashboard' as AppScreen },
-          ...(family ? [{ label: familyLabel(tf, family) }] : []),
           { label: screenTitle(screen) },
         ];
-
-  function toggleGroup(familyKey: string) {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(familyKey)) next.delete(familyKey);
-      else next.add(familyKey);
-      return next;
-    });
-  }
 
   function renderSidebar(className: string) {
     return (
       <nav className={className} aria-label="Navigation principale">
-        <button
-          type="button"
-          className={`db-nav-item db-nav-item--dashboard ${screen === 'dashboard' ? 'db-nav-active' : ''}`}
-          onClick={() => onNavigate('dashboard')}
-        >
-          <span className="db-nav-icon-wrap"><IconDashboard size={17} /></span>
-          {t('dashboard')}
-        </button>
-
-        {navGroups.map((group) => {
-          const isCollapsed = collapsed.has(group.family);
-          const hasActive = group.items.some((item) => item.key === screen);
-          return (
-            <div
-              key={group.family}
-              className={`db-nav-group ${isCollapsed ? 'db-nav-group--collapsed' : ''} ${hasActive ? 'db-nav-group--active' : ''}`}
+        {navGroups.map((group) =>
+          group.items.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={`db-nav-item ${item.key === 'dashboard' ? 'db-nav-item--dashboard' : ''} ${screen === item.key ? 'db-nav-active' : ''}`}
+              onClick={() => onNavigate(item.key)}
             >
-              <button
-                type="button"
-                className="db-nav-section db-nav-section-btn"
-                onClick={() => toggleGroup(group.family)}
-                aria-expanded={!isCollapsed}
-              >
-                <span className="db-nav-section-left">
-                  <FamilyIcon family={group.family} size={14} />
-                  {familyLabel(tf, group.family)}
-                </span>
-                <IconChevron size={14} direction="down" className="db-nav-chevron" />
-              </button>
-              <div className="db-nav-group-items">
-                {group.items
-                  .filter((item) => item.key !== 'dashboard')
-                  .map((item) => (
-                    <button
-                      key={item.key}
-                      type="button"
-                      className={`db-nav-item ${screen === item.key ? 'db-nav-active' : ''}`}
-                      onClick={() => onNavigate(item.key)}
-                    >
-                      <span className="db-nav-active-rail" aria-hidden="true" />
-                      {item.label}
-                    </button>
-                  ))}
-              </div>
-            </div>
-          );
-        })}
+              {item.key === 'dashboard'
+                ? <span className="db-nav-icon-wrap"><IconDashboard size={17} /></span>
+                : <span className="db-nav-active-rail" aria-hidden="true" />
+              }
+              {item.label}
+            </button>
+          ))
+        )}
 
         <div className="db-sidebar-spacer" />
 

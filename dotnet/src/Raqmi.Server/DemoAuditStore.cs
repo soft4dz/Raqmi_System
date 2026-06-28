@@ -44,8 +44,18 @@ public static class DemoAuditStore
         if (Entries.Count > 500) Entries.RemoveAt(Entries.Count - 1);
     }
 
-    public static IReadOnlyList<object> List(int limit = 100) =>
-        Entries.Take(limit).Select(e => new
+    public static IReadOnlyList<object> List(int limit = 100, string? action = null, string? moduleCode = null, string? query = null)
+    {
+        EnsureSeed();
+        IEnumerable<DemoAuditEntry> items = Entries;
+        if (!string.IsNullOrWhiteSpace(action))
+            items = items.Where(e => e.Action.Equals(action, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(moduleCode))
+            items = items.Where(e => string.Equals(e.ModuleCode, moduleCode, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(query))
+            items = items.Where(e => e.Description.Contains(query, StringComparison.OrdinalIgnoreCase));
+
+        return items.Take(limit).Select(e => new
         {
             id = e.Id,
             userId = e.UserId,
@@ -56,4 +66,5 @@ public static class DemoAuditStore
             description = e.Description,
             createdAt = e.CreatedAt,
         }).Cast<object>().ToList();
+    }
 }

@@ -119,17 +119,23 @@ public sealed class LicenseStore
 
 public static class JwtService
 {
-    public static string CreateToken(IConfiguration config, DemoUser user)
+    public static string CreateToken(IConfiguration config, DemoUser user) =>
+        CreateToken(config, user.Id, user.TenantId, user.Email, user.FullName, user.RoleCode);
+
+    public static string CreateToken(IConfiguration config, DemoUserRecord user) =>
+        CreateToken(config, user.Id, user.TenantId, user.Email, user.FullName, user.RoleCode);
+
+    public static string CreateToken(IConfiguration config, string id, string tenantId, string email, string fullName, string roleCode)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["JWT_SECRET"] ?? "raqmi-dev-secret-change-in-production"));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var claims = new[]
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id),
-            new Claim("tenantId", user.TenantId),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email),
-            new Claim("fullName", user.FullName),
-            new Claim("roleCode", user.RoleCode),
+            new Claim(JwtRegisteredClaimNames.Sub, id),
+            new Claim("tenantId", tenantId),
+            new Claim(JwtRegisteredClaimNames.Email, email),
+            new Claim("fullName", fullName),
+            new Claim("roleCode", roleCode),
         };
 
         var token = new JwtSecurityToken(

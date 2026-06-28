@@ -11,6 +11,7 @@ public partial class UserListView : UserControl
     private readonly HashSet<string> _selectedSiteIds = [];
     private readonly HashSet<string> _editSiteIds = [];
     private string? _editingUserId;
+    private string? _editingProfileUserId;
 
     public UserListView(BusinessApiClient api)
     {
@@ -26,8 +27,11 @@ public partial class UserListView : UserControl
         {
             var roles = await _api.GetRolesAsync();
             RoleBox.ItemsSource = roles.Items;
-            RoleBox.DisplayMemberPath = nameof(RoleDto.Label);
-            RoleBox.SelectedValuePath = nameof(RoleDto.Code);
+            RoleBox.DisplayMemberPath = nameof(RoleDetailDto.Label);
+            RoleBox.SelectedValuePath = nameof(RoleDetailDto.Code);
+            ProfileRoleBox.ItemsSource = roles.Items;
+            ProfileRoleBox.DisplayMemberPath = nameof(RoleDetailDto.Label);
+            ProfileRoleBox.SelectedValuePath = nameof(RoleDetailDto.Code);
             if (RoleBox.Items.Count > 0) RoleBox.SelectedIndex = 0;
 
             var sitesRes = await _api.GetAdminSitesAsync();
@@ -109,6 +113,8 @@ public partial class UserListView : UserControl
         var user = _users.FirstOrDefault(u => u.Id == id);
         if (user is null) return;
 
+        EditProfilePanel.Visibility = Visibility.Collapsed;
+        _editingProfileUserId = null;
         _editingUserId = id;
         _editSiteIds.Clear();
         foreach (var siteId in user.SiteIds) _editSiteIds.Add(siteId);
@@ -142,6 +148,53 @@ public partial class UserListView : UserControl
     {
         EditSitesPanel.Visibility = Visibility.Collapsed;
         _editingUserId = null;
+    }
+
+    private void OnEditProfile(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button || button.Tag is not string id) return;
+        var user = _users.FirstOrDefault(u => u.Id == id);
+        if (user is null) return;
+
+        EditSitesPanel.Visibility = Visibility.Collapsed;
+        _editingUserId = null;
+        _editingProfileUserId = id;
+        EditProfileTitle.Text = $"Profil — {user.Email}";
+        ProfileFullNameBox.Text = user.FullName;
+        ProfileRoleBox.SelectedValue = user.RoleCode;
+        ProfilePasswordBox.Password = string.Empty;
+        EditProfilePanel.Visibility = Visibility.Visible;
+    }
+
+    private async void OnSaveProfile(object sender, RoutedEventArgs e)
+    {
+        if (_editingProfileUserId is null) return;
+
+        try
+        {
+            var body = new Dictionary<string, object?>
+            {
+                ["fullName"] = ProfileFullNameBox.Text.Trim(),
+                ["roleCode"] = ProfileRoleBox.SelectedValue?.ToString() ?? "user",
+            };
+            if (!string.IsNullOrWhiteSpace(ProfilePasswordBox.Password))
+                body["password"] = ProfilePasswordBox.Password;
+
+            await _api.UpdateUserAsync(_editingProfileUserId, body);
+            EditProfilePanel.Visibility = Visibility.Collapsed;
+            _editingProfileUserId = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+    }
+
+    private void OnCancelProfile(object sender, RoutedEventArgs e)
+    {
+        EditProfilePanel.Visibility = Visibility.Collapsed;
+        _editingProfileUserId = null;
     }
 
     private async void OnToggleActive(object sender, RoutedEventArgs e)

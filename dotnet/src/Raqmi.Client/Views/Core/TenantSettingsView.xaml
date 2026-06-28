@@ -1,0 +1,97 @@
+<UserControl x:Class="Raqmi.Client.Views.Core.TenantSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,0,8,8">
+    <Border Style="{StaticResource CardBorder}" Padding="16">
+      <StackPanel>
+        <TextBlock Text="Entreprise" Style="{StaticResource LabelText}" FontWeight="SemiBold" Margin="0,0,0,8"/>
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+          </Grid.RowDefinitions>
+          <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
+            <TextBlock Text="Raison sociale" Style="{StaticResource LabelText}"/>
+            <TextBox x:Name="LegalNameBox"/>
+          </StackPanel>
+          <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,8">
+            <TextBlock Text="Email" Style="{StaticResource LabelText}"/>
+            <TextBox x:Name="EmailBox"/>
+          </StackPanel>
+          <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,8">
+            <TextBlock Text="Téléphone" Style="{StaticResource LabelText}"/>
+            <TextBox x:Name="PhoneBox"/>
+          </StackPanel>
+          <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,8">
+            <TextBlock Text="Adresse" Style="{StaticResource LabelText}"/>
+            <TextBox x:Name="AddressBox"/>
+          </StackPanel>
+        </Grid>
+
+        <TextBlock Text="Formats &amp; délais" Style="{StaticResource LabelText}" FontWeight="SemiBold" Margin="0,12,0,8"/>
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+          </Grid.RowDefinitions>
+          <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
+            <TextBlock Text="Devise" Style="{StaticResource LabelText}"/>
+            <TextBox x:Name="CurrencyBox"/>
+          </StackPanel>
+          <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,8,8">
+            <TextBlock Text="Fuseau horaire" Style="{StaticResource LabelText}"/>
+            <TextBox x:Name="TimezoneBox"/>
+          </StackPanel>
+          <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,8">
+            <TextBlock Text="Format date" Style="{StaticResource LabelText}"/>
+            <TextBox x:Name="DateFormatBox"/>
+          </StackPanel>
+          <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,8">
+            <TextBlock Text="Format nombre" Style="{StaticResource LabelText}"/>
+            <TextBox x:Name="NumberFormatBox"/>
+          </StackPanel>
+          <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,8,8">
+            <TextBlock Text="Délai paiement (jours)" Style="{StaticResource LabelText}"/>
+            <TextBox x:Name="PaymentDelayBox"/>
+          </StackPanel>
+          <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,8">
+            <TextBlock Text="Délai relance (jours)" Style="{StaticResource LabelText}"/>
+            <TextBox x:Name="ReminderDelayBox"/>
+          </StackPanel>
+        </Grid>
+
+        <TextBlock Text="Branding" Style="{StaticResource LabelText}" FontWeight="SemiBold" Margin="0,12,0,8"/>
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" Margin="0,0,8,0">
+            <TextBlock Text="Couleur principale" Style="{StaticResource LabelText}"/>
+            <TextBox x:Name="BrandColorBox"/>
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Text="URL logo" Style="{StaticResource LabelText}"/>
+            <TextBox x:Name="BrandLogoBox"/>
+          </StackPanel>
+        </Grid>
+
+        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+          <Button Content="Enregistrer les paramètres" Style="{StaticResource PrimaryButton}" Click="OnSave"/>
+          <TextBlock x:Name="SuccessText" Foreground="#86EFAC" Margin="12,6,0,0" Visibility="Collapsed"/>
+        </StackPanel>
+        <TextBlock x:Name="ErrorText" Foreground="#FCA5A5" Margin="0,8,0,0" Visibility="Collapsed"/>
+      </StackPanel>
+    </Border>
+  </ScrollViewer>
+</UserControl>

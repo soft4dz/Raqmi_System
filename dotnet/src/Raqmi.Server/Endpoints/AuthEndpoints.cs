@@ -15,22 +15,28 @@ public static class AuthEndpoints
 
             if (runtime.DemoMode)
             {
-                if (email != DemoData.User.Email || password != DemoData.User.Password)
+                var user = DemoUserStore.FindByEmail(DemoData.Tenant.Id, email);
+                if (user is null || !user.Active || user.Password != password)
                 {
                     return Results.Json(new { error = "Identifiants invalides" }, JsonDefaults.Options, statusCode: 401);
                 }
 
-                var token = JwtService.CreateToken(config, DemoData.User);
+                DemoAuditStore.Add("login", "administration", "User", user.Id, $"Connexion : {user.Email}", user.Id);
+                var token = JwtService.CreateToken(config, user);
+                var permissions = DemoRoleStore.Get(user.RoleCode)?.Permissions ?? [];
+
                 return Results.Json(new
                 {
                     token,
                     user = new
                     {
-                        id = DemoData.User.Id,
-                        email = DemoData.User.Email,
-                        fullName = DemoData.User.FullName,
-                        roleCode = DemoData.User.RoleCode,
+                        id = user.Id,
+                        email = user.Email,
+                        fullName = user.FullName,
+                        roleCode = user.RoleCode,
                         tenant = TenantResolver.ToDto(DemoData.Tenant),
+                        siteIds = user.SiteIds,
+                        permissions,
                     },
                 }, JsonDefaults.Options);
             }
@@ -53,6 +59,9 @@ public static class AuthEndpoints
             var siteIds = runtime.DemoMode
                 ? DemoUserStore.GetSiteIds(DemoData.Tenant.Id, userId)
                 : Array.Empty<string>();
+            var permissions = runtime.DemoMode
+                ? (IReadOnlyList<string>)(DemoRoleStore.Get(roleCode)?.Permissions ?? [])
+                : (IReadOnlyList<string>)new[] { "*" };
 
             return Results.Json(new
             {
@@ -64,6 +73,7 @@ public static class AuthEndpoints
                     roleCode,
                     tenantId = principal.FindFirst("tenantId")?.Value,
                     siteIds,
+                    permissions,
                     tenant,
                 },
             }, JsonDefaults.Options);

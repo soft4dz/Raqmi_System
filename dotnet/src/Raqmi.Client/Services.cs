@@ -10,6 +10,7 @@ public sealed class ClientConfig
 {
     public string ServerUrl { get; set; } = "http://localhost:3000";
     public string Locale { get; set; } = "fr";
+    public string? ActiveSiteId { get; set; }
 }
 
 public static class ConfigStore

@@ -13,8 +13,15 @@ public static class AdminEndpoints
     {
         var group = app.MapGroup("/api/v1/admin");
 
-        group.MapGet("/roles", () =>
+        group.MapGet("/permissions", () =>
+            Results.Json(new { items = PermissionCatalog.List() }, JsonDefaults.Options))
+            .RequireRaqmiModule("administration");
+
+        group.MapGet("/roles", (HttpContext http) =>
         {
+            if (!EndpointAuth.CanReadAdmin(http, runtime))
+                return Results.Json(new { error = "Accès refusé" }, JsonDefaults.Options, statusCode: 403);
+
             if (runtime.DemoMode)
                 return Results.Json(new { items = DemoRoleStore.List() }, JsonDefaults.Options);
 
@@ -23,7 +30,7 @@ public static class AdminEndpoints
 
         group.MapPost("/roles", (HttpContext http, RoleCreateRequest body) =>
         {
-            if (!IsAdmin(http))
+            if (!EndpointAuth.CanWriteAdmin(http, runtime))
                 return Results.Json(new { error = "Accès réservé aux administrateurs" }, JsonDefaults.Options, statusCode: 403);
 
             if (!runtime.DemoMode)
@@ -42,7 +49,7 @@ public static class AdminEndpoints
 
         group.MapPatch("/roles/{code}", (HttpContext http, string code, RolePatchRequest body) =>
         {
-            if (!IsAdmin(http))
+            if (!EndpointAuth.CanWriteAdmin(http, runtime))
                 return Results.Json(new { error = "Accès réservé aux administrateurs" }, JsonDefaults.Options, statusCode: 403);
 
             if (!runtime.DemoMode)
@@ -63,7 +70,7 @@ public static class AdminEndpoints
 
         group.MapDelete("/roles/{code}", (HttpContext http, string code) =>
         {
-            if (!IsAdmin(http))
+            if (!EndpointAuth.CanWriteAdmin(http, runtime))
                 return Results.Json(new { error = "Accès réservé aux administrateurs" }, JsonDefaults.Options, statusCode: 403);
 
             if (!runtime.DemoMode)
@@ -79,18 +86,25 @@ public static class AdminEndpoints
             }
         }).RequireRaqmiModule("administration");
 
-        group.MapGet("/audit-logs", async (HttpContext http) =>
+        group.MapGet("/audit-logs", async (HttpContext http, string? action, string? moduleCode, string? q) =>
         {
-            if (!IsAdmin(http))
-                return Results.Json(new { error = "Accès réservé aux administrateurs" }, JsonDefaults.Options, statusCode: 403);
+            if (!EndpointAuth.CanReadAdmin(http, runtime))
+                return Results.Json(new { error = "Accès refusé" }, JsonDefaults.Options, statusCode: 403);
 
             var tenantId = EndpointAuth.GetTenantId(http);
             var db = http.RequestServices.GetService<RaqmiDbContext>();
 
             if (runtime.UseDatabase && db is not null)
             {
-                var items = await db.AuditLogs
-                    .Where(x => x.TenantId == tenantId)
+                var query = db.AuditLogs.Where(x => x.TenantId == tenantId);
+                if (!string.IsNullOrWhiteSpace(action))
+                    query = query.Where(x => x.Action == action);
+                if (!string.IsNullOrWhiteSpace(moduleCode))
+                    query = query.Where(x => x.ModuleCode == moduleCode);
+                if (!string.IsNullOrWhiteSpace(q))
+                    query = query.Where(x => x.Description.Contains(q));
+
+                var items = await query
                     .OrderByDescending(x => x.CreatedAt)
                     .Take(100)
                     .Select(x => new { x.Id, x.UserId, x.Action, x.ModuleCode, x.EntityType, x.EntityId, x.Description, x.CreatedAt })
@@ -99,7 +113,7 @@ public static class AdminEndpoints
             }
 
             if (runtime.DemoMode)
-                return Results.Json(new { items = DemoAuditStore.List() }, JsonDefaults.Options);
+                return Results.Json(new { items = DemoAuditStore.List(100, action, moduleCode, q) }, JsonDefaults.Options);
 
             return Results.StatusCode(501);
         }).RequireRaqmiModule("administration");
@@ -119,13 +133,21 @@ public static class AdminEndpoints
             }
 
             if (runtime.DemoMode)
-                return Results.Json(new { items = DemoSiteStore.ListAll() }, JsonDefaults.Options);
+            {
+                var items = DemoSiteStore.ListForUser(
+                    EndpointAuth.GetUserId(http) ?? string.Empty,
+                    EndpointAuth.GetRoleCode(http));
+                return Results.Json(new { items }, JsonDefaults.Options);
+            }
 
             return Results.StatusCode(501);
         }).RequireRaqmiModule("administration");
 
         group.MapGet("/users", async (HttpContext http) =>
         {
+            if (!EndpointAuth.CanReadAdmin(http, runtime))
+                return Results.Json(new { error = "Accès refusé" }, JsonDefaults.Options, statusCode: 403);
+
             var tenantId = EndpointAuth.GetTenantId(http);
             var db = http.RequestServices.GetService<RaqmiDbContext>();
             if (runtime.UseDatabase && db is not null)
@@ -140,14 +162,23 @@ public static class AdminEndpoints
             }
 
             if (runtime.DemoMode)
-                return Results.Json(new { items = DemoUserStore.ListForTenant(tenantId) }, JsonDefaults.Options);
+            {
+                IReadOnlyList<string>? scope = null;
+                if (!EndpointAuth.IsAdmin(http))
+                {
+                    var userId = EndpointAuth.GetUserId(http);
+                    scope = userId is null ? [] : DemoUserStore.GetSiteIds(tenantId, userId);
+                }
+
+                return Results.Json(new { items = DemoUserStore.ListForTenant(tenantId, scope) }, JsonDefaults.Options);
+            }
 
             return Results.StatusCode(501);
         }).RequireRaqmiModule("administration");
 
         group.MapPost("/users", async (HttpContext http, UserCreateRequest body) =>
         {
-            if (!IsAdmin(http))
+            if (!EndpointAuth.CanWriteAdmin(http, runtime))
                 return Results.Json(new { error = "Accès réservé aux administrateurs" }, JsonDefaults.Options, statusCode: 403);
 
             var tenantId = EndpointAuth.GetTenantId(http);
@@ -210,7 +241,7 @@ public static class AdminEndpoints
 
         group.MapPatch("/users/{id}", async (HttpContext http, string id, UserPatchRequest body) =>
         {
-            if (!IsAdmin(http))
+            if (!EndpointAuth.CanWriteAdmin(http, runtime))
                 return Results.Json(new { error = "Accès réservé aux administrateurs" }, JsonDefaults.Options, statusCode: 403);
 
             var tenantId = EndpointAuth.GetTenantId(http);
@@ -287,9 +318,6 @@ public static class AdminEndpoints
             .ToListAsync();
         return valid;
     }
-
-    private static bool IsAdmin(HttpContext http) =>
-        string.Equals(http.User.FindFirst("roleCode")?.Value, "admin", StringComparison.Ordinal);
 
     private static string RoleLabel(string code) => code switch
     {

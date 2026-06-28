@@ -2,7 +2,13 @@ import bcrypt from 'bcryptjs';
 import { Hono } from 'hono';
 import { SignJWT } from 'jose';
 import { prisma } from '@raqmi/database';
-import { DEMO_PASSWORD_HASH, DEMO_TENANT, DEMO_USER } from '../demo-data.js';
+import { DEMO_TENANT } from '../demo-data.js';
+import {
+  findDemoUserByEmail,
+  getUserSiteIds,
+  permissionsForRole,
+  pushAudit,
+} from '../demo-stores.js';
 import { env } from '../env.js';
 
 export const authRoutes = new Hono();
@@ -17,26 +23,31 @@ authRoutes.post('/login', async (c) => {
   }
 
   if (env.DEMO_MODE) {
-    if (email !== DEMO_USER.email || !(await bcrypt.compare(password, DEMO_PASSWORD_HASH))) {
+    const user = findDemoUserByEmail(email);
+    if (!user || !user.active || user.password !== password) {
       return c.json({ error: 'Identifiants invalides' }, 401);
     }
 
+    pushAudit('login', 'administration', 'User', user.id, `Connexion : ${user.email}`, user.id);
+
     const token = await signToken({
-      sub: DEMO_USER.id,
+      sub: user.id,
       tenantId: DEMO_TENANT.id,
-      email: DEMO_USER.email,
-      fullName: DEMO_USER.fullName,
-      roleCode: DEMO_USER.roleCode,
+      email: user.email,
+      fullName: user.fullName,
+      roleCode: user.roleCode,
     });
 
     return c.json({
       token,
       user: {
-        id: DEMO_USER.id,
-        email: DEMO_USER.email,
-        fullName: DEMO_USER.fullName,
-        roleCode: DEMO_USER.roleCode,
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        roleCode: user.roleCode,
         tenant: DEMO_TENANT,
+        siteIds: user.siteIds,
+        permissions: permissionsForRole(user.roleCode),
       },
     });
   }
@@ -81,6 +92,9 @@ authRoutes.get('/me', async (c) => {
 
   try {
     const payload = await verifyToken(token);
+    const siteIds = env.DEMO_MODE ? getUserSiteIds(payload.sub) : [];
+    const permissions = env.DEMO_MODE ? permissionsForRole(payload.roleCode) : ['*'];
+
     return c.json({
       user: {
         id: payload.sub,
@@ -88,6 +102,8 @@ authRoutes.get('/me', async (c) => {
         fullName: payload.fullName,
         roleCode: payload.roleCode,
         tenantId: payload.tenantId,
+        siteIds,
+        permissions,
       },
     });
   } catch {

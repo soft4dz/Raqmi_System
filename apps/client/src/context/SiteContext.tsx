@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, type SiteDto } from '../api';
 
-const STORAGE_KEY = 'raqmi_active_site';
+import { getActiveSiteId, setActiveSiteIdStorage, ACTIVE_SITE_STORAGE_KEY } from '../lib/activeSite';
 
 interface SiteContextValue {
   sites: SiteDto[];
@@ -16,7 +16,7 @@ const SiteContext = createContext<SiteContextValue | null>(null);
 
 export function SiteProvider({ userRole, children }: { userRole: string; children: ReactNode }) {
   const [sites, setSites] = useState<SiteDto[]>([]);
-  const [activeSiteId, setActiveSiteIdState] = useState<string | null>(() => localStorage.getItem(STORAGE_KEY));
+  const [activeSiteId, setActiveSiteIdState] = useState<string | null>(() => localStorage.getItem(ACTIVE_SITE_STORAGE_KEY));
   const [loading, setLoading] = useState(true);
 
   async function reload() {
@@ -28,8 +28,8 @@ export function SiteProvider({ userRole, children }: { userRole: string; childre
         if (current && res.items.some((s) => s.id === current && s.active)) return current;
         const first = res.items.find((s) => s.active);
         const next = first?.id ?? null;
-        if (next) localStorage.setItem(STORAGE_KEY, next);
-        else localStorage.removeItem(STORAGE_KEY);
+        if (next) setActiveSiteIdStorage(next);
+        else setActiveSiteIdStorage(null);
         return next;
       });
     } finally {
@@ -43,8 +43,7 @@ export function SiteProvider({ userRole, children }: { userRole: string; childre
 
   function setActiveSiteId(id: string | null) {
     setActiveSiteIdState(id);
-    if (id) localStorage.setItem(STORAGE_KEY, id);
-    else localStorage.removeItem(STORAGE_KEY);
+    setActiveSiteIdStorage(id);
   }
 
   const activeSite = useMemo(
@@ -63,8 +62,4 @@ export function useSiteContext() {
   const ctx = useContext(SiteContext);
   if (!ctx) throw new Error('useSiteContext requires SiteProvider');
   return ctx;
-}
-
-export function getActiveSiteId() {
-  return localStorage.getItem(STORAGE_KEY);
 }
