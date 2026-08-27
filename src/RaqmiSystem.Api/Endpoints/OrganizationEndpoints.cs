@@ -11,11 +11,11 @@ internal static class OrganizationEndpoints
             .WithTags("Hotel units");
 
         units.MapGet("", async (
-            bool includeInactive,
+            bool? includeInactive,
             IHotelUnitService service,
             CancellationToken cancellationToken) =>
         {
-            var result = await service.ListAsync(includeInactive, cancellationToken);
+            var result = await service.ListAsync(includeInactive == true, cancellationToken);
             return Results.Ok(result);
         }).RequireAuthorization(PermissionCatalog.UnitsRead);
 

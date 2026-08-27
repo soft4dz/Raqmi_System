@@ -23,11 +23,12 @@ public sealed class HotelUnitService(
             query = query.Where(unit => unit.IsActive);
         }
 
-        return await query
+        var units = await query
             .OrderBy(unit => unit.DisplayOrder)
             .ThenBy(unit => unit.Name)
-            .Select(unit => Map(unit))
             .ToArrayAsync(cancellationToken);
+
+        return units.Select(Map).ToArray();
     }
 
     public async Task<ApplicationResult<HotelUnitResponse>> GetAsync(

@@ -216,7 +216,7 @@ public sealed class DailyRevenueService(
         DailyRevenueStatus? status,
         CancellationToken cancellationToken)
     {
-        if (from.HasValue && to.HasValue && from > to)
+        if (from.HasValue && to.HasValue && from.Value > to.Value)
         {
             return ApplicationResult<DailyRevenueSummaryResponse>.Validation("The from date cannot be after the to date.");
         }
@@ -298,12 +298,12 @@ public sealed class DailyRevenueService(
     {
         if (from.HasValue)
         {
-            query = query.Where(revenue => revenue.BusinessDate >= from);
+            query = query.Where(revenue => revenue.BusinessDate >= from.Value);
         }
 
         if (to.HasValue)
         {
-            query = query.Where(revenue => revenue.BusinessDate <= to);
+            query = query.Where(revenue => revenue.BusinessDate <= to.Value);
         }
 
         var normalizedUnitCode = NormalizeNullableCode(hotelUnitCode);
@@ -315,7 +315,7 @@ public sealed class DailyRevenueService(
 
         if (status.HasValue)
         {
-            query = query.Where(revenue => revenue.Status == status);
+            query = query.Where(revenue => revenue.Status == status.Value);
         }
 
         return query;
