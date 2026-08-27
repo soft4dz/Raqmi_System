@@ -72,6 +72,15 @@ Security seed:
 dotnet run --project src/RaqmiSystem.Api/RaqmiSystem.Api.csproj -- --seed-security
 ~~~
 
+## Documentation de reprise
+
+La documentation fonctionnelle de l'ancien depot `Hotel_Metrics_Pro_Desktop` a ete importee comme reference de transformation.
+
+- Catalogue complet : `docs/modules-catalog.md`
+- Index documentaire : `docs/documentation-index.md`
+- Plan de reprise : `docs/migration-from-hotel-metrics-pro-desktop.md`
+- Documentation legacy importee : `docs/legacy/hotel-metrics-pro-desktop/`
+
 ## Status
 
 This repository is currently a new technical foundation. The first implemented foundation covers security, authentication contracts, audit trail and PostgreSQL preparation. Business modules will be added progressively after the security, database and API foundations are validated.
