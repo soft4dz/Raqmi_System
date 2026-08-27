@@ -12,6 +12,10 @@ public sealed class RolePermissionConfiguration : IEntityTypeConfiguration<RoleP
 
         builder.HasKey(rolePermission => new { rolePermission.RoleId, rolePermission.PermissionId });
 
+        builder.Property(rolePermission => rolePermission.RoleId).HasColumnName("role_id");
+        builder.Property(rolePermission => rolePermission.PermissionId).HasColumnName("permission_id");
+        builder.Property(rolePermission => rolePermission.GrantedAt).HasColumnName("granted_at");
+
         builder.HasOne(rolePermission => rolePermission.Role)
             .WithMany(role => role.Permissions)
             .HasForeignKey(rolePermission => rolePermission.RoleId)

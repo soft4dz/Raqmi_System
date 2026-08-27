@@ -100,3 +100,37 @@ CREATE INDEX IF NOT EXISTS ix_audit_logs_user_id
 
 CREATE INDEX IF NOT EXISTS ix_audit_logs_action
     ON audit.audit_logs (action);
+
+CREATE TABLE IF NOT EXISTS organization.hotel_units (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    code varchar(40) NOT NULL,
+    name varchar(160) NOT NULL,
+    is_active boolean NOT NULL DEFAULT true,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    created_by varchar(160) NOT NULL DEFAULT 'system',
+    updated_at timestamptz NULL,
+    updated_by varchar(160) NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_organization_hotel_units_code
+    ON organization.hotel_units (code);
+
+CREATE TABLE IF NOT EXISTS exploitation.daily_revenues (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    business_date date NOT NULL,
+    hotel_unit_code varchar(40) NOT NULL,
+    accommodation numeric(18, 2) NOT NULL DEFAULT 0,
+    food numeric(18, 2) NOT NULL DEFAULT 0,
+    beverage numeric(18, 2) NOT NULL DEFAULT 0,
+    other_revenue numeric(18, 2) NOT NULL DEFAULT 0,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    created_by varchar(160) NOT NULL DEFAULT 'system',
+    updated_at timestamptz NULL,
+    updated_by varchar(160) NULL,
+    CONSTRAINT fk_daily_revenues_hotel_unit_code
+        FOREIGN KEY (hotel_unit_code)
+        REFERENCES organization.hotel_units(code)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_exploitation_daily_revenues_date_unit
+    ON exploitation.daily_revenues (business_date, hotel_unit_code);
