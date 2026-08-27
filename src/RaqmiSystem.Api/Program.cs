@@ -1,10 +1,11 @@
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using RaqmiSystem.Api.Endpoints;
 using RaqmiSystem.Application.Identity;
-using RaqmiSystem.Application.Revenue;
 using RaqmiSystem.Application.Security;
 using RaqmiSystem.Domain.Identity;
 using RaqmiSystem.Infrastructure;
@@ -20,6 +21,11 @@ var jwtOptions = JwtOptions.FromConfiguration(
     allowEphemeralDevelopmentKey: builder.Environment.IsDevelopment());
 
 builder.Services.AddRaqmiInfrastructure(builder.Configuration, jwtOptions);
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -46,8 +52,6 @@ builder.Services.AddAuthorization(options =>
         options.AddPolicy(permission.Key, policy => policy.RequireClaim(SecurityClaimTypes.Permission, permission.Key));
     }
 });
-
-builder.Services.AddScoped<RevenueSummaryService>();
 
 var app = builder.Build();
 
@@ -152,16 +156,8 @@ api.MapGet("/security/users", async (RaqmiDbContext db, CancellationToken cancel
     return Results.Ok(users);
 }).RequireAuthorization(PermissionCatalog.UsersRead);
 
-api.MapGet("/revenue/sample-summary", (RevenueSummaryService service) =>
-{
-    var sample = new[]
-    {
-        new DailyRevenueDraft(DateOnly.FromDateTime(DateTime.Today), "EL-MANAR", 1200000m, 340000m, 110000m, 80000m),
-        new DailyRevenueDraft(DateOnly.FromDateTime(DateTime.Today), "EL-MARSA", 900000m, 280000m, 95000m, 60000m)
-    };
-
-    return Results.Ok(service.Calculate(sample));
-}).RequireAuthorization(PermissionCatalog.RevenueRead);
+api.MapOrganizationEndpoints();
+api.MapRevenueEndpoints();
 
 app.Run();
 

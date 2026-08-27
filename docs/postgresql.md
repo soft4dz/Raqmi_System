@@ -32,8 +32,16 @@ The password is a local development value only and must be replaced in productio
 
 | Script | Purpose |
 |---|---|
-| database/postgres/001_security_schema.sql | Creates schemas, security tables and indexes |
+| database/postgres/001_security_schema.sql | Creates schemas, security tables, hotel units and daily revenue tables |
 | database/postgres/002_security_seed.sql | Inserts permissions, roles and role-permission mappings |
+| database/postgres/003_organization_revenue_module.sql | Adds or updates hotel units and daily revenue structures, then seeds the first EGT units |
+
+## Current business tables
+
+| Table | Purpose |
+|---|---|
+| organization.hotel_units | Operational hotel units with code, name, type, display order and active state |
+| exploitation.daily_revenues | One daily revenue entry per date and unit, with categories, workflow status and validation trace |
 
 ## Future EF migrations
 

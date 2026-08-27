@@ -28,10 +28,21 @@ public sealed class HotelUnitConfiguration : IEntityTypeConfiguration<HotelUnit>
             .HasMaxLength(160)
             .IsRequired();
 
+        builder.Property(unit => unit.UnitType)
+            .HasColumnName("unit_type")
+            .HasConversion<string>()
+            .HasMaxLength(40)
+            .IsRequired();
+
+        builder.Property(unit => unit.DisplayOrder)
+            .HasColumnName("display_order");
+
         builder.Property(unit => unit.IsActive)
             .HasColumnName("is_active");
 
         builder.HasIndex(unit => unit.Code)
             .IsUnique();
+
+        builder.HasIndex(unit => unit.DisplayOrder);
     }
 }

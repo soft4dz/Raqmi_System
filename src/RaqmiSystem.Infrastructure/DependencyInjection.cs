@@ -3,10 +3,14 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using RaqmiSystem.Application.Identity;
+using RaqmiSystem.Application.Organization;
+using RaqmiSystem.Application.Revenue;
 using RaqmiSystem.Application.Security;
 using RaqmiSystem.Infrastructure.Audit;
 using RaqmiSystem.Infrastructure.Identity;
+using RaqmiSystem.Infrastructure.Organization;
 using RaqmiSystem.Infrastructure.Persistence;
+using RaqmiSystem.Infrastructure.Revenue;
 using RaqmiSystem.Infrastructure.Security;
 
 namespace RaqmiSystem.Infrastructure;
@@ -33,6 +37,8 @@ public static class DependencyInjection
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddScoped<IAuditLogWriter, AuditLogWriter>();
         services.AddScoped<ISecuritySeeder, SecuritySeeder>();
+        services.AddScoped<IHotelUnitService, HotelUnitService>();
+        services.AddScoped<IDailyRevenueService, DailyRevenueService>();
 
         return services;
     }

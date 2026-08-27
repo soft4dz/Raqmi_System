@@ -12,9 +12,25 @@ public abstract class AuditableEntity
 
     public string? UpdatedBy { get; protected set; }
 
+    public void MarkCreated(string userName, DateTimeOffset utcNow)
+    {
+        CreatedAt = utcNow;
+        CreatedBy = RequireActor(userName);
+    }
+
     public void MarkUpdated(string userName, DateTimeOffset utcNow)
     {
         UpdatedAt = utcNow;
-        UpdatedBy = userName;
+        UpdatedBy = RequireActor(userName);
+    }
+
+    private static string RequireActor(string userName)
+    {
+        if (string.IsNullOrWhiteSpace(userName))
+        {
+            return "system";
+        }
+
+        return userName.Trim();
     }
 }

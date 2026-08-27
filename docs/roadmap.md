@@ -19,12 +19,13 @@
 
 ## Phase 2 - Daily revenue pilot
 
-- Hotel units
-- Revenue categories
-- Daily revenue entry
-- Validation workflow
-- Direction dashboard
+- Hotel units API
+- Daily revenue entry API
+- Draft, submit, validate and reject workflow
+- PostgreSQL schema and seed data for the first EGT units
+- Direction summary endpoint
 - Export and print reports
+- Desktop screens for unit and daily revenue entry
 
 ## Phase 3 - Core finance and exploitation
 
