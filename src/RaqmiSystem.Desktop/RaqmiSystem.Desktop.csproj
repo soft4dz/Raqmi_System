@@ -7,5 +7,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RaqmiSystem.Application\RaqmiSystem.Application.csproj" />
+    <ProjectReference Include="..\RaqmiSystem.Domain\RaqmiSystem.Domain.csproj" />
   </ItemGroup>
 </Project>
