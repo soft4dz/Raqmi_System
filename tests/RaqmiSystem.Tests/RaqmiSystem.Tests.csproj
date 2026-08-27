@@ -19,5 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\RaqmiSystem.Application\RaqmiSystem.Application.csproj" />
+    <ProjectReference Include="..\..\src\RaqmiSystem.Domain\RaqmiSystem.Domain.csproj" />
+    <ProjectReference Include="..\..\src\RaqmiSystem.Infrastructure\RaqmiSystem.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

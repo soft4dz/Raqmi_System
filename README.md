@@ -10,6 +10,7 @@ This repository is now structured as a clean C#/.NET solution for the new versio
 - Database: PostgreSQL for the central server
 - Desktop client: WPF on Windows
 - Architecture: Domain-driven layers with clean separation
+- Security: users, roles, permissions, audit log and JWT authentication
 - Tests: unit tests first, then integration and end-to-end tests
 
 ## Repository structure
@@ -18,9 +19,12 @@ This repository is now structured as a clean C#/.NET solution for the new versio
 src/
   RaqmiSystem.Domain/          Business entities and rules
   RaqmiSystem.Application/     Use cases and application contracts
-  RaqmiSystem.Infrastructure/  Persistence, external services, PostgreSQL adapters
+  RaqmiSystem.Infrastructure/  PostgreSQL, security services and technical adapters
   RaqmiSystem.Api/             ASP.NET Core server API
   RaqmiSystem.Desktop/         WPF desktop client
+
+database/
+  postgres/                    PostgreSQL schema and seed scripts
 
 tests/
   RaqmiSystem.Tests/           Unit tests
@@ -29,6 +33,8 @@ docs/
   architecture.md              Target architecture
   roadmap.md                   Transformation plan
   modules-prioritaires.md      First modules to implement
+  security.md                  Security baseline
+  postgresql.md                PostgreSQL setup
   agent-workflow.md            Work split between Codex, Claude, Gemini and humans
 ~~~
 
@@ -56,9 +62,16 @@ Common commands:
 dotnet restore RaqmiSystem.sln
 dotnet build RaqmiSystem.sln
 dotnet test RaqmiSystem.sln
+docker compose up -d postgres
 dotnet run --project src/RaqmiSystem.Api/RaqmiSystem.Api.csproj
+~~~
+
+Security seed:
+
+~~~bash
+dotnet run --project src/RaqmiSystem.Api/RaqmiSystem.Api.csproj -- --seed-security
 ~~~
 
 ## Status
 
-This repository is currently a new technical foundation. Business modules will be added progressively after the security, database and API foundations are validated.
+This repository is currently a new technical foundation. The first implemented foundation covers security, authentication contracts, audit trail and PostgreSQL preparation. Business modules will be added progressively after the security, database and API foundations are validated.
