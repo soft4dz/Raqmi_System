@@ -1,0 +1,15 @@
+bin/
+obj/
+.vs/
+.vscode/*.user
+TestResults/
+coverage/
+artifacts/
+publish/
+*.user
+*.suo
+*.db
+*.db-shm
+*.db-wal
+.env
+appsettings.Production.json
