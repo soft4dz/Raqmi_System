@@ -1,5 +1,13 @@
 # Deployment
 
+> **Pilot without a VPS:** the first pilot runs on an on-premise Windows
+> server PC inside the hotel unit (native PostgreSQL, no Docker, WPF clients
+> over the LAN). That mode - installation scripts under `deploy/onpremise/`,
+> backups, client configuration and its go-live checklist - is documented in
+> [`docs/deployment-onpremise.md`](deployment-onpremise.md). Everything below
+> (Docker, Caddy, VPS) remains the target for later generalization and is
+> unchanged by the pilot mode.
+
 ## Production configuration file (`appsettings.Production.json`)
 
 `src/RaqmiSystem.Api/appsettings.Production.json` is loaded automatically by

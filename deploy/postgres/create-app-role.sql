@@ -35,20 +35,25 @@
 --   provides RAQMI_POSTGRES__PASSWORD - never in this file or in Git.
 -- =============================================================================
 
+-- Fail fast on any error, regardless of how the caller invoked psql.
+\set ON_ERROR_STOP on
+
 \if :{?app_password}
 \else
     \warn 'create-app-role.sql: the app_password psql variable is not set. Re-run with -v app_password=''<a-long-random-value>''.'
-    \quit
+    -- \quit alone would exit 0 and callers checking the exit code would think
+    -- the role was provisioned; raise a real error so ON_ERROR_STOP makes
+    -- psql exit non-zero instead.
+    DO $abort$ BEGIN RAISE EXCEPTION 'app_password psql variable is not set'; END $abort$;
 \endif
 
-DO
-$$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'raqmi_app') THEN
-        EXECUTE format('CREATE ROLE raqmi_app LOGIN PASSWORD %L', :'app_password');
-    END IF;
-END
-$$;
+-- psql variables are NOT interpolated inside dollar-quoted DO $$ ... $$ bodies,
+-- so the CREATE ROLE statement is built outside any dollar quoting and executed
+-- via \gexec. format(%L) safely quotes the password; the WHERE clause keeps the
+-- script idempotent (zero rows selected => \gexec executes nothing).
+SELECT format('CREATE ROLE raqmi_app LOGIN PASSWORD %L', :'app_password')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'raqmi_app')
+\gexec
 
 -- Schema-level access. USAGE only - no CREATE, so raqmi_app cannot add, alter
 -- or drop tables/objects inside these schemas.
@@ -62,6 +67,15 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA security TO raqmi_a
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA audit TO raqmi_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA organization TO raqmi_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA exploitation TO raqmi_app;
+
+-- EF Core's migrations history table lives at public."__EFMigrationsHistory"
+-- (HasDefaultSchema("raqmi") does not move it). raqmi_app never writes it, but
+-- pg_dump run as raqmi_app (deploy/onpremise/backup-raqmi.ps1) must be able to
+-- read every table in the database or the whole dump aborts with "permission
+-- denied" - and a backup missing this table could not be restored and then
+-- migrated forward. Requires the migrations to have been applied first (the
+-- documented install order guarantees that).
+GRANT SELECT ON TABLE public."__EFMigrationsHistory" TO raqmi_app;
 
 -- Sequences: the current schema uses uuid primary keys (gen_random_uuid()), not
 -- serial/identity columns, so there are none today. Granted anyway so a future
