@@ -12,6 +12,7 @@ using RaqmiSystem.Application.Organization;
 using RaqmiSystem.Application.Revenue;
 using RaqmiSystem.Application.Security;
 using RaqmiSystem.Desktop.Api;
+using RaqmiSystem.Domain.Identity;
 using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Domain.Revenue;
 
@@ -19,9 +20,16 @@ namespace RaqmiSystem.Desktop;
 
 public partial class MainWindow : Window
 {
+    private const string AccessDeniedToolTip = "Accès non autorisé pour votre profil";
+
     private readonly RaqmiApiClient apiClient = new(new HttpClient());
     private IReadOnlyCollection<HotelUnitResponse> hotelUnits = Array.Empty<HotelUnitResponse>();
     private string? editingUnitCode;
+
+    // Permissions de l'utilisateur connecte (cles "units.read", "revenue.read", ...).
+    // Null tant que personne n'est connecte : l'ecran d'accueil est alors dans son
+    // etat par defaut (tout accessible), retabli a chaque deconnexion.
+    private IReadOnlyCollection<string>? currentUserPermissions;
 
     public MainWindow()
     {
@@ -73,7 +81,8 @@ public partial class MainWindow : Window
         OtherTextBox.Text = "0";
         UnitTypeComboBox.ItemsSource = Enum.GetValues<HotelUnitType>();
         ResetUnitForm();
-        SetActiveModuleButton(ShowUnitsButton);
+        RefreshHomeDate();
+        SetActiveModuleButton(ShowHomeButton);
         SetStatus("Connectez-vous pour charger les données de l'API.");
     }
 
@@ -95,13 +104,98 @@ public partial class MainWindow : Window
     {
         // Le style ModuleNavButton (Themes/RaqmiTheme.xaml) reagit a Tag="Active" :
         // barre laterale accent de 3px, teinte douce et texte en semi-gras.
-        foreach (var button in new[] { ShowUnitsButton, ShowRevenueButton, ShowDashboardButton, ShowAuditButton })
+        foreach (var button in new[] { ShowHomeButton, ShowUnitsButton, ShowRevenueButton, ShowDashboardButton, ShowAuditButton })
         {
             button.Tag = ReferenceEquals(button, active) ? "Active" : null;
         }
     }
 
-    // Fondu discret (150 ms) du contenu a chaque changement de module.
+    // Unique chemin de navigation entre modules : selection de l'onglet + mise en
+    // surbrillance du bouton de la sidebar. Utilise par la sidebar ET par les
+    // cartes de l'ecran d'accueil, pour ne jamais desynchroniser les deux.
+    private void NavigateToModule(int tabIndex, Button moduleButton)
+    {
+        MainTabs.SelectedIndex = tabIndex;
+        SetActiveModuleButton(moduleButton);
+    }
+
+    // Date du jour en toutes lettres ("vendredi 29 août 2026") sur l'accueil.
+    private void RefreshHomeDate()
+    {
+        HomeDateTextBlock.Text = DateTime.Today.ToString(
+            "dddd d MMMM yyyy",
+            CultureInfo.GetCultureInfo("fr-FR"));
+    }
+
+    private bool HasModulePermission(string permission)
+    {
+        return currentUserPermissions is null
+            || currentUserPermissions.Contains(permission, StringComparer.OrdinalIgnoreCase);
+    }
+
+    // Aligne l'ecran d'accueil et la sidebar sur les permissions de lecture du
+    // profil connecte : carte/bouton desactives + cadenas + tooltip explicite
+    // quand la permission manque. Appele apres connexion et apres deconnexion
+    // (ou currentUserPermissions est null : tout revient a l'etat par defaut).
+    private void ApplyModulePermissions()
+    {
+        ApplyModuleAccess(PermissionCatalog.UnitsRead, ShowUnitsButton, UnitsTabItem, HomeUnitsCard, null,
+            "Ouvrir le module Unités hôtelières");
+        ApplyModuleAccess(PermissionCatalog.RevenueRead, ShowRevenueButton, RevenueTabItem, HomeRevenueCard, null,
+            "Ouvrir le module Recettes journalières");
+        ApplyModuleAccess(PermissionCatalog.DashboardRead, ShowDashboardButton, DashboardTabItem, HomeDashboardCard, null,
+            "Ouvrir le tableau de bord");
+        ApplyModuleAccess(PermissionCatalog.AuditRead, ShowAuditButton, AuditTabItem, HomeAuditCard, null,
+            "Ouvrir le journal d'audit");
+
+        // Modules "Bientot disponible" : pas de bouton sidebar ni d'onglet, cadenas dedie.
+        ApplyModuleAccess(PermissionCatalog.ClosingRead, null, null, HomeClosingCard, HomeClosingLockIcon,
+            "Clôture journalière - écran en préparation");
+        ApplyModuleAccess(PermissionCatalog.TreasuryRead, null, null, HomeTreasuryCard, HomeTreasuryLockIcon,
+            "Trésorerie - écran en préparation");
+        ApplyModuleAccess(PermissionCatalog.InvoicesRead, null, null, HomeInvoicesCard, HomeInvoicesLockIcon,
+            "Clients & Facturation - écran en préparation");
+    }
+
+    private void ApplyModuleAccess(
+        string permission,
+        Button? navButton,
+        TabItem? tabItem,
+        FrameworkElement card,
+        UIElement? lockIcon,
+        string defaultToolTip)
+    {
+        var allowed = HasModulePermission(permission);
+
+        if (navButton is not null)
+        {
+            navButton.IsEnabled = allowed;
+        }
+
+        // Desactiver aussi le TabItem ferme le chemin clavier Ctrl+Tab / Ctrl+Shift+Tab,
+        // qui cycle les onglets meme quand leurs en-tetes ne sont pas affiches - un
+        // onglet desactive est saute par ce cycle.
+        if (tabItem is not null)
+        {
+            tabItem.IsEnabled = allowed;
+        }
+
+        // Les cartes actives (style ModuleCard) affichent leur cadenas via le
+        // trigger IsEnabled=False du template ; les cartes "Bientot" passent par
+        // le Path dedie fourni en parametre.
+        card.IsEnabled = allowed;
+
+        if (lockIcon is not null)
+        {
+            lockIcon.Visibility = allowed ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        card.ToolTip = allowed ? defaultToolTip : AccessDeniedToolTip;
+    }
+
+    // Fondu discret (150 ms) du contenu a chaque changement de module, et
+    // resynchronisation de la surbrillance de la sidebar : quel que soit le chemin
+    // de navigation (cartes, sidebar, cycle clavier), les deux restent alignes.
     private void MainTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         // SelectionChanged est un evenement routé : ignorer ceux qui remontent des
@@ -109,6 +203,29 @@ public partial class MainWindow : Window
         if (!ReferenceEquals(e.OriginalSource, MainTabs))
         {
             return;
+        }
+
+        var moduleButton = MainTabs.SelectedIndex switch
+        {
+            0 => ShowHomeButton,
+            1 => ShowUnitsButton,
+            2 => ShowRevenueButton,
+            3 => ShowDashboardButton,
+            4 => ShowAuditButton,
+            _ => null
+        };
+
+        if (moduleButton is not null)
+        {
+            // Ceinture et bretelles en plus des TabItem desactives : si un chemin
+            // de navigation futur atteint un module non autorise, retour a l'accueil.
+            if (!moduleButton.IsEnabled)
+            {
+                MainTabs.SelectedIndex = 0;
+                moduleButton = ShowHomeButton;
+            }
+
+            SetActiveModuleButton(moduleButton);
         }
 
         var fade = new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(150))
@@ -140,6 +257,13 @@ public partial class MainWindow : Window
             PasswordBox.Password = string.Empty;
             DesktopSettings.Save(ApiBaseUrlTextBox.Text.Trim());
 
+            // Personnalisation de l'ecran d'accueil + application des permissions
+            // de lecture du profil sur les cartes et la sidebar.
+            currentUserPermissions = login.User.Permissions;
+            HomeGreetingTextBlock.Text = $"Bonjour, {login.User.DisplayName}";
+            RefreshHomeDate();
+            ApplyModulePermissions();
+
             // Memorisation uniquement apres une connexion REUSSIE, pour ne jamais
             // enregistrer des identifiants invalides ; decocher la case efface
             // ce qui avait ete memorise precedemment.
@@ -152,10 +276,29 @@ public partial class MainWindow : Window
                 DesktopSettings.ClearCredentials();
             }
             RefreshAuthState();
+
+            // La session s'ouvre toujours sur l'ecran d'accueil.
+            NavigateToModule(0, ShowHomeButton);
+
             SetStatus("Connexion réussie. Chargement des données...");
-            await LoadHotelUnitsAsync();
-            await LoadDailyRevenueAsync();
-            await LoadUnitDashboardAsync();
+
+            // Ne precharge que les modules que le profil est autorise a lire,
+            // pour ne pas echouer sur un 403 previsible.
+            if (HasModulePermission(PermissionCatalog.UnitsRead))
+            {
+                await LoadHotelUnitsAsync();
+            }
+
+            if (HasModulePermission(PermissionCatalog.RevenueRead))
+            {
+                await LoadDailyRevenueAsync();
+            }
+
+            if (HasModulePermission(PermissionCatalog.DashboardRead))
+            {
+                await LoadUnitDashboardAsync();
+            }
+
             SetStatus("Données chargées.");
         });
     }
@@ -197,8 +340,15 @@ public partial class MainWindow : Window
         ResetUnitForm();
         ResetAmounts();
 
-        MainTabs.SelectedIndex = 0;
-        SetActiveModuleButton(ShowUnitsButton);
+        // L'ecran d'accueil revient a son etat par defaut : salutation neutre,
+        // toutes les cartes et boutons de modules de nouveau accessibles.
+        currentUserPermissions = null;
+        HomeGreetingTextBlock.Text = "Bonjour";
+        RefreshHomeDate();
+        ApplyModulePermissions();
+
+        // A la reconnexion, la session reprendra sur l'ecran d'accueil.
+        NavigateToModule(0, ShowHomeButton);
 
         RefreshAuthState();
         SetStatus("Déconnecté. Reconnectez-vous pour continuer.");
@@ -231,28 +381,54 @@ public partial class MainWindow : Window
         });
     }
 
+    // Ordre des onglets de MainTabs : 0=Accueil, 1=Unités hôtelières,
+    // 2=Recettes journalières, 3=Tableau de bord, 4=Journal d'audit.
+    private void ShowHomeButton_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(0, ShowHomeButton);
+    }
+
     private void ShowUnitsButton_Click(object sender, RoutedEventArgs e)
     {
-        MainTabs.SelectedIndex = 0;
-        SetActiveModuleButton(ShowUnitsButton);
+        NavigateToModule(1, ShowUnitsButton);
     }
 
     private void ShowRevenueButton_Click(object sender, RoutedEventArgs e)
     {
-        MainTabs.SelectedIndex = 1;
-        SetActiveModuleButton(ShowRevenueButton);
+        NavigateToModule(2, ShowRevenueButton);
     }
 
     private void ShowDashboardButton_Click(object sender, RoutedEventArgs e)
     {
-        MainTabs.SelectedIndex = 2;
-        SetActiveModuleButton(ShowDashboardButton);
+        NavigateToModule(3, ShowDashboardButton);
     }
 
     private void ShowAuditButton_Click(object sender, RoutedEventArgs e)
     {
-        MainTabs.SelectedIndex = 3;
-        SetActiveModuleButton(ShowAuditButton);
+        NavigateToModule(4, ShowAuditButton);
+    }
+
+    // Cartes de l'ecran d'accueil : meme navigation que la sidebar. Une carte
+    // sans permission de lecture est desactivee (IsEnabled=False) et ne peut
+    // donc jamais declencher ces handlers.
+    private void HomeUnitsCard_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(1, ShowUnitsButton);
+    }
+
+    private void HomeRevenueCard_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(2, ShowRevenueButton);
+    }
+
+    private void HomeDashboardCard_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(3, ShowDashboardButton);
+    }
+
+    private void HomeAuditCard_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(4, ShowAuditButton);
     }
 
     private async void CreateRevenueButton_Click(object sender, RoutedEventArgs e)
