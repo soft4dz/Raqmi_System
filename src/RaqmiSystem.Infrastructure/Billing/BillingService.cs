@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using RaqmiSystem.Application.Billing;
 using RaqmiSystem.Application.Common;
 using RaqmiSystem.Application.Security;
+using RaqmiSystem.Application.Settings;
 using RaqmiSystem.Domain.Billing;
 using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Infrastructure.Persistence;
@@ -11,7 +12,8 @@ namespace RaqmiSystem.Infrastructure.Billing;
 
 public sealed class BillingService(
     RaqmiDbContext dbContext,
-    IAuditLogWriter auditLogWriter) : IBillingService
+    IAuditLogWriter auditLogWriter,
+    IApplicationSettingsService applicationSettingsService) : IBillingService
 {
     public async Task<IReadOnlyCollection<CustomerResponse>> ListCustomersAsync(
         string? search,
@@ -440,6 +442,22 @@ public sealed class BillingService(
             return ApplicationResult<InvoiceResponse>.Validation("The invoice's customer no longer exists.");
         }
 
+        // The emitter's identity comes from the global settings (module "Parametrage global").
+        // GetAsync never fails and never 404s: on an installation where nothing has been
+        // configured yet it returns the defaults (IsConfigured = false) carrying the placeholder
+        // establishment name. Issuing on top of those defaults would freeze an unidentified
+        // emitter into a legal document AND burn a slot in the numbering sequence, with no
+        // possible correction afterwards, so issuance is refused until the establishment is
+        // identified. The check runs BEFORE any snapshot capture and before the sequence is
+        // allocated: a refused issuance must leave the invoice a pristine Draft.
+        var settings = await applicationSettingsService.GetAsync(cancellationToken);
+        var missingIssuerIdentity = DescribeMissingIssuerIdentity(settings);
+
+        if (missingIssuerIdentity is not null)
+        {
+            return ApplicationResult<InvoiceResponse>.Validation(missingIssuerIdentity);
+        }
+
         var now = DateTimeOffset.UtcNow;
 
         // The legal numbering follows the ISSUE date, not the (backdatable) invoice date:
@@ -459,6 +477,17 @@ public sealed class BillingService(
                 customer.Ai,
                 customer.Nis,
                 customer.Address);
+
+            // Same legal immutability, applied to the EMITTER: a commercial document must
+            // identify who issued it, and a later change to the establishment's own
+            // identification must not rewrite invoices already issued under the previous one.
+            invoice.CaptureIssuerSnapshot(
+                settings.CompanyName,
+                settings.CompanyNif,
+                settings.CompanyRc,
+                settings.CompanyAi,
+                settings.CompanyNis,
+                settings.CompanyAddress);
 
             invoice.Issue(
                 year,
@@ -552,6 +581,52 @@ public sealed class BillingService(
             "finance.invoice.cancelled",
             invoice => invoice.Cancel(request.Reason, context.UserName, DateTimeOffset.UtcNow),
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Tells whether the establishment is identified well enough to appear as the EMITTER of an
+    /// invoice, and describes what is missing when it is not. Two distinct gaps are covered: the
+    /// settings row was never written at all (<c>IsConfigured</c> false, the payload being the
+    /// placeholder defaults), and the row exists but omits mandatory legal mentions - the update
+    /// request only requires a company name, so a "configured" establishment can still be
+    /// fiscally unidentified. Returns null when issuance may proceed.
+    /// </summary>
+    private static string? DescribeMissingIssuerIdentity(ApplicationSettingsResponse settings)
+    {
+        if (!settings.IsConfigured)
+        {
+            return "The establishment's global settings must be filled in before an invoice can be issued.";
+        }
+
+        var missing = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(settings.CompanyNif))
+        {
+            missing.Add("NIF");
+        }
+
+        if (string.IsNullOrWhiteSpace(settings.CompanyRc))
+        {
+            missing.Add("RC");
+        }
+
+        if (string.IsNullOrWhiteSpace(settings.CompanyAi))
+        {
+            missing.Add("AI");
+        }
+
+        if (string.IsNullOrWhiteSpace(settings.CompanyAddress))
+        {
+            missing.Add("address");
+        }
+
+        if (missing.Count == 0)
+        {
+            return null;
+        }
+
+        return "The establishment's legal identification is incomplete and an invoice cannot be issued. " +
+            $"Missing from the global settings: {string.Join(", ", missing)}.";
     }
 
     private async Task<ApplicationResult<InvoiceResponse>> ChangeInvoiceStatusAsync(
@@ -701,6 +776,12 @@ public sealed class BillingService(
             invoice.CancelledAt,
             invoice.CancelledBy,
             invoice.CancellationReason,
+            invoice.IssuerNameSnapshot,
+            invoice.IssuerNifSnapshot,
+            invoice.IssuerRcSnapshot,
+            invoice.IssuerAiSnapshot,
+            invoice.IssuerNisSnapshot,
+            invoice.IssuerAddressSnapshot,
             invoice.CreatedAt,
             invoice.CreatedBy,
             invoice.UpdatedAt,

@@ -5,6 +5,7 @@ using RaqmiSystem.Domain.Closing;
 using RaqmiSystem.Domain.Identity;
 using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Domain.Revenue;
+using RaqmiSystem.Domain.Settings;
 using RaqmiSystem.Domain.Treasury;
 
 namespace RaqmiSystem.Infrastructure.Persistence;
@@ -38,6 +39,13 @@ public sealed class RaqmiDbContext(DbContextOptions<RaqmiDbContext> options) : D
     public DbSet<Invoice> Invoices => Set<Invoice>();
 
     public DbSet<InvoiceLine> InvoiceLines => Set<InvoiceLine>();
+
+    /// <summary>
+    /// Singleton row holding the global configuration (see
+    /// <see cref="Domain.Settings.ApplicationSettings"/>). Named "Settings" rather than
+    /// "ApplicationSettings" so the property name never shadows the entity type.
+    /// </summary>
+    public DbSet<ApplicationSettings> Settings => Set<ApplicationSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

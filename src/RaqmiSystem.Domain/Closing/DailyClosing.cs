@@ -65,16 +65,31 @@ public sealed class DailyClosing : AuditableEntity
         ReopenedBy = RequireActor(userName);
     }
 
-    public void CloseAgain(string userName, DateTimeOffset utcNow)
+    /// <summary>
+    /// Closes a reopened business day again. <paramref name="notes"/> follows the same rule and
+    /// the same maximum length as the notes of the first closing: a value replaces the note kept
+    /// on the entity, so the operator's latest comment is the one stored and displayed. A blank
+    /// value leaves the previous note untouched - the re-closing form starts empty, and erasing
+    /// an existing note must stay a deliberate act rather than a side effect of re-closing.
+    /// </summary>
+    public void CloseAgain(string userName, DateTimeOffset utcNow, string? notes = null)
     {
         if (Status != ClosingStatus.Reopened)
         {
             throw new InvalidOperationException("Only a reopened business day can be closed again.");
         }
 
+        // Validate before mutating so a rejected note leaves the closing untouched.
+        var newNotes = NormalizeOptional(notes, nameof(notes), 1000);
+
         Status = ClosingStatus.Closed;
         ClosedAt = utcNow;
         ClosedBy = RequireActor(userName);
+
+        if (newNotes is not null)
+        {
+            Notes = newNotes;
+        }
 
         // ReopenedAt / ReopenedBy / ReopenReason are intentionally preserved: they document
         // the last reopening cycle of this business day.

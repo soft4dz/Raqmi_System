@@ -106,7 +106,7 @@ public sealed class Customer : AuditableEntity
     {
         Name = RequireValue(name, nameof(name), 200);
         CustomerType = customerType;
-        Nif = NormalizeNif(nif);
+        Nif = NormalizeNif(nif, nameof(nif));
         Rc = NormalizeOptional(rc, nameof(rc), 20);
         Ai = NormalizeOptional(ai, nameof(ai), 20);
         Nis = NormalizeOptional(nis, nameof(nis), 20);
@@ -116,7 +116,13 @@ public sealed class Customer : AuditableEntity
         Email = NormalizeEmail(email);
     }
 
-    private static string? NormalizeNif(string? value)
+    /// <summary>
+    /// Single source of truth for the Algerian NIF rule (exactly 15 digits when provided).
+    /// Exposed because the issuer of a commercial document carries a NIF too
+    /// (<c>ApplicationSettings.CompanyNif</c>): the emitter and the recipient of an invoice are
+    /// held to the same fiscal identifier format, so the rule must not be restated elsewhere.
+    /// </summary>
+    public static string? NormalizeNif(string? value, string argumentName)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -127,7 +133,7 @@ public sealed class Customer : AuditableEntity
 
         if (trimmed.Length != 15 || !trimmed.All(char.IsAsciiDigit))
         {
-            throw new ArgumentException("NIF must be exactly 15 digits.", nameof(value));
+            throw new ArgumentException("NIF must be exactly 15 digits.", argumentName);
         }
 
         return trimmed;

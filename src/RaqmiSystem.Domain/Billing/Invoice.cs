@@ -67,6 +67,25 @@ public sealed class Invoice : AuditableEntity
 
     public string? CustomerAddressSnapshot { get; private set; }
 
+    /// <summary>
+    /// Identity of the EMITTER as it stood at the moment of issuance, frozen by
+    /// <see cref="CaptureIssuerSnapshot"/> from the global application settings. An invoice that
+    /// does not identify who issued it is not a valid commercial document, and later edits to the
+    /// establishment's own identification must no more rewrite an issued invoice than a customer
+    /// rename does. Null while the invoice is a Draft.
+    /// </summary>
+    public string? IssuerNameSnapshot { get; private set; }
+
+    public string? IssuerNifSnapshot { get; private set; }
+
+    public string? IssuerRcSnapshot { get; private set; }
+
+    public string? IssuerAiSnapshot { get; private set; }
+
+    public string? IssuerNisSnapshot { get; private set; }
+
+    public string? IssuerAddressSnapshot { get; private set; }
+
     public DateTimeOffset? PaidAt { get; private set; }
 
     public string? PaidBy { get; private set; }
@@ -129,6 +148,32 @@ public sealed class Invoice : AuditableEntity
         CustomerAddressSnapshot = address;
     }
 
+    /// <summary>
+    /// Freezes the establishment's own identification (the emitter) into the invoice at issue
+    /// time. Must be called while the invoice is still a Draft (immediately before
+    /// <see cref="Issue"/>), exactly like <see cref="CaptureCustomerSnapshot"/>.
+    /// </summary>
+    public void CaptureIssuerSnapshot(
+        string issuerName,
+        string? nif,
+        string? rc,
+        string? ai,
+        string? nis,
+        string? address)
+    {
+        if (Status != InvoiceStatus.Draft)
+        {
+            throw new InvalidOperationException("The issuer snapshot can only be captured on a draft invoice.");
+        }
+
+        IssuerNameSnapshot = RequireValue(issuerName, nameof(issuerName), 200);
+        IssuerNifSnapshot = nif;
+        IssuerRcSnapshot = rc;
+        IssuerAiSnapshot = ai;
+        IssuerNisSnapshot = nis;
+        IssuerAddressSnapshot = address;
+    }
+
     public void Issue(int year, int sequence, string userName, DateTimeOffset utcNow)
     {
         if (Status != InvoiceStatus.Draft)
@@ -139,6 +184,16 @@ public sealed class Invoice : AuditableEntity
         if (_lines.Count == 0)
         {
             throw new InvalidOperationException("An invoice requires at least one line to be issued.");
+        }
+
+        // An invoice that does not identify its emitter is not a valid commercial document, and
+        // the identification is frozen for good at this very moment: there is no later correction
+        // once the number is allocated. The invariant therefore lives here, next to the
+        // "at least one line" rule, rather than only in the caller that reads the settings.
+        if (string.IsNullOrWhiteSpace(IssuerNameSnapshot) || string.IsNullOrWhiteSpace(IssuerNifSnapshot))
+        {
+            throw new InvalidOperationException(
+                "An invoice cannot be issued before the issuing establishment is identified (name and NIF).");
         }
 
         SetNumber(year, sequence);

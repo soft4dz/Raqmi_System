@@ -58,7 +58,8 @@ public sealed class AuthenticationEndpointTests : IClassFixture<RaqmiApiFactory>
             PermissionCatalog.RevenueRead,
             PermissionCatalog.RevenueWrite,
             PermissionCatalog.TreasuryRead,
-            PermissionCatalog.TreasuryWrite
+            PermissionCatalog.TreasuryWrite,
+            PermissionCatalog.SettingsRead
         };
 
         Assert.Equal(expectedPermissions.Order(), body.User.Permissions.Order());
@@ -160,7 +161,8 @@ public sealed class AuthenticationEndpointTests : IClassFixture<RaqmiApiFactory>
             PermissionCatalog.ClosingRead,
             PermissionCatalog.TreasuryApprove,
             PermissionCatalog.CustomersRead,
-            PermissionCatalog.InvoicesRead
+            PermissionCatalog.InvoicesRead,
+            PermissionCatalog.SettingsRead
         };
 
         Assert.Equal(expectedPermissions.Order(), body.Permissions.Order());

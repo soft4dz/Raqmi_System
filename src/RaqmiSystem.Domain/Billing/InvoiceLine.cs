@@ -23,7 +23,7 @@ public sealed class InvoiceLine
         Designation = RequireValue(designation, nameof(designation), 300);
         Quantity = RequireMaxScale(RequireStrictlyPositive(quantity, nameof(quantity)), 3, nameof(quantity));
         UnitPrice = RequireMaxScale(RequirePositiveOrZero(unitPrice, nameof(unitPrice)), 2, nameof(unitPrice));
-        VatRate = RequireAllowedVatRate(vatRate);
+        VatRate = RequireAllowedVatRate(vatRate, nameof(vatRate));
         LineTotalExclVat = RoundMoney(Quantity * UnitPrice);
     }
 
@@ -57,11 +57,17 @@ public sealed class InvoiceLine
         return Math.Round(value, 2, MidpointRounding.AwayFromZero);
     }
 
-    private static decimal RequireAllowedVatRate(decimal vatRate)
+    /// <summary>
+    /// Single source of truth for the Algerian VAT rate rule. Exposed because the rate is also
+    /// carried outside a line - <c>ApplicationSettings.DefaultVatRate</c> pre-fills new lines with
+    /// it, and a default the line constructor would then refuse would be a trap. Both sides must
+    /// validate against the very same list, so neither may restate the rule.
+    /// </summary>
+    public static decimal RequireAllowedVatRate(decimal vatRate, string argumentName)
     {
         if (!AllowedVatRates.Contains(vatRate))
         {
-            throw new ArgumentException("VAT rate must be 0, 9 or 19.", nameof(vatRate));
+            throw new ArgumentException("VAT rate must be 0, 9 or 19.", argumentName);
         }
 
         return vatRate;

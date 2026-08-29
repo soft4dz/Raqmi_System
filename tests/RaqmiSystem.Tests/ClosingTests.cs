@@ -84,6 +84,52 @@ public sealed class ClosingTests
     }
 
     [Fact]
+    public void Reclosing_with_new_notes_replaces_the_previous_ones()
+    {
+        var closing = new DailyClosing(
+            new DateOnly(2026, 2, 1),
+            "EL-MANAR",
+            "night.auditor",
+            DateTimeOffset.UtcNow,
+            "Premiere cloture.");
+
+        closing.Reopen("Ecart de caisse.", "controller", DateTimeOffset.UtcNow);
+        closing.CloseAgain("night.auditor.2", DateTimeOffset.UtcNow, " Ecart corrige, journee recloturee. ");
+
+        Assert.Equal("Ecart corrige, journee recloturee.", closing.Notes);
+    }
+
+    [Fact]
+    public void Reclosing_without_notes_keeps_the_previous_ones()
+    {
+        var closing = new DailyClosing(
+            new DateOnly(2026, 2, 1),
+            "EL-MANAR",
+            "night.auditor",
+            DateTimeOffset.UtcNow,
+            "Premiere cloture.");
+
+        closing.Reopen("Ecart de caisse.", "controller", DateTimeOffset.UtcNow);
+        closing.CloseAgain("night.auditor.2", DateTimeOffset.UtcNow, "   ");
+
+        Assert.Equal("Premiere cloture.", closing.Notes);
+    }
+
+    [Fact]
+    public void Reclosing_rejects_notes_longer_than_the_first_closing_allows()
+    {
+        var closing = CreateClosed();
+        closing.Reopen("Ecart de caisse.", "controller", DateTimeOffset.UtcNow);
+
+        Assert.Throws<ArgumentException>(() =>
+            closing.CloseAgain("night.auditor.2", DateTimeOffset.UtcNow, new string('x', 1001)));
+
+        // The rejected note leaves the closing untouched.
+        Assert.Equal(ClosingStatus.Reopened, closing.Status);
+        Assert.Null(closing.Notes);
+    }
+
+    [Fact]
     public void CloseAgain_requires_a_reopened_status()
     {
         var closing = CreateClosed();

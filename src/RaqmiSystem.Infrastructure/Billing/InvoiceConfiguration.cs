@@ -91,6 +91,32 @@ public sealed class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
             .HasColumnName("customer_address_snapshot")
             .HasMaxLength(200);
 
+        // Identity of the emitter frozen at issue time, read from settings.application_settings.
+        // Lengths mirror the ApplicationSettings company columns.
+        builder.Property(invoice => invoice.IssuerNameSnapshot)
+            .HasColumnName("issuer_name_snapshot")
+            .HasMaxLength(200);
+
+        builder.Property(invoice => invoice.IssuerNifSnapshot)
+            .HasColumnName("issuer_nif_snapshot")
+            .HasMaxLength(20);
+
+        builder.Property(invoice => invoice.IssuerRcSnapshot)
+            .HasColumnName("issuer_rc_snapshot")
+            .HasMaxLength(20);
+
+        builder.Property(invoice => invoice.IssuerAiSnapshot)
+            .HasColumnName("issuer_ai_snapshot")
+            .HasMaxLength(20);
+
+        builder.Property(invoice => invoice.IssuerNisSnapshot)
+            .HasColumnName("issuer_nis_snapshot")
+            .HasMaxLength(20);
+
+        builder.Property(invoice => invoice.IssuerAddressSnapshot)
+            .HasColumnName("issuer_address_snapshot")
+            .HasMaxLength(200);
+
         builder.Property(invoice => invoice.IssuedAt).HasColumnName("issued_at");
         builder.Property(invoice => invoice.IssuedBy).HasColumnName("issued_by").HasMaxLength(160);
         builder.Property(invoice => invoice.PaidAt).HasColumnName("paid_at");

@@ -162,8 +162,18 @@ public sealed class DailyClosingService(
 
         if (existing is not null)
         {
-            // Reopened day: close it again, keeping the reopening trail on the entity.
-            existing.CloseAgain(context.UserName, now);
+            // Reopened day: close it again, keeping the reopening trail on the entity. The notes
+            // sent with the re-closing replace the previous ones (a blank value keeps them), so
+            // the operator's comment is never silently dropped.
+            try
+            {
+                existing.CloseAgain(context.UserName, now, request.Notes);
+            }
+            catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
+            {
+                return ApplicationResult<DailyClosingResponse>.Validation(ex.Message);
+            }
+
             existing.MarkUpdated(context.UserName, now);
 
             await WriteAuditAsync(

@@ -40,6 +40,10 @@ public sealed class BillingEndpointTests : IClassFixture<RaqmiApiFactory>
     [Fact]
     public async Task Invoice_goes_through_the_full_draft_issue_paid_cycle_with_the_right_permissions()
     {
+        // Issuance is refused while the establishment is not identified (see
+        // InvoiceIssuanceIssuerIdentityTests): this module's tests take that identity as given.
+        await _factory.ConfigureApplicationSettingsAsync();
+
         var hotelUnitCode = await _factory.CreateHotelUnitAsync("BILHTL", "Billing Hotel");
 
         await CreateBillingUserAsync(
@@ -144,6 +148,8 @@ public sealed class BillingEndpointTests : IClassFixture<RaqmiApiFactory>
     [Fact]
     public async Task Issuing_two_invoices_of_the_same_year_allocates_sequential_numbers()
     {
+        await _factory.ConfigureApplicationSettingsAsync();
+
         var hotelUnitCode = await _factory.CreateHotelUnitAsync("SEQHTL", "Sequence Hotel");
 
         await CreateBillingUserAsync(

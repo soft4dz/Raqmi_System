@@ -152,6 +152,28 @@ public sealed class BillingTests
     }
 
     [Fact]
+    public void Issuing_an_invoice_without_an_identified_issuer_is_refused()
+    {
+        var invoice = CreateDraft();
+        invoice.ReplaceLines(new[] { new InvoiceLine("Hebergement", 1m, 10_000.00m, 9m) });
+
+        // No issuer snapshot at all: the document would not say who emitted it.
+        Assert.Throws<InvalidOperationException>(() =>
+            invoice.Issue(2026, 1, "issuer", DateTimeOffset.UtcNow));
+
+        // A name alone is not an identification: the NIF is a mandatory mention.
+        invoice.CaptureIssuerSnapshot("Hotel El Manar Spa", null, null, null, null, null);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            invoice.Issue(2026, 1, "issuer", DateTimeOffset.UtcNow));
+
+        // The refusals leave the invoice a pristine draft: no number was burned.
+        Assert.Equal(InvoiceStatus.Draft, invoice.Status);
+        Assert.Null(invoice.Number);
+        Assert.Null(invoice.IssuedSequence);
+    }
+
+    [Fact]
     public void Paid_is_only_reachable_from_issued()
     {
         var draft = CreateDraftWithOneLine();
@@ -216,10 +238,21 @@ public sealed class BillingTests
         return new Invoice("SONATRACH-DZ", "EL-MANAR", new DateOnly(2026, 3, 10));
     }
 
+    /// <summary>
+    /// A draft that is ready to be issued: one line, and an identified emitter - Issue() refuses
+    /// an invoice whose issuer snapshot is missing, exactly as it refuses one without lines.
+    /// </summary>
     private static Invoice CreateDraftWithOneLine()
     {
         var invoice = CreateDraft();
         invoice.ReplaceLines(new[] { new InvoiceLine("Hebergement", 1m, 10_000.00m, 9m) });
+        invoice.CaptureIssuerSnapshot(
+            "Hotel El Manar Spa",
+            "098765432112345",
+            "16/00-1234567B99",
+            "16012345678",
+            "543211234509876",
+            "Boulevard des Martyrs");
         return invoice;
     }
 }

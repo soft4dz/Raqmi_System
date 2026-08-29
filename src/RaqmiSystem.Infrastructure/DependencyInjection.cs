@@ -8,6 +8,7 @@ using RaqmiSystem.Application.Identity;
 using RaqmiSystem.Application.Organization;
 using RaqmiSystem.Application.Revenue;
 using RaqmiSystem.Application.Security;
+using RaqmiSystem.Application.Settings;
 using RaqmiSystem.Application.Treasury;
 using RaqmiSystem.Infrastructure.Audit;
 using RaqmiSystem.Infrastructure.Billing;
@@ -17,6 +18,7 @@ using RaqmiSystem.Infrastructure.Organization;
 using RaqmiSystem.Infrastructure.Persistence;
 using RaqmiSystem.Infrastructure.Revenue;
 using RaqmiSystem.Infrastructure.Security;
+using RaqmiSystem.Infrastructure.Settings;
 using RaqmiSystem.Infrastructure.Treasury;
 
 namespace RaqmiSystem.Infrastructure;
@@ -50,6 +52,7 @@ public static class DependencyInjection
         services.AddScoped<IDailyClosingReadService, DailyClosingService>();
         services.AddScoped<ITreasuryService, TreasuryService>();
         services.AddScoped<IBillingService, BillingService>();
+        services.AddScoped<IApplicationSettingsService, ApplicationSettingsService>();
 
         return services;
     }

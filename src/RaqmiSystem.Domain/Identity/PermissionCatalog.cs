@@ -26,6 +26,8 @@ public static class PermissionCatalog
     public const string InvoicesRead = "invoices.read";
     public const string InvoicesWrite = "invoices.write";
     public const string InvoicesIssue = "invoices.issue";
+    public const string SettingsRead = "settings.read";
+    public const string SettingsWrite = "settings.write";
 
     public static IReadOnlyCollection<PermissionDefinition> All { get; } = new[]
     {
@@ -52,6 +54,8 @@ public static class PermissionCatalog
         new PermissionDefinition(CustomersWrite, "Gerer les clients", "finance", "Creer, modifier, activer ou desactiver les clients."),
         new PermissionDefinition(InvoicesRead, "Lire les factures", "finance", "Consulter les factures de vente."),
         new PermissionDefinition(InvoicesWrite, "Gerer les factures", "finance", "Creer les brouillons de facture, modifier les lignes, encaisser et annuler."),
-        new PermissionDefinition(InvoicesIssue, "Emettre les factures", "finance", "Emettre une facture et allouer son numero definitif.")
+        new PermissionDefinition(InvoicesIssue, "Emettre les factures", "finance", "Emettre une facture et allouer son numero definitif."),
+        new PermissionDefinition(SettingsRead, "Lire le parametrage global", "configuration", "Consulter l'identite de l'etablissement et les parametres d'exploitation."),
+        new PermissionDefinition(SettingsWrite, "Gerer le parametrage global", "configuration", "Modifier l'identite de l'etablissement et les parametres d'exploitation.")
     };
 }

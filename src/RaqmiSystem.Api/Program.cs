@@ -225,6 +225,7 @@ api.MapAuditEndpoints();
 api.MapClosingEndpoints();
 api.MapTreasuryEndpoints();
 api.MapBillingEndpoints();
+api.MapSettingsEndpoints();
 
 app.Run();
 

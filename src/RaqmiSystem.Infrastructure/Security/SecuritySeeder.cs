@@ -9,6 +9,14 @@ public sealed class SecuritySeeder(
     RaqmiDbContext dbContext,
     IPasswordHasher passwordHasher) : ISecuritySeeder
 {
+    /// <summary>
+    /// Note on the global settings (module "Parametrage global"): settings.read is granted to
+    /// every role - the establishment's identity and the exploitation defaults are what all the
+    /// screens display and pre-fill from. settings.write appears in NO list below: only
+    /// system.administrator holds it, through the catch-all grant of PermissionCatalog.All on
+    /// that role, because a change there is engaging for the whole installation (it is the
+    /// identity frozen onto every invoice issued afterwards).
+    /// </summary>
     private static readonly IReadOnlyDictionary<string, string[]> RolePermissions = new Dictionary<string, string[]>
     {
         [RoleCatalog.SystemAdministrator] = PermissionCatalog.All.Select(permission => permission.Key).ToArray(),
@@ -23,7 +31,8 @@ public sealed class SecuritySeeder(
             PermissionCatalog.ClosingRead,
             PermissionCatalog.TreasuryApprove,
             PermissionCatalog.CustomersRead,
-            PermissionCatalog.InvoicesRead
+            PermissionCatalog.InvoicesRead,
+            PermissionCatalog.SettingsRead
         ],
         [RoleCatalog.ExploitationControl] =
         [
@@ -45,7 +54,8 @@ public sealed class SecuritySeeder(
             PermissionCatalog.CustomersWrite,
             PermissionCatalog.InvoicesRead,
             PermissionCatalog.InvoicesWrite,
-            PermissionCatalog.InvoicesIssue
+            PermissionCatalog.InvoicesIssue,
+            PermissionCatalog.SettingsRead
         ],
         [RoleCatalog.UnitManager] =
         [
@@ -59,14 +69,16 @@ public sealed class SecuritySeeder(
             PermissionCatalog.CustomersRead,
             PermissionCatalog.CustomersWrite,
             PermissionCatalog.InvoicesRead,
-            PermissionCatalog.InvoicesWrite
+            PermissionCatalog.InvoicesWrite,
+            PermissionCatalog.SettingsRead
         ],
         [RoleCatalog.Cashier] =
         [
             PermissionCatalog.RevenueRead,
             PermissionCatalog.RevenueWrite,
             PermissionCatalog.TreasuryRead,
-            PermissionCatalog.TreasuryWrite
+            PermissionCatalog.TreasuryWrite,
+            PermissionCatalog.SettingsRead
         ],
         [RoleCatalog.Reader] =
         [
@@ -75,7 +87,8 @@ public sealed class SecuritySeeder(
             PermissionCatalog.DashboardRead,
             PermissionCatalog.ClosingRead,
             PermissionCatalog.CustomersRead,
-            PermissionCatalog.InvoicesRead
+            PermissionCatalog.InvoicesRead,
+            PermissionCatalog.SettingsRead
         ]
     };
 

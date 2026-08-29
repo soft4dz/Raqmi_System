@@ -12,6 +12,7 @@ using RaqmiSystem.Application.Identity;
 using RaqmiSystem.Application.Security;
 using RaqmiSystem.Domain.Identity;
 using RaqmiSystem.Domain.Organization;
+using RaqmiSystem.Domain.Settings;
 using RaqmiSystem.Infrastructure.Persistence;
 
 namespace RaqmiSystem.Tests;
@@ -155,6 +156,49 @@ public sealed class RaqmiApiFactory : WebApplicationFactory<Program>, IAsyncLife
         await dbContext.SaveChangesAsync();
 
         return hotelUnit.Code;
+    }
+
+    /// <summary>
+    /// Writes the global settings singleton directly through the DbContext (bypassing the settings
+    /// API), so tests that need to ISSUE an invoice satisfy the emitter-identity guard without
+    /// having to grant themselves settings.write or incidentally test the settings module.
+    /// Idempotent: the singleton is written at most once per factory, whatever the order xunit
+    /// runs the class's tests in. Defaults describe a fully identified establishment; pass null
+    /// for a mention to reproduce an incompletely configured installation.
+    /// </summary>
+    public async Task ConfigureApplicationSettingsAsync(
+        string companyName = "Hotel El Manar Spa",
+        string? companyNif = "098765432112345",
+        string? companyRc = "16/00-1234567B99",
+        string? companyAi = "16012345678",
+        string? companyNis = "543211234509876",
+        string? companyAddress = "Boulevard des Martyrs",
+        string? companyCity = "Alger")
+    {
+        using var scope = Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<RaqmiDbContext>();
+
+        var existing = await dbContext.Set<ApplicationSettings>()
+            .SingleOrDefaultAsync(current => current.SingletonKey == ApplicationSettings.SingletonKeyValue);
+
+        if (existing is not null)
+        {
+            return;
+        }
+
+        var settings = new ApplicationSettings(
+            companyName,
+            companyNif,
+            companyRc,
+            companyAi,
+            companyNis,
+            companyAddress,
+            companyCity);
+
+        settings.MarkCreated("tests", DateTimeOffset.UtcNow);
+
+        dbContext.Set<ApplicationSettings>().Add(settings);
+        await dbContext.SaveChangesAsync();
     }
 
     /// <summary>
