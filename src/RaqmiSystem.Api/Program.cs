@@ -11,8 +11,24 @@ using RaqmiSystem.Domain.Identity;
 using RaqmiSystem.Infrastructure;
 using RaqmiSystem.Infrastructure.Persistence;
 using RaqmiSystem.Infrastructure.Security;
+using Serilog;
+using Serilog.Events;
+using Serilog.Formatting.Compact;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Structured logging (B9): replaces the default ASP.NET Core console logger with
+// Serilog, writing one compact JSON object per line to stdout. That is what
+// docker-compose.prod.yml (and any external log aggregator reading container
+// stdout) expects, instead of the default human-oriented text format.
+builder.Host.UseSerilog((_, configuration) =>
+{
+    configuration
+        .MinimumLevel.Information()
+        .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+        .Enrich.FromLogContext()
+        .WriteTo.Console(new CompactJsonFormatter());
+});
 
 builder.Configuration.AddEnvironmentVariables(prefix: "RAQMI_");
 
@@ -100,6 +116,20 @@ api.MapPost("/auth/login", async (
     return result is null ? Results.Unauthorized() : Results.Ok(result);
 });
 
+api.MapPost("/auth/refresh", async (
+    RefreshTokenRequest request,
+    IAuthenticationService authenticationService,
+    HttpContext httpContext,
+    CancellationToken cancellationToken) =>
+{
+    var result = await authenticationService.RefreshAsync(
+        request.RefreshToken,
+        httpContext.Connection.RemoteIpAddress?.ToString(),
+        cancellationToken);
+
+    return result is null ? Results.Unauthorized() : Results.Ok(result);
+});
+
 api.MapGet("/me", (ClaimsPrincipal user) =>
 {
     var permissions = user.Claims
@@ -156,8 +186,42 @@ api.MapGet("/security/users", async (RaqmiDbContext db, CancellationToken cancel
     return Results.Ok(users);
 }).RequireAuthorization(PermissionCatalog.UsersRead);
 
+api.MapPost("/security/users/{id:guid}/reset-password", async (
+    Guid id,
+    RaqmiDbContext db,
+    IPasswordHasher passwordHasher,
+    IAuditLogWriter auditLogWriter,
+    HttpContext httpContext,
+    CancellationToken cancellationToken) =>
+{
+    var user = await db.Users.SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
+
+    if (user is null)
+    {
+        return Results.NotFound(new ErrorResponse("User was not found."));
+    }
+
+    // There is no email/SMTP infrastructure in this repository yet, so there is no channel to
+    // deliver the temporary password other than this response. It is generated with a CSPRNG,
+    // hashed before being persisted, never written to the audit log, and the account is flagged
+    // MustChangePassword so it cannot be reused past the administrator's first hand-off.
+    var temporaryPassword = TemporaryPasswordGenerator.Generate();
+    user.SetPasswordHash(passwordHasher.Hash(temporaryPassword), mustChangePassword: true);
+
+    await db.SaveChangesAsync(cancellationToken);
+
+    var context = httpContext.ToOperationContext();
+
+    await auditLogWriter.WriteAsync(
+        new AuditLogEntry(context.UserId, context.UserName, "security.user.password_reset", "security.users", user.Id.ToString(), context.IpAddress, null),
+        cancellationToken);
+
+    return Results.Ok(new ResetPasswordResponse(temporaryPassword));
+}).RequireAuthorization(PermissionCatalog.UsersWrite);
+
 api.MapOrganizationEndpoints();
 api.MapRevenueEndpoints();
+api.MapAuditEndpoints();
 
 app.Run();
 

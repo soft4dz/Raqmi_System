@@ -16,7 +16,8 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
     public LoginResponse CreateToken(
         User user,
         IReadOnlyCollection<string> roles,
-        IReadOnlyCollection<string> permissions)
+        IReadOnlyCollection<string> permissions,
+        string refreshToken)
     {
         var now = DateTimeOffset.UtcNow;
         var expiresAt = now.AddMinutes(_options.AccessTokenMinutes);
@@ -51,6 +52,7 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
         return new LoginResponse(
             accessToken,
             expiresAt,
+            refreshToken,
             new AuthenticatedUser(
                 user.Id,
                 user.UserName,

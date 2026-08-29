@@ -83,13 +83,12 @@ The created administrator is marked with MustChangePassword = true.
 | GET /api/v1/me | Authenticated |
 | GET /api/v1/security/permissions | users.read |
 | GET /api/v1/security/users | users.read |
+| POST /api/v1/security/users/{id}/reset-password | users.write |
+| POST /api/v1/auth/refresh | Public (valid refresh token required) |
+| GET /api/v1/audit | audit.read |
+| POST /api/v1/audit/purge | security.seed |
 | GET /api/v1/revenue/sample-summary | revenue.read |
 
 ## Next security tasks
 
-- Add EF Core migrations generated from the model.
-- Add refresh tokens.
-- Add account lockout after repeated failed logins.
-- Add password reset flow.
 - Add full permission matrix by module.
-- Add audit endpoints with filtering and retention policy.

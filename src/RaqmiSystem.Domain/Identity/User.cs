@@ -4,6 +4,13 @@ namespace RaqmiSystem.Domain.Identity;
 
 public sealed class User : AuditableEntity
 {
+    // Sliding-window lockout policy: 5 failed attempts inside a 15-minute window locks the
+    // account for 15 minutes. Both windows share the same duration for simplicity, but they are
+    // independent concerns (attempt counting vs. lockout length) and can be tuned separately.
+    private static readonly TimeSpan FailedLoginWindow = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
+    private const int MaxFailedLoginAttempts = 5;
+
     private User()
     {
     }
@@ -43,6 +50,12 @@ public sealed class User : AuditableEntity
 
     public DateTimeOffset? LastLoginAt { get; private set; }
 
+    public int FailedLoginAttempts { get; private set; }
+
+    public DateTimeOffset? FailedLoginWindowStartedAt { get; private set; }
+
+    public DateTimeOffset? LockedOutUntil { get; private set; }
+
     public ICollection<UserRole> Roles { get; private set; } = new List<UserRole>();
 
     public void AssignRole(Role role, DateTimeOffset utcNow)
@@ -58,6 +71,40 @@ public sealed class User : AuditableEntity
     public void MarkLogin(DateTimeOffset utcNow)
     {
         LastLoginAt = utcNow;
+    }
+
+    public bool IsLockedOut(DateTimeOffset utcNow)
+    {
+        return LockedOutUntil.HasValue && LockedOutUntil.Value > utcNow;
+    }
+
+    public void RegisterFailedLogin(DateTimeOffset utcNow)
+    {
+        var windowExpired = FailedLoginWindowStartedAt is null
+            || utcNow - FailedLoginWindowStartedAt.Value > FailedLoginWindow;
+
+        if (windowExpired)
+        {
+            FailedLoginWindowStartedAt = utcNow;
+            FailedLoginAttempts = 1;
+        }
+        else
+        {
+            FailedLoginAttempts++;
+        }
+
+        if (FailedLoginAttempts >= MaxFailedLoginAttempts)
+        {
+            LockedOutUntil = utcNow + LockoutDuration;
+        }
+    }
+
+    public void RegisterSuccessfulLogin(DateTimeOffset utcNow)
+    {
+        FailedLoginAttempts = 0;
+        FailedLoginWindowStartedAt = null;
+        LockedOutUntil = null;
+        MarkLogin(utcNow);
     }
 
     public void SetPasswordHash(string passwordHash, bool mustChangePassword)

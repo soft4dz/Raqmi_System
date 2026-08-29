@@ -36,6 +36,7 @@ public static class DependencyInjection
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddScoped<IAuditLogWriter, AuditLogWriter>();
+        services.AddScoped<IAuditQueryService, AuditQueryService>();
         services.AddScoped<ISecuritySeeder, SecuritySeeder>();
         services.AddScoped<IHotelUnitService, HotelUnitService>();
         services.AddScoped<IDailyRevenueService, DailyRevenueService>();

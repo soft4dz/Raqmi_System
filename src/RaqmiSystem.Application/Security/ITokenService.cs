@@ -8,5 +8,6 @@ public interface ITokenService
     LoginResponse CreateToken(
         User user,
         IReadOnlyCollection<string> roles,
-        IReadOnlyCollection<string> permissions);
+        IReadOnlyCollection<string> permissions,
+        string refreshToken);
 }

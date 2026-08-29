@@ -57,6 +57,15 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(user => user.LastLoginAt)
             .HasColumnName("last_login_at");
 
+        builder.Property(user => user.FailedLoginAttempts)
+            .HasColumnName("failed_login_attempts");
+
+        builder.Property(user => user.FailedLoginWindowStartedAt)
+            .HasColumnName("failed_login_window_started_at");
+
+        builder.Property(user => user.LockedOutUntil)
+            .HasColumnName("locked_out_until");
+
         builder.HasIndex(user => user.NormalizedUserName)
             .IsUnique();
 
