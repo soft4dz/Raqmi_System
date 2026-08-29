@@ -1,0 +1,14 @@
+# deploy/backup/raqmi-backup.timer
+#
+# Triggers raqmi-backup.service once a day. See docs/deployment.md for
+# installation steps.
+
+[Unit]
+Description=Run the Raqmi System PostgreSQL backup daily
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,76 @@
+# Production-style compose stack (Postgres + API + Caddy reverse proxy).
+#
+# This file expects a `.env` file next to it, based on `.env.example`, providing
+# RAQMI_POSTGRES_ADMIN_*, RAQMI_POSTGRES__* and RAQMI_JWT__* values. Never
+# commit `.env` — it is already listed in .gitignore. Run locally with:
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Two distinct Postgres accounts are used on purpose (see docs/deployment.md,
+# "Dedicated PostgreSQL application role"):
+#   - RAQMI_POSTGRES_ADMIN_USER/PASSWORD bootstraps the postgres container
+#     itself and is the account migrations / deploy/postgres/create-app-role.sql
+#     run as. It is never read by the API.
+#   - RAQMI_POSTGRES__USER/PASSWORD is the least-privilege `raqmi_app` role
+#     (created by create-app-role.sql) that the running API actually connects
+#     as. This is the only Postgres identity the api service below ever sees.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${RAQMI_POSTGRES__DATABASE}
+      POSTGRES_USER: ${RAQMI_POSTGRES_ADMIN_USER}
+      POSTGRES_PASSWORD: ${RAQMI_POSTGRES_ADMIN_PASSWORD}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${RAQMI_POSTGRES_ADMIN_USER} -d ${RAQMI_POSTGRES__DATABASE}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      RAQMI_POSTGRES__HOST: postgres
+      RAQMI_POSTGRES__PORT: 5432
+      RAQMI_POSTGRES__DATABASE: ${RAQMI_POSTGRES__DATABASE}
+      RAQMI_POSTGRES__USER: ${RAQMI_POSTGRES__USER}
+      RAQMI_POSTGRES__PASSWORD: ${RAQMI_POSTGRES__PASSWORD}
+      RAQMI_JWT__ISSUER: ${RAQMI_JWT__ISSUER}
+      RAQMI_JWT__AUDIENCE: ${RAQMI_JWT__AUDIENCE}
+      RAQMI_JWT__SIGNINGKEY: ${RAQMI_JWT__SIGNINGKEY}
+      RAQMI_JWT__ACCESSTOKENMINUTES: ${RAQMI_JWT__ACCESSTOKENMINUTES}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data_prod:
+  caddy_data:
+  caddy_config:

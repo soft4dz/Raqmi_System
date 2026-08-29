@@ -6,10 +6,10 @@ TestResults/
 coverage/
 artifacts/
 publish/
+deploy/installer/output/
 *.user
 *.suo
 *.db
 *.db-shm
 *.db-wal
 .env
-appsettings.Production.json

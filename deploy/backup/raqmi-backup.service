@@ -1,0 +1,20 @@
+# deploy/backup/raqmi-backup.service
+#
+# Runs deploy/backup/pg-backup.sh once. Paired with raqmi-backup.timer for a
+# daily schedule - see docs/deployment.md for installation steps.
+#
+# Install by copying (or symlinking) both unit files into /etc/systemd/system/
+# on the production VPS, after adjusting WorkingDirectory/User below to match
+# where the repository is actually checked out and which local user owns the
+# docker compose stack.
+
+[Unit]
+Description=Raqmi System PostgreSQL backup
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/raqmi-system
+ExecStart=/opt/raqmi-system/deploy/backup/pg-backup.sh
+User=raqmi

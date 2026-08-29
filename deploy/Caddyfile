@@ -1,0 +1,7 @@
+# Replace raqmi.example.com with the real production domain before deploying.
+# Caddy requests and renews the Let's Encrypt certificate automatically for
+# whichever domain is configured here, as long as it resolves to this host
+# and ports 80/443 are reachable from the internet.
+raqmi.example.com {
+	reverse_proxy api:8080
+}
