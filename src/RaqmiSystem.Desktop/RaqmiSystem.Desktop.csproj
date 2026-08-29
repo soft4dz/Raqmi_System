@@ -16,6 +16,8 @@
               Link="Assets\symbol-white-1024.png" />
     <Resource Include="..\..\assets\brand\raqmi-system\png\symbol-mono-navy-1024.png"
               Link="Assets\symbol-mono-navy-1024.png" />
+    <Resource Include="..\..\assets\brand\raqmi-system\png\symbol-color-1024.png"
+              Link="Assets\symbol-color-1024.png" />
     <Resource Include="..\..\assets\brand\raqmi-system\icons\RaqmiSystem.ico"
               Link="Assets\RaqmiSystem.ico" />
   </ItemGroup>

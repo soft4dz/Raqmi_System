@@ -3,7 +3,9 @@ using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using Microsoft.Win32;
 using RaqmiSystem.Application.Identity;
 using RaqmiSystem.Application.Organization;
@@ -27,6 +29,15 @@ public partial class MainWindow : Window
         ApiBaseUrlTextBox.Text = DesktopSettings.Load();
         InitializeDefaults();
         RefreshAuthState();
+
+        // Focus initial sur le champ Utilisateur de l'ecran de connexion.
+        Loaded += (_, _) =>
+        {
+            if (!apiClient.IsAuthenticated)
+            {
+                UserNameTextBox.Focus();
+            }
+        };
     }
 
     private void InitializeDefaults()
@@ -40,7 +51,7 @@ public partial class MainWindow : Window
         UnitTypeComboBox.ItemsSource = Enum.GetValues<HotelUnitType>();
         ResetUnitForm();
         SetActiveModuleButton(ShowUnitsButton);
-        SetStatus("Connectez vous pour charger les donnees API.");
+        SetStatus("Connectez-vous pour charger les données de l'API.");
     }
 
     // Swaps between the login card and the sidebar+modules content based on whether the
@@ -59,13 +70,30 @@ public partial class MainWindow : Window
     // "Modules" panel - now the only navigation surface - always shows where you are.
     private void SetActiveModuleButton(Button active)
     {
+        // Le style ModuleNavButton (Themes/RaqmiTheme.xaml) reagit a Tag="Active" :
+        // barre laterale accent de 3px, teinte douce et texte en semi-gras.
         foreach (var button in new[] { ShowUnitsButton, ShowRevenueButton, ShowDashboardButton, ShowAuditButton })
         {
-            var isActive = ReferenceEquals(button, active);
-            button.Background = (Brush)FindResource(isActive ? "ModuleActiveBackgroundBrush" : "ModuleInactiveBackgroundBrush");
-            button.BorderBrush = isActive ? (Brush)FindResource("AccentBrush") : (Brush)FindResource("PanelBorderBrush");
-            button.FontWeight = isActive ? FontWeights.SemiBold : FontWeights.Normal;
+            button.Tag = ReferenceEquals(button, active) ? "Active" : null;
         }
+    }
+
+    // Fondu discret (150 ms) du contenu a chaque changement de module.
+    private void MainTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // SelectionChanged est un evenement routé : ignorer ceux qui remontent des
+        // DataGrid/ComboBox internes.
+        if (!ReferenceEquals(e.OriginalSource, MainTabs))
+        {
+            return;
+        }
+
+        var fade = new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(150))
+        {
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+        };
+
+        MainTabs.BeginAnimation(OpacityProperty, fade);
     }
 
     private async void LoginButton_Click(object sender, RoutedEventArgs e)
@@ -86,18 +114,18 @@ public partial class MainWindow : Window
             PasswordBox.Password = string.Empty;
             DesktopSettings.Save(ApiBaseUrlTextBox.Text.Trim());
             RefreshAuthState();
-            SetStatus("Connexion reussie. Chargement des donnees...");
+            SetStatus("Connexion réussie. Chargement des données...");
             await LoadHotelUnitsAsync();
             await LoadDailyRevenueAsync();
             await LoadUnitDashboardAsync();
-            SetStatus("Donnees chargees.");
+            SetStatus("Données chargées.");
         });
     }
 
     private void LogoutButton_Click(object sender, RoutedEventArgs e)
     {
         apiClient.Logout();
-        CurrentUserTextBlock.Text = "Non connecte";
+        CurrentUserTextBlock.Text = "Non connecté";
         PasswordBox.Password = string.Empty;
 
         // Clear every grid/summary/form surface so the previous user's data never
@@ -131,7 +159,7 @@ public partial class MainWindow : Window
         SetActiveModuleButton(ShowUnitsButton);
 
         RefreshAuthState();
-        SetStatus("Deconnecte. Reconnectez-vous pour continuer.");
+        SetStatus("Déconnecté. Reconnectez-vous pour continuer.");
     }
 
     private async void RefreshUnitsButton_Click(object sender, RoutedEventArgs e)
@@ -139,7 +167,7 @@ public partial class MainWindow : Window
         await RunApiActionAsync(async () =>
         {
             await LoadHotelUnitsAsync();
-            SetStatus("Liste des unites actualisee.");
+            SetStatus("Liste des unités actualisée.");
         });
     }
 
@@ -148,7 +176,7 @@ public partial class MainWindow : Window
         await RunApiActionAsync(async () =>
         {
             await LoadDailyRevenueAsync();
-            SetStatus("Liste des recettes actualisee.");
+            SetStatus("Liste des recettes actualisée.");
         });
     }
 
@@ -157,7 +185,7 @@ public partial class MainWindow : Window
         await RunApiActionAsync(async () =>
         {
             await LoadUnitDashboardAsync();
-            SetStatus("Tableau de bord actualise.");
+            SetStatus("Tableau de bord actualisé.");
         });
     }
 
@@ -216,8 +244,8 @@ public partial class MainWindow : Window
             ResetAmounts();
 
             SetStatus(submitAfterCreate
-                ? "Recette creee et soumise au controle."
-                : "Recette creee en brouillon.");
+                ? "Recette créée et soumise au contrôle."
+                : "Recette créée en brouillon.");
         });
     }
 
@@ -303,8 +331,8 @@ public partial class MainWindow : Window
             {
                 DailyRevenueStatus.Draft => "Brouillon",
                 DailyRevenueStatus.Submitted => "Soumis - en attente de validation",
-                DailyRevenueStatus.Validated => "Valide",
-                DailyRevenueStatus.Rejected => "Rejete",
+                DailyRevenueStatus.Validated => "Validé",
+                DailyRevenueStatus.Rejected => "Rejeté",
                 _ => "Saisi"
             };
 
@@ -330,7 +358,7 @@ public partial class MainWindow : Window
         await RunApiActionAsync(async () =>
         {
             await LoadAuditLogAsync();
-            SetStatus("Journal d'audit actualise.");
+            SetStatus("Journal d'audit actualisé.");
         });
     }
 
@@ -353,8 +381,8 @@ public partial class MainWindow : Window
         AuditDataGrid.ItemsSource = result.Items;
 
         AuditResultCountTextBlock.Text = result.TotalCount > result.Items.Count
-            ? $"Affichage de {result.Items.Count} sur {result.TotalCount} entrees. Affinez les filtres pour voir les entrees plus anciennes."
-            : $"{result.TotalCount} entree(s).";
+            ? $"Affichage de {result.Items.Count} sur {result.TotalCount} entrées. Affinez les filtres pour voir les entrées plus anciennes."
+            : $"{result.TotalCount} entrée(s).";
     }
 
     private async void ValidateRevenueButton_Click(object sender, RoutedEventArgs e)
@@ -363,13 +391,13 @@ public partial class MainWindow : Window
         {
             if (DailyRevenueDataGrid.SelectedItem is not DailyRevenueResponse selected)
             {
-                SetStatus("Selectionnez une recette a valider.", isError: true);
+                SetStatus("Sélectionnez une recette à valider.", isError: true);
                 return;
             }
 
             await apiClient.ValidateDailyRevenueAsync(ApiBaseUrlTextBox.Text, selected.Id);
             await LoadDailyRevenueAsync();
-            SetStatus("Recette validee.");
+            SetStatus("Recette validée.");
         });
     }
 
@@ -379,7 +407,7 @@ public partial class MainWindow : Window
         {
             if (DailyRevenueDataGrid.SelectedItem is not DailyRevenueResponse selected)
             {
-                SetStatus("Selectionnez une recette a rejeter.", isError: true);
+                SetStatus("Sélectionnez une recette à rejeter.", isError: true);
                 return;
             }
 
@@ -394,7 +422,7 @@ public partial class MainWindow : Window
             await apiClient.RejectDailyRevenueAsync(ApiBaseUrlTextBox.Text, selected.Id, new RejectDailyRevenueRequest(reason));
             RejectReasonTextBox.Text = string.Empty;
             await LoadDailyRevenueAsync();
-            SetStatus("Recette rejetee.");
+            SetStatus("Recette rejetée.");
         });
     }
 
@@ -406,7 +434,7 @@ public partial class MainWindow : Window
 
         if (rows.Count == 0)
         {
-            SetStatus("Aucune recette a exporter.", isError: true);
+            SetStatus("Aucune recette à exporter.", isError: true);
             return;
         }
 
@@ -425,11 +453,11 @@ public partial class MainWindow : Window
         {
             var csv = CsvExportHelper.BuildDailyRevenueCsv(rows);
             CsvExportHelper.WriteCsvFile(dialog.FileName, csv);
-            SetStatus("Export CSV termine.");
+            SetStatus("Export CSV terminé.");
         }
         catch (Exception ex)
         {
-            SetStatus($"Echec de l'export CSV: {ex.Message}", isError: true);
+            SetStatus($"Échec de l'export CSV : {ex.Message}", isError: true);
         }
     }
 
@@ -448,11 +476,11 @@ public partial class MainWindow : Window
             var document = BuildDailyRevenuePrintDocument(rows);
 
             printDialog.PrintDocument(((IDocumentPaginatorSource)document).DocumentPaginator, "Raqmi System - Recettes journalieres");
-            SetStatus("Document envoye a l'imprimante.");
+            SetStatus("Document envoyé à l'imprimante.");
         }
         catch (Exception ex)
         {
-            SetStatus($"Echec de l'impression: {ex.Message}", isError: true);
+            SetStatus($"Échec de l'impression : {ex.Message}", isError: true);
         }
     }
 
@@ -470,12 +498,12 @@ public partial class MainWindow : Window
             FontWeight = FontWeights.SemiBold
         });
 
-        document.Blocks.Add(new Paragraph(new Run($"Date exploitation: {GetSelectedBusinessDate():yyyy-MM-dd}")));
+        document.Blocks.Add(new Paragraph(new Run($"Date d'exploitation : {GetSelectedBusinessDate():yyyy-MM-dd}")));
 
         document.Blocks.Add(new Paragraph(new Run(
             $"Total: {SummaryTotalTextBlock.Text}  |  Brouillons: {SummaryDraftTextBlock.Text}  |  " +
-            $"Soumises: {SummarySubmittedTextBlock.Text}  |  Validees: {SummaryValidatedTextBlock.Text}  |  " +
-            $"Rejetees: {SummaryRejectedTextBlock.Text}"))
+            $"Soumises: {SummarySubmittedTextBlock.Text}  |  Validées: {SummaryValidatedTextBlock.Text}  |  " +
+            $"Rejetées: {SummaryRejectedTextBlock.Text}"))
         {
             Margin = new Thickness(0, 4, 0, 16)
         });
@@ -492,7 +520,7 @@ public partial class MainWindow : Window
 
         var headerRow = new TableRow { FontWeight = FontWeights.SemiBold };
 
-        foreach (var header in new[] { "Date", "Unite", "Hebergement", "Restauration", "Boissons", "Autres", "Total", "Statut", "Saisi par" })
+        foreach (var header in new[] { "Date", "Unité", "Hébergement", "Restauration", "Boissons", "Autres", "Total", "Statut", "Saisi par" })
         {
             headerRow.Cells.Add(new TableCell(new Paragraph(new Run(header))) { Padding = new Thickness(4) });
         }
@@ -512,7 +540,7 @@ public partial class MainWindow : Window
                 row.Beverage.ToString("N2", CultureInfo.CurrentCulture),
                 row.Other.ToString("N2", CultureInfo.CurrentCulture),
                 row.Total.ToString("N2", CultureInfo.CurrentCulture),
-                row.Status.ToString(),
+                DailyRevenueStatusDisplay.ToFrench(row.Status),
                 row.CreatedBy
             })
             {
@@ -533,7 +561,7 @@ public partial class MainWindow : Window
 
         if (rows.Count == 0)
         {
-            SetStatus("Aucune entree d'audit a exporter.", isError: true);
+            SetStatus("Aucune entrée d'audit à exporter.", isError: true);
             return;
         }
 
@@ -552,11 +580,11 @@ public partial class MainWindow : Window
         {
             var csv = CsvExportHelper.BuildAuditLogCsv(rows);
             CsvExportHelper.WriteCsvFile(dialog.FileName, csv);
-            SetStatus("Export CSV termine.");
+            SetStatus("Export CSV terminé.");
         }
         catch (Exception ex)
         {
-            SetStatus($"Echec de l'export CSV: {ex.Message}", isError: true);
+            SetStatus($"Échec de l'export CSV : {ex.Message}", isError: true);
         }
     }
 
@@ -585,13 +613,13 @@ public partial class MainWindow : Window
     private void ResetUnitForm()
     {
         editingUnitCode = null;
-        UnitFormTitleTextBlock.Text = "Nouvelle unite";
+        UnitFormTitleTextBlock.Text = "Nouvelle unité";
         UnitCodeTextBox.Text = string.Empty;
         UnitCodeTextBox.IsEnabled = true;
         UnitNameTextBox.Text = string.Empty;
         UnitTypeComboBox.SelectedItem = HotelUnitType.Hotel;
         UnitDisplayOrderTextBox.Text = "0";
-        SaveUnitButton.Content = "Creer";
+        SaveUnitButton.Content = "Créer";
         UnitsDataGrid.SelectedItem = null;
     }
 
@@ -610,13 +638,13 @@ public partial class MainWindow : Window
 
             if (UnitTypeComboBox.SelectedItem is not HotelUnitType unitType)
             {
-                SetStatus("Selectionnez un type d unite.", isError: true);
+                SetStatus("Sélectionnez un type d'unité.", isError: true);
                 return;
             }
 
             if (!int.TryParse(UnitDisplayOrderTextBox.Text.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out var displayOrder))
             {
-                SetStatus("L ordre d affichage doit etre un nombre entier.", isError: true);
+                SetStatus("L'ordre d'affichage doit être un nombre entier.", isError: true);
                 return;
             }
 
@@ -625,7 +653,7 @@ public partial class MainWindow : Window
                 await apiClient.CreateHotelUnitAsync(
                     ApiBaseUrlTextBox.Text,
                     new CreateHotelUnitRequest(code, name, unitType, displayOrder));
-                SetStatus("Unite creee.");
+                SetStatus("Unité créée.");
             }
             else
             {
@@ -633,7 +661,7 @@ public partial class MainWindow : Window
                     ApiBaseUrlTextBox.Text,
                     editingUnitCode,
                     new UpdateHotelUnitRequest(name, unitType, displayOrder));
-                SetStatus("Unite mise a jour.");
+                SetStatus("Unité mise à jour.");
             }
 
             ResetUnitForm();
@@ -657,13 +685,13 @@ public partial class MainWindow : Window
         {
             if (UnitsDataGrid.SelectedItem is not HotelUnitResponse selected)
             {
-                SetStatus("Selectionnez une unite.", isError: true);
+                SetStatus("Sélectionnez une unité.", isError: true);
                 return;
             }
 
             await apiClient.SetHotelUnitActiveAsync(ApiBaseUrlTextBox.Text, selected.Code, isActive);
             await LoadHotelUnitsAsync();
-            SetStatus(isActive ? "Unite activee." : "Unite desactivee.");
+            SetStatus(isActive ? "Unité activée." : "Unité désactivée.");
         });
     }
 
@@ -671,11 +699,11 @@ public partial class MainWindow : Window
     {
         if (RevenueUnitComboBox.SelectedItem is not HotelUnitResponse selectedUnit)
         {
-            SetStatus("Selectionnez une unite hoteliere.", isError: true);
+            SetStatus("Sélectionnez une unité hôtelière.", isError: true);
             return null;
         }
 
-        if (!TryReadMoney(AccommodationTextBox, "Hebergement", out var accommodation) ||
+        if (!TryReadMoney(AccommodationTextBox, "Hébergement", out var accommodation) ||
             !TryReadMoney(FoodTextBox, "Restauration", out var food) ||
             !TryReadMoney(BeverageTextBox, "Boissons", out var beverage) ||
             !TryReadMoney(OtherTextBox, "Autres", out var other))
@@ -702,14 +730,14 @@ public partial class MainWindow : Window
         {
             if (value < 0)
             {
-                SetStatus($"{label} ne peut pas etre negatif.", isError: true);
+                SetStatus($"{label} ne peut pas être négatif.", isError: true);
                 return false;
             }
 
             return true;
         }
 
-        SetStatus($"{label} doit etre un montant valide.", isError: true);
+        SetStatus($"{label} doit être un montant valide.", isError: true);
         return false;
     }
 
@@ -742,7 +770,7 @@ public partial class MainWindow : Window
         }
         catch (HttpRequestException ex)
         {
-            SetStatus($"API indisponible: {ex.Message}", isError: true);
+            SetStatus($"API indisponible : {ex.Message}", isError: true);
         }
         catch (InvalidOperationException ex)
         {
@@ -756,6 +784,7 @@ public partial class MainWindow : Window
 
     private void SetBusy(bool isBusy)
     {
+        Mouse.OverrideCursor = isBusy ? Cursors.Wait : null;
         BusyProgressBar.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
         LoginBusyProgressBar.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
         LoginButton.IsEnabled = !isBusy;
@@ -778,11 +807,15 @@ public partial class MainWindow : Window
     // exactly one of the two is ever on screen at a time, so this never reads as duplicated.
     private void SetStatus(string message, bool isError = false)
     {
-        var brush = isError ? Brushes.Firebrick : Brushes.SlateGray;
-
         StatusTextBlock.Text = message;
-        StatusTextBlock.Foreground = brush;
+        StatusTextBlock.Foreground = (Brush)FindResource(isError ? "DangerBrush" : "TextSecondaryBrush");
+
+        // Sur la carte de connexion, le message est presente dans un encart stylise
+        // dont l'apparence (info/erreur) est pilotee par le Tag (voir MainWindow.xaml).
         LoginStatusTextBlock.Text = message;
-        LoginStatusTextBlock.Foreground = brush;
+        LoginStatusBorder.Tag = isError ? "Error" : "Info";
+        LoginStatusBorder.Visibility = string.IsNullOrWhiteSpace(message)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
     }
 }

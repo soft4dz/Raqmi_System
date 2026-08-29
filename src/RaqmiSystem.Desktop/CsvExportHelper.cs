@@ -17,7 +17,7 @@ public static class CsvExportHelper
     public static string BuildDailyRevenueCsv(IEnumerable<DailyRevenueResponse> rows)
     {
         var builder = new StringBuilder();
-        AppendRow(builder, "Date", "Unite", "Hebergement", "Restauration", "Boissons", "Autres", "Total", "Statut", "Saisi par");
+        AppendRow(builder, "Date", "Unité", "Hébergement", "Restauration", "Boissons", "Autres", "Total", "Statut", "Saisi par");
 
         foreach (var row in rows)
         {
@@ -34,7 +34,7 @@ public static class CsvExportHelper
                 row.Beverage.ToString("F2", CultureInfo.InvariantCulture),
                 row.Other.ToString("F2", CultureInfo.InvariantCulture),
                 row.Total.ToString("F2", CultureInfo.InvariantCulture),
-                row.Status.ToString(),
+                DailyRevenueStatusDisplay.ToFrench(row.Status),
                 row.CreatedBy);
         }
 
@@ -44,7 +44,7 @@ public static class CsvExportHelper
     public static string BuildAuditLogCsv(IEnumerable<AuditLogSummary> rows)
     {
         var builder = new StringBuilder();
-        AppendRow(builder, "Date/heure", "Utilisateur", "Action", "Entite", "Id entite", "Adresse IP");
+        AppendRow(builder, "Date/heure", "Utilisateur", "Action", "Entité", "Id entité", "Adresse IP");
 
         foreach (var row in rows)
         {

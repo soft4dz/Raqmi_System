@@ -7,105 +7,8 @@
         Width="1240"
         MinHeight="680"
         MinWidth="1100"
-        FontFamily="Manrope, Noto Kufi Arabic, Segoe UI"
-        Background="#F4F7FA">
-    <Window.Resources>
-        <SolidColorBrush x:Key="StructureBrush" Color="#071525" />
-        <SolidColorBrush x:Key="PrimaryBrush" Color="#073B78" />
-        <SolidColorBrush x:Key="SecondaryBrush" Color="#145CAB" />
-        <SolidColorBrush x:Key="AccentBrush" Color="#0AA3AD" />
-        <SolidColorBrush x:Key="MutedBrush" Color="#4A6A87" />
-        <SolidColorBrush x:Key="PanelBorderBrush" Color="#DCE6EF" />
-        <!-- Muted light-blue text for use on the dark StructureBrush header (subtitle,
-             de-emphasized labels) - named so it is a deliberate palette choice, not a
-             floating hex value. -->
-        <SolidColorBrush x:Key="HeaderMutedBrush" Color="#9FC3DC" />
-
-        <!-- Tinted state for the currently selected item in the "Modules" sidebar nav;
-             derived from AccentBrush (background tint + left border) and PrimaryBrush
-             (text), so the active module reads clearly against the other three. -->
-        <SolidColorBrush x:Key="ModuleInactiveBackgroundBrush" Color="#EEF4F8" />
-        <SolidColorBrush x:Key="ModuleActiveBackgroundBrush" Color="#4D0AA3AD" />
-
-        <Style x:Key="LabelText" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#475569" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Margin" Value="0,0,0,6" />
-        </Style>
-
-        <Style TargetType="TextBox">
-            <Setter Property="MinHeight" Value="34" />
-            <Setter Property="Padding" Value="10,6" />
-            <Setter Property="BorderBrush" Value="#DCE6EF" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-        </Style>
-
-        <Style TargetType="PasswordBox">
-            <Setter Property="MinHeight" Value="34" />
-            <Setter Property="Padding" Value="10,6" />
-            <Setter Property="BorderBrush" Value="#DCE6EF" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-        </Style>
-
-        <Style TargetType="ComboBox">
-            <Setter Property="MinHeight" Value="34" />
-            <Setter Property="Padding" Value="8,5" />
-        </Style>
-
-        <Style TargetType="DatePicker">
-            <Setter Property="MinHeight" Value="34" />
-        </Style>
-
-        <Style x:Key="PrimaryButton" TargetType="Button">
-            <Setter Property="MinHeight" Value="34" />
-            <Setter Property="Padding" Value="16,6" />
-            <Setter Property="Background" Value="#0AA3AD" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="BorderBrush" Value="#0AA3AD" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Cursor" Value="Hand" />
-        </Style>
-
-        <Style x:Key="SecondaryButton" TargetType="Button">
-            <Setter Property="MinHeight" Value="34" />
-            <Setter Property="Padding" Value="14,6" />
-            <Setter Property="Background" Value="#EEF4F8" />
-            <Setter Property="Foreground" Value="#073B78" />
-            <Setter Property="BorderBrush" Value="#DCE6EF" />
-            <Setter Property="Cursor" Value="Hand" />
-        </Style>
-
-        <Style TargetType="DataGrid">
-            <Setter Property="AutoGenerateColumns" Value="False" />
-            <Setter Property="CanUserAddRows" Value="False" />
-            <Setter Property="IsReadOnly" Value="True" />
-            <Setter Property="GridLinesVisibility" Value="Horizontal" />
-            <Setter Property="HeadersVisibility" Value="Column" />
-            <Setter Property="RowHeight" Value="34" />
-            <Setter Property="BorderBrush" Value="#DCE6EF" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="AlternatingRowBackground" Value="#F4F7FA" />
-        </Style>
-
-        <!-- The sidebar "Modules" panel is the single navigation surface (see MainTabs below);
-             this template strips the TabControl down to just its content host so the native
-             tab strip never renders a second, redundant set of the same four labels. -->
-        <Style TargetType="TabControl">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TabControl">
-                        <Grid>
-                            <ContentPresenter x:Name="PART_SelectedContentHost"
-                                              ContentSource="SelectedContent" />
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-    </Window.Resources>
+        FontFamily="{StaticResource AppFontFamily}"
+        Background="{StaticResource AppBackgroundBrush}">
 
     <Grid>
         <Grid.RowDefinitions>
@@ -113,6 +16,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <!-- ============================== En-tete ============================== -->
         <Border Grid.Row="0" Background="{StaticResource StructureBrush}" Padding="24,0">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -128,361 +32,385 @@
                            Margin="0,0,12,0" />
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="Raqmi System"
-                                   Foreground="White"
-                                   FontSize="22"
+                                   Foreground="{StaticResource HeaderForegroundBrush}"
+                                   FontSize="21"
                                    FontWeight="SemiBold" />
-                        <TextBlock Text="Un systeme. Toute votre entreprise."
+                        <TextBlock Text="Un système. Toute votre entreprise."
                                    Foreground="{StaticResource HeaderMutedBrush}"
                                    FontSize="12" />
                     </StackPanel>
                 </StackPanel>
 
-                <!-- Only shown once connected: the previous build kept the full login form
-                     (API/Utilisateur/Mot de passe/Connexion) here at all times, side by side
-                     with an app that stayed fully interactive while logged out. Logged-in
-                     state now collapses to just the identity + a real sign-out action. -->
+                <!-- Visible uniquement une fois connecté : identité + déconnexion. -->
                 <StackPanel x:Name="HeaderSessionPanel"
                             Grid.Column="1"
                             Orientation="Horizontal"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Center"
                             Visibility="Collapsed">
+                    <Ellipse Width="8"
+                             Height="8"
+                             Fill="{StaticResource AccentBrush}"
+                             VerticalAlignment="Center"
+                             Margin="0,0,9,0" />
                     <TextBlock x:Name="CurrentUserTextBlock"
-                               Text="Non connecte"
-                               Foreground="White"
+                               Text="Non connecté"
+                               Foreground="{StaticResource HeaderForegroundBrush}"
                                FontSize="13"
                                VerticalAlignment="Center"
                                Margin="0,0,18,0" />
                     <Button x:Name="LogoutButton"
-                            Content="Deconnexion"
-                            Style="{StaticResource SecondaryButton}"
+                            Content="Déconnexion"
+                            Style="{StaticResource HeaderGhostButton}"
+                            ToolTip="Fermer la session en cours"
                             Click="LogoutButton_Click" />
                 </StackPanel>
             </Grid>
         </Border>
 
         <Grid Grid.Row="1">
-            <!-- Not connected: a real sign-in screen instead of the old squeezed-into-the-
-                 header form, with the rest of the app (sidebar + modules) hidden rather than
-                 sitting there fully clickable behind it. -->
+            <!-- ====================== Écran de connexion ====================== -->
+            <!-- Plein écran sur fond structure, filigrane de marque, carte élevée
+                 avec animation d'apparition. Le code-behind bascule la visibilité
+                 de LoginCardBorder (l'ensemble de la scène) et de MainContentGrid. -->
             <Border x:Name="LoginCardBorder"
-                    Background="White"
-                    BorderBrush="{StaticResource PanelBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="12"
-                    Padding="36,32"
-                    Width="380"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center">
-                <Border.Effect>
-                    <DropShadowEffect Color="#071525" Direction="270" ShadowDepth="6" BlurRadius="28" Opacity="0.14" />
-                </Border.Effect>
-                <StackPanel>
-                    <Image Source="Assets/symbol-mono-navy-1024.png"
-                           Width="38"
-                           Height="38"
-                           Stretch="Uniform"
-                           HorizontalAlignment="Left"
-                           Margin="0,0,0,20" />
-
-                    <TextBlock Text="Connexion"
-                               FontSize="24"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource StructureBrush}" />
-                    <TextBlock Text="Accedez a votre espace Raqmi System"
-                               Foreground="{StaticResource MutedBrush}"
-                               TextWrapping="Wrap"
-                               Margin="0,4,0,26" />
-
-                    <TextBlock Text="Utilisateur" Style="{StaticResource LabelText}" />
-                    <TextBox x:Name="UserNameTextBox" Margin="0,0,0,16" />
-
-                    <TextBlock Text="Mot de passe" Style="{StaticResource LabelText}" />
-                    <PasswordBox x:Name="PasswordBox" Margin="0,0,0,26" />
-
-                    <Button x:Name="LoginButton"
-                            Content="Se connecter"
-                            Style="{StaticResource PrimaryButton}"
-                            Click="LoginButton_Click" />
-
-                    <ProgressBar x:Name="LoginBusyProgressBar"
-                                 Height="3"
-                                 IsIndeterminate="True"
-                                 Visibility="Collapsed"
-                                 Margin="0,16,0,0" />
-
-                    <TextBlock x:Name="LoginStatusTextBlock"
-                               Text=""
-                               Foreground="{StaticResource MutedBrush}"
-                               TextWrapping="Wrap"
-                               Margin="0,12,0,0" />
-
-                    <Border BorderBrush="{StaticResource PanelBorderBrush}"
-                            BorderThickness="0,1,0,0"
-                            Margin="0,26,0,16" />
-
-                    <TextBlock Text="URL de l'API"
-                               Foreground="{StaticResource MutedBrush}"
-                               FontSize="11"
-                               Margin="0,0,0,4" />
-                    <TextBox x:Name="ApiBaseUrlTextBox"
-                             FontSize="11"
-                             MinHeight="28"
-                             Padding="8,4" />
-                </StackPanel>
-            </Border>
-
-            <!-- Connected: the sidebar is now the only navigation surface (see the TabControl
-                 template above) and shows which module is active via SetActiveModuleButton. -->
-            <Grid x:Name="MainContentGrid" Margin="24" Visibility="Collapsed">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="250" />
-                <ColumnDefinition Width="20" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-            <Border Background="White"
-                    BorderBrush="{StaticResource PanelBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="18">
+                    Background="{StaticResource LoginBackdropBrush}">
                 <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+                    <!-- Filigrane : symbole Q/ق de la marque -->
+                    <Image Source="Assets/symbol-white-1024.png"
+                           Width="520"
+                           Height="520"
+                           Stretch="Uniform"
+                           Opacity="0.05"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Bottom"
+                           Margin="0,0,-110,-130" />
+                    <Image Source="Assets/symbol-white-1024.png"
+                           Width="220"
+                           Height="220"
+                           Stretch="Uniform"
+                           Opacity="0.04"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Top"
+                           Margin="-60,-50,0,0" />
 
-                    <StackPanel>
-                        <TextBlock Text="Modules"
-                                   FontWeight="SemiBold"
-                                   FontSize="18"
-                                   Margin="0,0,0,14" />
-                        <Button x:Name="ShowUnitsButton"
-                                Content="Unites hotelieres"
-                                Style="{StaticResource SecondaryButton}"
-                                HorizontalContentAlignment="Left"
-                                Margin="0,0,0,6"
-                                Click="ShowUnitsButton_Click" />
-                        <Button x:Name="ShowRevenueButton"
-                                Content="Recettes journalieres"
-                                Style="{StaticResource SecondaryButton}"
-                                HorizontalContentAlignment="Left"
-                                Margin="0,0,0,6"
-                                Click="ShowRevenueButton_Click" />
-                        <Button x:Name="ShowDashboardButton"
-                                Content="Tableau de bord"
-                                Style="{StaticResource SecondaryButton}"
-                                HorizontalContentAlignment="Left"
-                                Margin="0,0,0,6"
-                                Click="ShowDashboardButton_Click" />
-                        <Button x:Name="ShowAuditButton"
-                                Content="Journal d'audit"
-                                Style="{StaticResource SecondaryButton}"
-                                HorizontalContentAlignment="Left"
-                                Margin="0,0,0,6"
-                                Click="ShowAuditButton_Click" />
-                    </StackPanel>
-
-                    <StackPanel Grid.Row="2">
-                        <Border BorderBrush="{StaticResource PanelBorderBrush}"
-                                BorderThickness="0,1,0,0"
-                                Margin="0,0,0,14" />
-                        <ProgressBar x:Name="BusyProgressBar"
-                                     Height="4"
-                                     IsIndeterminate="True"
-                                     Visibility="Collapsed"
-                                     Margin="0,0,0,12" />
-                        <TextBlock Text="Session"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource StructureBrush}"
-                                   Margin="0,0,0,6" />
-                        <TextBlock x:Name="StatusTextBlock"
-                                   Text="Pret."
-                                   Foreground="{StaticResource MutedBrush}"
-                                   TextWrapping="Wrap" />
-                    </StackPanel>
-                </Grid>
-            </Border>
-
-            <TabControl x:Name="MainTabs"
-                        Grid.Column="2"
-                        Background="Transparent"
-                        BorderThickness="0">
-                <TabItem Header="Unites hotelieres">
-                    <Border Background="White"
+                    <Border Background="{StaticResource SurfaceBrush}"
                             BorderBrush="{StaticResource PanelBorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="20"
-                            Margin="0,8,0,0">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="16" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="16" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
+                            CornerRadius="14"
+                            Padding="36,32"
+                            Width="392"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            RenderTransformOrigin="0.5,0.5">
+                        <Border.Effect>
+                            <DropShadowEffect Color="{StaticResource StructureShadowColor}" Direction="270" ShadowDepth="10" BlurRadius="40" Opacity="0.35" />
+                        </Border.Effect>
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="RenderTransform">
+                                    <Setter.Value>
+                                        <TranslateTransform Y="0" />
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <!-- Apparition discrète (fondu + glissement) à chaque
+                                         retour sur l'écran de connexion. -->
+                                    <Trigger Property="IsVisible" Value="True">
+                                        <Trigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                     From="0"
+                                                                     To="1"
+                                                                     Duration="0:0:0.28">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseOut" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                                     From="22"
+                                                                     To="0"
+                                                                     Duration="0:0:0.28">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseOut" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </Trigger.EnterActions>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
 
-                            <DockPanel>
-                                <StackPanel>
-                                    <TextBlock Text="Liste des unites"
-                                               FontSize="22"
-                                               FontWeight="SemiBold" />
-                                    <TextBlock Text="Referentiel consomme depuis /api/v1/organization/hotel-units"
-                                               Foreground="{StaticResource MutedBrush}"
-                                               Margin="0,4,0,0" />
-                                </StackPanel>
+                        <StackPanel>
+                            <Image Source="Assets/symbol-color-1024.png"
+                                   Width="44"
+                                   Height="44"
+                                   Stretch="Uniform"
+                                   HorizontalAlignment="Left"
+                                   Margin="0,0,0,20" />
 
-                                <StackPanel Orientation="Horizontal"
-                                            DockPanel.Dock="Right"
-                                            HorizontalAlignment="Right"
-                                            VerticalAlignment="Center">
-                                    <CheckBox x:Name="IncludeInactiveCheckBox"
-                                              Content="Inclure inactives"
-                                              VerticalAlignment="Center"
-                                              Margin="0,0,14,0" />
-                                    <Button x:Name="RefreshUnitsButton"
-                                            Content="Actualiser"
-                                            Style="{StaticResource SecondaryButton}"
-                                            Click="RefreshUnitsButton_Click" />
-                                </StackPanel>
-                            </DockPanel>
+                            <TextBlock Text="Connexion"
+                                       FontSize="24"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource StructureBrush}" />
+                            <TextBlock Text="Accédez à votre espace Raqmi System"
+                                       Style="{StaticResource SubtitleText}"
+                                       Margin="0,4,0,26" />
 
-                            <Border Grid.Row="2"
-                                    Background="#EEF4F8"
-                                    BorderBrush="{StaticResource PanelBorderBrush}"
+                            <TextBlock Text="Utilisateur" Style="{StaticResource LabelText}" />
+                            <TextBox x:Name="UserNameTextBox"
+                                     TabIndex="0"
+                                     Tag="Nom d'utilisateur"
+                                     Margin="0,0,0,16" />
+
+                            <TextBlock Text="Mot de passe" Style="{StaticResource LabelText}" />
+                            <PasswordBox x:Name="PasswordBox"
+                                         TabIndex="1"
+                                         Margin="0,0,0,26" />
+
+                            <!-- IsDefault : la touche Entrée déclenche la connexion. -->
+                            <Button x:Name="LoginButton"
+                                    Content="Se connecter"
+                                    Style="{StaticResource PrimaryButton}"
+                                    IsDefault="True"
+                                    TabIndex="2"
+                                    ToolTip="Ouvrir la session (Entrée)"
+                                    Click="LoginButton_Click" />
+
+                            <ProgressBar x:Name="LoginBusyProgressBar"
+                                         Height="3"
+                                         IsIndeterminate="True"
+                                         Visibility="Collapsed"
+                                         Margin="0,16,0,0" />
+
+                            <!-- Message d'état / d'erreur stylisé (Tag piloté par le
+                                 code-behind : "Error" ou "Info"). -->
+                            <Border x:Name="LoginStatusBorder"
+                                    CornerRadius="6"
                                     BorderThickness="1"
-                                    CornerRadius="8"
-                                    Padding="16">
+                                    Padding="12,9"
+                                    Margin="0,14,0,0"
+                                    Visibility="Collapsed">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                                        <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+                                        <Style.Triggers>
+                                            <Trigger Property="Tag" Value="Error">
+                                                <Setter Property="Background" Value="{StaticResource DangerSoftBrush}" />
+                                                <Setter Property="BorderBrush" Value="{StaticResource DangerBorderBrush}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
                                 <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="10" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-
-                                    <TextBlock x:Name="UnitFormTitleTextBlock"
-                                               Text="Nouvelle unite"
-                                               FontWeight="SemiBold"
-                                               Margin="0,0,0,4" />
-
-                                    <Grid Grid.Row="2">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="140" />
-                                            <ColumnDefinition Width="14" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="14" />
-                                            <ColumnDefinition Width="160" />
-                                            <ColumnDefinition Width="14" />
-                                            <ColumnDefinition Width="90" />
-                                            <ColumnDefinition Width="14" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="8" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="8" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="8" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <StackPanel>
-                                            <TextBlock Text="Code" Style="{StaticResource LabelText}" />
-                                            <TextBox x:Name="UnitCodeTextBox" />
-                                        </StackPanel>
-
-                                        <StackPanel Grid.Column="2">
-                                            <TextBlock Text="Nom" Style="{StaticResource LabelText}" />
-                                            <TextBox x:Name="UnitNameTextBox" />
-                                        </StackPanel>
-
-                                        <StackPanel Grid.Column="4">
-                                            <TextBlock Text="Type" Style="{StaticResource LabelText}" />
-                                            <ComboBox x:Name="UnitTypeComboBox" />
-                                        </StackPanel>
-
-                                        <StackPanel Grid.Column="6">
-                                            <TextBlock Text="Ordre" Style="{StaticResource LabelText}" />
-                                            <TextBox x:Name="UnitDisplayOrderTextBox" Text="0" />
-                                        </StackPanel>
-
-                                        <Button x:Name="NewUnitButton"
-                                                Grid.Column="8"
-                                                Content="Nouveau"
-                                                Style="{StaticResource SecondaryButton}"
-                                                VerticalAlignment="Bottom"
-                                                Click="NewUnitButton_Click" />
-
-                                        <Button x:Name="SaveUnitButton"
-                                                Grid.Column="10"
-                                                Content="Creer"
-                                                Style="{StaticResource PrimaryButton}"
-                                                VerticalAlignment="Bottom"
-                                                Click="SaveUnitButton_Click" />
-
-                                        <Button x:Name="ActivateUnitButton"
-                                                Grid.Column="12"
-                                                Content="Activer"
-                                                Style="{StaticResource SecondaryButton}"
-                                                VerticalAlignment="Bottom"
-                                                Click="ActivateUnitButton_Click" />
-
-                                        <Button x:Name="DeactivateUnitButton"
-                                                Grid.Column="14"
-                                                Content="Desactiver"
-                                                Style="{StaticResource SecondaryButton}"
-                                                VerticalAlignment="Bottom"
-                                                Click="DeactivateUnitButton_Click" />
-                                    </Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse Width="7"
+                                             Height="7"
+                                             VerticalAlignment="Top"
+                                             Margin="0,5,9,0">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Setter Property="Fill" Value="{StaticResource AccentBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=Border}}"
+                                                                 Value="Error">
+                                                        <Setter Property="Fill" Value="{StaticResource DangerBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                    <TextBlock x:Name="LoginStatusTextBlock"
+                                               Grid.Column="1"
+                                               Text=""
+                                               FontSize="12.5"
+                                               TextWrapping="Wrap">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=Border}}"
+                                                                 Value="Error">
+                                                        <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                 </Grid>
                             </Border>
 
-                            <DataGrid x:Name="UnitsDataGrid"
-                                      Grid.Row="4"
-                                      SelectionChanged="UnitsDataGrid_SelectionChanged">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="140" />
-                                    <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="*" />
-                                    <DataGridTextColumn Header="Type" Binding="{Binding UnitType}" Width="120" />
-                                    <DataGridTextColumn Header="Ordre" Binding="{Binding DisplayOrder}" Width="80" />
-                                    <DataGridCheckBoxColumn Header="Actif" Binding="{Binding IsActive}" Width="70" />
-                                    <DataGridTextColumn Header="Maj par" Binding="{Binding UpdatedBy}" Width="140" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Grid>
-                    </Border>
-                </TabItem>
+                            <Border BorderBrush="{StaticResource PanelBorderBrush}"
+                                    BorderThickness="0,1,0,0"
+                                    Margin="0,26,0,16" />
 
-                <TabItem Header="Recettes journalieres">
-                    <Grid Margin="0,8,0,0">
+                            <TextBlock Text="URL de l'API"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       Margin="0,0,0,4" />
+                            <TextBox x:Name="ApiBaseUrlTextBox"
+                                     TabIndex="3"
+                                     FontSize="11"
+                                     MinHeight="30"
+                                     Padding="8,0"
+                                     Tag="https://serveur:port"
+                                     ToolTip="Adresse du serveur Raqmi System" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- ===================== Application connectée ===================== -->
+            <Grid x:Name="MainContentGrid" Margin="24" Visibility="Collapsed">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="248" />
+                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Panneau latéral : navigation modules + session -->
+                <Border Style="{StaticResource CardBorder}" Padding="14,18">
+                    <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="16" />
                             <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <Border Background="White"
-                                BorderBrush="{StaticResource PanelBorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="20">
+                        <StackPanel>
+                            <TextBlock Text="Modules"
+                                       Style="{StaticResource MetricLabelText}"
+                                       Margin="14,0,0,10" />
+
+                            <Button x:Name="ShowUnitsButton"
+                                    Style="{StaticResource ModuleNavButton}"
+                                    ToolTip="Référentiel des unités hôtelières"
+                                    Click="ShowUnitsButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16"
+                                          Height="16"
+                                          Stretch="None"
+                                          StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Data="M2.5,14.5 V4.5 L8,1.8 V14.5 M8,6.5 H13.5 V14.5 M1,14.5 H15 M4.7,7.5 H5.8 M4.7,10.2 H5.8 M10.2,9.6 H11.3"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0" />
+                                    <TextBlock Text="Unités hôtelières" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="ShowRevenueButton"
+                                    Style="{StaticResource ModuleNavButton}"
+                                    ToolTip="Saisie et contrôle des recettes journalières"
+                                    Click="ShowRevenueButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16"
+                                          Height="16"
+                                          Stretch="None"
+                                          StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Data="M1.5,4.5 H14.5 V11.5 H1.5 Z M8,5.9 A2.1,2.1 0 1 0 8.01,5.9 M3.9,8 H4.1 M11.9,8 H12.1"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0" />
+                                    <TextBlock Text="Recettes journalières" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="ShowDashboardButton"
+                                    Style="{StaticResource ModuleNavButton}"
+                                    ToolTip="Vue consolidée des recettes par unité"
+                                    Click="ShowDashboardButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16"
+                                          Height="16"
+                                          Stretch="None"
+                                          StrokeThickness="2"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Data="M2.5,14 V9.5 M6.2,14 V4.5 M9.8,14 V7.5 M13.5,14 V2.5"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0" />
+                                    <TextBlock Text="Tableau de bord" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="ShowAuditButton"
+                                    Style="{StaticResource ModuleNavButton}"
+                                    ToolTip="Journal d'audit en lecture seule"
+                                    Click="ShowAuditButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16"
+                                          Height="16"
+                                          Stretch="None"
+                                          StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Data="M4,1.5 H10.5 L12.5,3.5 V14.5 H4 Z M6.2,6.5 H10.3 M6.2,9 H10.3 M6.2,11.5 H8.8"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0" />
+                                    <TextBlock Text="Journal d'audit" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="2" Margin="4,0,4,0">
+                            <Border BorderBrush="{StaticResource PanelBorderBrush}"
+                                    BorderThickness="0,1,0,0"
+                                    Margin="0,0,0,14" />
+                            <ProgressBar x:Name="BusyProgressBar"
+                                         Height="4"
+                                         IsIndeterminate="True"
+                                         Visibility="Collapsed"
+                                         Margin="0,0,0,12" />
+                            <TextBlock Text="Session"
+                                       Style="{StaticResource MetricLabelText}"
+                                       Margin="0,0,0,6" />
+                            <TextBlock x:Name="StatusTextBlock"
+                                       Text="Prêt."
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       FontSize="12"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Contenu des modules -->
+                <TabControl x:Name="MainTabs"
+                            Grid.Column="2"
+                            SelectionChanged="MainTabs_SelectionChanged">
+
+                    <!-- ====================== Unités hôtelières ====================== -->
+                    <TabItem Header="Unités hôtelières">
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,0,0">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="16" />
                                     <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="12" />
-                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="16" />
+                                    <RowDefinition Height="*" />
                                 </Grid.RowDefinitions>
 
                                 <DockPanel>
                                     <StackPanel>
-                                        <TextBlock Text="Saisie recette journaliere"
-                                                   FontSize="22"
-                                                   FontWeight="SemiBold" />
-                                        <TextBlock Text="Creation en brouillon, avec option de soumission immediate au controle"
-                                                   Foreground="{StaticResource MutedBrush}"
+                                        <TextBlock Text="Liste des unités"
+                                                   Style="{StaticResource PageTitleText}" />
+                                        <TextBlock Text="Référentiel des hôtels et unités d'exploitation"
+                                                   Style="{StaticResource SubtitleText}"
                                                    Margin="0,4,0,0" />
                                     </StackPanel>
 
@@ -490,20 +418,676 @@
                                                 DockPanel.Dock="Right"
                                                 HorizontalAlignment="Right"
                                                 VerticalAlignment="Center">
-                                        <Button x:Name="ExportRevenueCsvButton"
+                                        <CheckBox x:Name="IncludeInactiveCheckBox"
+                                                  Content="Inclure inactives"
+                                                  ToolTip="Afficher aussi les unités désactivées"
+                                                  VerticalAlignment="Center"
+                                                  Margin="0,0,14,0" />
+                                        <Button x:Name="RefreshUnitsButton"
+                                                Content="Actualiser"
+                                                Style="{StaticResource SecondaryButton}"
+                                                ToolTip="Recharger la liste des unités"
+                                                Click="RefreshUnitsButton_Click" />
+                                    </StackPanel>
+                                </DockPanel>
+
+                                <Border Grid.Row="2" Style="{StaticResource SubtleCardBorder}" Padding="16">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="10" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock x:Name="UnitFormTitleTextBlock"
+                                                   Text="Nouvelle unité"
+                                                   Style="{StaticResource SectionTitleText}"
+                                                   FontSize="14"
+                                                   Margin="0,0,0,4" />
+
+                                        <Grid Grid.Row="2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="14" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="14" />
+                                                <ColumnDefinition Width="160" />
+                                                <ColumnDefinition Width="14" />
+                                                <ColumnDefinition Width="90" />
+                                                <ColumnDefinition Width="14" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="8" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="8" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="8" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel>
+                                                <TextBlock Text="Code" Style="{StaticResource LabelText}" />
+                                                <TextBox x:Name="UnitCodeTextBox" Tag="ex. HTL-01" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="Nom" Style="{StaticResource LabelText}" />
+                                                <TextBox x:Name="UnitNameTextBox" Tag="Nom de l'unité" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="4">
+                                                <TextBlock Text="Type" Style="{StaticResource LabelText}" />
+                                                <ComboBox x:Name="UnitTypeComboBox" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="6">
+                                                <TextBlock Text="Ordre" Style="{StaticResource LabelText}" />
+                                                <TextBox x:Name="UnitDisplayOrderTextBox"
+                                                         Text="0"
+                                                         Style="{StaticResource AmountTextBox}" />
+                                            </StackPanel>
+
+                                            <Button x:Name="NewUnitButton"
+                                                    Grid.Column="8"
+                                                    Content="Nouveau"
+                                                    Style="{StaticResource GhostButton}"
+                                                    ToolTip="Vider le formulaire pour créer une nouvelle unité"
+                                                    VerticalAlignment="Bottom"
+                                                    Click="NewUnitButton_Click" />
+
+                                            <Button x:Name="SaveUnitButton"
+                                                    Grid.Column="10"
+                                                    Content="Créer"
+                                                    Style="{StaticResource PrimaryButton}"
+                                                    ToolTip="Enregistrer l'unité"
+                                                    VerticalAlignment="Bottom"
+                                                    Click="SaveUnitButton_Click" />
+
+                                            <Button x:Name="ActivateUnitButton"
+                                                    Grid.Column="12"
+                                                    Content="Activer"
+                                                    Style="{StaticResource SecondaryButton}"
+                                                    ToolTip="Réactiver l'unité sélectionnée"
+                                                    VerticalAlignment="Bottom"
+                                                    Click="ActivateUnitButton_Click" />
+
+                                            <Button x:Name="DeactivateUnitButton"
+                                                    Grid.Column="14"
+                                                    Content="Désactiver"
+                                                    Style="{StaticResource DangerButton}"
+                                                    ToolTip="Désactiver l'unité sélectionnée"
+                                                    VerticalAlignment="Bottom"
+                                                    Click="DeactivateUnitButton_Click" />
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+
+                                <Grid Grid.Row="4">
+                                    <DataGrid x:Name="UnitsDataGrid"
+                                              SelectionChanged="UnitsDataGrid_SelectionChanged">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="130" />
+                                            <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="*" />
+                                            <DataGridTextColumn Header="Type" Binding="{Binding UnitType}" Width="120" />
+                                            <DataGridTextColumn Header="Ordre"
+                                                                Binding="{Binding DisplayOrder}"
+                                                                Width="75"
+                                                                ElementStyle="{StaticResource AmountCellText}"
+                                                                HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                            <DataGridCheckBoxColumn Header="Actif" Binding="{Binding IsActive}" Width="70" />
+                                            <DataGridTextColumn Header="Mis à jour par"
+                                                                Binding="{Binding UpdatedBy}"
+                                                                Width="150"
+                                                                ElementStyle="{StaticResource MutedCellText}" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <StackPanel HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                IsHitTestVisible="False">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Items.Count, ElementName=UnitsDataGrid}" Value="0">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <Path Data="M2,9 L4,3 H12 L14,9 V13 H2 Z M2,9 H6 C6,10.6 6.9,11.4 8,11.4 C9.1,11.4 10,10.6 10,9 H14"
+                                              Stroke="{StaticResource BorderStrongBrush}"
+                                              StrokeThickness="1.5"
+                                              StrokeLineJoin="Round"
+                                              Width="46"
+                                              Height="42"
+                                              Stretch="Uniform"
+                                              HorizontalAlignment="Center"
+                                              Margin="0,0,0,10" />
+                                        <TextBlock Text="Aucune unité à afficher"
+                                                   Style="{StaticResource EmptyStateTitleText}" />
+                                        <TextBlock Text="Créez une première unité ou cliquez sur Actualiser."
+                                                   Style="{StaticResource EmptyStateHintText}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </TabItem>
+
+                    <!-- ==================== Recettes journalières ==================== -->
+                    <TabItem Header="Recettes journalières">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border Style="{StaticResource CardBorder}">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="16" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="12" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <DockPanel>
+                                        <StackPanel>
+                                            <TextBlock Text="Saisie recette journalière"
+                                                       Style="{StaticResource PageTitleText}" />
+                                            <TextBlock Text="Création en brouillon, avec option de soumission immédiate au contrôle"
+                                                       Style="{StaticResource SubtitleText}"
+                                                       Margin="0,4,0,0" />
+                                        </StackPanel>
+
+                                        <StackPanel Orientation="Horizontal"
+                                                    DockPanel.Dock="Right"
+                                                    HorizontalAlignment="Right"
+                                                    VerticalAlignment="Center">
+                                            <Button x:Name="ExportRevenueCsvButton"
+                                                    Content="Exporter CSV"
+                                                    Style="{StaticResource SecondaryButton}"
+                                                    ToolTip="Exporter les recettes affichées au format CSV"
+                                                    Margin="0,0,10,0"
+                                                    Click="ExportRevenueCsvButton_Click" />
+                                            <Button x:Name="PrintRevenueButton"
+                                                    Content="Imprimer"
+                                                    Style="{StaticResource SecondaryButton}"
+                                                    ToolTip="Imprimer l'état des recettes de la journée"
+                                                    Margin="0,0,10,0"
+                                                    Click="PrintRevenueButton_Click" />
+                                            <Button x:Name="RefreshRevenueButton"
+                                                    Content="Actualiser"
+                                                    Style="{StaticResource SecondaryButton}"
+                                                    ToolTip="Recharger les recettes de la date sélectionnée"
+                                                    Click="RefreshRevenueButton_Click" />
+                                        </StackPanel>
+                                    </DockPanel>
+
+                                    <Grid Grid.Row="2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="170" />
+                                            <ColumnDefinition Width="18" />
+                                            <ColumnDefinition Width="260" />
+                                            <ColumnDefinition Width="18" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel>
+                                            <TextBlock Text="Date d'exploitation" Style="{StaticResource LabelText}" />
+                                            <DatePicker x:Name="BusinessDatePicker" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Unité hôtelière" Style="{StaticResource LabelText}" />
+                                            <ComboBox x:Name="RevenueUnitComboBox"
+                                                      DisplayMemberPath="Name"
+                                                      SelectedValuePath="Code" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Text="Notes" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="NotesTextBox" Tag="Commentaire facultatif" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Grid Grid.Row="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="18" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="10" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel>
+                                            <TextBlock Text="Hébergement" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="AccommodationTextBox" Style="{StaticResource AmountTextBox}" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Restauration" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="FoodTextBox" Style="{StaticResource AmountTextBox}" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Text="Boissons" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="BeverageTextBox" Style="{StaticResource AmountTextBox}" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="6">
+                                            <TextBlock Text="Autres" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="OtherTextBox" Style="{StaticResource AmountTextBox}" />
+                                        </StackPanel>
+
+                                        <Button x:Name="CreateRevenueButton"
+                                                Grid.Column="8"
+                                                Content="Créer brouillon"
+                                                Style="{StaticResource PrimaryButton}"
+                                                ToolTip="Enregistrer la recette en brouillon"
+                                                VerticalAlignment="Bottom"
+                                                Click="CreateRevenueButton_Click" />
+
+                                        <Button x:Name="CreateAndSubmitRevenueButton"
+                                                Grid.Column="10"
+                                                Content="Créer + soumettre"
+                                                Style="{StaticResource SecondaryButton}"
+                                                ToolTip="Enregistrer puis soumettre immédiatement au contrôle"
+                                                VerticalAlignment="Bottom"
+                                                Click="CreateAndSubmitRevenueButton_Click" />
+                                    </Grid>
+                                </Grid>
+                            </Border>
+
+                            <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="12" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="12" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="12" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Text="Recettes de la journée sélectionnée"
+                                               Style="{StaticResource SectionTitleText}" />
+
+                                    <Border Grid.Row="2" Style="{StaticResource SubtleCardBorder}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <StackPanel Margin="0,0,28,0">
+                                                <TextBlock Text="Total" Style="{StaticResource MetricLabelText}" />
+                                                <TextBlock x:Name="SummaryTotalTextBlock"
+                                                           Text="0.00"
+                                                           Style="{StaticResource MetricValueText}" />
+                                            </StackPanel>
+                                            <Border BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1,0,0,0" Margin="0,2,28,2" />
+                                            <StackPanel Margin="0,0,28,0">
+                                                <TextBlock Text="Brouillons" Style="{StaticResource MetricLabelText}" />
+                                                <TextBlock x:Name="SummaryDraftTextBlock"
+                                                           Text="0"
+                                                           Style="{StaticResource MetricValueText}" />
+                                            </StackPanel>
+                                            <StackPanel Margin="0,0,28,0">
+                                                <TextBlock Text="Soumises" Style="{StaticResource MetricLabelText}" />
+                                                <TextBlock x:Name="SummarySubmittedTextBlock"
+                                                           Text="0"
+                                                           Style="{StaticResource MetricValueText}" />
+                                            </StackPanel>
+                                            <StackPanel Margin="0,0,28,0">
+                                                <TextBlock Text="Validées" Style="{StaticResource MetricLabelText}" />
+                                                <TextBlock x:Name="SummaryValidatedTextBlock"
+                                                           Text="0"
+                                                           Style="{StaticResource MetricValueText}"
+                                                           Foreground="{StaticResource StatusValidatedForegroundBrush}" />
+                                            </StackPanel>
+                                            <StackPanel>
+                                                <TextBlock Text="Rejetées" Style="{StaticResource MetricLabelText}" />
+                                                <TextBlock x:Name="SummaryRejectedTextBlock"
+                                                           Text="0"
+                                                           Style="{StaticResource MetricValueText}"
+                                                           Foreground="{StaticResource StatusRejectedForegroundBrush}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Grid Grid.Row="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="14" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel>
+                                            <TextBlock Text="Motif de rejet (recette sélectionnée)" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="RejectReasonTextBox" Tag="Obligatoire pour rejeter" />
+                                        </StackPanel>
+
+                                        <Button x:Name="ValidateRevenueButton"
+                                                Grid.Column="2"
+                                                Content="Valider"
+                                                Style="{StaticResource PrimaryButton}"
+                                                ToolTip="Valider la recette sélectionnée"
+                                                VerticalAlignment="Bottom"
+                                                Click="ValidateRevenueButton_Click" />
+
+                                        <Button x:Name="RejectRevenueButton"
+                                                Grid.Column="4"
+                                                Content="Rejeter"
+                                                Style="{StaticResource DangerButton}"
+                                                ToolTip="Rejeter la recette sélectionnée (motif requis)"
+                                                VerticalAlignment="Bottom"
+                                                Click="RejectRevenueButton_Click" />
+                                    </Grid>
+
+                                    <Grid Grid.Row="6">
+                                        <DataGrid x:Name="DailyRevenueDataGrid">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Date" Binding="{Binding BusinessDate}" Width="100" />
+                                                <DataGridTextColumn Header="Unité" Binding="{Binding HotelUnitCode}" Width="110" />
+                                                <DataGridTextColumn Header="Hébergement"
+                                                                    Binding="{Binding Accommodation, StringFormat={}{0:N2}}"
+                                                                    Width="115"
+                                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                                <DataGridTextColumn Header="Restauration"
+                                                                    Binding="{Binding Food, StringFormat={}{0:N2}}"
+                                                                    Width="115"
+                                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                                <DataGridTextColumn Header="Boissons"
+                                                                    Binding="{Binding Beverage, StringFormat={}{0:N2}}"
+                                                                    Width="105"
+                                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                                <DataGridTextColumn Header="Autres"
+                                                                    Binding="{Binding Other, StringFormat={}{0:N2}}"
+                                                                    Width="100"
+                                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                                <DataGridTextColumn Header="Total"
+                                                                    Binding="{Binding Total, StringFormat={}{0:N2}}"
+                                                                    Width="115"
+                                                                    ElementStyle="{StaticResource TotalCellText}"
+                                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                                <DataGridTemplateColumn Header="Statut" Width="120" SortMemberPath="Status">
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <Border x:Name="StatusBadge"
+                                                                    CornerRadius="10"
+                                                                    Padding="10,3"
+                                                                    HorizontalAlignment="Left"
+                                                                    VerticalAlignment="Center"
+                                                                    Background="{StaticResource StatusDraftBackgroundBrush}">
+                                                                <TextBlock x:Name="StatusBadgeText"
+                                                                           Text="Brouillon"
+                                                                           FontSize="11.5"
+                                                                           FontWeight="SemiBold"
+                                                                           Foreground="{StaticResource StatusDraftForegroundBrush}" />
+                                                            </Border>
+                                                            <DataTemplate.Triggers>
+                                                                <DataTrigger Binding="{Binding Status}" Value="Submitted">
+                                                                    <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusSubmittedBackgroundBrush}" />
+                                                                    <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+                                                                    <Setter TargetName="StatusBadgeText" Property="Text" Value="Soumise" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Status}" Value="Validated">
+                                                                    <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusValidatedBackgroundBrush}" />
+                                                                    <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusValidatedForegroundBrush}" />
+                                                                    <Setter TargetName="StatusBadgeText" Property="Text" Value="Validée" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Status}" Value="Rejected">
+                                                                    <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusRejectedBackgroundBrush}" />
+                                                                    <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                                    <Setter TargetName="StatusBadgeText" Property="Text" Value="Rejetée" />
+                                                                </DataTrigger>
+                                                            </DataTemplate.Triggers>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                                <DataGridTextColumn Header="Saisi par"
+                                                                    Binding="{Binding CreatedBy}"
+                                                                    Width="*"
+                                                                    ElementStyle="{StaticResource MutedCellText}" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                        <StackPanel HorizontalAlignment="Center"
+                                                    VerticalAlignment="Center"
+                                                    IsHitTestVisible="False">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Items.Count, ElementName=DailyRevenueDataGrid}" Value="0">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <Path Data="M2,9 L4,3 H12 L14,9 V13 H2 Z M2,9 H6 C6,10.6 6.9,11.4 8,11.4 C9.1,11.4 10,10.6 10,9 H14"
+                                                  Stroke="{StaticResource BorderStrongBrush}"
+                                                  StrokeThickness="1.5"
+                                                  StrokeLineJoin="Round"
+                                                  Width="46"
+                                                  Height="42"
+                                                  Stretch="Uniform"
+                                                  HorizontalAlignment="Center"
+                                                  Margin="0,0,0,10" />
+                                            <TextBlock Text="Aucune recette pour cette date"
+                                                       Style="{StaticResource EmptyStateTitleText}" />
+                                            <TextBlock Text="Changez la date d'exploitation ou saisissez une première recette ci-dessus."
+                                                       Style="{StaticResource EmptyStateHintText}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- ======================= Tableau de bord ======================= -->
+                    <TabItem Header="Tableau de bord">
+                        <Border Style="{StaticResource CardBorder}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="16" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="16" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <DockPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="Tableau de bord - recettes par unité"
+                                                   Style="{StaticResource PageTitleText}" />
+                                        <TextBlock Text="Répartition par unité hôtelière de l'état des recettes journalières pour une date donnée."
+                                                   Style="{StaticResource SubtitleText}"
+                                                   Margin="0,4,0,0" />
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal"
+                                                DockPanel.Dock="Right"
+                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Bottom">
+                                        <StackPanel Width="150" Margin="0,0,14,0">
+                                            <TextBlock Text="Date d'exploitation" Style="{StaticResource LabelText}" />
+                                            <DatePicker x:Name="DashboardDatePicker" />
+                                        </StackPanel>
+
+                                        <Button x:Name="RefreshDashboardButton"
+                                                Content="Actualiser"
+                                                Style="{StaticResource SecondaryButton}"
+                                                ToolTip="Recharger le tableau de bord"
+                                                VerticalAlignment="Bottom"
+                                                Click="RefreshDashboardButton_Click" />
+                                    </StackPanel>
+                                </DockPanel>
+
+                                <Border Grid.Row="2" Style="{StaticResource SubtleCardBorder}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <StackPanel Margin="0,0,28,0">
+                                            <TextBlock Text="Unités au total" Style="{StaticResource MetricLabelText}" />
+                                            <TextBlock x:Name="DashboardTotalUnitsTextBlock"
+                                                       Text="0"
+                                                       Style="{StaticResource MetricValueText}" />
+                                        </StackPanel>
+                                        <StackPanel Margin="0,0,28,0">
+                                            <TextBlock Text="Avec saisie" Style="{StaticResource MetricLabelText}" />
+                                            <TextBlock x:Name="DashboardWithEntryTextBlock"
+                                                       Text="0"
+                                                       Style="{StaticResource MetricValueText}" />
+                                        </StackPanel>
+                                        <StackPanel Margin="0,0,28,0">
+                                            <TextBlock Text="Manquantes" Style="{StaticResource MetricLabelText}" />
+                                            <TextBlock x:Name="DashboardMissingTextBlock"
+                                                       Text="0"
+                                                       Style="{StaticResource MetricValueText}"
+                                                       Foreground="{StaticResource StatusRejectedForegroundBrush}" />
+                                        </StackPanel>
+                                        <StackPanel Margin="0,0,28,0">
+                                            <TextBlock Text="En attente de validation" Style="{StaticResource MetricLabelText}" />
+                                            <TextBlock x:Name="DashboardPendingValidationTextBlock"
+                                                       Text="0"
+                                                       Style="{StaticResource MetricValueText}"
+                                                       Foreground="{StaticResource StatusSubmittedForegroundBrush}" />
+                                        </StackPanel>
+                                        <Border BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1,0,0,0" Margin="0,2,28,2" />
+                                        <StackPanel>
+                                            <TextBlock Text="Total consolidé" Style="{StaticResource MetricLabelText}" />
+                                            <TextBlock x:Name="DashboardGrandTotalTextBlock"
+                                                       Text="0.00"
+                                                       Style="{StaticResource MetricValueText}"
+                                                       Foreground="{StaticResource PrimaryBrush}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <Grid Grid.Row="4">
+                                    <DataGrid x:Name="UnitDashboardDataGrid">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Code" Binding="{Binding HotelUnitCode}" Width="110" />
+                                            <DataGridTextColumn Header="Nom" Binding="{Binding HotelUnitName}" Width="*" />
+                                            <DataGridTemplateColumn Header="État de saisie" Width="225" SortMemberPath="EntryStatusText">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock x:Name="EntryStatusTextBlock"
+                                                                   Text="{Binding EntryStatusText}"
+                                                                   VerticalAlignment="Center"
+                                                                   Foreground="{StaticResource TextSecondaryBrush}">
+                                                        </TextBlock>
+                                                        <DataTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding EntryStatusText}" Value="Non saisi">
+                                                                <Setter TargetName="EntryStatusTextBlock" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                                <Setter TargetName="EntryStatusTextBlock" Property="FontWeight" Value="SemiBold" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding EntryStatusText}" Value="Validé">
+                                                                <Setter TargetName="EntryStatusTextBlock" Property="Foreground" Value="{StaticResource StatusValidatedForegroundBrush}" />
+                                                                <Setter TargetName="EntryStatusTextBlock" Property="FontWeight" Value="SemiBold" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding EntryStatusText}" Value="Soumis - en attente de validation">
+                                                                <Setter TargetName="EntryStatusTextBlock" Property="Foreground" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding EntryStatusText}" Value="Rejeté">
+                                                                <Setter TargetName="EntryStatusTextBlock" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                            </DataTrigger>
+                                                        </DataTemplate.Triggers>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTextColumn Header="Total"
+                                                                Binding="{Binding Total, StringFormat={}{0:N2}}"
+                                                                Width="120"
+                                                                ElementStyle="{StaticResource TotalCellText}"
+                                                                HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                            <DataGridTextColumn Header="Soumis le"
+                                                                Binding="{Binding SubmittedAt, StringFormat={}{0:yyyy-MM-dd HH:mm}}"
+                                                                Width="145"
+                                                                ElementStyle="{StaticResource MutedCellText}" />
+                                            <DataGridTextColumn Header="Validé le"
+                                                                Binding="{Binding ValidatedAt, StringFormat={}{0:yyyy-MM-dd HH:mm}}"
+                                                                Width="145"
+                                                                ElementStyle="{StaticResource MutedCellText}" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <StackPanel HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                IsHitTestVisible="False">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Items.Count, ElementName=UnitDashboardDataGrid}" Value="0">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <Path Data="M2,9 L4,3 H12 L14,9 V13 H2 Z M2,9 H6 C6,10.6 6.9,11.4 8,11.4 C9.1,11.4 10,10.6 10,9 H14"
+                                              Stroke="{StaticResource BorderStrongBrush}"
+                                              StrokeThickness="1.5"
+                                              StrokeLineJoin="Round"
+                                              Width="46"
+                                              Height="42"
+                                              Stretch="Uniform"
+                                              HorizontalAlignment="Center"
+                                              Margin="0,0,0,10" />
+                                        <TextBlock Text="Aucune donnée pour cette date"
+                                                   Style="{StaticResource EmptyStateTitleText}" />
+                                        <TextBlock Text="Choisissez une date d'exploitation puis cliquez sur Actualiser."
+                                                   Style="{StaticResource EmptyStateHintText}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </TabItem>
+
+                    <!-- ======================== Journal d'audit ====================== -->
+                    <TabItem Header="Journal d'audit">
+                        <Border Style="{StaticResource CardBorder}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="16" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="10" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="8" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <DockPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="Journal d'audit"
+                                                   Style="{StaticResource PageTitleText}" />
+                                        <TextBlock Text="Traçabilité des actions, en lecture seule"
+                                                   Style="{StaticResource SubtitleText}"
+                                                   Margin="0,4,0,0" />
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal"
+                                                DockPanel.Dock="Right"
+                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Center">
+                                        <Button x:Name="ExportAuditCsvButton"
                                                 Content="Exporter CSV"
                                                 Style="{StaticResource SecondaryButton}"
+                                                ToolTip="Exporter les entrées affichées au format CSV"
                                                 Margin="0,0,10,0"
-                                                Click="ExportRevenueCsvButton_Click" />
-                                        <Button x:Name="PrintRevenueButton"
-                                                Content="Imprimer"
+                                                Click="ExportAuditCsvButton_Click" />
+                                        <Button x:Name="RefreshAuditButton"
+                                                Content="Actualiser"
                                                 Style="{StaticResource SecondaryButton}"
-                                                Margin="0,0,10,0"
-                                                Click="PrintRevenueButton_Click" />
-                                        <Button x:Name="RefreshRevenueButton"
-                                                Content="Actualiser recettes"
-                                                Style="{StaticResource SecondaryButton}"
-                                                Click="RefreshRevenueButton_Click" />
+                                                ToolTip="Recharger le journal avec les filtres saisis"
+                                                Click="RefreshAuditButton_Click" />
                                     </StackPanel>
                                 </DockPanel>
 
@@ -511,359 +1095,98 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="170" />
                                         <ColumnDefinition Width="18" />
-                                        <ColumnDefinition Width="260" />
+                                        <ColumnDefinition Width="170" />
                                         <ColumnDefinition Width="18" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
 
                                     <StackPanel>
-                                        <TextBlock Text="Date exploitation" Style="{StaticResource LabelText}" />
-                                        <DatePicker x:Name="BusinessDatePicker" />
+                                        <TextBlock Text="Du" Style="{StaticResource LabelText}" />
+                                        <DatePicker x:Name="AuditFromDatePicker" />
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="2">
-                                        <TextBlock Text="Unite hoteliere" Style="{StaticResource LabelText}" />
-                                        <ComboBox x:Name="RevenueUnitComboBox"
-                                                  DisplayMemberPath="Name"
-                                                  SelectedValuePath="Code" />
+                                        <TextBlock Text="Au" Style="{StaticResource LabelText}" />
+                                        <DatePicker x:Name="AuditToDatePicker" />
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="4">
-                                        <TextBlock Text="Notes" Style="{StaticResource LabelText}" />
-                                        <TextBox x:Name="NotesTextBox" />
+                                        <TextBlock Text="Action" Style="{StaticResource LabelText}" />
+                                        <TextBox x:Name="AuditActionTextBox" Tag="Filtrer par action (ex. Login)" />
                                     </StackPanel>
                                 </Grid>
 
-                                <Grid Grid.Row="4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="12" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="12" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="12" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="18" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="10" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="AuditResultCountTextBlock"
+                                           Grid.Row="4"
+                                           Text=""
+                                           Style="{StaticResource CaptionText}" />
 
-                                    <StackPanel>
-                                        <TextBlock Text="Hebergement" Style="{StaticResource LabelText}" />
-                                        <TextBox x:Name="AccommodationTextBox" />
+                                <Grid Grid.Row="6">
+                                    <DataGrid x:Name="AuditDataGrid">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Date/heure"
+                                                                Binding="{Binding OccurredAt, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}"
+                                                                Width="155" />
+                                            <DataGridTextColumn Header="Utilisateur" Binding="{Binding UserName}" Width="140" />
+                                            <DataGridTemplateColumn Header="Action" Width="170" SortMemberPath="Action">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="{StaticResource SurfaceSubtleBrush}"
+                                                                CornerRadius="9"
+                                                                Padding="9,2.5"
+                                                                HorizontalAlignment="Left"
+                                                                VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Action}"
+                                                                       FontSize="11.5"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="{StaticResource SecondaryBrush}" />
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTextColumn Header="Entité" Binding="{Binding EntityName}" Width="140" />
+                                            <DataGridTextColumn Header="Id entité"
+                                                                Binding="{Binding EntityId}"
+                                                                Width="200"
+                                                                ElementStyle="{StaticResource MutedCellText}" />
+                                            <DataGridTextColumn Header="Adresse IP"
+                                                                Binding="{Binding IpAddress}"
+                                                                Width="*"
+                                                                ElementStyle="{StaticResource MutedCellText}" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <StackPanel HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                IsHitTestVisible="False">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Items.Count, ElementName=AuditDataGrid}" Value="0">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <Path Data="M2,9 L4,3 H12 L14,9 V13 H2 Z M2,9 H6 C6,10.6 6.9,11.4 8,11.4 C9.1,11.4 10,10.6 10,9 H14"
+                                              Stroke="{StaticResource BorderStrongBrush}"
+                                              StrokeThickness="1.5"
+                                              StrokeLineJoin="Round"
+                                              Width="46"
+                                              Height="42"
+                                              Stretch="Uniform"
+                                              HorizontalAlignment="Center"
+                                              Margin="0,0,0,10" />
+                                        <TextBlock Text="Aucune entrée d'audit"
+                                                   Style="{StaticResource EmptyStateTitleText}" />
+                                        <TextBlock Text="Ajustez les filtres puis cliquez sur Actualiser."
+                                                   Style="{StaticResource EmptyStateHintText}" />
                                     </StackPanel>
-
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Text="Restauration" Style="{StaticResource LabelText}" />
-                                        <TextBox x:Name="FoodTextBox" />
-                                    </StackPanel>
-
-                                    <StackPanel Grid.Column="4">
-                                        <TextBlock Text="Boissons" Style="{StaticResource LabelText}" />
-                                        <TextBox x:Name="BeverageTextBox" />
-                                    </StackPanel>
-
-                                    <StackPanel Grid.Column="6">
-                                        <TextBlock Text="Autres" Style="{StaticResource LabelText}" />
-                                        <TextBox x:Name="OtherTextBox" />
-                                    </StackPanel>
-
-                                    <Button x:Name="CreateRevenueButton"
-                                            Grid.Column="8"
-                                            Content="Creer brouillon"
-                                            Style="{StaticResource PrimaryButton}"
-                                            VerticalAlignment="Bottom"
-                                            Click="CreateRevenueButton_Click" />
-
-                                    <Button x:Name="CreateAndSubmitRevenueButton"
-                                            Grid.Column="10"
-                                            Content="Creer + soumettre"
-                                            Style="{StaticResource SecondaryButton}"
-                                            VerticalAlignment="Bottom"
-                                            Click="CreateAndSubmitRevenueButton_Click" />
                                 </Grid>
                             </Grid>
                         </Border>
-
-                        <Border Grid.Row="2"
-                                Background="White"
-                                BorderBrush="{StaticResource PanelBorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="20">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="12" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="12" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="12" />
-                                    <RowDefinition Height="*" />
-                                </Grid.RowDefinitions>
-
-                                <TextBlock Text="Recettes de la journee selectionnee"
-                                           FontSize="18"
-                                           FontWeight="SemiBold" />
-
-                                <Border Grid.Row="2"
-                                        Background="#EEF4F8"
-                                        BorderBrush="{StaticResource PanelBorderBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="8"
-                                        Padding="14,10">
-                                    <StackPanel Orientation="Horizontal">
-                                        <StackPanel Margin="0,0,26,0">
-                                            <TextBlock Text="Total" Style="{StaticResource LabelText}" Margin="0" />
-                                            <TextBlock x:Name="SummaryTotalTextBlock" Text="0.00" FontWeight="SemiBold" />
-                                        </StackPanel>
-                                        <StackPanel Margin="0,0,26,0">
-                                            <TextBlock Text="Brouillons" Style="{StaticResource LabelText}" Margin="0" />
-                                            <TextBlock x:Name="SummaryDraftTextBlock" Text="0" FontWeight="SemiBold" />
-                                        </StackPanel>
-                                        <StackPanel Margin="0,0,26,0">
-                                            <TextBlock Text="Soumises" Style="{StaticResource LabelText}" Margin="0" />
-                                            <TextBlock x:Name="SummarySubmittedTextBlock" Text="0" FontWeight="SemiBold" />
-                                        </StackPanel>
-                                        <StackPanel Margin="0,0,26,0">
-                                            <TextBlock Text="Validees" Style="{StaticResource LabelText}" Margin="0" />
-                                            <TextBlock x:Name="SummaryValidatedTextBlock" Text="0" FontWeight="SemiBold" />
-                                        </StackPanel>
-                                        <StackPanel>
-                                            <TextBlock Text="Rejetees" Style="{StaticResource LabelText}" Margin="0" />
-                                            <TextBlock x:Name="SummaryRejectedTextBlock" Text="0" FontWeight="SemiBold" />
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-
-                                <Grid Grid.Row="4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="14" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="8" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <StackPanel>
-                                        <TextBlock Text="Motif de rejet (recette selectionnee)" Style="{StaticResource LabelText}" />
-                                        <TextBox x:Name="RejectReasonTextBox" />
-                                    </StackPanel>
-
-                                    <Button x:Name="ValidateRevenueButton"
-                                            Grid.Column="2"
-                                            Content="Valider"
-                                            Style="{StaticResource PrimaryButton}"
-                                            VerticalAlignment="Bottom"
-                                            Click="ValidateRevenueButton_Click" />
-
-                                    <Button x:Name="RejectRevenueButton"
-                                            Grid.Column="4"
-                                            Content="Rejeter"
-                                            Style="{StaticResource SecondaryButton}"
-                                            VerticalAlignment="Bottom"
-                                            Click="RejectRevenueButton_Click" />
-                                </Grid>
-
-                                <DataGrid x:Name="DailyRevenueDataGrid"
-                                          Grid.Row="6">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Date" Binding="{Binding BusinessDate}" Width="110" />
-                                        <DataGridTextColumn Header="Unite" Binding="{Binding HotelUnitCode}" Width="130" />
-                                        <DataGridTextColumn Header="Hebergement" Binding="{Binding Accommodation, StringFormat={}{0:N2}}" Width="120" />
-                                        <DataGridTextColumn Header="Restauration" Binding="{Binding Food, StringFormat={}{0:N2}}" Width="120" />
-                                        <DataGridTextColumn Header="Boissons" Binding="{Binding Beverage, StringFormat={}{0:N2}}" Width="110" />
-                                        <DataGridTextColumn Header="Autres" Binding="{Binding Other, StringFormat={}{0:N2}}" Width="100" />
-                                        <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat={}{0:N2}}" Width="120" />
-                                        <DataGridTextColumn Header="Statut" Binding="{Binding Status}" Width="110" />
-                                        <DataGridTextColumn Header="Saisi par" Binding="{Binding CreatedBy}" Width="140" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </Grid>
-                        </Border>
-                    </Grid>
-                </TabItem>
-
-                <TabItem Header="Tableau de bord">
-                    <Border Background="White"
-                            BorderBrush="{StaticResource PanelBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="20"
-                            Margin="0,8,0,0">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="16" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="16" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-
-                            <DockPanel>
-                                <StackPanel>
-                                    <TextBlock Text="Tableau de bord - recettes par unite"
-                                               FontSize="22"
-                                               FontWeight="SemiBold" />
-                                    <TextBlock Text="Socle commun aux tableaux de bord directionnels, au dashboard PDG et au cockpit DEC : repartition par unite hoteliere de l'etat des recettes journalieres pour une date donnee."
-                                               Foreground="{StaticResource MutedBrush}"
-                                               TextWrapping="Wrap"
-                                               Margin="0,4,0,0" />
-                                </StackPanel>
-
-                                <StackPanel Orientation="Horizontal"
-                                            DockPanel.Dock="Right"
-                                            HorizontalAlignment="Right"
-                                            VerticalAlignment="Bottom">
-                                    <StackPanel Width="150" Margin="0,0,14,0">
-                                        <TextBlock Text="Date exploitation" Style="{StaticResource LabelText}" />
-                                        <DatePicker x:Name="DashboardDatePicker" />
-                                    </StackPanel>
-
-                                    <Button x:Name="RefreshDashboardButton"
-                                            Content="Actualiser"
-                                            Style="{StaticResource SecondaryButton}"
-                                            VerticalAlignment="Bottom"
-                                            Click="RefreshDashboardButton_Click" />
-                                </StackPanel>
-                            </DockPanel>
-
-                            <Border Grid.Row="2"
-                                    Background="#EEF4F8"
-                                    BorderBrush="{StaticResource PanelBorderBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="8"
-                                    Padding="14,10">
-                                <StackPanel Orientation="Horizontal">
-                                    <StackPanel Margin="0,0,26,0">
-                                        <TextBlock Text="Unites au total" Style="{StaticResource LabelText}" Margin="0" />
-                                        <TextBlock x:Name="DashboardTotalUnitsTextBlock" Text="0" FontWeight="SemiBold" />
-                                    </StackPanel>
-                                    <StackPanel Margin="0,0,26,0">
-                                        <TextBlock Text="Avec saisie" Style="{StaticResource LabelText}" Margin="0" />
-                                        <TextBlock x:Name="DashboardWithEntryTextBlock" Text="0" FontWeight="SemiBold" />
-                                    </StackPanel>
-                                    <StackPanel Margin="0,0,26,0">
-                                        <TextBlock Text="Manquantes" Style="{StaticResource LabelText}" Margin="0" />
-                                        <TextBlock x:Name="DashboardMissingTextBlock" Text="0" FontWeight="SemiBold" />
-                                    </StackPanel>
-                                    <StackPanel Margin="0,0,26,0">
-                                        <TextBlock Text="En attente de validation" Style="{StaticResource LabelText}" Margin="0" />
-                                        <TextBlock x:Name="DashboardPendingValidationTextBlock" Text="0" FontWeight="SemiBold" />
-                                    </StackPanel>
-                                    <StackPanel>
-                                        <TextBlock Text="Total consolide" Style="{StaticResource LabelText}" Margin="0" />
-                                        <TextBlock x:Name="DashboardGrandTotalTextBlock" Text="0.00" FontWeight="SemiBold" />
-                                    </StackPanel>
-                                </StackPanel>
-                            </Border>
-
-                            <DataGrid x:Name="UnitDashboardDataGrid"
-                                      Grid.Row="4">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Code" Binding="{Binding HotelUnitCode}" Width="120" />
-                                    <DataGridTextColumn Header="Nom" Binding="{Binding HotelUnitName}" Width="*" />
-                                    <DataGridTextColumn Header="A saisi" Binding="{Binding EntryStatusText}" Width="220" />
-                                    <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat={}{0:N2}}" Width="130" />
-                                    <DataGridTextColumn Header="Soumis le" Binding="{Binding SubmittedAt, StringFormat={}{0:yyyy-MM-dd HH:mm}}" Width="150" />
-                                    <DataGridTextColumn Header="Valide le" Binding="{Binding ValidatedAt, StringFormat={}{0:yyyy-MM-dd HH:mm}}" Width="150" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Grid>
-                    </Border>
-                </TabItem>
-
-                <TabItem Header="Journal d'audit">
-                    <Border Background="White"
-                            BorderBrush="{StaticResource PanelBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="20"
-                            Margin="0,8,0,0">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="16" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="10" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="8" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-
-                            <DockPanel>
-                                <StackPanel>
-                                    <TextBlock Text="Journal d'audit"
-                                               FontSize="22"
-                                               FontWeight="SemiBold" />
-                                    <TextBlock Text="Consultation en lecture seule depuis /api/v1/audit"
-                                               Foreground="{StaticResource MutedBrush}"
-                                               Margin="0,4,0,0" />
-                                </StackPanel>
-
-                                <StackPanel Orientation="Horizontal"
-                                            DockPanel.Dock="Right"
-                                            HorizontalAlignment="Right"
-                                            VerticalAlignment="Center">
-                                    <Button x:Name="ExportAuditCsvButton"
-                                            Content="Exporter CSV"
-                                            Style="{StaticResource SecondaryButton}"
-                                            Margin="0,0,10,0"
-                                            Click="ExportAuditCsvButton_Click" />
-                                    <Button x:Name="RefreshAuditButton"
-                                            Content="Actualiser"
-                                            Style="{StaticResource SecondaryButton}"
-                                            Click="RefreshAuditButton_Click" />
-                                </StackPanel>
-                            </DockPanel>
-
-                            <Grid Grid.Row="2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="170" />
-                                    <ColumnDefinition Width="18" />
-                                    <ColumnDefinition Width="170" />
-                                    <ColumnDefinition Width="18" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-
-                                <StackPanel>
-                                    <TextBlock Text="Du" Style="{StaticResource LabelText}" />
-                                    <DatePicker x:Name="AuditFromDatePicker" />
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="Au" Style="{StaticResource LabelText}" />
-                                    <DatePicker x:Name="AuditToDatePicker" />
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="4">
-                                    <TextBlock Text="Action" Style="{StaticResource LabelText}" />
-                                    <TextBox x:Name="AuditActionTextBox" />
-                                </StackPanel>
-                            </Grid>
-
-                            <TextBlock x:Name="AuditResultCountTextBlock"
-                                       Grid.Row="4"
-                                       Text=""
-                                       Foreground="{StaticResource MutedBrush}"
-                                       FontSize="12" />
-
-                            <DataGrid x:Name="AuditDataGrid"
-                                      Grid.Row="6">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Date/heure" Binding="{Binding OccurredAt, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}" Width="160" />
-                                    <DataGridTextColumn Header="Utilisateur" Binding="{Binding UserName}" Width="150" />
-                                    <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="160" />
-                                    <DataGridTextColumn Header="Entite" Binding="{Binding EntityName}" Width="150" />
-                                    <DataGridTextColumn Header="Id entite" Binding="{Binding EntityId}" Width="200" />
-                                    <DataGridTextColumn Header="Adresse IP" Binding="{Binding IpAddress}" Width="*" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Grid>
-                    </Border>
-                </TabItem>
-            </TabControl>
+                    </TabItem>
+                </TabControl>
             </Grid>
         </Grid>
     </Grid>
