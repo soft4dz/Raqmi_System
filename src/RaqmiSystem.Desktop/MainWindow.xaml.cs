@@ -27,17 +27,40 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         ApiBaseUrlTextBox.Text = DesktopSettings.Load();
+        PrefillRememberedCredentials();
         InitializeDefaults();
         RefreshAuthState();
 
-        // Focus initial sur le champ Utilisateur de l'ecran de connexion.
+        // Focus initial : premier champ vide de l'ecran de connexion, ou directement
+        // le bouton quand les identifiants memorises ont tout pre-rempli.
         Loaded += (_, _) =>
         {
             if (!apiClient.IsAuthenticated)
             {
-                UserNameTextBox.Focus();
+                if (string.IsNullOrWhiteSpace(UserNameTextBox.Text))
+                {
+                    UserNameTextBox.Focus();
+                }
+                else if (string.IsNullOrEmpty(PasswordBox.Password))
+                {
+                    PasswordBox.Focus();
+                }
+                else
+                {
+                    LoginButton.Focus();
+                }
             }
         };
+    }
+
+    private void PrefillRememberedCredentials()
+    {
+        if (DesktopSettings.TryLoadCredentials(out var rememberedUser, out var rememberedPassword))
+        {
+            UserNameTextBox.Text = rememberedUser;
+            PasswordBox.Password = rememberedPassword;
+            RememberMeCheckBox.IsChecked = true;
+        }
     }
 
     private void InitializeDefaults()
@@ -106,13 +129,28 @@ public partial class MainWindow : Window
                 return;
             }
 
+            var userName = UserNameTextBox.Text.Trim();
+            var password = PasswordBox.Password;
+
             var login = await apiClient.LoginAsync(
                 ApiBaseUrlTextBox.Text,
-                new LoginRequest(UserNameTextBox.Text.Trim(), PasswordBox.Password));
+                new LoginRequest(userName, password));
 
             CurrentUserTextBlock.Text = $"{login.User.DisplayName} - {login.User.UserName}";
             PasswordBox.Password = string.Empty;
             DesktopSettings.Save(ApiBaseUrlTextBox.Text.Trim());
+
+            // Memorisation uniquement apres une connexion REUSSIE, pour ne jamais
+            // enregistrer des identifiants invalides ; decocher la case efface
+            // ce qui avait ete memorise precedemment.
+            if (RememberMeCheckBox.IsChecked == true)
+            {
+                DesktopSettings.SaveCredentials(userName, password);
+            }
+            else
+            {
+                DesktopSettings.ClearCredentials();
+            }
             RefreshAuthState();
             SetStatus("Connexion réussie. Chargement des données...");
             await LoadHotelUnitsAsync();
@@ -127,6 +165,10 @@ public partial class MainWindow : Window
         apiClient.Logout();
         CurrentUserTextBlock.Text = "Non connecté";
         PasswordBox.Password = string.Empty;
+
+        // Reconnexion facilitee : re-pre-remplit l'ecran de connexion depuis les
+        // identifiants memorises (s'il y en a).
+        PrefillRememberedCredentials();
 
         // Clear every grid/summary/form surface so the previous user's data never
         // stays visible after a subsequent login (own account or another one) -

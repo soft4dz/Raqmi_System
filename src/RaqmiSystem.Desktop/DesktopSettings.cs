@@ -1,19 +1,35 @@
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace RaqmiSystem.Desktop;
 
 /// <summary>
-/// Persists the desktop client's API base URL across sessions, without requiring a rebuild
-/// to point the client at a different server. Resolution order: environment variable,
-/// then the per-user settings file, then a hard-coded fallback default.
+/// Persists the desktop client's per-user preferences across sessions: the API base URL
+/// (so pointing the client at a different server never requires a rebuild) and, when the
+/// user opts in, the login credentials. Resolution order for the URL: environment
+/// variable, then the per-user settings file, then a hard-coded fallback default.
 /// </summary>
 public sealed class DesktopSettings
 {
     private const string EnvironmentVariableName = "RAQMI_DESKTOP_API_URL";
     private const string DefaultApiBaseUrl = "http://localhost:5180";
 
+    // Extra entropy mixed into DPAPI so another local app calling Unprotect with
+    // CurrentUser scope alone cannot read the value. Not a secret by itself.
+    private static readonly byte[] PasswordEntropy = Encoding.UTF8.GetBytes("RaqmiSystem.Desktop.v1");
+
     public string? ApiBaseUrl { get; set; }
+
+    public string? RememberedUserName { get; set; }
+
+    /// <summary>
+    /// The remembered password, encrypted with Windows DPAPI (CurrentUser scope) and
+    /// base64-encoded. Only the same Windows account on the same machine can decrypt
+    /// it; the plaintext password is never written to disk.
+    /// </summary>
+    public string? ProtectedPassword { get; set; }
 
     public static string Load()
     {
@@ -24,29 +40,11 @@ public sealed class DesktopSettings
             return fromEnvironment.Trim();
         }
 
-        try
-        {
-            var path = GetSettingsFilePath();
+        var settings = ReadFile();
 
-            if (File.Exists(path))
-            {
-                var json = File.ReadAllText(path);
-                var settings = JsonSerializer.Deserialize<DesktopSettings>(json);
-
-                if (settings is not null && !string.IsNullOrWhiteSpace(settings.ApiBaseUrl))
-                {
-                    return settings.ApiBaseUrl.Trim();
-                }
-            }
-        }
-        catch
-        {
-            // The settings file is a convenience, not a source of truth: any read/parse
-            // failure (missing folder, corrupted JSON, denied access, ...) falls back to
-            // the default below instead of surfacing to the caller.
-        }
-
-        return DefaultApiBaseUrl;
+        return string.IsNullOrWhiteSpace(settings.ApiBaseUrl)
+            ? DefaultApiBaseUrl
+            : settings.ApiBaseUrl.Trim();
     }
 
     public static void Save(string apiBaseUrl)
@@ -56,6 +54,114 @@ public sealed class DesktopSettings
             return;
         }
 
+        // Load-modify-write so saving the URL never wipes remembered credentials.
+        var settings = ReadFile();
+        settings.ApiBaseUrl = apiBaseUrl.Trim();
+        WriteFile(settings);
+    }
+
+    public static void SaveCredentials(string userName, string password)
+    {
+        if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrEmpty(password))
+        {
+            return;
+        }
+
+        try
+        {
+            var protectedBytes = ProtectedData.Protect(
+                Encoding.UTF8.GetBytes(password),
+                PasswordEntropy,
+                DataProtectionScope.CurrentUser);
+
+            var settings = ReadFile();
+            settings.RememberedUserName = userName.Trim();
+            settings.ProtectedPassword = Convert.ToBase64String(protectedBytes);
+            WriteFile(settings);
+        }
+        catch
+        {
+            // Remembering credentials is a convenience; a DPAPI/disk failure must never
+            // interrupt an already-successful login.
+        }
+    }
+
+    public static void ClearCredentials()
+    {
+        var settings = ReadFile();
+
+        if (settings.RememberedUserName is null && settings.ProtectedPassword is null)
+        {
+            return;
+        }
+
+        settings.RememberedUserName = null;
+        settings.ProtectedPassword = null;
+        WriteFile(settings);
+    }
+
+    public static bool TryLoadCredentials(out string userName, out string password)
+    {
+        userName = string.Empty;
+        password = string.Empty;
+
+        var settings = ReadFile();
+
+        if (string.IsNullOrWhiteSpace(settings.RememberedUserName) ||
+            string.IsNullOrWhiteSpace(settings.ProtectedPassword))
+        {
+            return false;
+        }
+
+        try
+        {
+            var plainBytes = ProtectedData.Unprotect(
+                Convert.FromBase64String(settings.ProtectedPassword),
+                PasswordEntropy,
+                DataProtectionScope.CurrentUser);
+
+            userName = settings.RememberedUserName.Trim();
+            password = Encoding.UTF8.GetString(plainBytes);
+            return true;
+        }
+        catch
+        {
+            // Undecryptable blob (other Windows account, restored file, corruption):
+            // drop it so the login screen simply starts empty instead of erroring.
+            ClearCredentials();
+            return false;
+        }
+    }
+
+    private static DesktopSettings ReadFile()
+    {
+        try
+        {
+            var path = GetSettingsFilePath();
+
+            if (File.Exists(path))
+            {
+                var json = File.ReadAllText(path);
+                var settings = JsonSerializer.Deserialize<DesktopSettings>(json);
+
+                if (settings is not null)
+                {
+                    return settings;
+                }
+            }
+        }
+        catch
+        {
+            // The settings file is a convenience, not a source of truth: any read/parse
+            // failure (missing folder, corrupted JSON, denied access, ...) behaves like
+            // an absent file.
+        }
+
+        return new DesktopSettings();
+    }
+
+    private static void WriteFile(DesktopSettings settings)
+    {
         try
         {
             var path = GetSettingsFilePath();
@@ -66,15 +172,13 @@ public sealed class DesktopSettings
                 Directory.CreateDirectory(directory);
             }
 
-            var settings = new DesktopSettings { ApiBaseUrl = apiBaseUrl.Trim() };
             var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
 
             File.WriteAllText(path, json);
         }
         catch
         {
-            // Remembering the API URL is a convenience for next launch; a disk/permission
-            // failure here must never interrupt an already-successful login.
+            // Same rationale as ReadFile: never let a disk/permission failure surface.
         }
     }
 
