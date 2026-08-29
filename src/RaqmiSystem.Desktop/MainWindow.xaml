@@ -422,17 +422,19 @@
                             SelectionChanged="MainTabs_SelectionChanged">
 
                     <!-- =========================== Accueil =========================== -->
-                    <!-- Hall d'entree de l'ERP : salutation + grille de cartes modules.
-                         Les cartes actives naviguent comme les boutons de la sidebar ;
-                         les cartes "Bientot" (backend pret, ecran a venir) sont inertes.
-                         Les permissions (units.read, ...) pilotent IsEnabled/cadenas
-                         depuis le code-behind (ApplyModulePermissions). -->
+                    <!-- Carte d'avancement des 49 modules de l'ERP : bandeau de
+                         progression, filtres, puis les modules regroupes par famille.
+                         Le contenu vient de ModuleCatalog (data-driven) : un seul
+                         gabarit de carte, aucune carte ecrite en dur. Les cartes dont
+                         un ecran existe naviguent par NavigateToModule, exactement
+                         comme les boutons de la barre laterale. -->
                     <TabItem Header="Accueil">
                         <ScrollViewer VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled"
                                       Padding="0,0,6,0">
                             <StackPanel Margin="6,4,0,0">
 
+                                <!-- ========================= En-tete ========================= -->
                                 <StackPanel Style="{StaticResource HomeRevealStyle}">
                                     <TextBlock x:Name="HomeGreetingTextBlock"
                                                Text="Bonjour"
@@ -441,180 +443,216 @@
                                                Text=""
                                                Style="{StaticResource HomeDateText}"
                                                Margin="0,7,0,2" />
-                                    <TextBlock Text="Que souhaitez-vous faire aujourd'hui ?"
+                                    <TextBlock Text="Où en est votre ERP, module par module."
                                                Style="{StaticResource SubtitleText}" />
                                 </StackPanel>
 
-                                <!-- ======================= Modules actifs ======================= -->
+                                <!-- ============== Bandeau d'avancement + filtres ============== -->
                                 <StackPanel Style="{StaticResource HomeRevealDelayedStyle}"
-                                            Margin="0,30,0,0">
-                                    <TextBlock Text="Modules"
-                                               Style="{StaticResource HomeSectionLabel}" />
-                                    <WrapPanel>
+                                            Margin="0,26,0,0">
 
-                                        <Button x:Name="HomeUnitsCard"
-                                                Style="{StaticResource ModuleCard}"
-                                                ToolTip="Ouvrir le module Unités hôtelières"
-                                                Click="HomeUnitsCard_Click">
-                                            <StackPanel>
-                                                <Border Style="{StaticResource ModuleCardIconChip}">
-                                                    <Path Style="{StaticResource ModuleCardIcon}"
-                                                          Data="M2.5,14.5 V4.5 L8,1.8 V14.5 M8,6.5 H13.5 V14.5 M1,14.5 H15 M4.7,7.5 H5.8 M4.7,10.2 H5.8 M10.2,9.6 H11.3" />
-                                                </Border>
-                                                <TextBlock Text="Unités hôtelières"
-                                                           Style="{StaticResource ModuleCardTitle}" />
-                                                <TextBlock Text="Référentiel des unités et établissements"
-                                                           Style="{StaticResource ModuleCardDescription}" />
-                                            </StackPanel>
-                                        </Button>
+                                    <Border Style="{StaticResource CardBorder}" Padding="22,18">
+                                        <StackPanel>
+                                            <Grid>
+                                                <TextBlock Text="Avancement des modules"
+                                                           Style="{StaticResource HomeSectionLabel}"
+                                                           Margin="0" />
+                                                <TextBlock x:Name="ModuleProgressHeadlineTextBlock"
+                                                           Style="{StaticResource HomeProgressHeadlineText}"
+                                                           HorizontalAlignment="Right" />
+                                            </Grid>
 
-                                        <Button x:Name="HomeRevenueCard"
-                                                Style="{StaticResource ModuleCard}"
-                                                ToolTip="Ouvrir le module Recettes journalières"
-                                                Click="HomeRevenueCard_Click">
-                                            <StackPanel>
-                                                <Border Style="{StaticResource ModuleCardIconChip}">
-                                                    <Path Style="{StaticResource ModuleCardIcon}"
-                                                          Data="M1.5,4.5 H14.5 V11.5 H1.5 Z M8,5.9 A2.1,2.1 0 1 0 8.01,5.9 M3.9,8 H4.1 M11.9,8 H12.1" />
-                                                </Border>
-                                                <TextBlock Text="Recettes journalières"
-                                                           Style="{StaticResource ModuleCardTitle}" />
-                                                <TextBlock Text="Saisie et contrôle des recettes du jour"
-                                                           Style="{StaticResource ModuleCardDescription}" />
-                                            </StackPanel>
-                                        </Button>
+                                            <!-- Compteurs par statut -->
+                                            <UniformGrid Columns="4" Margin="0,14,0,0">
+                                                <StackPanel Margin="0,0,16,0">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Ellipse Style="{StaticResource HomeStatDot}"
+                                                                 Fill="{StaticResource ModuleProgressAvailableBrush}" />
+                                                        <TextBlock Text="Disponible"
+                                                                   Style="{StaticResource HomeStatLabelText}" />
+                                                    </StackPanel>
+                                                    <TextBlock x:Name="ModuleCountAvailableTextBlock"
+                                                               Text="0"
+                                                               Style="{StaticResource HomeStatValueText}" />
+                                                </StackPanel>
 
-                                        <Button x:Name="HomeDashboardCard"
-                                                Style="{StaticResource ModuleCard}"
-                                                ToolTip="Ouvrir le tableau de bord"
-                                                Click="HomeDashboardCard_Click">
-                                            <StackPanel>
-                                                <Border Style="{StaticResource ModuleCardIconChip}">
-                                                    <Path Style="{StaticResource ModuleCardIcon}"
-                                                          Data="M2.2,11.5 A5.8,5.8 0 0 1 13.8,11.5 M8,11.5 L10.9,7.7 M3.4,8.6 L4.3,9.3 M8,5.7 V6.8" />
-                                                </Border>
-                                                <TextBlock Text="Tableau de bord"
-                                                           Style="{StaticResource ModuleCardTitle}" />
-                                                <TextBlock Text="Vue consolidée des recettes par unité"
-                                                           Style="{StaticResource ModuleCardDescription}" />
-                                            </StackPanel>
-                                        </Button>
+                                                <StackPanel Margin="0,0,16,0">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Ellipse Style="{StaticResource HomeStatDot}"
+                                                                 Fill="{StaticResource ModuleProgressApiBrush}" />
+                                                        <TextBlock Text="API prête"
+                                                                   Style="{StaticResource HomeStatLabelText}" />
+                                                    </StackPanel>
+                                                    <TextBlock x:Name="ModuleCountApiTextBlock"
+                                                               Text="0"
+                                                               Style="{StaticResource HomeStatValueText}" />
+                                                </StackPanel>
 
-                                        <Button x:Name="HomeAuditCard"
-                                                Style="{StaticResource ModuleCard}"
-                                                ToolTip="Ouvrir le journal d'audit"
-                                                Click="HomeAuditCard_Click">
-                                            <StackPanel>
-                                                <Border Style="{StaticResource ModuleCardIconChip}">
-                                                    <Path Style="{StaticResource ModuleCardIcon}"
-                                                          Data="M6.8,2.5 A4.3,4.3 0 1 0 6.81,2.5 M9.9,9.9 L13.6,13.6" />
-                                                </Border>
-                                                <TextBlock Text="Journal d'audit"
-                                                           Style="{StaticResource ModuleCardTitle}" />
-                                                <TextBlock Text="Traçabilité des actions, en lecture seule"
-                                                           Style="{StaticResource ModuleCardDescription}" />
-                                            </StackPanel>
-                                        </Button>
+                                                <StackPanel Margin="0,0,16,0">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Ellipse Style="{StaticResource HomeStatDot}"
+                                                                 Fill="{StaticResource ModuleProgressPartialBrush}" />
+                                                        <TextBlock Text="Partiel"
+                                                                   Style="{StaticResource HomeStatLabelText}" />
+                                                    </StackPanel>
+                                                    <TextBlock x:Name="ModuleCountPartialTextBlock"
+                                                               Text="0"
+                                                               Style="{StaticResource HomeStatValueText}" />
+                                                </StackPanel>
+
+                                                <StackPanel>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Ellipse Style="{StaticResource HomeStatDot}"
+                                                                 Fill="{StaticResource ModuleProgressPlannedBrush}" />
+                                                        <TextBlock Text="Planifié"
+                                                                   Style="{StaticResource HomeStatLabelText}" />
+                                                    </StackPanel>
+                                                    <TextBlock x:Name="ModuleCountPlannedTextBlock"
+                                                               Text="0"
+                                                               Style="{StaticResource HomeStatValueText}" />
+                                                </StackPanel>
+                                            </UniformGrid>
+
+                                            <!-- Barre segmentee : une portion par statut, largeurs
+                                                 proportionnelles fixees par le code-behind. -->
+                                            <Grid Margin="0,20,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition x:Name="ModuleProgressAvailableColumn" Width="*" />
+                                                    <ColumnDefinition x:Name="ModuleProgressApiColumn" Width="*" />
+                                                    <ColumnDefinition x:Name="ModuleProgressPartialColumn" Width="*" />
+                                                    <ColumnDefinition x:Name="ModuleProgressPlannedColumn" Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Style="{StaticResource HomeProgressSegment}"
+                                                        Background="{StaticResource ModuleProgressAvailableBrush}" />
+                                                <Border Grid.Column="1"
+                                                        Style="{StaticResource HomeProgressSegment}"
+                                                        Background="{StaticResource ModuleProgressApiBrush}" />
+                                                <Border Grid.Column="2"
+                                                        Style="{StaticResource HomeProgressSegment}"
+                                                        Background="{StaticResource ModuleProgressPartialBrush}" />
+                                                <Border Grid.Column="3"
+                                                        Style="{StaticResource HomeProgressSegment}"
+                                                        Background="{StaticResource ModuleProgressPlannedBrush}"
+                                                        Margin="0" />
+                                            </Grid>
+
+                                            <TextBlock x:Name="ModuleProgressCaptionTextBlock"
+                                                       Text=""
+                                                       Style="{StaticResource HomeProgressCaptionText}" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Filtres : statut, puis priorite -->
+                                    <WrapPanel Margin="0,20,0,0">
+                                        <RadioButton x:Name="ModuleFilterAllChip"
+                                                     Style="{StaticResource FilterChip}"
+                                                     GroupName="ModuleStatusFilter"
+                                                     Content="Tous"
+                                                     Tag=""
+                                                     IsChecked="True"
+                                                     ToolTip="Afficher les 49 modules"
+                                                     Checked="ModuleStatusFilterChip_Checked" />
+                                        <RadioButton x:Name="ModuleFilterAvailableChip"
+                                                     Style="{StaticResource FilterChip}"
+                                                     GroupName="ModuleStatusFilter"
+                                                     Content="Disponibles"
+                                                     Tag="Disponible"
+                                                     ToolTip="Écrans utilisables dès maintenant"
+                                                     Checked="ModuleStatusFilterChip_Checked" />
+                                        <RadioButton x:Name="ModuleFilterApiChip"
+                                                     Style="{StaticResource FilterChip}"
+                                                     GroupName="ModuleStatusFilter"
+                                                     Content="API prête"
+                                                     Tag="ApiPrete"
+                                                     ToolTip="Backend livré et testé, écran client à venir"
+                                                     Checked="ModuleStatusFilterChip_Checked" />
+                                        <RadioButton x:Name="ModuleFilterPartialChip"
+                                                     Style="{StaticResource FilterChip}"
+                                                     GroupName="ModuleStatusFilter"
+                                                     Content="Partiels"
+                                                     Tag="Partiel"
+                                                     ToolTip="Partiellement couverts par l'existant"
+                                                     Checked="ModuleStatusFilterChip_Checked" />
+                                        <RadioButton x:Name="ModuleFilterPlannedChip"
+                                                     Style="{StaticResource FilterChip}"
+                                                     GroupName="ModuleStatusFilter"
+                                                     Content="Planifiés"
+                                                     Tag="Planifie"
+                                                     ToolTip="Pas encore développés"
+                                                     Checked="ModuleStatusFilterChip_Checked" />
+                                    </WrapPanel>
+
+                                    <WrapPanel Margin="0,2,0,0">
+                                        <TextBlock Text="Priorité"
+                                                   Style="{StaticResource FilterRowLabelText}" />
+                                        <RadioButton x:Name="ModulePriorityAllChip"
+                                                     Style="{StaticResource FilterChipCompact}"
+                                                     GroupName="ModulePriorityFilter"
+                                                     Content="Toutes"
+                                                     Tag=""
+                                                     IsChecked="True"
+                                                     Checked="ModulePriorityFilterChip_Checked" />
+                                        <RadioButton x:Name="ModulePriorityP0Chip"
+                                                     Style="{StaticResource FilterChipCompact}"
+                                                     GroupName="ModulePriorityFilter"
+                                                     Content="P0"
+                                                     Tag="P0"
+                                                     ToolTip="Socle et pilote"
+                                                     Checked="ModulePriorityFilterChip_Checked" />
+                                        <RadioButton x:Name="ModulePriorityP1Chip"
+                                                     Style="{StaticResource FilterChipCompact}"
+                                                     GroupName="ModulePriorityFilter"
+                                                     Content="P1"
+                                                     Tag="P1"
+                                                     ToolTip="Cœur de l'ERP"
+                                                     Checked="ModulePriorityFilterChip_Checked" />
+                                        <RadioButton x:Name="ModulePriorityP2Chip"
+                                                     Style="{StaticResource FilterChipCompact}"
+                                                     GroupName="ModulePriorityFilter"
+                                                     Content="P2"
+                                                     Tag="P2"
+                                                     ToolTip="Extensions"
+                                                     Checked="ModulePriorityFilterChip_Checked" />
                                     </WrapPanel>
                                 </StackPanel>
 
-                                <!-- ==================== Bientôt disponible ==================== -->
+                                <!-- ================= Modules groupes par famille ================= -->
                                 <StackPanel Style="{StaticResource HomeRevealDelayedMoreStyle}"
-                                            Margin="0,16,0,0">
-                                    <TextBlock Text="Bientôt disponible"
-                                               Style="{StaticResource HomeSectionLabel}" />
-                                    <WrapPanel>
+                                            Margin="0,6,0,0">
+                                    <ItemsControl x:Name="ModuleCatalogItemsControl">
+                                        <!-- ItemsPanel : disposition des cartes A L'INTERIEUR d'un
+                                             groupe (grille fluide). GroupStyle.Panel : disposition
+                                             des sections elles-memes (les unes sous les autres). -->
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <!-- Gabarit unique : toute la mise en forme de la carte
+                                                 vit dans le style ModuleCatalogCard du theme. -->
+                                            <DataTemplate>
+                                                <Button Style="{StaticResource ModuleCatalogCard}"
+                                                        IsEnabled="{Binding IsClickable}"
+                                                        ToolTip="{Binding ToolTipText}"
+                                                        Click="ModuleCatalogCard_Click" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                        <ItemsControl.GroupStyle>
+                                            <GroupStyle HeaderTemplate="{StaticResource ModuleCatalogGroupHeaderTemplate}">
+                                                <GroupStyle.Panel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Orientation="Vertical" />
+                                                    </ItemsPanelTemplate>
+                                                </GroupStyle.Panel>
+                                            </GroupStyle>
+                                        </ItemsControl.GroupStyle>
+                                    </ItemsControl>
 
-                                        <Border x:Name="HomeClosingCard"
-                                                Style="{StaticResource ModuleCardSoon}"
-                                                ToolTip="Clôture journalière - écran en préparation">
-                                            <Grid>
-                                                <StackPanel>
-                                                    <Border Style="{StaticResource ModuleCardIconChip}">
-                                                        <Path Style="{StaticResource ModuleCardIcon}"
-                                                              Data="M5,7.2 V4.8 A3,3 0 0 1 11,4.8 V7.2 M3.2,7.2 H12.8 V14 H3.2 Z M8,9.8 V11.4" />
-                                                    </Border>
-                                                    <TextBlock Text="Clôture journalière"
-                                                               Style="{StaticResource ModuleCardTitle}" />
-                                                    <TextBlock Text="Verrouillage comptable de la journée"
-                                                               Style="{StaticResource ModuleCardDescription}" />
-                                                </StackPanel>
-                                                <StackPanel Orientation="Horizontal"
-                                                            HorizontalAlignment="Right"
-                                                            VerticalAlignment="Top">
-                                                    <Path x:Name="HomeClosingLockIcon"
-                                                          Style="{StaticResource ModuleCardLockIcon}"
-                                                          Visibility="Collapsed"
-                                                          VerticalAlignment="Top"
-                                                          Margin="0,4,9,0" />
-                                                    <Border Style="{StaticResource ModuleCardSoonBadge}">
-                                                        <TextBlock Text="Bientôt"
-                                                                   Style="{StaticResource ModuleCardSoonBadgeText}" />
-                                                    </Border>
-                                                </StackPanel>
-                                            </Grid>
-                                        </Border>
-
-                                        <Border x:Name="HomeTreasuryCard"
-                                                Style="{StaticResource ModuleCardSoon}"
-                                                ToolTip="Trésorerie - écran en préparation">
-                                            <Grid>
-                                                <StackPanel>
-                                                    <Border Style="{StaticResource ModuleCardIconChip}">
-                                                        <Path Style="{StaticResource ModuleCardIcon}"
-                                                              Data="M1.8,3 H14.2 V12.6 H1.8 Z M8,5.5 A2.3,2.3 0 1 0 8.01,5.5 M9.6,9.5 L10.9,10.8 M3.8,12.6 V14.4 M12.2,12.6 V14.4" />
-                                                    </Border>
-                                                    <TextBlock Text="Trésorerie"
-                                                               Style="{StaticResource ModuleCardTitle}" />
-                                                    <TextBlock Text="Caisses, banques et mouvements de fonds"
-                                                               Style="{StaticResource ModuleCardDescription}" />
-                                                </StackPanel>
-                                                <StackPanel Orientation="Horizontal"
-                                                            HorizontalAlignment="Right"
-                                                            VerticalAlignment="Top">
-                                                    <Path x:Name="HomeTreasuryLockIcon"
-                                                          Style="{StaticResource ModuleCardLockIcon}"
-                                                          Visibility="Collapsed"
-                                                          VerticalAlignment="Top"
-                                                          Margin="0,4,9,0" />
-                                                    <Border Style="{StaticResource ModuleCardSoonBadge}">
-                                                        <TextBlock Text="Bientôt"
-                                                                   Style="{StaticResource ModuleCardSoonBadgeText}" />
-                                                    </Border>
-                                                </StackPanel>
-                                            </Grid>
-                                        </Border>
-
-                                        <Border x:Name="HomeInvoicesCard"
-                                                Style="{StaticResource ModuleCardSoon}"
-                                                ToolTip="Clients &amp; Facturation - écran en préparation">
-                                            <Grid>
-                                                <StackPanel>
-                                                    <Border Style="{StaticResource ModuleCardIconChip}">
-                                                        <Path Style="{StaticResource ModuleCardIcon}"
-                                                              Data="M3.5,1.5 H10 L12.5,4 V14.5 H3.5 Z M10,1.5 V4 H12.5 M6,7.2 H10 M6,9.6 H10 M6,12 H8.5" />
-                                                    </Border>
-                                                    <TextBlock Text="Clients &amp; Facturation"
-                                                               Style="{StaticResource ModuleCardTitle}" />
-                                                    <TextBlock Text="Comptes clients et émission des factures"
-                                                               Style="{StaticResource ModuleCardDescription}" />
-                                                </StackPanel>
-                                                <StackPanel Orientation="Horizontal"
-                                                            HorizontalAlignment="Right"
-                                                            VerticalAlignment="Top">
-                                                    <Path x:Name="HomeInvoicesLockIcon"
-                                                          Style="{StaticResource ModuleCardLockIcon}"
-                                                          Visibility="Collapsed"
-                                                          VerticalAlignment="Top"
-                                                          Margin="0,4,9,0" />
-                                                    <Border Style="{StaticResource ModuleCardSoonBadge}">
-                                                        <TextBlock Text="Bientôt"
-                                                                   Style="{StaticResource ModuleCardSoonBadgeText}" />
-                                                    </Border>
-                                                </StackPanel>
-                                            </Grid>
-                                        </Border>
-                                    </WrapPanel>
+                                    <TextBlock x:Name="ModuleCatalogEmptyTextBlock"
+                                               Text="Aucun module ne correspond à ce filtre."
+                                               Style="{StaticResource ModuleCatalogEmptyText}"
+                                               Visibility="Collapsed" />
                                 </StackPanel>
                             </StackPanel>
                         </ScrollViewer>

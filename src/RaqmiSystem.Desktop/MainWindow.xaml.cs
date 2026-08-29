@@ -1,7 +1,9 @@
+using System.ComponentModel;
 using System.Globalization;
 using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -20,11 +22,19 @@ namespace RaqmiSystem.Desktop;
 
 public partial class MainWindow : Window
 {
-    private const string AccessDeniedToolTip = "Accès non autorisé pour votre profil";
-
     private readonly RaqmiApiClient apiClient = new(new HttpClient());
     private IReadOnlyCollection<HotelUnitResponse> hotelUnits = Array.Empty<HotelUnitResponse>();
     private string? editingUnitCode;
+
+    // Ecran d'accueil : les 49 modules du catalogue, exposes une seule fois et
+    // filtres via une vue (pas de reconstruction de collection, donc pas de
+    // clignotement quand on change de filtre ou de profil).
+    private readonly IReadOnlyList<ModuleTile> moduleTiles =
+        ModuleCatalog.Entries.Select(entry => new ModuleTile(entry)).ToList();
+
+    private ICollectionView? moduleCatalogView;
+    private ModuleStatus? moduleStatusFilter;
+    private string? modulePriorityFilter;
 
     // Permissions de l'utilisateur connecte (cles "units.read", "revenue.read", ...).
     // Null tant que personne n'est connecte : l'ecran d'accueil est alors dans son
@@ -82,7 +92,12 @@ public partial class MainWindow : Window
         UnitTypeComboBox.ItemsSource = Enum.GetValues<HotelUnitType>();
         ResetUnitForm();
         RefreshHomeDate();
-        SetActiveModuleButton(ShowHomeButton);
+        InitializeModuleCatalog();
+        ApplyModulePermissions();
+
+        // L'application demarre sur l'accueil, meme avant la premiere connexion :
+        // le TabControl n'a pas d'en-tetes, sa selection doit donc etre explicite.
+        NavigateToModule(0, ShowHomeButton);
         SetStatus("Connectez-vous pour charger les données de l'API.");
     }
 
@@ -134,64 +149,172 @@ public partial class MainWindow : Window
     }
 
     // Aligne l'ecran d'accueil et la sidebar sur les permissions de lecture du
-    // profil connecte : carte/bouton desactives + cadenas + tooltip explicite
-    // quand la permission manque. Appele apres connexion et apres deconnexion
-    // (ou currentUserPermissions est null : tout revient a l'etat par defaut).
+    // profil connecte : carte verrouillee (cadenas + info-bulle explicite) quand
+    // la permission manque, bouton et onglet desactives pour les modules qui ont
+    // un ecran. Appele au demarrage, apres connexion et apres deconnexion (ou
+    // currentUserPermissions est null : tout revient a l'etat par defaut).
     private void ApplyModulePermissions()
     {
-        ApplyModuleAccess(PermissionCatalog.UnitsRead, ShowUnitsButton, UnitsTabItem, HomeUnitsCard, null,
-            "Ouvrir le module Unités hôtelières");
-        ApplyModuleAccess(PermissionCatalog.RevenueRead, ShowRevenueButton, RevenueTabItem, HomeRevenueCard, null,
-            "Ouvrir le module Recettes journalières");
-        ApplyModuleAccess(PermissionCatalog.DashboardRead, ShowDashboardButton, DashboardTabItem, HomeDashboardCard, null,
-            "Ouvrir le tableau de bord");
-        ApplyModuleAccess(PermissionCatalog.AuditRead, ShowAuditButton, AuditTabItem, HomeAuditCard, null,
-            "Ouvrir le journal d'audit");
+        // Un module sans cle de permission n'est jamais verrouille : son statut
+        // d'avancement suffit a dire ce que l'utilisateur peut en faire.
+        foreach (var tile in moduleTiles)
+        {
+            tile.IsLocked = tile.PermissionKey is { } permission && !HasModulePermission(permission);
+        }
 
-        // Modules "Bientot disponible" : pas de bouton sidebar ni d'onglet, cadenas dedie.
-        ApplyModuleAccess(PermissionCatalog.ClosingRead, null, null, HomeClosingCard, HomeClosingLockIcon,
-            "Clôture journalière - écran en préparation");
-        ApplyModuleAccess(PermissionCatalog.TreasuryRead, null, null, HomeTreasuryCard, HomeTreasuryLockIcon,
-            "Trésorerie - écran en préparation");
-        ApplyModuleAccess(PermissionCatalog.InvoicesRead, null, null, HomeInvoicesCard, HomeInvoicesLockIcon,
-            "Clients & Facturation - écran en préparation");
+        ApplyModuleAccess(PermissionCatalog.UnitsRead, ShowUnitsButton, UnitsTabItem);
+        ApplyModuleAccess(PermissionCatalog.RevenueRead, ShowRevenueButton, RevenueTabItem);
+        ApplyModuleAccess(PermissionCatalog.DashboardRead, ShowDashboardButton, DashboardTabItem);
+        ApplyModuleAccess(PermissionCatalog.AuditRead, ShowAuditButton, AuditTabItem);
     }
 
-    private void ApplyModuleAccess(
-        string permission,
-        Button? navButton,
-        TabItem? tabItem,
-        FrameworkElement card,
-        UIElement? lockIcon,
-        string defaultToolTip)
+    private void ApplyModuleAccess(string permission, Button navButton, TabItem tabItem)
     {
         var allowed = HasModulePermission(permission);
 
-        if (navButton is not null)
-        {
-            navButton.IsEnabled = allowed;
-        }
+        navButton.IsEnabled = allowed;
 
         // Desactiver aussi le TabItem ferme le chemin clavier Ctrl+Tab / Ctrl+Shift+Tab,
         // qui cycle les onglets meme quand leurs en-tetes ne sont pas affiches - un
         // onglet desactive est saute par ce cycle.
-        if (tabItem is not null)
-        {
-            tabItem.IsEnabled = allowed;
-        }
-
-        // Les cartes actives (style ModuleCard) affichent leur cadenas via le
-        // trigger IsEnabled=False du template ; les cartes "Bientot" passent par
-        // le Path dedie fourni en parametre.
-        card.IsEnabled = allowed;
-
-        if (lockIcon is not null)
-        {
-            lockIcon.Visibility = allowed ? Visibility.Collapsed : Visibility.Visible;
-        }
-
-        card.ToolTip = allowed ? defaultToolTip : AccessDeniedToolTip;
+        tabItem.IsEnabled = allowed;
     }
+
+    // ==================== Accueil : carte d'avancement des modules ====================
+
+    // Prepare la liste groupee des 49 modules (regroupement par famille via la
+    // vue, filtres statut/priorite appliques par MatchesModuleFilters) et le
+    // bandeau d'avancement.
+    private void InitializeModuleCatalog()
+    {
+        var source = new CollectionViewSource { Source = moduleTiles };
+        source.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ModuleTile.Group)));
+
+        moduleCatalogView = source.View;
+        moduleCatalogView.Filter = MatchesModuleFilters;
+        ModuleCatalogItemsControl.ItemsSource = moduleCatalogView;
+
+        RefreshModuleProgress();
+        RefreshModuleCatalogEmptyState();
+    }
+
+    // Compteurs par statut, largeurs proportionnelles de la barre segmentee et
+    // libelles de synthese : la reponse directe a "ou en est le produit ?".
+    private void RefreshModuleProgress()
+    {
+        var total = ModuleCatalog.Entries.Count;
+        var available = ModuleCatalog.CountOf(ModuleStatus.Disponible);
+        var apiReady = ModuleCatalog.CountOf(ModuleStatus.ApiPrete);
+        var partial = ModuleCatalog.CountOf(ModuleStatus.Partiel);
+        var planned = ModuleCatalog.CountOf(ModuleStatus.Planifie);
+
+        ModuleCountAvailableTextBlock.Text = available.ToString(CultureInfo.CurrentCulture);
+        ModuleCountApiTextBlock.Text = apiReady.ToString(CultureInfo.CurrentCulture);
+        ModuleCountPartialTextBlock.Text = partial.ToString(CultureInfo.CurrentCulture);
+        ModuleCountPlannedTextBlock.Text = planned.ToString(CultureInfo.CurrentCulture);
+
+        ModuleProgressAvailableColumn.Width = new GridLength(available, GridUnitType.Star);
+        ModuleProgressApiColumn.Width = new GridLength(apiReady, GridUnitType.Star);
+        ModuleProgressPartialColumn.Width = new GridLength(partial, GridUnitType.Star);
+        ModuleProgressPlannedColumn.Width = new GridLength(planned, GridUnitType.Star);
+
+        var availableShare = total == 0 ? 0 : (int)Math.Round(available * 100d / total);
+        ModuleProgressHeadlineTextBlock.Text = $"{availableShare} % du périmètre déjà utilisable";
+
+        // Les quatre statuts restent distincts dans la legende : les additionner
+        // ("livres cote serveur") surestimerait le travail fait, car "Partiel"
+        // recouvre des situations tres differentes (API seule, fonction absorbee
+        // par un autre ecran, outillage serveur hors application).
+        ModuleProgressCaptionTextBlock.Text =
+            $"{available} modules disponibles sur {total}  ·  {apiReady} avec API livrée, écran à venir  ·  {partial} partiellement couverts  ·  {planned} planifiés";
+    }
+
+    // Filtre courant de la vue : statut, puis priorite.
+    private bool MatchesModuleFilters(object item)
+    {
+        if (item is not ModuleTile tile)
+        {
+            return false;
+        }
+
+        if (moduleStatusFilter is { } status && tile.Status != status)
+        {
+            return false;
+        }
+
+        return modulePriorityFilter is null
+            || string.Equals(tile.Priority, modulePriorityFilter, StringComparison.Ordinal);
+    }
+
+    private void ModuleStatusFilterChip_Checked(object sender, RoutedEventArgs e)
+    {
+        // Les puces par defaut sont cochees pendant InitializeComponent, donc
+        // avant la creation de la vue : ces premiers evenements sont sans objet.
+        if (moduleCatalogView is null)
+        {
+            return;
+        }
+
+        var tag = (sender as RadioButton)?.Tag as string;
+        moduleStatusFilter = Enum.TryParse<ModuleStatus>(tag, out var status) ? status : null;
+        ApplyModuleCatalogFilters();
+    }
+
+    private void ModulePriorityFilterChip_Checked(object sender, RoutedEventArgs e)
+    {
+        if (moduleCatalogView is null)
+        {
+            return;
+        }
+
+        var tag = (sender as RadioButton)?.Tag as string;
+        modulePriorityFilter = string.IsNullOrEmpty(tag) ? null : tag;
+        ApplyModuleCatalogFilters();
+    }
+
+    private void ApplyModuleCatalogFilters()
+    {
+        moduleCatalogView?.Refresh();
+        RefreshModuleCatalogEmptyState();
+    }
+
+    private void RefreshModuleCatalogEmptyState()
+    {
+        var isEmpty = moduleCatalogView is null || moduleCatalogView.IsEmpty;
+        ModuleCatalogEmptyTextBlock.Visibility = isEmpty ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // Carte de l'accueil : meme chemin de navigation que la barre laterale. Une
+    // carte sans ecran ou sans permission est desactivee (IsClickable=False) et
+    // ne peut donc pas declencher ce handler ; le test du bouton reste une
+    // securite si un chemin futur y arrivait autrement.
+    private void ModuleCatalogCard_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: ModuleTile tile } || tile.TabIndex is not { } tabIndex)
+        {
+            return;
+        }
+
+        var moduleButton = SidebarButtonForTab(tabIndex);
+        if (moduleButton is null || !moduleButton.IsEnabled)
+        {
+            return;
+        }
+
+        NavigateToModule(tabIndex, moduleButton);
+    }
+
+    // Ordre des onglets de MainTabs : 0=Accueil, 1=Unités hôtelières,
+    // 2=Recettes journalières, 3=Tableau de bord, 4=Journal d'audit.
+    private Button? SidebarButtonForTab(int tabIndex) => tabIndex switch
+    {
+        0 => ShowHomeButton,
+        1 => ShowUnitsButton,
+        2 => ShowRevenueButton,
+        3 => ShowDashboardButton,
+        4 => ShowAuditButton,
+        _ => null
+    };
 
     // Fondu discret (150 ms) du contenu a chaque changement de module, et
     // resynchronisation de la surbrillance de la sidebar : quel que soit le chemin
@@ -205,15 +328,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var moduleButton = MainTabs.SelectedIndex switch
-        {
-            0 => ShowHomeButton,
-            1 => ShowUnitsButton,
-            2 => ShowRevenueButton,
-            3 => ShowDashboardButton,
-            4 => ShowAuditButton,
-            _ => null
-        };
+        var moduleButton = SidebarButtonForTab(MainTabs.SelectedIndex);
 
         if (moduleButton is not null)
         {
@@ -381,8 +496,6 @@ public partial class MainWindow : Window
         });
     }
 
-    // Ordre des onglets de MainTabs : 0=Accueil, 1=Unités hôtelières,
-    // 2=Recettes journalières, 3=Tableau de bord, 4=Journal d'audit.
     private void ShowHomeButton_Click(object sender, RoutedEventArgs e)
     {
         NavigateToModule(0, ShowHomeButton);
@@ -404,29 +517,6 @@ public partial class MainWindow : Window
     }
 
     private void ShowAuditButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(4, ShowAuditButton);
-    }
-
-    // Cartes de l'ecran d'accueil : meme navigation que la sidebar. Une carte
-    // sans permission de lecture est desactivee (IsEnabled=False) et ne peut
-    // donc jamais declencher ces handlers.
-    private void HomeUnitsCard_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(1, ShowUnitsButton);
-    }
-
-    private void HomeRevenueCard_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(2, ShowRevenueButton);
-    }
-
-    private void HomeDashboardCard_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(3, ShowDashboardButton);
-    }
-
-    private void HomeAuditCard_Click(object sender, RoutedEventArgs e)
     {
         NavigateToModule(4, ShowAuditButton);
     }
