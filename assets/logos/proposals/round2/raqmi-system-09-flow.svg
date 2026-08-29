@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 220" role="img" aria-labelledby="title">
+  <title id="title">RAQMI SYSTEM — Flow</title>
+  <g transform="translate(18 20)">
+    <path d="M20 90c0-40 26-68 61-68 45 0 56 50 88 96 14 20 26 35 45 35 24 0 38-18 38-45 0-33-17-55-47-55-20 0-36 11-51 34l-18-27c19-29 42-43 72-43 48 0 78 36 78 91 0 50-28 82-70 82-43 0-62-35-91-78-18-27-28-53-47-53-15 0-25 12-25 31 0 22 13 35 34 35 16 0 29-8 42-25l17 28c-17 22-37 33-61 33-39 0-65-28-65-71Z" fill="#103B4C"/>
+    <rect x="122" y="79" width="24" height="24" rx="5" fill="#D6A23C"/>
+    <circle cx="48" cy="90" r="8" fill="#18A999"/>
+    <circle cx="251" cy="108" r="8" fill="#18A999"/>
+  </g>
+  <g transform="translate(340 48)">
+    <text x="0" y="78" fill="#103B4C" font-family="Inter, Avenir Next, Segoe UI, Arial, sans-serif" font-size="80" font-weight="800" letter-spacing="5">RAQMI</text>
+    <text x="4" y="124" fill="#18A999" font-family="Inter, Avenir Next, Segoe UI, Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="14">SYSTEM</text>
+  </g>
+</svg>

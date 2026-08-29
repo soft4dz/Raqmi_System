@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Raqmi System - icône application</title>
+  <rect x="32" y="32" width="960" height="960" rx="220" fill="#071525"/>
+  <g transform="translate(112 94) scale(1.9)">
+    <path fill="#FFFFFF" fill-rule="evenodd" d="M70 125 110 85h200l40 40v200l-40 40H110l-40-40V125Zm70 30v140h140V155H140Z"/>
+    <path fill="#0AA3AD" d="m70 125 40-40h100v70h-70v70H70V125Z"/>
+    <path fill="#145CAB" d="m255 275 52-45 91 106-52 45z"/>
+    <rect x="139" y="13" width="46" height="46" rx="4" fill="#0AA3AD" transform="rotate(45 162 36)"/>
+    <rect x="235" y="13" width="46" height="46" rx="4" fill="#0AA3AD" transform="rotate(45 258 36)"/>
+  </g>
+</svg>

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1160" role="img" aria-labelledby="title">
+  <title id="title">Comparatif des propositions RAQMI SYSTEM</title>
+  <rect width="1400" height="1160" fill="#F4F7FA"/>
+  <text x="70" y="75" fill="#102A43" font-family="Avenir Next, Montserrat, Segoe UI, Arial, sans-serif" font-size="34" font-weight="800">RAQMI SYSTEM — PISTES D’IDENTITÉ</text>
+  <text x="70" y="111" fill="#627D98" font-family="Avenir Next, Montserrat, Segoe UI, Arial, sans-serif" font-size="17">Constructions vectorielles manuelles · sans dégradé · sans pictogramme</text>
+
+  <g transform="translate(50 155)">
+    <rect width="630" height="285" rx="18" fill="#FFF"/>
+    <text x="28" y="38" fill="#829AB1" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="2">01 — NEXUS</text>
+    <image href="raqmi-system-01-nexus.svg" x="22" y="55" width="586" height="200"/>
+  </g>
+  <g transform="translate(720 155)">
+    <rect width="630" height="285" rx="18" fill="#FFF"/>
+    <text x="28" y="38" fill="#829AB1" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="2">02 — Q MATRIX</text>
+    <image href="raqmi-system-02-q-matrix.svg" x="22" y="55" width="586" height="200"/>
+  </g>
+  <g transform="translate(50 470)">
+    <rect width="630" height="285" rx="18" fill="#FFF"/>
+    <text x="28" y="38" fill="#829AB1" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="2">03 — RS WEAVE</text>
+    <image href="raqmi-system-03-rs-weave.svg" x="22" y="55" width="586" height="200"/>
+  </g>
+  <g transform="translate(720 470)">
+    <rect width="630" height="285" rx="18" fill="#FFF"/>
+    <text x="28" y="38" fill="#829AB1" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="2">04 — WORDMARK</text>
+    <image href="raqmi-system-04-wordmark.svg" x="22" y="55" width="586" height="200"/>
+  </g>
+  <g transform="translate(385 785)">
+    <rect width="630" height="285" rx="18" fill="#FFF"/>
+    <text x="28" y="38" fill="#829AB1" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="2">05 — ATLAS</text>
+    <image href="raqmi-system-05-atlas.svg" x="22" y="55" width="586" height="200"/>
+  </g>
+</svg>

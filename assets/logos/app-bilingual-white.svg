@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1536" height="620" viewBox="0 0 1536 620">
+  <title>Raqmi System - signature bilingue couleur</title>
+  <g transform="translate(45 85) scale(.88)">
+    <path fill="#FFFFFF" fill-rule="evenodd" d="M70 125 110 85h200l40 40v200l-40 40H110l-40-40V125Zm70 30v140h140V155H140Z"/>
+    <path fill="#FFFFFF" d="m70 125 40-40h100v70h-70v70H70V125Z"/>
+    <path fill="#FFFFFF" d="m255 275 52-45 91 106-52 45z"/>
+    <rect x="139" y="13" width="46" height="46" rx="4" fill="#FFFFFF" transform="rotate(45 162 36)"/>
+    <rect x="235" y="13" width="46" height="46" rx="4" fill="#FFFFFF" transform="rotate(45 258 36)"/>
+  </g>
+  <g transform="translate(480 145) scale(.86)">
+    <path fill="#FFFFFF" fill-rule="evenodd" d="M0 0h122c58 0 94 32 94 82 0 39-20 67-58 78l68 80h-83l-56-72H64v72H0V0Zm64 51v67h53c23 0 35-11 35-34 0-22-12-33-35-33H64Z"/>
+    <path fill="#FFFFFF" fill-rule="evenodd" d="M342 0h67l105 240h-72l-19-48H327l-19 48h-71L342 0Zm33 62-29 78h58l-29-78Z"/>
+    <path fill="#FFFFFF" fill-rule="evenodd" d="M628 0c76 0 128 50 128 120 0 35-13 66-37 88l42 43-47 42-45-48c-13 4-27 6-41 6-76 0-128-51-128-131C500 50 552 0 628 0Zm0 57c-39 0-65 27-65 63 0 42 26 72 65 72 3 0 6 0 9-1l-29-31 44-40 29 31c8-9 12-20 12-31 0-36-26-63-65-63Z"/>
+    <path fill="#FFFFFF" d="M782 0h64l61 82L968 0h64v240h-64V92l-48 65h-26l-48-65v148h-64V0Z"/>
+    <path fill="#FFFFFF" d="M1064 0h64v240h-64z"/>
+    <text x="561" y="330" text-anchor="middle" font-family="DejaVu Sans,Arial,sans-serif" font-size="58" font-weight="700" letter-spacing="36" fill="#FFFFFF">SYSTEM</text>
+  </g>
+  <text x="1080" y="555" text-anchor="middle" direction="rtl" unicode-bidi="bidi-override" font-family="DejaVu Sans,Arial,sans-serif" font-size="55" font-weight="700" fill="#FFFFFF">رقمي سيستم</text>
+</svg>

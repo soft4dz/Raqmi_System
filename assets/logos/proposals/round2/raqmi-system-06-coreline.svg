@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 220" role="img" aria-labelledby="title">
+  <title id="title">RAQMI SYSTEM — Coreline</title>
+  <g transform="translate(30 26)">
+    <path d="M12 64V12h52" fill="none" stroke="#111827" stroke-width="20" stroke-linecap="square"/>
+    <path d="M104 12h52v52" fill="none" stroke="#008E94" stroke-width="20" stroke-linecap="square"/>
+    <path d="M156 104v52h-52" fill="none" stroke="#111827" stroke-width="20" stroke-linecap="square"/>
+    <path d="M64 156H12v-52" fill="none" stroke="#008E94" stroke-width="20" stroke-linecap="square"/>
+    <rect x="57" y="57" width="54" height="54" rx="8" fill="#111827"/>
+    <rect x="74" y="74" width="20" height="20" rx="4" fill="#E5A624"/>
+  </g>
+  <g transform="translate(252 48)">
+    <text x="0" y="78" fill="#111827" font-family="Inter, Avenir Next, Segoe UI, Arial, sans-serif" font-size="82" font-weight="800" letter-spacing="6">RAQMI</text>
+    <text x="4" y="125" fill="#008E94" font-family="Inter, Avenir Next, Segoe UI, Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="15">SYSTEM</text>
+    <rect x="333" y="103" width="62" height="5" fill="#E5A624"/>
+  </g>
+</svg>

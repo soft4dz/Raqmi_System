@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 220" role="img" aria-labelledby="title">
+  <title id="title">RAQMI SYSTEM — Hexacore</title>
+  <g transform="translate(24 15)">
+    <polygon points="95,5 173,50 129,75 95,56" fill="#14213D"/>
+    <polygon points="173,50 173,140 129,115 129,75" fill="#2457A6"/>
+    <polygon points="173,140 95,185 95,134 129,115" fill="#14213D"/>
+    <polygon points="95,185 17,140 61,115 95,134" fill="#2457A6"/>
+    <polygon points="17,140 17,50 61,75 61,115" fill="#14213D"/>
+    <polygon points="17,50 95,5 95,56 61,75" fill="#2457A6"/>
+    <polygon points="95,56 129,75 129,115 95,134 61,115 61,75" fill="#D28B19"/>
+    <circle cx="95" cy="95" r="15" fill="#FFF"/>
+  </g>
+  <g transform="translate(254 48)">
+    <text x="0" y="78" fill="#14213D" font-family="Inter, Avenir Next, Segoe UI, Arial, sans-serif" font-size="82" font-weight="800" letter-spacing="6">RAQMI</text>
+    <rect x="3" y="104" width="42" height="5" fill="#D28B19"/>
+    <text x="65" y="125" fill="#2457A6" font-family="Inter, Avenir Next, Segoe UI, Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="15">SYSTEM</text>
+  </g>
+</svg>

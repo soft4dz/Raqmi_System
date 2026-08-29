@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 220" role="img" aria-labelledby="title">
+  <title id="title">RAQMI SYSTEM — Proposition Wordmark</title>
+  <g transform="translate(46 43)">
+    <text x="0" y="82" fill="#102A43" font-family="Avenir Next, Montserrat, Segoe UI, Arial, sans-serif" font-size="92" font-weight="850" letter-spacing="7">RAQMI</text>
+    <rect x="183" y="15" width="19" height="19" rx="4" fill="#C89424"/>
+    <rect x="207" y="15" width="9" height="9" rx="2" fill="#20A7B5"/>
+    <rect x="220" y="15" width="9" height="9" rx="2" fill="#007C83"/>
+    <path d="M197 87h24l22 25h-25l-21-25Z" fill="#007C83"/>
+    <text x="6" y="133" fill="#007C83" font-family="Avenir Next, Montserrat, Segoe UI, Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="17">SYSTEM</text>
+    <path d="M326 120H784" stroke="#D9E2EC" stroke-width="2"/>
+  </g>
+</svg>

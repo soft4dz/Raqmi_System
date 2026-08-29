@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 220" role="img" aria-labelledby="title">
+  <title id="title">RAQMI SYSTEM — Proposition Nexus</title>
+  <g transform="translate(28 22)">
+    <rect x="58" y="0" width="60" height="24" rx="5" fill="#102A43"/>
+    <rect x="58" y="152" width="60" height="24" rx="5" fill="#102A43"/>
+    <rect x="0" y="58" width="24" height="60" rx="5" fill="#007C83"/>
+    <rect x="152" y="58" width="24" height="60" rx="5" fill="#007C83"/>
+    <path d="M28 28h42v20H48v22H28V28Z" fill="#20A7B5"/>
+    <path d="M148 28v42h-20V48h-22V28h42Z" fill="#102A43"/>
+    <path d="M148 148h-42v-20h22v-22h20v42Z" fill="#20A7B5"/>
+    <path d="M28 148v-42h20v22h22v20H28Z" fill="#102A43"/>
+    <rect x="66" y="66" width="44" height="44" rx="10" fill="#C89424"/>
+    <rect x="78" y="78" width="20" height="20" rx="4" fill="#FFF"/>
+  </g>
+  <g transform="translate(252 49)">
+    <text x="0" y="76" fill="#102A43" font-family="Avenir Next, Montserrat, Segoe UI, Arial, sans-serif" font-size="80" font-weight="800" letter-spacing="5">RAQMI</text>
+    <rect x="3" y="102" width="68" height="6" rx="3" fill="#007C83"/>
+    <text x="92" y="120" fill="#C89424" font-family="Avenir Next, Montserrat, Segoe UI, Arial, sans-serif" font-size="29" font-weight="700" letter-spacing="13">SYSTEM</text>
+  </g>
+</svg>

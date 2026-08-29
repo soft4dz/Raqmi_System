@@ -1,0 +1,34 @@
+CONTRAT DE LICENCE UTILISATEUR FINAL — RAQMI SYSTEM
+Raqmi System — ERP intégré
+
+Copyright © Raqmi System. Tous droits réservés.
+
+1. OCTROI DE LICENCE
+Raqmi System vous accorde une licence non exclusive, non transférable et révocable
+d'utilisation du logiciel Raqmi System (ci-après « le Logiciel ») sur un poste
+Windows autorisé, conformément à la clé de licence fournie.
+
+2. RESTRICTIONS
+Vous ne pouvez pas : copier, modifier, décompiler ou distribuer le Logiciel ;
+contourner les mécanismes de licence ; louer ou sous-licencier le Logiciel.
+
+3. DONNÉES
+Les données métier restent la propriété de votre établissement. Raqmi System n'accède
+pas aux données sans votre accord explicite (support, maintenance).
+
+4. CONFORMITÉ RÉGLEMENTAIRE
+Le Logiciel aide à la conformité comptable, fiscale et RGPD (Loi 18-07). La
+responsabilité de la conformité légale finale incombe à l'exploitant.
+
+5. GARANTIE ET RESPONSABILITÉ
+Le Logiciel est fourni « en l'état ». Raqmi System ne garantit pas l'absence
+d'interruptions. Sauvegardez régulièrement votre base locale.
+
+6. RÉSILIATION
+La licence expire à la date indiquée sur la clé. À expiration, activez une clé
+de renouvellement ou contactez Raqmi System.
+
+7. CONTACT
+Raqmi System — support@raqmisystem.dz
+
+En installant ou en utilisant le Logiciel, vous acceptez ce contrat.

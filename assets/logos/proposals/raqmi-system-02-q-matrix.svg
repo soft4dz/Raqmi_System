@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 220" role="img" aria-labelledby="title">
+  <title id="title">RAQMI SYSTEM — Proposition Q Matrix</title>
+  <g transform="translate(24 18)">
+    <path fill="#102A43" fill-rule="evenodd" d="M50 4h88l42 42v88l-28 28-22-22 18-18V58l-22-22H62L36 62v64l22 22h52l24 32H46L4 138V50L50 4Zm20 54h48l18 18v42l-18 18H70l-18-18V76l18-18Z"/>
+    <path d="M103 103h29l48 61-24 18-53-79Z" fill="#C89424"/>
+    <rect x="72" y="78" width="14" height="14" rx="2" fill="#20A7B5"/>
+    <rect x="94" y="78" width="14" height="14" rx="2" fill="#007C83"/>
+    <rect x="116" y="78" width="14" height="14" rx="2" fill="#20A7B5"/>
+    <rect x="72" y="100" width="14" height="14" rx="2" fill="#007C83"/>
+    <rect x="94" y="100" width="14" height="14" rx="2" fill="#C89424"/>
+    <rect x="116" y="100" width="14" height="14" rx="2" fill="#007C83"/>
+  </g>
+  <g transform="translate(256 49)">
+    <text x="0" y="76" fill="#102A43" font-family="Avenir Next, Montserrat, Segoe UI, Arial, sans-serif" font-size="80" font-weight="800" letter-spacing="5">RAQMI</text>
+    <text x="4" y="121" fill="#007C83" font-family="Avenir Next, Montserrat, Segoe UI, Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="14">SYSTEM</text>
+    <rect x="332" y="99" width="54" height="6" rx="3" fill="#C89424"/>
+  </g>
+</svg>

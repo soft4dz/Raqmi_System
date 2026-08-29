@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 220" role="img" aria-labelledby="title">
+  <title id="title">RAQMI SYSTEM — Proposition RS Weave</title>
+  <g transform="translate(20 18)">
+    <path d="M38 166V18h66c34 0 55 18 55 47 0 24-14 39-36 45l46 56h-40l-40-51H72v51H38Zm34-119v42h30c15 0 24-7 24-21 0-14-9-21-24-21H72Z" fill="#102A43"/>
+    <path d="M30 129c26 20 48 28 74 28 27 0 45-9 45-24 0-13-12-18-42-24-48-10-68-25-68-53 0-30 28-50 69-50 25 0 48 6 68 18l-15 27c-19-10-36-15-54-15-21 0-35 7-35 18 0 11 11 16 41 22 51 10 71 27 71 56 0 34-31 55-80 55-34 0-64-10-89-30l15-28Z" fill="none" stroke="#007C83" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="95" y="94" width="22" height="22" rx="5" fill="#C89424"/>
+  </g>
+  <g transform="translate(256 49)">
+    <text x="0" y="76" fill="#102A43" font-family="Avenir Next, Montserrat, Segoe UI, Arial, sans-serif" font-size="80" font-weight="800" letter-spacing="5">RAQMI</text>
+    <rect x="3" y="103" width="34" height="6" rx="3" fill="#C89424"/>
+    <text x="58" y="121" fill="#007C83" font-family="Avenir Next, Montserrat, Segoe UI, Arial, sans-serif" font-size="29" font-weight="700" letter-spacing="13">SYSTEM</text>
+  </g>
+</svg>

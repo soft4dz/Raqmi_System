@@ -4,9 +4,11 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using RaqmiSystem.Application.Common;
 using RaqmiSystem.Application.Identity;
 using RaqmiSystem.Application.Organization;
 using RaqmiSystem.Application.Revenue;
+using RaqmiSystem.Application.Security;
 
 namespace RaqmiSystem.Desktop.Api;
 
@@ -25,6 +27,16 @@ public sealed class RaqmiApiClient(HttpClient httpClient)
     }
 
     public bool IsAuthenticated => !string.IsNullOrWhiteSpace(accessToken);
+
+    /// <summary>
+    /// Clears the current session token so <see cref="IsAuthenticated"/> reports false again.
+    /// Does not call the API: the desktop client has no server-side session to invalidate,
+    /// so signing out is purely a local state reset.
+    /// </summary>
+    public void Logout()
+    {
+        accessToken = null;
+    }
 
     public async Task<LoginResponse> LoginAsync(
         string apiBaseUrl,
@@ -62,7 +74,7 @@ public sealed class RaqmiApiClient(HttpClient httpClient)
         var response = await SendAsync(
             apiBaseUrl,
             HttpMethod.Get,
-            BuildDailyRevenueQuery(from, to, hotelUnitCode),
+            BuildQuery("/api/v1/revenue/daily", from, to, hotelUnitCode),
             null,
             includeAuthorization: true,
             cancellationToken);
@@ -92,6 +104,125 @@ public sealed class RaqmiApiClient(HttpClient httpClient)
         var response = await SendAsync(apiBaseUrl, HttpMethod.Post, $"/api/v1/revenue/daily/{id}/submit", null, includeAuthorization: true, cancellationToken);
 
         return await ReadResponseAsync<DailyRevenueResponse>(response, cancellationToken);
+    }
+
+    public async Task<DailyRevenueResponse> ValidateDailyRevenueAsync(
+        string apiBaseUrl,
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, $"/api/v1/revenue/daily/{id}/validate", null, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<DailyRevenueResponse>(response, cancellationToken);
+    }
+
+    public async Task<DailyRevenueResponse> RejectDailyRevenueAsync(
+        string apiBaseUrl,
+        Guid id,
+        RejectDailyRevenueRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, $"/api/v1/revenue/daily/{id}/reject", request, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<DailyRevenueResponse>(response, cancellationToken);
+    }
+
+    public async Task<DailyRevenueSummaryResponse> GetDailyRevenueSummaryAsync(
+        string apiBaseUrl,
+        DateOnly? from,
+        DateOnly? to,
+        string? hotelUnitCode,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(
+            apiBaseUrl,
+            HttpMethod.Get,
+            BuildQuery("/api/v1/revenue/daily/summary", from, to, hotelUnitCode),
+            null,
+            includeAuthorization: true,
+            cancellationToken);
+
+        return await ReadResponseAsync<DailyRevenueSummaryResponse>(response, cancellationToken);
+    }
+
+    public async Task<UnitDashboardResponse> GetUnitDashboardAsync(
+        string apiBaseUrl,
+        DateOnly businessDate,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var query = "?date=" + Uri.EscapeDataString(businessDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Get, $"/api/v1/revenue/daily/dashboard{query}", null, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<UnitDashboardResponse>(response, cancellationToken);
+    }
+
+    public async Task<HotelUnitResponse> CreateHotelUnitAsync(
+        string apiBaseUrl,
+        CreateHotelUnitRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, "/api/v1/organization/hotel-units", request, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<HotelUnitResponse>(response, cancellationToken);
+    }
+
+    public async Task<HotelUnitResponse> UpdateHotelUnitAsync(
+        string apiBaseUrl,
+        string code,
+        UpdateHotelUnitRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Put, $"/api/v1/organization/hotel-units/{Uri.EscapeDataString(code)}", request, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<HotelUnitResponse>(response, cancellationToken);
+    }
+
+    public async Task<HotelUnitResponse> SetHotelUnitActiveAsync(
+        string apiBaseUrl,
+        string code,
+        bool isActive,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var action = isActive ? "activate" : "deactivate";
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, $"/api/v1/organization/hotel-units/{Uri.EscapeDataString(code)}/{action}", null, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<HotelUnitResponse>(response, cancellationToken);
+    }
+
+    public async Task<PagedResult<AuditLogSummary>> GetAuditLogAsync(
+        string apiBaseUrl,
+        DateTimeOffset? from,
+        DateTimeOffset? to,
+        string? action,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(
+            apiBaseUrl,
+            HttpMethod.Get,
+            BuildAuditQuery(from, to, action, page, pageSize),
+            null,
+            includeAuthorization: true,
+            cancellationToken);
+
+        return await ReadResponseAsync<PagedResult<AuditLogSummary>>(response, cancellationToken);
     }
 
     private async Task<HttpResponseMessage> SendAsync(
@@ -144,7 +275,7 @@ public sealed class RaqmiApiClient(HttpClient httpClient)
         return uri;
     }
 
-    private static string BuildDailyRevenueQuery(DateOnly? from, DateOnly? to, string? hotelUnitCode)
+    private static string BuildQuery(string basePath, DateOnly? from, DateOnly? to, string? hotelUnitCode)
     {
         var query = new List<string>();
 
@@ -164,8 +295,34 @@ public sealed class RaqmiApiClient(HttpClient httpClient)
         }
 
         return query.Count == 0
-            ? "/api/v1/revenue/daily"
-            : "/api/v1/revenue/daily?" + string.Join("&", query);
+            ? basePath
+            : basePath + "?" + string.Join("&", query);
+    }
+
+    private static string BuildAuditQuery(DateTimeOffset? from, DateTimeOffset? to, string? action, int page, int pageSize)
+    {
+        var query = new List<string>
+        {
+            "page=" + page.ToString(CultureInfo.InvariantCulture),
+            "pageSize=" + pageSize.ToString(CultureInfo.InvariantCulture)
+        };
+
+        if (from.HasValue)
+        {
+            query.Add("from=" + Uri.EscapeDataString(from.Value.ToString("O", CultureInfo.InvariantCulture)));
+        }
+
+        if (to.HasValue)
+        {
+            query.Add("to=" + Uri.EscapeDataString(to.Value.ToString("O", CultureInfo.InvariantCulture)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(action))
+        {
+            query.Add("action=" + Uri.EscapeDataString(action.Trim()));
+        }
+
+        return "/api/v1/audit?" + string.Join("&", query);
     }
 
     private static async Task<T> ReadResponseAsync<T>(

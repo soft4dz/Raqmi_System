@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 220" role="img" aria-labelledby="title">
+  <title id="title">RAQMI SYSTEM — Stack</title>
+  <g transform="translate(28 20)">
+    <path d="M90 4 176 48 90 92 4 48 90 4Zm0 25L51 48l39 19 39-19-39-19Z" fill="#17223B"/>
+    <path d="m4 78 24-12 62 32 62-32 24 12-86 44L4 78Z" fill="#276FBF"/>
+    <path d="m4 108 24-12 62 32 62-32 24 12-86 44L4 108Z" fill="#17223B"/>
+    <path d="m4 138 24-12 62 32 62-32 24 12-86 44L4 138Z" fill="#276FBF"/>
+    <rect x="78" y="38" width="24" height="24" rx="5" fill="#E09F24"/>
+  </g>
+  <g transform="translate(252 48)">
+    <text x="0" y="78" fill="#17223B" font-family="Inter, Avenir Next, Segoe UI, Arial, sans-serif" font-size="82" font-weight="800" letter-spacing="6">RAQMI</text>
+    <rect x="3" y="103" width="52" height="5" fill="#E09F24"/>
+    <text x="76" y="125" fill="#276FBF" font-family="Inter, Avenir Next, Segoe UI, Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="15">SYSTEM</text>
+  </g>
+</svg>

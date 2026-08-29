@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 220" role="img" aria-labelledby="title">
+  <title id="title">RAQMI SYSTEM — R Grid</title>
+  <g transform="translate(28 19)" fill="#18212F">
+    <rect x="0" y="0" width="30" height="30" rx="4"/>
+    <rect x="38" y="0" width="30" height="30" rx="4"/>
+    <rect x="76" y="0" width="30" height="30" rx="4"/>
+    <rect x="114" y="0" width="30" height="30" rx="4" fill="#B87836"/>
+    <rect x="0" y="38" width="30" height="30" rx="4"/>
+    <rect x="114" y="38" width="30" height="30" rx="4"/>
+    <rect x="0" y="76" width="30" height="30" rx="4"/>
+    <rect x="38" y="76" width="30" height="30" rx="4"/>
+    <rect x="76" y="76" width="30" height="30" rx="4"/>
+    <rect x="0" y="114" width="30" height="30" rx="4"/>
+    <rect x="76" y="114" width="30" height="30" rx="4" fill="#B87836"/>
+    <rect x="0" y="152" width="30" height="30" rx="4"/>
+    <rect x="114" y="152" width="30" height="30" rx="4"/>
+  </g>
+  <g transform="translate(244 48)">
+    <text x="0" y="78" fill="#18212F" font-family="Inter, Avenir Next, Segoe UI, Arial, sans-serif" font-size="82" font-weight="800" letter-spacing="6">RAQMI</text>
+    <text x="4" y="125" fill="#B87836" font-family="Inter, Avenir Next, Segoe UI, Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="15">SYSTEM</text>
+  </g>
+</svg>

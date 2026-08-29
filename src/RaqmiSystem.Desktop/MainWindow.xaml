@@ -2,15 +2,30 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Raqmi System"
+        Icon="Assets/RaqmiSystem.ico"
         Height="760"
         Width="1240"
         MinHeight="680"
         MinWidth="1100"
-        Background="#F5F7FA">
+        FontFamily="Manrope, Noto Kufi Arabic, Segoe UI"
+        Background="#F4F7FA">
     <Window.Resources>
-        <SolidColorBrush x:Key="PrimaryBrush" Color="#0F172A" />
-        <SolidColorBrush x:Key="MutedBrush" Color="#64748B" />
-        <SolidColorBrush x:Key="PanelBorderBrush" Color="#E2E8F0" />
+        <SolidColorBrush x:Key="StructureBrush" Color="#071525" />
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#073B78" />
+        <SolidColorBrush x:Key="SecondaryBrush" Color="#145CAB" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#0AA3AD" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#4A6A87" />
+        <SolidColorBrush x:Key="PanelBorderBrush" Color="#DCE6EF" />
+        <!-- Muted light-blue text for use on the dark StructureBrush header (subtitle,
+             de-emphasized labels) - named so it is a deliberate palette choice, not a
+             floating hex value. -->
+        <SolidColorBrush x:Key="HeaderMutedBrush" Color="#9FC3DC" />
+
+        <!-- Tinted state for the currently selected item in the "Modules" sidebar nav;
+             derived from AccentBrush (background tint + left border) and PrimaryBrush
+             (text), so the active module reads clearly against the other three. -->
+        <SolidColorBrush x:Key="ModuleInactiveBackgroundBrush" Color="#EEF4F8" />
+        <SolidColorBrush x:Key="ModuleActiveBackgroundBrush" Color="#4D0AA3AD" />
 
         <Style x:Key="LabelText" TargetType="TextBlock">
             <Setter Property="Foreground" Value="#475569" />
@@ -22,7 +37,7 @@
         <Style TargetType="TextBox">
             <Setter Property="MinHeight" Value="34" />
             <Setter Property="Padding" Value="10,6" />
-            <Setter Property="BorderBrush" Value="#CBD5E1" />
+            <Setter Property="BorderBrush" Value="#DCE6EF" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
@@ -30,7 +45,7 @@
         <Style TargetType="PasswordBox">
             <Setter Property="MinHeight" Value="34" />
             <Setter Property="Padding" Value="10,6" />
-            <Setter Property="BorderBrush" Value="#CBD5E1" />
+            <Setter Property="BorderBrush" Value="#DCE6EF" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
@@ -47,9 +62,9 @@
         <Style x:Key="PrimaryButton" TargetType="Button">
             <Setter Property="MinHeight" Value="34" />
             <Setter Property="Padding" Value="16,6" />
-            <Setter Property="Background" Value="#0F172A" />
+            <Setter Property="Background" Value="#0AA3AD" />
             <Setter Property="Foreground" Value="White" />
-            <Setter Property="BorderBrush" Value="#0F172A" />
+            <Setter Property="BorderBrush" Value="#0AA3AD" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Cursor" Value="Hand" />
         </Style>
@@ -57,9 +72,9 @@
         <Style x:Key="SecondaryButton" TargetType="Button">
             <Setter Property="MinHeight" Value="34" />
             <Setter Property="Padding" Value="14,6" />
-            <Setter Property="Background" Value="#F8FAFC" />
-            <Setter Property="Foreground" Value="#0F172A" />
-            <Setter Property="BorderBrush" Value="#CBD5E1" />
+            <Setter Property="Background" Value="#EEF4F8" />
+            <Setter Property="Foreground" Value="#073B78" />
+            <Setter Property="BorderBrush" Value="#DCE6EF" />
             <Setter Property="Cursor" Value="Hand" />
         </Style>
 
@@ -70,9 +85,25 @@
             <Setter Property="GridLinesVisibility" Value="Horizontal" />
             <Setter Property="HeadersVisibility" Value="Column" />
             <Setter Property="RowHeight" Value="34" />
-            <Setter Property="BorderBrush" Value="#E2E8F0" />
+            <Setter Property="BorderBrush" Value="#DCE6EF" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="AlternatingRowBackground" Value="#F8FAFC" />
+            <Setter Property="AlternatingRowBackground" Value="#F4F7FA" />
+        </Style>
+
+        <!-- The sidebar "Modules" panel is the single navigation surface (see MainTabs below);
+             this template strips the TabControl down to just its content host so the native
+             tab strip never renders a second, redundant set of the same four labels. -->
+        <Style TargetType="TabControl">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid>
+                            <ContentPresenter x:Name="PART_SelectedContentHost"
+                                              ContentSource="SelectedContent" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
 
@@ -82,52 +113,128 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Background="#0F172A" Padding="24,0">
+        <Border Grid.Row="0" Background="{StaticResource StructureBrush}" Padding="24,0">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="260" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="Raqmi System"
-                               Foreground="White"
-                               FontSize="24"
-                               FontWeight="SemiBold" />
-                    <TextBlock Text="Client desktop exploitation"
-                               Foreground="#CBD5E1"
-                               FontSize="12" />
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Image Source="Assets/symbol-white-1024.png"
+                           Width="42"
+                           Height="42"
+                           Stretch="Uniform"
+                           Margin="0,0,12,0" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Raqmi System"
+                                   Foreground="White"
+                                   FontSize="22"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="Un systeme. Toute votre entreprise."
+                                   Foreground="{StaticResource HeaderMutedBrush}"
+                                   FontSize="12" />
+                    </StackPanel>
                 </StackPanel>
 
-                <StackPanel Grid.Column="1"
+                <!-- Only shown once connected: the previous build kept the full login form
+                     (API/Utilisateur/Mot de passe/Connexion) here at all times, side by side
+                     with an app that stayed fully interactive while logged out. Logged-in
+                     state now collapses to just the identity + a real sign-out action. -->
+                <StackPanel x:Name="HeaderSessionPanel"
+                            Grid.Column="1"
                             Orientation="Horizontal"
                             HorizontalAlignment="Right"
-                            VerticalAlignment="Center">
-                    <StackPanel Width="220" Margin="0,0,10,0">
-                        <TextBlock Text="API" Foreground="#CBD5E1" FontSize="11" Margin="0,0,0,4" />
-                        <TextBox x:Name="ApiBaseUrlTextBox" Text="http://localhost:5180" />
-                    </StackPanel>
-
-                    <StackPanel Width="160" Margin="0,0,10,0">
-                        <TextBlock Text="Utilisateur" Foreground="#CBD5E1" FontSize="11" Margin="0,0,0,4" />
-                        <TextBox x:Name="UserNameTextBox" />
-                    </StackPanel>
-
-                    <StackPanel Width="160" Margin="0,0,10,0">
-                        <TextBlock Text="Mot de passe" Foreground="#CBD5E1" FontSize="11" Margin="0,0,0,4" />
-                        <PasswordBox x:Name="PasswordBox" />
-                    </StackPanel>
-
-                    <Button x:Name="LoginButton"
-                            Content="Connexion"
-                            Style="{StaticResource PrimaryButton}"
-                            VerticalAlignment="Bottom"
-                            Click="LoginButton_Click" />
+                            VerticalAlignment="Center"
+                            Visibility="Collapsed">
+                    <TextBlock x:Name="CurrentUserTextBlock"
+                               Text="Non connecte"
+                               Foreground="White"
+                               FontSize="13"
+                               VerticalAlignment="Center"
+                               Margin="0,0,18,0" />
+                    <Button x:Name="LogoutButton"
+                            Content="Deconnexion"
+                            Style="{StaticResource SecondaryButton}"
+                            Click="LogoutButton_Click" />
                 </StackPanel>
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1" Margin="24">
+        <Grid Grid.Row="1">
+            <!-- Not connected: a real sign-in screen instead of the old squeezed-into-the-
+                 header form, with the rest of the app (sidebar + modules) hidden rather than
+                 sitting there fully clickable behind it. -->
+            <Border x:Name="LoginCardBorder"
+                    Background="White"
+                    BorderBrush="{StaticResource PanelBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="36,32"
+                    Width="380"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <Border.Effect>
+                    <DropShadowEffect Color="#071525" Direction="270" ShadowDepth="6" BlurRadius="28" Opacity="0.14" />
+                </Border.Effect>
+                <StackPanel>
+                    <Image Source="Assets/symbol-mono-navy-1024.png"
+                           Width="38"
+                           Height="38"
+                           Stretch="Uniform"
+                           HorizontalAlignment="Left"
+                           Margin="0,0,0,20" />
+
+                    <TextBlock Text="Connexion"
+                               FontSize="24"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource StructureBrush}" />
+                    <TextBlock Text="Accedez a votre espace Raqmi System"
+                               Foreground="{StaticResource MutedBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,26" />
+
+                    <TextBlock Text="Utilisateur" Style="{StaticResource LabelText}" />
+                    <TextBox x:Name="UserNameTextBox" Margin="0,0,0,16" />
+
+                    <TextBlock Text="Mot de passe" Style="{StaticResource LabelText}" />
+                    <PasswordBox x:Name="PasswordBox" Margin="0,0,0,26" />
+
+                    <Button x:Name="LoginButton"
+                            Content="Se connecter"
+                            Style="{StaticResource PrimaryButton}"
+                            Click="LoginButton_Click" />
+
+                    <ProgressBar x:Name="LoginBusyProgressBar"
+                                 Height="3"
+                                 IsIndeterminate="True"
+                                 Visibility="Collapsed"
+                                 Margin="0,16,0,0" />
+
+                    <TextBlock x:Name="LoginStatusTextBlock"
+                               Text=""
+                               Foreground="{StaticResource MutedBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,12,0,0" />
+
+                    <Border BorderBrush="{StaticResource PanelBorderBrush}"
+                            BorderThickness="0,1,0,0"
+                            Margin="0,26,0,16" />
+
+                    <TextBlock Text="URL de l'API"
+                               Foreground="{StaticResource MutedBrush}"
+                               FontSize="11"
+                               Margin="0,0,0,4" />
+                    <TextBox x:Name="ApiBaseUrlTextBox"
+                             FontSize="11"
+                             MinHeight="28"
+                             Padding="8,4" />
+                </StackPanel>
+            </Border>
+
+            <!-- Connected: the sidebar is now the only navigation surface (see the TabControl
+                 template above) and shows which module is active via SetActiveModuleButton. -->
+            <Grid x:Name="MainContentGrid" Margin="24" Visibility="Collapsed">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="250" />
                 <ColumnDefinition Width="20" />
@@ -151,19 +258,36 @@
                                    FontWeight="SemiBold"
                                    FontSize="18"
                                    Margin="0,0,0,14" />
-                        <Button Content="Unites hotelieres"
+                        <Button x:Name="ShowUnitsButton"
+                                Content="Unites hotelieres"
                                 Style="{StaticResource SecondaryButton}"
                                 HorizontalContentAlignment="Left"
-                                Margin="0,0,0,8"
+                                Margin="0,0,0,6"
                                 Click="ShowUnitsButton_Click" />
-                        <Button Content="Recettes journalieres"
+                        <Button x:Name="ShowRevenueButton"
+                                Content="Recettes journalieres"
                                 Style="{StaticResource SecondaryButton}"
                                 HorizontalContentAlignment="Left"
-                                Margin="0,0,0,8"
+                                Margin="0,0,0,6"
                                 Click="ShowRevenueButton_Click" />
+                        <Button x:Name="ShowDashboardButton"
+                                Content="Tableau de bord"
+                                Style="{StaticResource SecondaryButton}"
+                                HorizontalContentAlignment="Left"
+                                Margin="0,0,0,6"
+                                Click="ShowDashboardButton_Click" />
+                        <Button x:Name="ShowAuditButton"
+                                Content="Journal d'audit"
+                                Style="{StaticResource SecondaryButton}"
+                                HorizontalContentAlignment="Left"
+                                Margin="0,0,0,6"
+                                Click="ShowAuditButton_Click" />
                     </StackPanel>
 
                     <StackPanel Grid.Row="2">
+                        <Border BorderBrush="{StaticResource PanelBorderBrush}"
+                                BorderThickness="0,1,0,0"
+                                Margin="0,0,0,14" />
                         <ProgressBar x:Name="BusyProgressBar"
                                      Height="4"
                                      IsIndeterminate="True"
@@ -171,13 +295,8 @@
                                      Margin="0,0,0,12" />
                         <TextBlock Text="Session"
                                    FontWeight="SemiBold"
-                                   Foreground="#0F172A"
+                                   Foreground="{StaticResource StructureBrush}"
                                    Margin="0,0,0,6" />
-                        <TextBlock x:Name="CurrentUserTextBlock"
-                                   Text="Non connecte"
-                                   Foreground="{StaticResource MutedBrush}"
-                                   TextWrapping="Wrap"
-                                   Margin="0,0,0,12" />
                         <TextBlock x:Name="StatusTextBlock"
                                    Text="Pret."
                                    Foreground="{StaticResource MutedBrush}"
@@ -199,6 +318,8 @@
                             Margin="0,8,0,0">
                         <Grid>
                             <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="16" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="16" />
                                 <RowDefinition Height="*" />
@@ -229,8 +350,97 @@
                                 </StackPanel>
                             </DockPanel>
 
+                            <Border Grid.Row="2"
+                                    Background="#EEF4F8"
+                                    BorderBrush="{StaticResource PanelBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="16">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="10" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock x:Name="UnitFormTitleTextBlock"
+                                               Text="Nouvelle unite"
+                                               FontWeight="SemiBold"
+                                               Margin="0,0,0,4" />
+
+                                    <Grid Grid.Row="2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140" />
+                                            <ColumnDefinition Width="14" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="14" />
+                                            <ColumnDefinition Width="160" />
+                                            <ColumnDefinition Width="14" />
+                                            <ColumnDefinition Width="90" />
+                                            <ColumnDefinition Width="14" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel>
+                                            <TextBlock Text="Code" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="UnitCodeTextBox" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Nom" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="UnitNameTextBox" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Text="Type" Style="{StaticResource LabelText}" />
+                                            <ComboBox x:Name="UnitTypeComboBox" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="6">
+                                            <TextBlock Text="Ordre" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="UnitDisplayOrderTextBox" Text="0" />
+                                        </StackPanel>
+
+                                        <Button x:Name="NewUnitButton"
+                                                Grid.Column="8"
+                                                Content="Nouveau"
+                                                Style="{StaticResource SecondaryButton}"
+                                                VerticalAlignment="Bottom"
+                                                Click="NewUnitButton_Click" />
+
+                                        <Button x:Name="SaveUnitButton"
+                                                Grid.Column="10"
+                                                Content="Creer"
+                                                Style="{StaticResource PrimaryButton}"
+                                                VerticalAlignment="Bottom"
+                                                Click="SaveUnitButton_Click" />
+
+                                        <Button x:Name="ActivateUnitButton"
+                                                Grid.Column="12"
+                                                Content="Activer"
+                                                Style="{StaticResource SecondaryButton}"
+                                                VerticalAlignment="Bottom"
+                                                Click="ActivateUnitButton_Click" />
+
+                                        <Button x:Name="DeactivateUnitButton"
+                                                Grid.Column="14"
+                                                Content="Desactiver"
+                                                Style="{StaticResource SecondaryButton}"
+                                                VerticalAlignment="Bottom"
+                                                Click="DeactivateUnitButton_Click" />
+                                    </Grid>
+                                </Grid>
+                            </Border>
+
                             <DataGrid x:Name="UnitsDataGrid"
-                                      Grid.Row="2">
+                                      Grid.Row="4"
+                                      SelectionChanged="UnitsDataGrid_SelectionChanged">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="140" />
                                     <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="*" />
@@ -276,13 +486,25 @@
                                                    Margin="0,4,0,0" />
                                     </StackPanel>
 
-                                    <Button x:Name="RefreshRevenueButton"
-                                            Content="Actualiser recettes"
-                                            Style="{StaticResource SecondaryButton}"
-                                            DockPanel.Dock="Right"
-                                            HorizontalAlignment="Right"
-                                            VerticalAlignment="Center"
-                                            Click="RefreshRevenueButton_Click" />
+                                    <StackPanel Orientation="Horizontal"
+                                                DockPanel.Dock="Right"
+                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Center">
+                                        <Button x:Name="ExportRevenueCsvButton"
+                                                Content="Exporter CSV"
+                                                Style="{StaticResource SecondaryButton}"
+                                                Margin="0,0,10,0"
+                                                Click="ExportRevenueCsvButton_Click" />
+                                        <Button x:Name="PrintRevenueButton"
+                                                Content="Imprimer"
+                                                Style="{StaticResource SecondaryButton}"
+                                                Margin="0,0,10,0"
+                                                Click="PrintRevenueButton_Click" />
+                                        <Button x:Name="RefreshRevenueButton"
+                                                Content="Actualiser recettes"
+                                                Style="{StaticResource SecondaryButton}"
+                                                Click="RefreshRevenueButton_Click" />
+                                    </StackPanel>
                                 </DockPanel>
 
                                 <Grid Grid.Row="2">
@@ -374,6 +596,10 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="12" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="12" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="12" />
                                     <RowDefinition Height="*" />
                                 </Grid.RowDefinitions>
 
@@ -381,8 +607,67 @@
                                            FontSize="18"
                                            FontWeight="SemiBold" />
 
+                                <Border Grid.Row="2"
+                                        Background="#EEF4F8"
+                                        BorderBrush="{StaticResource PanelBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="14,10">
+                                    <StackPanel Orientation="Horizontal">
+                                        <StackPanel Margin="0,0,26,0">
+                                            <TextBlock Text="Total" Style="{StaticResource LabelText}" Margin="0" />
+                                            <TextBlock x:Name="SummaryTotalTextBlock" Text="0.00" FontWeight="SemiBold" />
+                                        </StackPanel>
+                                        <StackPanel Margin="0,0,26,0">
+                                            <TextBlock Text="Brouillons" Style="{StaticResource LabelText}" Margin="0" />
+                                            <TextBlock x:Name="SummaryDraftTextBlock" Text="0" FontWeight="SemiBold" />
+                                        </StackPanel>
+                                        <StackPanel Margin="0,0,26,0">
+                                            <TextBlock Text="Soumises" Style="{StaticResource LabelText}" Margin="0" />
+                                            <TextBlock x:Name="SummarySubmittedTextBlock" Text="0" FontWeight="SemiBold" />
+                                        </StackPanel>
+                                        <StackPanel Margin="0,0,26,0">
+                                            <TextBlock Text="Validees" Style="{StaticResource LabelText}" Margin="0" />
+                                            <TextBlock x:Name="SummaryValidatedTextBlock" Text="0" FontWeight="SemiBold" />
+                                        </StackPanel>
+                                        <StackPanel>
+                                            <TextBlock Text="Rejetees" Style="{StaticResource LabelText}" Margin="0" />
+                                            <TextBlock x:Name="SummaryRejectedTextBlock" Text="0" FontWeight="SemiBold" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <Grid Grid.Row="4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel>
+                                        <TextBlock Text="Motif de rejet (recette selectionnee)" Style="{StaticResource LabelText}" />
+                                        <TextBox x:Name="RejectReasonTextBox" />
+                                    </StackPanel>
+
+                                    <Button x:Name="ValidateRevenueButton"
+                                            Grid.Column="2"
+                                            Content="Valider"
+                                            Style="{StaticResource PrimaryButton}"
+                                            VerticalAlignment="Bottom"
+                                            Click="ValidateRevenueButton_Click" />
+
+                                    <Button x:Name="RejectRevenueButton"
+                                            Grid.Column="4"
+                                            Content="Rejeter"
+                                            Style="{StaticResource SecondaryButton}"
+                                            VerticalAlignment="Bottom"
+                                            Click="RejectRevenueButton_Click" />
+                                </Grid>
+
                                 <DataGrid x:Name="DailyRevenueDataGrid"
-                                          Grid.Row="2">
+                                          Grid.Row="6">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Date" Binding="{Binding BusinessDate}" Width="110" />
                                         <DataGridTextColumn Header="Unite" Binding="{Binding HotelUnitCode}" Width="130" />
@@ -399,7 +684,187 @@
                         </Border>
                     </Grid>
                 </TabItem>
+
+                <TabItem Header="Tableau de bord">
+                    <Border Background="White"
+                            BorderBrush="{StaticResource PanelBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="20"
+                            Margin="0,8,0,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Tableau de bord - recettes par unite"
+                                               FontSize="22"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock Text="Socle commun aux tableaux de bord directionnels, au dashboard PDG et au cockpit DEC : repartition par unite hoteliere de l'etat des recettes journalieres pour une date donnee."
+                                               Foreground="{StaticResource MutedBrush}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal"
+                                            DockPanel.Dock="Right"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Bottom">
+                                    <StackPanel Width="150" Margin="0,0,14,0">
+                                        <TextBlock Text="Date exploitation" Style="{StaticResource LabelText}" />
+                                        <DatePicker x:Name="DashboardDatePicker" />
+                                    </StackPanel>
+
+                                    <Button x:Name="RefreshDashboardButton"
+                                            Content="Actualiser"
+                                            Style="{StaticResource SecondaryButton}"
+                                            VerticalAlignment="Bottom"
+                                            Click="RefreshDashboardButton_Click" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <Border Grid.Row="2"
+                                    Background="#EEF4F8"
+                                    BorderBrush="{StaticResource PanelBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="14,10">
+                                <StackPanel Orientation="Horizontal">
+                                    <StackPanel Margin="0,0,26,0">
+                                        <TextBlock Text="Unites au total" Style="{StaticResource LabelText}" Margin="0" />
+                                        <TextBlock x:Name="DashboardTotalUnitsTextBlock" Text="0" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,26,0">
+                                        <TextBlock Text="Avec saisie" Style="{StaticResource LabelText}" Margin="0" />
+                                        <TextBlock x:Name="DashboardWithEntryTextBlock" Text="0" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,26,0">
+                                        <TextBlock Text="Manquantes" Style="{StaticResource LabelText}" Margin="0" />
+                                        <TextBlock x:Name="DashboardMissingTextBlock" Text="0" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,26,0">
+                                        <TextBlock Text="En attente de validation" Style="{StaticResource LabelText}" Margin="0" />
+                                        <TextBlock x:Name="DashboardPendingValidationTextBlock" Text="0" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="Total consolide" Style="{StaticResource LabelText}" Margin="0" />
+                                        <TextBlock x:Name="DashboardGrandTotalTextBlock" Text="0.00" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <DataGrid x:Name="UnitDashboardDataGrid"
+                                      Grid.Row="4">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Code" Binding="{Binding HotelUnitCode}" Width="120" />
+                                    <DataGridTextColumn Header="Nom" Binding="{Binding HotelUnitName}" Width="*" />
+                                    <DataGridTextColumn Header="A saisi" Binding="{Binding EntryStatusText}" Width="220" />
+                                    <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat={}{0:N2}}" Width="130" />
+                                    <DataGridTextColumn Header="Soumis le" Binding="{Binding SubmittedAt, StringFormat={}{0:yyyy-MM-dd HH:mm}}" Width="150" />
+                                    <DataGridTextColumn Header="Valide le" Binding="{Binding ValidatedAt, StringFormat={}{0:yyyy-MM-dd HH:mm}}" Width="150" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+                </TabItem>
+
+                <TabItem Header="Journal d'audit">
+                    <Border Background="White"
+                            BorderBrush="{StaticResource PanelBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="20"
+                            Margin="0,8,0,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="10" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="8" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Journal d'audit"
+                                               FontSize="22"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock Text="Consultation en lecture seule depuis /api/v1/audit"
+                                               Foreground="{StaticResource MutedBrush}"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal"
+                                            DockPanel.Dock="Right"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center">
+                                    <Button x:Name="ExportAuditCsvButton"
+                                            Content="Exporter CSV"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,0,10,0"
+                                            Click="ExportAuditCsvButton_Click" />
+                                    <Button x:Name="RefreshAuditButton"
+                                            Content="Actualiser"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Click="RefreshAuditButton_Click" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="170" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="170" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Du" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="AuditFromDatePicker" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Au" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="AuditToDatePicker" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Action" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="AuditActionTextBox" />
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock x:Name="AuditResultCountTextBlock"
+                                       Grid.Row="4"
+                                       Text=""
+                                       Foreground="{StaticResource MutedBrush}"
+                                       FontSize="12" />
+
+                            <DataGrid x:Name="AuditDataGrid"
+                                      Grid.Row="6">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Date/heure" Binding="{Binding OccurredAt, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}" Width="160" />
+                                    <DataGridTextColumn Header="Utilisateur" Binding="{Binding UserName}" Width="150" />
+                                    <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="160" />
+                                    <DataGridTextColumn Header="Entite" Binding="{Binding EntityName}" Width="150" />
+                                    <DataGridTextColumn Header="Id entite" Binding="{Binding EntityId}" Width="200" />
+                                    <DataGridTextColumn Header="Adresse IP" Binding="{Binding IpAddress}" Width="*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+                </TabItem>
             </TabControl>
+            </Grid>
         </Grid>
     </Grid>
 </Window>
