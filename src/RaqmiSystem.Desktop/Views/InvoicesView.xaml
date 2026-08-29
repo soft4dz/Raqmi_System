@@ -1,0 +1,781 @@
+<UserControl x:Class="RaqmiSystem.Desktop.Views.InvoicesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:RaqmiSystem.Desktop.Views"
+             FontFamily="{StaticResource AppFontFamily}"
+             Background="Transparent">
+
+    <!-- =========================================================================
+         Facturation - factures de vente.
+         Mise en page alignee sur l'ecran "Recettes journalieres" : carte de
+         filtres en haut, liste + panneau de detail au centre, carte de saisie
+         (creation / modification des lignes d'un brouillon) en bas.
+         Aucune ressource du theme n'est modifiee : les styles specifiques a cet
+         ecran sont declares ci-dessous.
+         ========================================================================= -->
+    <UserControl.Resources>
+
+        <!-- Champs de saisie a l'interieur de la grille des lignes : plus compacts
+             que les champs de formulaire, memes bordures et memes etats. -->
+        <Style x:Key="LineEditorTextBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Margin" Value="0,6" />
+            <Setter Property="FontSize" Value="12.5" />
+        </Style>
+
+        <Style x:Key="LineEditorAmountTextBox" TargetType="TextBox" BasedOn="{StaticResource LineEditorTextBox}">
+            <Setter Property="TextAlignment" Value="Right" />
+        </Style>
+
+        <Style x:Key="LineEditorComboBox" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Margin" Value="0,6" />
+            <Setter Property="FontSize" Value="12.5" />
+        </Style>
+
+        <!-- Detail : libelle / valeur en deux colonnes -->
+        <Style x:Key="DetailLabelText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+            <Setter Property="Margin" Value="0,0,10,5" />
+        </Style>
+
+        <Style x:Key="DetailValueText" TargetType="TextBlock" BasedOn="{StaticResource BodyText}">
+            <Setter Property="Margin" Value="0,0,0,5" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+
+        <Style x:Key="DetailTotalLabelText" TargetType="TextBlock" BasedOn="{StaticResource MetricLabelText}">
+            <Setter Property="Margin" Value="0,0,0,2" />
+        </Style>
+
+        <Style x:Key="DetailTotalValueText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextAlignment" Value="Right" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        </Style>
+
+        <Style x:Key="LegalNoticeText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- ============================== Filtres ============================== -->
+        <Border Style="{StaticResource CardBorder}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="16" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <DockPanel>
+                    <StackPanel>
+                        <TextBlock Text="Facturation"
+                                   Style="{StaticResource PageTitleText}" />
+                        <TextBlock Text="Factures de vente : brouillons modifiables, émission avec numéro définitif, encaissement et annulation motivée."
+                                   Style="{StaticResource SubtitleText}"
+                                   Margin="0,4,0,0" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal"
+                                DockPanel.Dock="Right"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center">
+                        <Button x:Name="RefreshInvoicesButton"
+                                Content="Actualiser"
+                                Style="{StaticResource SecondaryButton}"
+                                ToolTip="Recharger les factures correspondant aux filtres"
+                                Click="RefreshInvoicesButton_Click" />
+                    </StackPanel>
+                </DockPanel>
+
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="150" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="150" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="210" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="170" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="Du" Style="{StaticResource LabelText}" />
+                        <DatePicker x:Name="FromDatePicker"
+                                    ToolTip="Début de la période de facturation" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Au" Style="{StaticResource LabelText}" />
+                        <DatePicker x:Name="ToDatePicker"
+                                    ToolTip="Fin de la période de facturation" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="4">
+                        <TextBlock Text="Client" Style="{StaticResource LabelText}" />
+                        <ComboBox x:Name="CustomerFilterComboBox"
+                                  DisplayMemberPath="Label"
+                                  ToolTip="Limiter aux factures d'un client" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="6">
+                        <TextBlock Text="Unité hôtelière" Style="{StaticResource LabelText}" />
+                        <ComboBox x:Name="UnitFilterComboBox"
+                                  DisplayMemberPath="Label"
+                                  ToolTip="Limiter aux factures d'une unité" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="8">
+                        <TextBlock Text="Statut" Style="{StaticResource LabelText}" />
+                        <ComboBox x:Name="StatusFilterComboBox"
+                                  ToolTip="Limiter à un statut de facture">
+                            <ComboBoxItem Content="Tous les statuts" Tag="" IsSelected="True" />
+                            <ComboBoxItem Content="Brouillon" Tag="Draft" />
+                            <ComboBoxItem Content="Émise" Tag="Issued" />
+                            <ComboBoxItem Content="Payée" Tag="Paid" />
+                            <ComboBoxItem Content="Annulée" Tag="Cancelled" />
+                        </ComboBox>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- ===================== Liste + detail de la facture ==================== -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="360" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="400" />
+            </Grid.ColumnDefinitions>
+
+            <Border Style="{StaticResource CardBorder}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <DockPanel>
+                        <StackPanel>
+                            <TextBlock Text="Factures de la période"
+                                       Style="{StaticResource SectionTitleText}" />
+                            <TextBlock x:Name="InvoiceCountTextBlock"
+                                       Text="Aucune facture chargée."
+                                       Style="{StaticResource CaptionText}"
+                                       Margin="0,3,0,0" />
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- Actions : chaque bouton n'est actif que pour les statuts
+                         ou l'operation a un sens (voir UpdateActionAvailability). -->
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="150" />
+                            <ColumnDefinition Width="14" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel>
+                            <TextBlock Text="Motif d'annulation (facture sélectionnée)"
+                                       Style="{StaticResource LabelText}" />
+                            <TextBox x:Name="CancelReasonTextBox"
+                                     MaxLength="500"
+                                     Tag="Obligatoire pour annuler"
+                                     ToolTip="Motif conservé dans le dossier de la facture et dans le journal d'audit" />
+                        </StackPanel>
+
+                        <Button x:Name="EditLinesButton"
+                                Grid.Column="2"
+                                Content="Modifier les lignes"
+                                Style="{StaticResource SecondaryButton}"
+                                ToolTip="Reprendre les lignes du brouillon sélectionné dans le formulaire de saisie"
+                                VerticalAlignment="Bottom"
+                                Click="EditLinesButton_Click" />
+
+                        <Button x:Name="IssueInvoiceButton"
+                                Grid.Column="4"
+                                Content="Émettre"
+                                Style="{StaticResource PrimaryButton}"
+                                ToolTip="Attribuer le numéro définitif et figer la facture"
+                                VerticalAlignment="Bottom"
+                                Click="IssueInvoiceButton_Click" />
+
+                        <Button x:Name="MarkPaidButton"
+                                Grid.Column="6"
+                                Content="Marquer payée"
+                                Style="{StaticResource SecondaryButton}"
+                                ToolTip="Enregistrer l'encaissement de la facture émise"
+                                VerticalAlignment="Bottom"
+                                Click="MarkPaidButton_Click" />
+
+                        <Button x:Name="CancelInvoiceButton"
+                                Grid.Column="8"
+                                Content="Annuler"
+                                Style="{StaticResource DangerButton}"
+                                ToolTip="Annuler la facture sélectionnée (motif obligatoire)"
+                                VerticalAlignment="Bottom"
+                                Click="CancelInvoiceButton_Click" />
+                    </Grid>
+
+                    <Grid Grid.Row="4">
+                        <DataGrid x:Name="InvoicesDataGrid"
+                                  SelectionChanged="InvoicesDataGrid_SelectionChanged">
+                            <DataGrid.Columns>
+                                <!-- Numero : vide tant que la facture est un brouillon. -->
+                                <DataGridTextColumn Header="Numéro"
+                                                    Binding="{Binding Number, TargetNullValue=—}"
+                                                    Width="125" />
+                                <DataGridTextColumn Header="Date"
+                                                    Binding="{Binding InvoiceDate, StringFormat={}{0:yyyy-MM-dd}}"
+                                                    Width="100" />
+                                <DataGridTextColumn Header="Client"
+                                                    Binding="{Binding CustomerName, TargetNullValue=—}"
+                                                    Width="*" />
+                                <DataGridTextColumn Header="Unité"
+                                                    Binding="{Binding HotelUnitCode}"
+                                                    Width="95"
+                                                    ElementStyle="{StaticResource MutedCellText}" />
+                                <DataGridTextColumn Header="Total HT"
+                                                    Binding="{Binding TotalExclVat, StringFormat={}{0:N2}}"
+                                                    Width="110"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="Total TVA"
+                                                    Binding="{Binding TotalVat, StringFormat={}{0:N2}}"
+                                                    Width="105"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="Total TTC"
+                                                    Binding="{Binding TotalInclVat, StringFormat={}{0:N2}}"
+                                                    Width="115"
+                                                    ElementStyle="{StaticResource TotalCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTemplateColumn Header="Statut" Width="115" SortMemberPath="Status">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border x:Name="StatusBadge"
+                                                    CornerRadius="10"
+                                                    Padding="10,3"
+                                                    HorizontalAlignment="Left"
+                                                    VerticalAlignment="Center"
+                                                    Background="{StaticResource StatusDraftBackgroundBrush}">
+                                                <TextBlock x:Name="StatusBadgeText"
+                                                           Text="Brouillon"
+                                                           FontSize="11.5"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{StaticResource StatusDraftForegroundBrush}" />
+                                            </Border>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding Status}" Value="Issued">
+                                                    <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                                    <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource ModuleStatusApiForegroundBrush}" />
+                                                    <Setter TargetName="StatusBadgeText" Property="Text" Value="Émise" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Status}" Value="Paid">
+                                                    <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusValidatedBackgroundBrush}" />
+                                                    <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusValidatedForegroundBrush}" />
+                                                    <Setter TargetName="StatusBadgeText" Property="Text" Value="Payée" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Status}" Value="Cancelled">
+                                                    <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusRejectedBackgroundBrush}" />
+                                                    <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                    <Setter TargetName="StatusBadgeText" Property="Text" Value="Annulée" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <StackPanel HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    IsHitTestVisible="False">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Items.Count, ElementName=InvoicesDataGrid}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <Path Data="M3,1.5 H11 L13.5,4 V14.5 H3 Z M5.4,6.4 H11 M5.4,8.9 H11 M5.4,11.4 H9"
+                                  Stroke="{StaticResource BorderStrongBrush}"
+                                  StrokeThickness="1.5"
+                                  StrokeLineJoin="Round"
+                                  Width="42"
+                                  Height="44"
+                                  Stretch="Uniform"
+                                  HorizontalAlignment="Center"
+                                  Margin="0,0,0,10" />
+                            <TextBlock Text="Aucune facture pour cette période"
+                                       Style="{StaticResource EmptyStateTitleText}" />
+                            <TextBlock Text="Élargissez la période, changez les filtres, ou créez un brouillon ci-dessous."
+                                       Style="{StaticResource EmptyStateHintText}" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- ========================= Detail de la facture ======================== -->
+            <Border x:Name="DetailPanel" Grid.Column="2" Style="{StaticResource CardBorder}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="10" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="10" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="Détail de la facture"
+                                   Style="{StaticResource SectionTitleText}" />
+                        <TextBlock Text="Lignes et totaux de la facture sélectionnée"
+                                   Style="{StaticResource CaptionText}"
+                                   Margin="0,3,0,0" />
+                    </StackPanel>
+
+                    <!-- En-tete : identification de la facture -->
+                    <Border Grid.Row="2" Style="{StaticResource SubtleCardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Text="Numéro" Style="{StaticResource DetailLabelText}" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding Number, TargetNullValue=—, FallbackValue=—, Mode=OneWay}"
+                                       Style="{StaticResource DetailValueText}"
+                                       FontWeight="SemiBold" />
+
+                            <TextBlock Grid.Row="1" Text="Statut" Style="{StaticResource DetailLabelText}" />
+                            <Border Grid.Row="1"
+                                    Grid.Column="1"
+                                    x:Name="DetailStatusBadge"
+                                    CornerRadius="10"
+                                    Padding="10,2"
+                                    Margin="0,0,0,5"
+                                    HorizontalAlignment="Left"
+                                    Background="{StaticResource StatusDraftBackgroundBrush}">
+                                <TextBlock x:Name="DetailStatusBadgeText"
+                                           Text="Brouillon"
+                                           FontSize="11.5"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource StatusDraftForegroundBrush}" />
+                            </Border>
+
+                            <TextBlock Grid.Row="2" Text="Date" Style="{StaticResource DetailLabelText}" />
+                            <TextBlock Grid.Row="2"
+                                       Grid.Column="1"
+                                       Text="{Binding InvoiceDate, StringFormat={}{0:yyyy-MM-dd}, FallbackValue=—, Mode=OneWay}"
+                                       Style="{StaticResource DetailValueText}" />
+
+                            <TextBlock Grid.Row="3" Text="Client" Style="{StaticResource DetailLabelText}" />
+                            <TextBlock Grid.Row="3"
+                                       Grid.Column="1"
+                                       Text="{Binding CustomerName, TargetNullValue=—, FallbackValue=—, Mode=OneWay}"
+                                       ToolTip="{Binding CustomerCode, Mode=OneWay}"
+                                       Style="{StaticResource DetailValueText}" />
+
+                            <TextBlock Grid.Row="4" Text="Unité" Style="{StaticResource DetailLabelText}" />
+                            <TextBlock Grid.Row="4"
+                                       Grid.Column="1"
+                                       Text="{Binding HotelUnitCode, FallbackValue=—, Mode=OneWay}"
+                                       Style="{StaticResource DetailValueText}" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Emetteur : identite de l'etablissement RECOPIEE sur la facture
+                         a l'emission (colonnes Issuer* de InvoiceResponse). Elle vient
+                         du parametrage global, mais une fois la facture emise elle ne
+                         suit plus : c'est le tampon de ce jour-la. Sur un brouillon,
+                         ces champs sont vides et la mention le dit. -->
+                    <Border Grid.Row="4" Style="{StaticResource SubtleCardBorder}">
+                        <StackPanel>
+                            <TextBlock Text="Émetteur" Style="{StaticResource DetailTotalLabelText}" />
+                            <TextBlock x:Name="IssuerNameTextBlock"
+                                       Style="{StaticResource DetailValueText}"
+                                       TextWrapping="Wrap"
+                                       FontWeight="SemiBold"
+                                       Margin="0,4,0,5"
+                                       Visibility="Collapsed" />
+                            <TextBlock x:Name="IssuerIdentifiersTextBlock"
+                                       Style="{StaticResource LegalNoticeText}"
+                                       Margin="0,0,0,4"
+                                       Visibility="Collapsed" />
+                            <TextBlock x:Name="IssuerAddressTextBlock"
+                                       Style="{StaticResource LegalNoticeText}"
+                                       Visibility="Collapsed" />
+                            <TextBlock x:Name="IssuerPendingTextBlock"
+                                       Style="{StaticResource LegalNoticeText}"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <Grid Grid.Row="6">
+                        <DataGrid x:Name="InvoiceLinesDataGrid"
+                                  ItemsSource="{Binding Lines, Mode=OneWay}"
+                                  HeadersVisibility="Column">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Désignation"
+                                                    Binding="{Binding Designation}"
+                                                    Width="*"
+                                                    MinWidth="90" />
+                                <DataGridTextColumn Header="Qté"
+                                                    Binding="{Binding Quantity, StringFormat={}{0:N3}}"
+                                                    Width="60"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="P.U."
+                                                    Binding="{Binding UnitPrice, StringFormat={}{0:N2}}"
+                                                    Width="85"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="TVA"
+                                                    Binding="{Binding VatRate, StringFormat={}{0:N0} %}"
+                                                    Width="55"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="Total HT"
+                                                    Binding="{Binding LineTotalExclVat, StringFormat={}{0:N2}}"
+                                                    Width="95"
+                                                    ElementStyle="{StaticResource TotalCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <TextBlock HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   IsHitTestVisible="False">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyStateTitleText}">
+                                    <Setter Property="Text" Value="Aucune ligne sur cette facture" />
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Items.Count, ElementName=InvoiceLinesDataGrid}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                                            <Setter Property="Text" Value="Sélectionnez une facture" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+
+                    <!-- Totaux renvoyes par le serveur (source de verite) -->
+                    <Border Grid.Row="8" Style="{StaticResource SubtleCardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="14" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="14" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Total HT" Style="{StaticResource DetailTotalLabelText}" />
+                                <TextBlock Text="{Binding TotalExclVat, StringFormat={}{0:N2}, FallbackValue=—, Mode=OneWay}"
+                                           Style="{StaticResource DetailTotalValueText}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Total TVA" Style="{StaticResource DetailTotalLabelText}" />
+                                <TextBlock Text="{Binding TotalVat, StringFormat={}{0:N2}, FallbackValue=—, Mode=OneWay}"
+                                           Style="{StaticResource DetailTotalValueText}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="Total TTC" Style="{StaticResource DetailTotalLabelText}" />
+                                <TextBlock Text="{Binding TotalInclVat, StringFormat={}{0:N2}, FallbackValue=—, Mode=OneWay}"
+                                           Style="{StaticResource DetailTotalValueText}"
+                                           Foreground="{StaticResource PrimaryBrush}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <StackPanel Grid.Row="10">
+                        <!-- Tracabilite : emission / encaissement / annulation. -->
+                        <TextBlock x:Name="DetailTraceTextBlock"
+                                   Text=""
+                                   Style="{StaticResource LegalNoticeText}"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   Margin="0,0,0,8"
+                                   Visibility="Collapsed" />
+
+                        <Border Background="{StaticResource SurfaceSubtleBrush}"
+                                BorderBrush="{StaticResource PanelBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="12,10">
+                            <TextBlock Style="{StaticResource LegalNoticeText}"
+                                       Text="Une facture émise est définitive : l'émission attribue le numéro légal, fige les montants et conserve l'identification du client (nom, NIF, RC, AI, NIS, adresse) telle qu'elle était au moment de l'émission. Elle ne peut plus être modifiée : seule une annulation motivée, tracée et conservée, permet de la neutraliser." />
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ================= Creation / modification d'un brouillon ================= -->
+        <Border Grid.Row="4" Style="{StaticResource CardBorder}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="14" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="12" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <DockPanel>
+                    <StackPanel>
+                        <TextBlock x:Name="EditorTitleTextBlock"
+                                   Text="Nouvelle facture (brouillon)"
+                                   Style="{StaticResource SectionTitleText}" />
+                        <TextBlock x:Name="EditorHintTextBlock"
+                                   Text="Un brouillon ne porte pas de numéro et reste modifiable jusqu'à son émission."
+                                   Style="{StaticResource CaptionText}"
+                                   Margin="0,3,0,0" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal"
+                                DockPanel.Dock="Right"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center">
+                        <Button x:Name="NewDraftButton"
+                                Content="Vider le formulaire"
+                                Style="{StaticResource GhostButton}"
+                                ToolTip="Repartir d'une nouvelle facture brouillon"
+                                Margin="0,0,10,0"
+                                Click="NewDraftButton_Click" />
+                        <Button x:Name="AddLineButton"
+                                Content="Ajouter une ligne"
+                                Style="{StaticResource SecondaryButton}"
+                                ToolTip="Ajouter une ligne de facturation"
+                                Margin="0,0,10,0"
+                                Click="AddLineButton_Click" />
+                        <Button x:Name="SaveInvoiceButton"
+                                Content="Créer le brouillon"
+                                Style="{StaticResource PrimaryButton}"
+                                ToolTip="Enregistrer la facture brouillon"
+                                Click="SaveInvoiceButton_Click" />
+                    </StackPanel>
+                </DockPanel>
+
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="240" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="160" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="Client" Style="{StaticResource LabelText}" />
+                        <ComboBox x:Name="EditorCustomerComboBox"
+                                  DisplayMemberPath="Label"
+                                  ToolTip="Client facturé (obligatoire)" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Unité hôtelière" Style="{StaticResource LabelText}" />
+                        <ComboBox x:Name="EditorUnitComboBox"
+                                  DisplayMemberPath="Label"
+                                  ToolTip="Unité émettrice de la facture (obligatoire)" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="4">
+                        <TextBlock Text="Date de facture" Style="{StaticResource LabelText}" />
+                        <DatePicker x:Name="InvoiceDatePicker"
+                                    ToolTip="Date portée sur la facture" />
+                    </StackPanel>
+                </Grid>
+
+                <Grid Grid.Row="4">
+                    <DataGrid x:Name="EditorLinesDataGrid"
+                              MaxHeight="176"
+                              MinHeight="96"
+                              CanUserSortColumns="False"
+                              VerticalScrollBarVisibility="Auto">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Désignation" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBox Text="{Binding Designation, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource LineEditorTextBox}"
+                                                 MaxLength="300"
+                                                 Tag="Prestation facturée" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTemplateColumn Header="Quantité" Width="110" HeaderStyle="{StaticResource RightAlignedColumnHeader}">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBox Text="{Binding QuantityText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource LineEditorAmountTextBox}"
+                                                 ToolTip="Strictement positive, 3 décimales au maximum" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTemplateColumn Header="Prix unitaire" Width="130" HeaderStyle="{StaticResource RightAlignedColumnHeader}">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBox Text="{Binding UnitPriceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource LineEditorAmountTextBox}"
+                                                 ToolTip="Positif ou nul, 2 décimales au maximum" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTemplateColumn Header="Taux TVA" Width="110">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <!-- Taux algeriens en vigueur : 0, 9 et 19 % (InvoiceLine.AllowedVatRates). -->
+                                        <ComboBox ItemsSource="{x:Static views:InvoicesView.VatRateOptions}"
+                                                  SelectedItem="{Binding VatRate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  Style="{StaticResource LineEditorComboBox}">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding StringFormat={}{0:N0} %, Mode=OneWay}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTextColumn Header="Total HT"
+                                                Binding="{Binding LineTotalExclVatText, Mode=OneWay}"
+                                                Width="110"
+                                                ElementStyle="{StaticResource TotalCellText}"
+                                                HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+
+                            <DataGridTemplateColumn Header="" Width="52">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="✕"
+                                                Style="{StaticResource GhostButton}"
+                                                Foreground="{StaticResource DangerBrush}"
+                                                MinHeight="26"
+                                                Padding="8,2"
+                                                ToolTip="Retirer cette ligne"
+                                                Click="RemoveLineButton_Click" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                IsHitTestVisible="False">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Items.Count, ElementName=EditorLinesDataGrid}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="Aucune ligne dans ce brouillon"
+                                   Style="{StaticResource EmptyStateTitleText}" />
+                        <TextBlock Text="Une facture doit comporter au moins une ligne pour pouvoir être émise."
+                                   Style="{StaticResource EmptyStateHintText}" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- Apercu local des totaux, recalcule a chaque frappe. -->
+                <Border Grid.Row="6" Style="{StaticResource SubtleCardBorder}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="28" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="28" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Text="Aperçu calculé sur ce poste pendant la saisie ; les totaux définitifs sont ceux renvoyés par le serveur à l'enregistrement."
+                                   Style="{StaticResource CaptionText}"
+                                   TextWrapping="Wrap"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,20,0" />
+
+                        <StackPanel Grid.Column="1" MinWidth="110">
+                            <TextBlock Text="Total HT" Style="{StaticResource DetailTotalLabelText}" />
+                            <TextBlock x:Name="EditorTotalExclVatTextBlock"
+                                       Text="0,00"
+                                       Style="{StaticResource DetailTotalValueText}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="3" MinWidth="110">
+                            <TextBlock Text="Total TVA" Style="{StaticResource DetailTotalLabelText}" />
+                            <TextBlock x:Name="EditorTotalVatTextBlock"
+                                       Text="0,00"
+                                       Style="{StaticResource DetailTotalValueText}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="5" MinWidth="120">
+                            <TextBlock Text="Total TTC" Style="{StaticResource DetailTotalLabelText}" />
+                            <TextBlock x:Name="EditorTotalInclVatTextBlock"
+                                       Text="0,00"
+                                       Style="{StaticResource DetailTotalValueText}"
+                                       Foreground="{StaticResource PrimaryBrush}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

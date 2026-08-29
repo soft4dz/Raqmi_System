@@ -1,0 +1,570 @@
+<UserControl x:Class="RaqmiSystem.Desktop.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             FontFamily="{StaticResource AppFontFamily}"
+             Background="Transparent"
+             d:DesignWidth="1200"
+             d:DesignHeight="900">
+
+    <!-- =========================================================================
+         Parametrage global.
+
+         Trois sections, volontairement separees en trois cartes, parce qu'elles
+         n'ont PAS la meme portee et que confondre les trois est la faute la plus
+         couteuse de cet ecran :
+           A. Etablissement   -> serveur, partage par tous les postes.
+           B. Poste de travail -> ce poste uniquement, rien n'est envoye au serveur.
+           C. Sante du systeme -> constat, plus une action d'entretien destructrice.
+         Chaque carte le dit a l'ecran, sur sa pastille de portee.
+         ========================================================================= -->
+
+    <UserControl.Resources>
+        <!-- Pastille de portee : rappelle, sous chaque titre de section, QUI est
+             affecte par les reglages de la carte. -->
+        <Style x:Key="ScopeBadgeBorder" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="10,3" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Margin" Value="0,8,0,0" />
+        </Style>
+
+        <Style x:Key="ScopeBadgeText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+        </Style>
+
+        <!-- Precision affichee sous un champ dont la saisie obeit a une regle metier. -->
+        <Style x:Key="FieldHintText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+            <Setter Property="Margin" Value="0,4,0,0" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- Encart d'avertissement (parametrage jamais enregistre, profil en
+             lecture seule, URL imposee par l'environnement). -->
+        <Style x:Key="NoticeBorder" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource StatusSubmittedBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="Margin" Value="0,14,0,0" />
+        </Style>
+
+        <Style x:Key="NoticeText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- Detail : libelle / valeur en deux colonnes -->
+        <Style x:Key="DetailLabelText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+            <Setter Property="Margin" Value="0,0,12,5" />
+        </Style>
+
+        <Style x:Key="DetailValueText" TargetType="TextBlock" BasedOn="{StaticResource BodyText}">
+            <Setter Property="Margin" Value="0,0,0,5" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- Pastille ronde verte / rouge / neutre des indicateurs de sante. -->
+        <Style x:Key="HealthDot" TargetType="Border">
+            <Setter Property="Width" Value="11" />
+            <Setter Property="Height" Value="11" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,9,0" />
+            <Setter Property="Background" Value="{StaticResource TextPlaceholderBrush}" />
+        </Style>
+
+        <Style x:Key="HealthStateText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        </Style>
+
+        <Style x:Key="LegalNoticeText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+        <StackPanel>
+
+            <!-- ============================ A. Etablissement ============================ -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel>
+                    <DockPanel>
+                        <StackPanel Orientation="Horizontal"
+                                    DockPanel.Dock="Right"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center">
+                            <Button x:Name="ReloadSettingsButton"
+                                    Content="Actualiser"
+                                    Style="{StaticResource SecondaryButton}"
+                                    ToolTip="Relire le paramétrage enregistré sur le serveur"
+                                    Margin="0,0,10,0"
+                                    Click="ReloadSettingsButton_Click" />
+
+                            <!-- Grise, avec son info-bulle, quand le profil ne detient pas
+                                 settings.write : les champs passent alors en lecture seule
+                                 (voir ApplyPermissions). -->
+                            <Button x:Name="SaveSettingsButton"
+                                    Content="Enregistrer"
+                                    Style="{StaticResource PrimaryButton}"
+                                    ToolTip="Enregistrer l'identité de l'établissement et les paramètres d'exploitation"
+                                    ToolTipService.ShowOnDisabled="True"
+                                    Click="SaveSettingsButton_Click" />
+                        </StackPanel>
+
+                        <StackPanel>
+                            <TextBlock Text="Paramétrage global"
+                                       Style="{StaticResource PageTitleText}" />
+                            <TextBlock Text="Trois portées distinctes : l'établissement (tout le système), ce poste de travail, et l'état du serveur."
+                                       Style="{StaticResource SubtitleText}"
+                                       Margin="0,4,0,0" />
+                        </StackPanel>
+                    </DockPanel>
+
+                    <Border Height="1"
+                            Background="{StaticResource PanelBorderBrush}"
+                            Margin="0,16,0,16" />
+
+                    <TextBlock Text="Établissement"
+                               Style="{StaticResource SectionTitleText}" />
+
+                    <Border Style="{StaticResource ScopeBadgeBorder}">
+                        <TextBlock Text="Portée : tout le système — partagé par tous les postes"
+                                   Style="{StaticResource ScopeBadgeText}" />
+                    </Border>
+
+                    <TextBlock Text="Cette identité est figée sur chaque facture au moment de son émission : la modifier ici n'altère aucune facture déjà émise, et n'engagera que celles émises ensuite."
+                               Style="{StaticResource SubtitleText}"
+                               Margin="0,10,0,0" />
+
+                    <!-- Aucun parametrage n'a encore ete ecrit : les valeurs affichees
+                         sont les defauts de l'installation, et l'emetteur des factures
+                         est encore le libelle de remplacement. -->
+                    <Border x:Name="UnconfiguredNoticeBorder"
+                            Style="{StaticResource NoticeBorder}"
+                            Visibility="Collapsed">
+                        <TextBlock x:Name="UnconfiguredNoticeTextBlock"
+                                   Style="{StaticResource NoticeText}" />
+                    </Border>
+
+                    <!-- Profil en lecture seule : dit pourquoi les champs ne sont pas
+                         saisissables, plutot que de laisser decouvrir un 403. -->
+                    <Border x:Name="ReadOnlyNoticeBorder"
+                            Style="{StaticResource NoticeBorder}"
+                            Visibility="Collapsed">
+                        <TextBlock x:Name="ReadOnlyNoticeTextBlock"
+                                   Style="{StaticResource NoticeText}" />
+                    </Border>
+
+                    <!-- Identite de l'emetteur -->
+                    <TextBlock Text="Identité de l'émetteur"
+                               Style="{StaticResource LabelText}"
+                               Margin="0,20,0,10" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="14" />
+                            <ColumnDefinition Width="180" />
+                            <ColumnDefinition Width="14" />
+                            <ColumnDefinition Width="260" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel>
+                            <TextBlock Text="Raison sociale" Style="{StaticResource LabelText}" />
+                            <TextBox x:Name="CompanyNameTextBox"
+                                     Tag="Dénomination légale de l'établissement"
+                                     ToolTip="Nom porté sur chaque facture émise (obligatoire)"
+                                     MaxLength="200" />
+                            <TextBlock Text="Obligatoire — c'est le nom imprimé sur les factures."
+                                       Style="{StaticResource FieldHintText}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Téléphone" Style="{StaticResource LabelText}" />
+                            <TextBox x:Name="CompanyPhoneTextBox" MaxLength="40" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="4">
+                            <TextBlock Text="Courriel" Style="{StaticResource LabelText}" />
+                            <TextBox x:Name="CompanyEmailTextBox"
+                                     Tag="contact@exemple.dz"
+                                     MaxLength="160" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Identifiants fiscaux algeriens de l'emetteur : memes regles que
+                         celles du fichier clients (Customer.NormalizeNif). -->
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel>
+                            <TextBlock Text="NIF" Style="{StaticResource LabelText}" />
+                            <TextBox x:Name="CompanyNifTextBox"
+                                     Tag="Numéro d'identification fiscale"
+                                     ToolTip="Numéro d'identification fiscale : exactement 15 chiffres"
+                                     MaxLength="15" />
+                            <TextBlock Text="Facultatif — s'il est renseigné, exactement 15 chiffres."
+                                       Style="{StaticResource FieldHintText}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="RC" Style="{StaticResource LabelText}" />
+                            <TextBox x:Name="CompanyRcTextBox"
+                                     Tag="Registre du commerce"
+                                     MaxLength="20" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="4">
+                            <TextBlock Text="AI" Style="{StaticResource LabelText}" />
+                            <TextBox x:Name="CompanyAiTextBox"
+                                     Tag="Article d'imposition"
+                                     MaxLength="20" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="6">
+                            <TextBlock Text="NIS" Style="{StaticResource LabelText}" />
+                            <TextBox x:Name="CompanyNisTextBox"
+                                     Tag="Identification statistique"
+                                     MaxLength="20" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="14" />
+                            <ColumnDefinition Width="240" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel>
+                            <TextBlock Text="Adresse" Style="{StaticResource LabelText}" />
+                            <TextBox x:Name="CompanyAddressTextBox"
+                                     Tag="Adresse du siège de l'établissement"
+                                     MaxLength="200" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Ville" Style="{StaticResource LabelText}" />
+                            <TextBox x:Name="CompanyCityTextBox" MaxLength="80" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Parametres d'exploitation -->
+                    <TextBlock Text="Paramètres d'exploitation"
+                               Style="{StaticResource LabelText}"
+                               Margin="0,22,0,10" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="14" />
+                            <ColumnDefinition Width="180" />
+                            <ColumnDefinition Width="14" />
+                            <ColumnDefinition Width="260" />
+                            <ColumnDefinition Width="14" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel>
+                            <TextBlock Text="Taux de TVA par défaut" Style="{StaticResource LabelText}" />
+                            <!-- Liste fermee, jamais une saisie libre : les taux admis sont
+                                 ceux du domaine (InvoiceLine.AllowedVatRates), et un taux
+                                 hors liste serait refuse a l'enregistrement comme il le
+                                 serait sur chaque ligne de facture. -->
+                            <ComboBox x:Name="DefaultVatRateComboBox"
+                                      ToolTip="Taux proposé par défaut sur une nouvelle ligne de facture">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding StringFormat={}{0:N0} %, Mode=OneWay}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Text="Taux algériens en vigueur : 0, 9 et 19 %."
+                                       Style="{StaticResource FieldHintText}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Libellé de devise" Style="{StaticResource LabelText}" />
+                            <TextBox x:Name="CurrencyLabelTextBox"
+                                     Tag="DZD"
+                                     ToolTip="Libellé affiché à côté des montants"
+                                     MaxLength="10" />
+                            <TextBlock Text="Vide = DZD."
+                                       Style="{StaticResource FieldHintText}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="4">
+                            <TextBlock Text="Rétention du journal d'audit (jours)" Style="{StaticResource LabelText}" />
+                            <TextBox x:Name="AuditRetentionDaysTextBox"
+                                     Style="{StaticResource AmountTextBox}"
+                                     ToolTip="Durée de conservation des traces d'audit"
+                                     MaxLength="4" />
+                            <TextBlock x:Name="AuditRetentionHintTextBlock"
+                                       Style="{StaticResource FieldHintText}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock x:Name="SettingsTraceTextBlock"
+                               Style="{StaticResource LegalNoticeText}"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               Margin="0,18,0,0" />
+                </StackPanel>
+            </Border>
+
+            <!-- =========================== B. Poste de travail =========================== -->
+            <Border Style="{StaticResource CardBorder}" Margin="0,16,0,0">
+                <StackPanel>
+                    <TextBlock Text="Poste de travail"
+                               Style="{StaticResource SectionTitleText}" />
+
+                    <Border Style="{StaticResource ScopeBadgeBorder}">
+                        <TextBlock Text="Portée : ce poste uniquement — rien n'est envoyé au serveur"
+                                   Style="{StaticResource ScopeBadgeText}" />
+                    </Border>
+
+                    <TextBlock Text="Ces réglages sont enregistrés dans le profil Windows de cet ordinateur. Ils ne concernent ni les autres postes, ni les autres utilisateurs du système."
+                               Style="{StaticResource SubtitleText}"
+                               Margin="0,10,0,0" />
+
+                    <Grid Margin="0,18,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="14" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel>
+                            <TextBlock Text="URL de l'API" Style="{StaticResource LabelText}" />
+                            <TextBox x:Name="ApiBaseUrlTextBox"
+                                     Tag="http://localhost:5180"
+                                     ToolTip="Adresse du serveur Raqmi System contacté par ce poste"
+                                     MaxLength="300" />
+                            <TextBlock Text="Prise en compte au prochain démarrage de l'application : la session ouverte reste connectée au serveur en cours."
+                                       Style="{StaticResource FieldHintText}" />
+                        </StackPanel>
+
+                        <Button x:Name="SaveApiUrlButton"
+                                Grid.Column="2"
+                                Content="Enregistrer l'URL"
+                                Style="{StaticResource SecondaryButton}"
+                                ToolTip="Mémoriser cette adresse sur ce poste"
+                                VerticalAlignment="Top"
+                                Margin="0,26,0,0"
+                                Click="SaveApiUrlButton_Click" />
+                    </Grid>
+
+                    <!-- Une variable d'environnement bat la valeur enregistree : le dire,
+                         sinon l'URL saisie ici parait prise en compte et ne l'est pas. -->
+                    <Border x:Name="ApiUrlOverrideNoticeBorder"
+                            Style="{StaticResource NoticeBorder}"
+                            Visibility="Collapsed">
+                        <TextBlock x:Name="ApiUrlOverrideNoticeTextBlock"
+                                   Style="{StaticResource NoticeText}" />
+                    </Border>
+
+                    <Border Height="1"
+                            Background="{StaticResource PanelBorderBrush}"
+                            Margin="0,20,0,18" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="14" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel>
+                            <TextBlock Text="Identifiants mémorisés" Style="{StaticResource LabelText}" />
+                            <TextBlock x:Name="RememberedCredentialsTextBlock"
+                                       Style="{StaticResource DetailValueText}" />
+                            <TextBlock Text="Le mot de passe mémorisé est chiffré par Windows (DPAPI) pour votre session Windows sur ce poste : aucun autre compte Windows, ni aucune autre machine, ne peut le déchiffrer."
+                                       Style="{StaticResource FieldHintText}" />
+                        </StackPanel>
+
+                        <Button x:Name="ForgetCredentialsButton"
+                                Grid.Column="2"
+                                Content="Oublier les identifiants enregistrés"
+                                Style="{StaticResource DangerButton}"
+                                ToolTip="Effacer de ce poste le nom d'utilisateur et le mot de passe mémorisés"
+                                ToolTipService.ShowOnDisabled="True"
+                                VerticalAlignment="Top"
+                                Margin="0,22,0,0"
+                                Click="ForgetCredentialsButton_Click" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- =========================== C. Sante du systeme =========================== -->
+            <Border Style="{StaticResource CardBorder}" Margin="0,16,0,0">
+                <StackPanel>
+                    <DockPanel>
+                        <Button x:Name="CheckHealthButton"
+                                DockPanel.Dock="Right"
+                                Content="Vérifier maintenant"
+                                Style="{StaticResource SecondaryButton}"
+                                ToolTip="Interroger le serveur et sa base de données"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Click="CheckHealthButton_Click" />
+
+                        <TextBlock Text="Santé du système"
+                                   Style="{StaticResource SectionTitleText}"
+                                   VerticalAlignment="Center" />
+                    </DockPanel>
+
+                    <Border Style="{StaticResource ScopeBadgeBorder}">
+                        <TextBlock Text="Portée : le serveur et sa base — état constaté à l'instant de la vérification"
+                                   Style="{StaticResource ScopeBadgeText}" />
+                    </Border>
+
+                    <Grid Margin="0,16,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Style="{StaticResource SubtleCardBorder}">
+                            <StackPanel>
+                                <TextBlock Text="Serveur applicatif" Style="{StaticResource MetricLabelText}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <Border x:Name="ServerHealthDot" Style="{StaticResource HealthDot}" />
+                                    <TextBlock x:Name="ServerHealthStateTextBlock"
+                                               Text="Non vérifié"
+                                               Style="{StaticResource HealthStateText}" />
+                                </StackPanel>
+                                <TextBlock x:Name="ServerHealthDetailTextBlock"
+                                           Style="{StaticResource LegalNoticeText}"
+                                           Margin="0,6,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="2" Style="{StaticResource SubtleCardBorder}">
+                            <StackPanel>
+                                <TextBlock Text="Base de données" Style="{StaticResource MetricLabelText}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <Border x:Name="DatabaseHealthDot" Style="{StaticResource HealthDot}" />
+                                    <TextBlock x:Name="DatabaseHealthStateTextBlock"
+                                               Text="Non vérifié"
+                                               Style="{StaticResource HealthStateText}" />
+                                </StackPanel>
+                                <TextBlock x:Name="DatabaseHealthDetailTextBlock"
+                                           Style="{StaticResource LegalNoticeText}"
+                                           Margin="0,6,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <TextBlock x:Name="HealthCheckedAtTextBlock"
+                               Text="Aucune vérification effectuée depuis l'ouverture de la session."
+                               Style="{StaticResource CaptionText}"
+                               Margin="0,10,0,0" />
+
+                    <!-- Identite de la session courante -->
+                    <TextBlock Text="Session courante"
+                               Style="{StaticResource LabelText}"
+                               Margin="0,22,0,10" />
+
+                    <Border Style="{StaticResource SubtleCardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Text="Utilisateur" Style="{StaticResource DetailLabelText}" />
+                            <TextBlock x:Name="SessionUserTextBlock"
+                                       Grid.Column="1"
+                                       Text="—"
+                                       Style="{StaticResource DetailValueText}"
+                                       FontWeight="SemiBold" />
+
+                            <TextBlock Grid.Row="1" Text="Courriel" Style="{StaticResource DetailLabelText}" />
+                            <TextBlock x:Name="SessionEmailTextBlock"
+                                       Grid.Row="1"
+                                       Grid.Column="1"
+                                       Text="—"
+                                       Style="{StaticResource DetailValueText}" />
+
+                            <TextBlock Grid.Row="2" Text="Rôles" Style="{StaticResource DetailLabelText}" />
+                            <TextBlock x:Name="SessionRolesTextBlock"
+                                       Grid.Row="2"
+                                       Grid.Column="1"
+                                       Text="—"
+                                       Style="{StaticResource DetailValueText}" />
+
+                            <TextBlock Grid.Row="3" Text="Permissions" Style="{StaticResource DetailLabelText}" />
+                            <StackPanel Grid.Row="3" Grid.Column="1">
+                                <TextBlock x:Name="SessionPermissionCountTextBlock"
+                                           Text="—"
+                                           Style="{StaticResource DetailValueText}" />
+                                <ScrollViewer MaxHeight="92"
+                                              VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled">
+                                    <TextBlock x:Name="SessionPermissionsTextBlock"
+                                               Style="{StaticResource LegalNoticeText}" />
+                                </ScrollViewer>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Action d'entretien -->
+                    <TextBlock Text="Entretien"
+                               Style="{StaticResource LabelText}"
+                               Margin="0,22,0,10" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="14" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock x:Name="PurgeHintTextBlock"
+                                   Style="{StaticResource LegalNoticeText}"
+                                   VerticalAlignment="Center" />
+
+                        <Button x:Name="PurgeAuditButton"
+                                Grid.Column="2"
+                                Content="Purger le journal d'audit"
+                                Style="{StaticResource DangerButton}"
+                                ToolTip="Supprimer définitivement les entrées d'audit antérieures à la rétention configurée"
+                                ToolTipService.ShowOnDisabled="True"
+                                VerticalAlignment="Center"
+                                Click="PurgeAuditButton_Click" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

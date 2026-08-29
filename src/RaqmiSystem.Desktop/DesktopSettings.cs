@@ -13,7 +13,13 @@ namespace RaqmiSystem.Desktop;
 /// </summary>
 public sealed class DesktopSettings
 {
-    private const string EnvironmentVariableName = "RAQMI_DESKTOP_API_URL";
+    /// <summary>
+    /// Name of the environment variable that overrides the stored API URL. Public because the
+    /// settings screen must be able to TELL the user when it is set: an override silently wins
+    /// over whatever they save there, and a URL that appears saved but is never used is a trap.
+    /// </summary>
+    public const string ApiBaseUrlEnvironmentVariable = "RAQMI_DESKTOP_API_URL";
+
     private const string DefaultApiBaseUrl = "http://localhost:5180";
 
     // Extra entropy mixed into DPAPI so another local app calling Unprotect with
@@ -31,13 +37,27 @@ public sealed class DesktopSettings
     /// </summary>
     public string? ProtectedPassword { get; set; }
 
+    /// <summary>
+    /// The URL forced by <see cref="ApiBaseUrlEnvironmentVariable"/>, or null when the variable is
+    /// unset. When it is set, <see cref="Save"/> still writes to the settings file but the stored
+    /// value is never used - the settings screen surfaces that instead of letting it surprise the
+    /// user at the next start.
+    /// </summary>
+    public static string? ApiBaseUrlEnvironmentOverride
+    {
+        get
+        {
+            var fromEnvironment = Environment.GetEnvironmentVariable(ApiBaseUrlEnvironmentVariable);
+
+            return string.IsNullOrWhiteSpace(fromEnvironment) ? null : fromEnvironment.Trim();
+        }
+    }
+
     public static string Load()
     {
-        var fromEnvironment = Environment.GetEnvironmentVariable(EnvironmentVariableName);
-
-        if (!string.IsNullOrWhiteSpace(fromEnvironment))
+        if (ApiBaseUrlEnvironmentOverride is { } fromEnvironment)
         {
-            return fromEnvironment.Trim();
+            return fromEnvironment;
         }
 
         var settings = ReadFile();

@@ -1,0 +1,1069 @@
+<UserControl x:Class="RaqmiSystem.Desktop.Views.TreasuryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:RaqmiSystem.Desktop.Views"
+             FontFamily="{StaticResource AppFontFamily}">
+
+    <UserControl.Resources>
+        <!-- Libelles francais des modes de paiement dans les grilles. -->
+        <views:PaymentMethodLabelConverter x:Key="PaymentMethodLabelConverter" />
+
+        <!-- Onglets internes du module : le style implicite du theme supprime les
+             en-tetes (le panneau lateral est l'unique navigation de l'application),
+             ce module a donc besoin de son propre gabarit d'onglets visibles. -->
+        <Style x:Key="SectionTabItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Grid SnapsToDevicePixels="True">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Border x:Name="tabBackground"
+                                    Background="Transparent"
+                                    CornerRadius="6,6,0,0"
+                                    Padding="18,9">
+                                <ContentPresenter ContentSource="Header"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
+                            </Border>
+
+                            <Rectangle x:Name="tabIndicator"
+                                       Grid.Row="1"
+                                       Height="2.5"
+                                       Fill="{StaticResource AccentBrush}"
+                                       Opacity="0" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="tabBackground" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="tabBackground" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="tabIndicator" Property="Opacity" Value="1" />
+                                <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SectionTabControl" TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource SectionTabItem}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border BorderBrush="{StaticResource PanelBorderBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <TabPanel IsItemsHost="True" HorizontalAlignment="Left" />
+                            </Border>
+
+                            <ContentPresenter Grid.Row="1"
+                                              Margin="0,16,0,0"
+                                              ContentSource="SelectedContent" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Rappel de regle metier affiche a l'ecran (une ligne, sous le titre
+             ou le bandeau concerne). -->
+        <Style x:Key="BusinessRuleText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- Bandeau d'avertissement contextuel : signale a l'ecran qu'un chiffre
+             affiche ne repond pas au filtre visible juste au-dessus de lui. -->
+        <Style x:Key="WarningBanner" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource StatusSubmittedBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14,9" />
+        </Style>
+
+        <Style x:Key="WarningBannerText" TargetType="TextBlock" BasedOn="{StaticResource BodyText}">
+            <Setter Property="Foreground" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============================== En-tete du module ============================== -->
+        <DockPanel>
+            <Button x:Name="RefreshAllButton"
+                    DockPanel.Dock="Right"
+                    Content="Tout actualiser"
+                    Style="{StaticResource SecondaryButton}"
+                    ToolTip="Recharger les comptes, les encaissements et les ordres de paiement"
+                    VerticalAlignment="Center"
+                    Click="RefreshAllButton_Click" />
+
+            <StackPanel>
+                <TextBlock Text="Encaissements &amp; trésorerie"
+                           Style="{StaticResource PageTitleText}" />
+                <TextBlock Text="Encaissements des unités, ordres de paiement et comptes bancaires."
+                           Style="{StaticResource SubtitleText}"
+                           Margin="0,4,0,0" />
+            </StackPanel>
+        </DockPanel>
+
+        <TabControl x:Name="TreasuryTabs"
+                    Grid.Row="2"
+                    Style="{StaticResource SectionTabControl}">
+
+            <!-- ================================ Encaissements ================================ -->
+            <TabItem Header="Encaissements">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Carte de saisie -->
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <TextBlock x:Name="ReceiptFormModeTextBlock"
+                                           DockPanel.Dock="Right"
+                                           Text="Nouvel encaissement"
+                                           Style="{StaticResource CaptionText}"
+                                           VerticalAlignment="Center" />
+
+                                <StackPanel>
+                                    <TextBlock Text="Saisie d'un encaissement"
+                                               Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock Text="L'encaissement est créé en brouillon : seul un brouillon peut être modifié. Un encaissement confirmé ne peut plus être modifié, il peut seulement être annulé avec motif."
+                                               Style="{StaticResource SubtitleText}"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="220" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="190" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Date d'encaissement *" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="ReceiptDatePicker" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Unité hôtelière *" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="ReceiptUnitComboBox"
+                                              DisplayMemberPath="Label"
+                                              SelectedValuePath="Code" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Mode de paiement *" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="ReceiptMethodComboBox"
+                                              DisplayMemberPath="Label"
+                                              SelectedValuePath="Value"
+                                              SelectionChanged="ReceiptMethodComboBox_SelectionChanged" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6">
+                                    <TextBlock Text="Montant *" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="ReceiptAmountTextBox"
+                                             Style="{StaticResource AmountTextBox}"
+                                             Tag="0,00" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="8">
+                                    <TextBlock x:Name="ReceiptReferenceLabel"
+                                               Text="Référence"
+                                               Style="{StaticResource LabelText}" />
+                                    <!-- Bornes du domaine (CashReceipt.Reference : 80 caracteres). -->
+                                    <TextBox x:Name="ReceiptReferenceTextBox"
+                                             MaxLength="80"
+                                             Tag="N° de chèque, avis de virement..." />
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Grid.Row="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="290" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="10" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock x:Name="ReceiptBankAccountLabel"
+                                               Text="Compte bancaire"
+                                               Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="ReceiptBankAccountComboBox"
+                                              DisplayMemberPath="Label"
+                                              SelectedValuePath="Code" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Notes" Style="{StaticResource LabelText}" />
+                                    <!-- Bornes du domaine (CashReceipt.Notes : 1000 caracteres). -->
+                                    <TextBox x:Name="ReceiptNotesTextBox"
+                                             MaxLength="1000"
+                                             Tag="Commentaire facultatif" />
+                                </StackPanel>
+
+                                <Button x:Name="SaveReceiptButton"
+                                        Grid.Column="4"
+                                        Content="Créer l'encaissement"
+                                        Style="{StaticResource PrimaryButton}"
+                                        ToolTip="Enregistrer l'encaissement en brouillon"
+                                        VerticalAlignment="Bottom"
+                                        Click="SaveReceiptButton_Click" />
+
+                                <Button x:Name="ResetReceiptFormButton"
+                                        Grid.Column="6"
+                                        Content="Vider le formulaire"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Abandonner la saisie ou la modification en cours"
+                                        VerticalAlignment="Bottom"
+                                        Click="ResetReceiptFormButton_Click" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- Filtres, resume et grille -->
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="6" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Text="Encaissements de la période"
+                                       Style="{StaticResource SectionTitleText}" />
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="140" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="140" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="180" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="180" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Du" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="ReceiptFromDatePicker" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Au" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="ReceiptToDatePicker" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Unité hôtelière" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="ReceiptFilterUnitComboBox"
+                                              DisplayMemberPath="Label"
+                                              SelectedValuePath="Code" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6">
+                                    <TextBlock Text="Mode de paiement" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="ReceiptFilterMethodComboBox"
+                                              DisplayMemberPath="Label" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="8">
+                                    <TextBlock Text="Statut" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="ReceiptFilterStatusComboBox"
+                                              DisplayMemberPath="Label" />
+                                </StackPanel>
+
+                                <Button x:Name="RefreshReceiptsButton"
+                                        Grid.Column="10"
+                                        Content="Actualiser"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Recharger les encaissements de la période filtrée"
+                                        VerticalAlignment="Bottom"
+                                        Click="RefreshReceiptsButton_Click" />
+                            </Grid>
+
+                            <!-- Le résumé est produit par le serveur, qui ne sait pas le
+                                 restreindre a un mode de paiement : quand ce filtre est
+                                 actif, la grille et le résumé ne portent pas sur le meme
+                                 périmètre et l'écran doit le dire. -->
+                            <Border x:Name="ReceiptSummaryMethodWarningBorder"
+                                    Grid.Row="4"
+                                    Style="{StaticResource WarningBanner}"
+                                    Margin="0,0,0,10"
+                                    Visibility="Collapsed">
+                                <TextBlock x:Name="ReceiptSummaryMethodWarningTextBlock"
+                                           Style="{StaticResource WarningBannerText}"
+                                           Text="Filtre « Mode de paiement » actif : le résumé ci-dessous reste calculé sur tous les modes de paiement. Seule la grille est filtrée." />
+                            </Border>
+
+                            <Border Grid.Row="5" Style="{StaticResource SubtleCardBorder}">
+                                <StackPanel Orientation="Horizontal">
+                                    <StackPanel Margin="0,0,26,0">
+                                        <TextBlock Text="Espèces" Style="{StaticResource MetricLabelText}" />
+                                        <TextBlock x:Name="SummaryCashTextBlock"
+                                                   Text="0,00"
+                                                   Style="{StaticResource MetricValueText}" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,26,0">
+                                        <TextBlock Text="Carte" Style="{StaticResource MetricLabelText}" />
+                                        <TextBlock x:Name="SummaryCardTextBlock"
+                                                   Text="0,00"
+                                                   Style="{StaticResource MetricValueText}" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,26,0">
+                                        <TextBlock Text="Chèque" Style="{StaticResource MetricLabelText}" />
+                                        <TextBlock x:Name="SummaryChequeTextBlock"
+                                                   Text="0,00"
+                                                   Style="{StaticResource MetricValueText}" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,26,0">
+                                        <TextBlock Text="Virement" Style="{StaticResource MetricLabelText}" />
+                                        <TextBlock x:Name="SummaryBankTransferTextBlock"
+                                                   Text="0,00"
+                                                   Style="{StaticResource MetricValueText}" />
+                                    </StackPanel>
+
+                                    <Border BorderBrush="{StaticResource PanelBorderBrush}"
+                                            BorderThickness="1,0,0,0"
+                                            Margin="0,2,26,2" />
+
+                                    <StackPanel Margin="0,0,26,0">
+                                        <TextBlock Text="Total général" Style="{StaticResource MetricLabelText}" />
+                                        <TextBlock x:Name="SummaryGrandTotalTextBlock"
+                                                   Text="0,00"
+                                                   Style="{StaticResource MetricValueText}"
+                                                   Foreground="{StaticResource PrimaryBrush}" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,26,0">
+                                        <TextBlock Text="Écritures comptées" Style="{StaticResource MetricLabelText}" />
+                                        <TextBlock x:Name="SummaryCountedTextBlock"
+                                                   Text="0"
+                                                   Style="{StaticResource MetricValueText}" />
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="Statut retenu" Style="{StaticResource MetricLabelText}" />
+                                        <TextBlock x:Name="SummaryStatusTextBlock"
+                                                   Text="Confirmés"
+                                                   Style="{StaticResource MetricValueText}"
+                                                   Foreground="{StaticResource StatusValidatedForegroundBrush}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Grid.Row="7"
+                                       Text="Règle : sans filtre de statut, le résumé ne compte que les encaissements confirmés (un encaissement en brouillon ou annulé n'entre pas dans le total)."
+                                       Style="{StaticResource BusinessRuleText}" />
+
+                            <Grid Grid.Row="9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Motif d'annulation (encaissement sélectionné) *" Style="{StaticResource LabelText}" />
+                                    <!-- Bornes du domaine (CashReceipt.Cancel : motif de 500 caracteres). -->
+                                    <TextBox x:Name="ReceiptCancelReasonTextBox"
+                                             MaxLength="500"
+                                             Tag="Obligatoire pour annuler" />
+                                </StackPanel>
+
+                                <Button x:Name="ConfirmReceiptButton"
+                                        Grid.Column="2"
+                                        Content="Confirmer"
+                                        Style="{StaticResource PrimaryButton}"
+                                        IsEnabled="False"
+                                        ToolTip="Confirmer l'encaissement sélectionné (brouillon uniquement)"
+                                        VerticalAlignment="Bottom"
+                                        Click="ConfirmReceiptButton_Click" />
+
+                                <Button x:Name="EditReceiptButton"
+                                        Grid.Column="4"
+                                        Content="Modifier"
+                                        Style="{StaticResource SecondaryButton}"
+                                        IsEnabled="False"
+                                        ToolTip="Reprendre l'encaissement sélectionné dans le formulaire (brouillon uniquement)"
+                                        VerticalAlignment="Bottom"
+                                        Click="EditReceiptButton_Click" />
+
+                                <Button x:Name="CancelReceiptButton"
+                                        Grid.Column="6"
+                                        Content="Annuler"
+                                        Style="{StaticResource DangerButton}"
+                                        IsEnabled="False"
+                                        ToolTip="Annuler l'encaissement sélectionné (motif requis)"
+                                        VerticalAlignment="Bottom"
+                                        Click="CancelReceiptButton_Click" />
+                            </Grid>
+
+                            <Grid Grid.Row="11">
+                                <DataGrid x:Name="ReceiptsDataGrid"
+                                          MinHeight="150"
+                                          SelectionChanged="ReceiptsDataGrid_SelectionChanged">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Date" Binding="{Binding ReceiptDate}" Width="95" />
+                                        <DataGridTextColumn Header="Unité" Binding="{Binding HotelUnitCode}" Width="105" />
+                                        <DataGridTextColumn Header="Mode"
+                                                            Binding="{Binding Method, Converter={StaticResource PaymentMethodLabelConverter}}"
+                                                            Width="105" />
+                                        <DataGridTextColumn Header="Montant"
+                                                            Binding="{Binding Amount, StringFormat={}{0:N2}}"
+                                                            Width="115"
+                                                            ElementStyle="{StaticResource TotalCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Référence" Binding="{Binding Reference}" Width="130" />
+                                        <DataGridTextColumn Header="Compte" Binding="{Binding BankAccountCode}" Width="105" />
+                                        <DataGridTemplateColumn Header="Statut" Width="120" SortMemberPath="Status">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border x:Name="StatusBadge"
+                                                            CornerRadius="10"
+                                                            Padding="10,3"
+                                                            HorizontalAlignment="Left"
+                                                            VerticalAlignment="Center"
+                                                            Background="{StaticResource StatusDraftBackgroundBrush}">
+                                                        <TextBlock x:Name="StatusBadgeText"
+                                                                   Text="Brouillon"
+                                                                   FontSize="11.5"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource StatusDraftForegroundBrush}" />
+                                                    </Border>
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Confirmed">
+                                                            <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusValidatedBackgroundBrush}" />
+                                                            <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusValidatedForegroundBrush}" />
+                                                            <Setter TargetName="StatusBadgeText" Property="Text" Value="Confirmé" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Cancelled">
+                                                            <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusRejectedBackgroundBrush}" />
+                                                            <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                            <Setter TargetName="StatusBadgeText" Property="Text" Value="Annulé" />
+                                                        </DataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Saisi par"
+                                                            Binding="{Binding CreatedBy}"
+                                                            Width="120"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                        <DataGridTextColumn Header="Motif d'annulation"
+                                                            Binding="{Binding CancelReason}"
+                                                            Width="*"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=ReceiptsDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <TextBlock Text="Aucun encaissement pour cette période"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Élargissez la période, retirez un filtre ou saisissez un premier encaissement ci-dessus."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ============================== Ordres de paiement ============================== -->
+            <TabItem Header="Ordres de paiement">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Saisie d'un ordre de paiement"
+                                           Style="{StaticResource SectionTitleText}" />
+                                <TextBlock Text="L'ordre est créé en brouillon, puis approuvé avant d'être marqué payé. L'échéance ne peut pas précéder la date d'ordre."
+                                           Style="{StaticResource SubtitleText}"
+                                           Margin="0,4,0,0" />
+                            </StackPanel>
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="150" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Date d'ordre *" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="OrderDatePicker"
+                                                SelectedDateChanged="OrderDatePicker_SelectedDateChanged" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Bénéficiaire *" Style="{StaticResource LabelText}" />
+                                    <!-- Bornes du domaine (PaymentOrder.Beneficiary : 200 caracteres). -->
+                                    <TextBox x:Name="OrderBeneficiaryTextBox"
+                                             MaxLength="200"
+                                             Tag="Fournisseur, prestataire..." />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Montant *" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="OrderAmountTextBox"
+                                             Style="{StaticResource AmountTextBox}"
+                                             Tag="0,00" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6">
+                                    <TextBlock Text="Échéance *" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="OrderDueDatePicker" />
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Grid.Row="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="290" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="10" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Compte bancaire *" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="OrderBankAccountComboBox"
+                                              DisplayMemberPath="Label"
+                                              SelectedValuePath="Code" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Référence" Style="{StaticResource LabelText}" />
+                                    <!-- Bornes du domaine (PaymentOrder.Reference : 80 caracteres). -->
+                                    <TextBox x:Name="OrderReferenceTextBox"
+                                             MaxLength="80"
+                                             Tag="N° de facture, de marché..." />
+                                </StackPanel>
+
+                                <Button x:Name="CreatePaymentOrderButton"
+                                        Grid.Column="4"
+                                        Content="Créer l'ordre"
+                                        Style="{StaticResource PrimaryButton}"
+                                        ToolTip="Enregistrer l'ordre de paiement en brouillon"
+                                        VerticalAlignment="Bottom"
+                                        Click="CreatePaymentOrderButton_Click" />
+
+                                <Button x:Name="ResetPaymentOrderFormButton"
+                                        Grid.Column="6"
+                                        Content="Vider le formulaire"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Abandonner la saisie en cours"
+                                        VerticalAlignment="Bottom"
+                                        Click="ResetPaymentOrderFormButton_Click" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Text="Ordres de paiement de la période"
+                                       Style="{StaticResource SectionTitleText}" />
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="140" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="140" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="180" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Du" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="OrderFromDatePicker" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Au" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="OrderToDatePicker" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Compte bancaire" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="OrderFilterBankAccountComboBox"
+                                              DisplayMemberPath="Label"
+                                              SelectedValuePath="Code" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6">
+                                    <TextBlock Text="Statut" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="OrderFilterStatusComboBox"
+                                              DisplayMemberPath="Label" />
+                                </StackPanel>
+
+                                <Button x:Name="RefreshPaymentOrdersButton"
+                                        Grid.Column="8"
+                                        Content="Actualiser"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Recharger les ordres de paiement de la période filtrée"
+                                        VerticalAlignment="Bottom"
+                                        Click="RefreshPaymentOrdersButton_Click" />
+                            </Grid>
+
+                            <Grid Grid.Row="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Motif d'annulation (ordre sélectionné) *" Style="{StaticResource LabelText}" />
+                                    <!-- Bornes du domaine (PaymentOrder.Cancel : motif de 500 caracteres). -->
+                                    <TextBox x:Name="OrderCancelReasonTextBox"
+                                             MaxLength="500"
+                                             Tag="Obligatoire pour annuler" />
+                                </StackPanel>
+
+                                <Button x:Name="ApprovePaymentOrderButton"
+                                        Grid.Column="2"
+                                        Content="Approuver"
+                                        Style="{StaticResource PrimaryButton}"
+                                        IsEnabled="False"
+                                        ToolTip="Approuver l'ordre sélectionné (brouillon uniquement)"
+                                        VerticalAlignment="Bottom"
+                                        Click="ApprovePaymentOrderButton_Click" />
+
+                                <Button x:Name="PayPaymentOrderButton"
+                                        Grid.Column="4"
+                                        Content="Marquer payé"
+                                        Style="{StaticResource SecondaryButton}"
+                                        IsEnabled="False"
+                                        ToolTip="Marquer l'ordre sélectionné comme payé (ordre approuvé uniquement)"
+                                        VerticalAlignment="Bottom"
+                                        Click="PayPaymentOrderButton_Click" />
+
+                                <Button x:Name="CancelPaymentOrderButton"
+                                        Grid.Column="6"
+                                        Content="Annuler"
+                                        Style="{StaticResource DangerButton}"
+                                        IsEnabled="False"
+                                        ToolTip="Annuler l'ordre sélectionné (motif requis, impossible sur un ordre payé)"
+                                        VerticalAlignment="Bottom"
+                                        Click="CancelPaymentOrderButton_Click" />
+                            </Grid>
+
+                            <Grid Grid.Row="6">
+                                <DataGrid x:Name="PaymentOrdersDataGrid"
+                                          MinHeight="150"
+                                          SelectionChanged="PaymentOrdersDataGrid_SelectionChanged">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Date d'ordre" Binding="{Binding OrderDate}" Width="110" />
+                                        <DataGridTextColumn Header="Bénéficiaire" Binding="{Binding Beneficiary}" Width="*" />
+                                        <DataGridTextColumn Header="Montant"
+                                                            Binding="{Binding Amount, StringFormat={}{0:N2}}"
+                                                            Width="115"
+                                                            ElementStyle="{StaticResource TotalCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Échéance" Binding="{Binding DueDate}" Width="105" />
+                                        <DataGridTextColumn Header="Compte" Binding="{Binding BankAccountCode}" Width="110" />
+                                        <DataGridTextColumn Header="Référence" Binding="{Binding Reference}" Width="130" />
+                                        <DataGridTemplateColumn Header="Statut" Width="120" SortMemberPath="Status">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border x:Name="OrderStatusBadge"
+                                                            CornerRadius="10"
+                                                            Padding="10,3"
+                                                            HorizontalAlignment="Left"
+                                                            VerticalAlignment="Center"
+                                                            Background="{StaticResource StatusDraftBackgroundBrush}">
+                                                        <TextBlock x:Name="OrderStatusBadgeText"
+                                                                   Text="Brouillon"
+                                                                   FontSize="11.5"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource StatusDraftForegroundBrush}" />
+                                                    </Border>
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Approved">
+                                                            <Setter TargetName="OrderStatusBadge" Property="Background" Value="{StaticResource StatusSubmittedBackgroundBrush}" />
+                                                            <Setter TargetName="OrderStatusBadgeText" Property="Foreground" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+                                                            <Setter TargetName="OrderStatusBadgeText" Property="Text" Value="Approuvé" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Paid">
+                                                            <Setter TargetName="OrderStatusBadge" Property="Background" Value="{StaticResource StatusValidatedBackgroundBrush}" />
+                                                            <Setter TargetName="OrderStatusBadgeText" Property="Foreground" Value="{StaticResource StatusValidatedForegroundBrush}" />
+                                                            <Setter TargetName="OrderStatusBadgeText" Property="Text" Value="Payé" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Cancelled">
+                                                            <Setter TargetName="OrderStatusBadge" Property="Background" Value="{StaticResource StatusRejectedBackgroundBrush}" />
+                                                            <Setter TargetName="OrderStatusBadgeText" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                            <Setter TargetName="OrderStatusBadgeText" Property="Text" Value="Annulé" />
+                                                        </DataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Motif d'annulation"
+                                                            Binding="{Binding CancelReason}"
+                                                            Width="170"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=PaymentOrdersDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <TextBlock Text="Aucun ordre de paiement pour cette période"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Élargissez la période, retirez un filtre ou créez un premier ordre ci-dessus."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- =============================== Comptes bancaires =============================== -->
+            <TabItem Header="Comptes bancaires">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <TextBlock x:Name="BankAccountFormModeTextBlock"
+                                           DockPanel.Dock="Right"
+                                           Text="Nouveau compte"
+                                           Style="{StaticResource CaptionText}"
+                                           VerticalAlignment="Center" />
+
+                                <StackPanel>
+                                    <TextBlock Text="Compte bancaire"
+                                               Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock Text="Le code identifie le compte dans les encaissements et les ordres de paiement : il n'est plus modifiable après création."
+                                               Style="{StaticResource SubtitleText}"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="160" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="200" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="10" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Code *" Style="{StaticResource LabelText}" />
+                                    <!-- Bornes du domaine (BankAccount : code 40, libelle 160,
+                                         banque 160, numero de compte 34 caracteres). -->
+                                    <TextBox x:Name="BankAccountCodeTextBox"
+                                             MaxLength="40"
+                                             Tag="BNA-001" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Libellé *" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="BankAccountLabelTextBox"
+                                             MaxLength="160"
+                                             Tag="Compte d'exploitation" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Banque *" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="BankAccountBankNameTextBox"
+                                             MaxLength="160"
+                                             Tag="Nom de la banque" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6">
+                                    <TextBlock Text="Numéro de compte *" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="BankAccountNumberTextBox"
+                                             MaxLength="34"
+                                             Tag="RIB / IBAN (34 caractères max.)" />
+                                </StackPanel>
+
+                                <Button x:Name="SaveBankAccountButton"
+                                        Grid.Column="8"
+                                        Content="Créer le compte"
+                                        Style="{StaticResource PrimaryButton}"
+                                        ToolTip="Enregistrer le compte bancaire"
+                                        VerticalAlignment="Bottom"
+                                        Click="SaveBankAccountButton_Click" />
+
+                                <Button x:Name="NewBankAccountButton"
+                                        Grid.Column="10"
+                                        Content="Nouveau"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Vider le formulaire pour créer un nouveau compte"
+                                        VerticalAlignment="Bottom"
+                                        Click="NewBankAccountButton_Click" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <StackPanel Orientation="Horizontal"
+                                            DockPanel.Dock="Right"
+                                            VerticalAlignment="Center">
+                                    <CheckBox x:Name="IncludeInactiveBankAccountsCheckBox"
+                                              Content="Inclure les comptes inactifs"
+                                              Margin="0,0,14,0"
+                                              Checked="IncludeInactiveBankAccountsCheckBox_Changed"
+                                              Unchecked="IncludeInactiveBankAccountsCheckBox_Changed" />
+
+                                    <Button x:Name="RefreshBankAccountsButton"
+                                            Content="Actualiser"
+                                            Style="{StaticResource SecondaryButton}"
+                                            ToolTip="Recharger la liste des comptes bancaires"
+                                            Click="RefreshBankAccountsButton_Click" />
+                                </StackPanel>
+
+                                <TextBlock Text="Comptes bancaires"
+                                           Style="{StaticResource SectionTitleText}"
+                                           VerticalAlignment="Center" />
+                            </DockPanel>
+
+                            <StackPanel Grid.Row="2" Orientation="Horizontal">
+                                <Button x:Name="EditBankAccountButton"
+                                        Content="Modifier"
+                                        Style="{StaticResource SecondaryButton}"
+                                        IsEnabled="False"
+                                        ToolTip="Reprendre le compte sélectionné dans le formulaire"
+                                        Margin="0,0,8,0"
+                                        Click="EditBankAccountButton_Click" />
+
+                                <Button x:Name="ActivateBankAccountButton"
+                                        Content="Activer"
+                                        Style="{StaticResource PrimaryButton}"
+                                        IsEnabled="False"
+                                        ToolTip="Rendre le compte de nouveau disponible à la saisie"
+                                        Margin="0,0,8,0"
+                                        Click="ActivateBankAccountButton_Click" />
+
+                                <Button x:Name="DeactivateBankAccountButton"
+                                        Content="Désactiver"
+                                        Style="{StaticResource DangerButton}"
+                                        IsEnabled="False"
+                                        ToolTip="Retirer le compte des listes de saisie"
+                                        Click="DeactivateBankAccountButton_Click" />
+                            </StackPanel>
+
+                            <Grid Grid.Row="4">
+                                <DataGrid x:Name="BankAccountsDataGrid"
+                                          MinHeight="150"
+                                          SelectionChanged="BankAccountsDataGrid_SelectionChanged">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="140" />
+                                        <DataGridTextColumn Header="Libellé" Binding="{Binding Label}" Width="*" />
+                                        <DataGridTextColumn Header="Banque" Binding="{Binding BankName}" Width="200" />
+                                        <DataGridTextColumn Header="Numéro de compte" Binding="{Binding AccountNumber}" Width="200" />
+                                        <DataGridTemplateColumn Header="État" Width="110" SortMemberPath="IsActive">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border x:Name="AccountStatusBadge"
+                                                            CornerRadius="10"
+                                                            Padding="10,3"
+                                                            HorizontalAlignment="Left"
+                                                            VerticalAlignment="Center"
+                                                            Background="{StaticResource StatusDraftBackgroundBrush}">
+                                                        <TextBlock x:Name="AccountStatusBadgeText"
+                                                                   Text="Inactif"
+                                                                   FontSize="11.5"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource StatusDraftForegroundBrush}" />
+                                                    </Border>
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                            <Setter TargetName="AccountStatusBadge" Property="Background" Value="{StaticResource StatusValidatedBackgroundBrush}" />
+                                                            <Setter TargetName="AccountStatusBadgeText" Property="Foreground" Value="{StaticResource StatusValidatedForegroundBrush}" />
+                                                            <Setter TargetName="AccountStatusBadgeText" Property="Text" Value="Actif" />
+                                                        </DataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Créé par"
+                                                            Binding="{Binding CreatedBy}"
+                                                            Width="140"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=BankAccountsDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <TextBlock Text="Aucun compte bancaire enregistré"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Créez un premier compte ci-dessus, ou cochez « Inclure les comptes inactifs »."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

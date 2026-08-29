@@ -43,9 +43,9 @@ public static class ModuleCatalog
 {
     // Totaux attendus - garde de coherence verifiee au chargement du type.
     public const int ExpectedTotal = 49;
-    public const int ExpectedAvailable = 5;
-    public const int ExpectedApiReady = 4;
-    public const int ExpectedPartial = 5;
+    public const int ExpectedAvailable = 10;
+    public const int ExpectedApiReady = 0;
+    public const int ExpectedPartial = 4;
     public const int ExpectedPlanned = 35;
 
     // Libelles affiches des groupes fonctionnels (ordre d'apparition).
@@ -86,7 +86,7 @@ public static class ModuleCatalog
     static ModuleCatalog()
     {
         // Garde de coherence : le tableau de verite du depot compte 49 modules,
-        // repartis en 5 Disponible / 4 API prete / 5 Partiel / 35 Planifie.
+        // repartis en 10 Disponible / 0 API prete / 4 Partiel / 35 Planifie.
         // Toute edition qui casse ces totaux doit etre volontaire et reportee ici.
         EnsureCount("total", Entries.Count, ExpectedTotal);
         EnsureCount("Disponible", CountOf(ModuleStatus.Disponible), ExpectedAvailable);
@@ -103,9 +103,8 @@ public static class ModuleCatalog
             "P0", ModuleStatus.Partiel, PermissionCatalog.UsersRead, null,
             "API livrée (utilisateurs, permissions, réinitialisation de mot de passe) - écran d'administration à venir"),
         new ModuleCatalogEntry("2", Groups.Socle, "Paramétrage global",
-            "Préférences, thème et santé du système",
-            "P0", ModuleStatus.Partiel, null, null,
-            "URL de l'API configurable sur le poste - écran de paramétrage complet à venir"),
+            "Identité de l'établissement, réglages du poste et santé du système",
+            "P0", ModuleStatus.Disponible, PermissionCatalog.SettingsRead, 9),
         new ModuleCatalogEntry("3", Groups.Socle, "Unités hôtelières",
             "Référentiel des unités et des établissements",
             "P0", ModuleStatus.Disponible, PermissionCatalog.UnitsRead, 1),
@@ -116,10 +115,10 @@ public static class ModuleCatalog
             "P0", ModuleStatus.Disponible, PermissionCatalog.RevenueRead, 2),
         new ModuleCatalogEntry("4.5", Groups.Finance, "Clôture journalière & Night Audit",
             "Clôture de la date métier et Night Audit",
-            "P1", ModuleStatus.ApiPrete, PermissionCatalog.ClosingRead),
+            "P1", ModuleStatus.Disponible, PermissionCatalog.ClosingRead, 5),
         new ModuleCatalogEntry("5", Groups.Finance, "Encaissements & trésorerie",
             "Caisses, banques et ordres de paiement",
-            "P1", ModuleStatus.ApiPrete, PermissionCatalog.TreasuryRead),
+            "P1", ModuleStatus.Disponible, PermissionCatalog.TreasuryRead, 6),
         new ModuleCatalogEntry("5.2", Groups.Finance, "Comptabilité SCF",
             "Plan SCF, journaux, balance et lettrage",
             "P1", ModuleStatus.Planifie),
@@ -131,13 +130,13 @@ public static class ModuleCatalog
             "P1", ModuleStatus.Planifie),
         new ModuleCatalogEntry("8", Groups.Finance, "Facturation",
             "Factures clients, avoirs et registre des ventes",
-            "P1", ModuleStatus.ApiPrete, PermissionCatalog.InvoicesRead),
+            "P1", ModuleStatus.Disponible, PermissionCatalog.InvoicesRead, 8),
         new ModuleCatalogEntry("9", Groups.Finance, "Créances & recouvrement",
             "Balance âgée, relances et risque client",
             "P1", ModuleStatus.Planifie),
         new ModuleCatalogEntry("9.2", Groups.Finance, "Clients",
             "Fichier clients et historique commercial",
-            "P1", ModuleStatus.ApiPrete, PermissionCatalog.CustomersRead),
+            "P1", ModuleStatus.Disponible, PermissionCatalog.CustomersRead, 7),
 
         // --------------------------------------------------------- Exploitation
         new ModuleCatalogEntry("10", Groups.Exploitation, "Hébergement & occupation",

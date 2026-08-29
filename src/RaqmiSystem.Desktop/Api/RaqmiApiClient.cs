@@ -12,7 +12,12 @@ using RaqmiSystem.Application.Security;
 
 namespace RaqmiSystem.Desktop.Api;
 
-public sealed class RaqmiApiClient(HttpClient httpClient)
+// Classe partielle : chaque module metier ajoute ses appels dans son propre
+// fichier RaqmiApiClient.<Module>.cs, ce qui evite que plusieurs chantiers
+// paralleles se disputent ce fichier. Les membres prives (SendAsync,
+// ReadResponseAsync, BuildQuery, EnsureAuthenticated...) restent accessibles
+// depuis ces fichiers puisqu'il s'agit de la meme classe.
+public sealed partial class RaqmiApiClient(HttpClient httpClient)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {

@@ -14,6 +14,7 @@ using RaqmiSystem.Application.Organization;
 using RaqmiSystem.Application.Revenue;
 using RaqmiSystem.Application.Security;
 using RaqmiSystem.Desktop.Api;
+using RaqmiSystem.Desktop.Views;
 using RaqmiSystem.Domain.Identity;
 using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Domain.Revenue;
@@ -40,6 +41,14 @@ public partial class MainWindow : Window
     // Null tant que personne n'est connecte : l'ecran d'accueil est alors dans son
     // etat par defaut (tout accessible), retabli a chaque deconnexion.
     private IReadOnlyCollection<string>? currentUserPermissions;
+
+    // Onglets des vues de module (ClosingView, TreasuryView, CustomersView,
+    // InvoicesView, SettingsView) deja charges depuis la connexion en cours. Ces
+    // cinq vues sont chargees paresseusement - a la premiere ouverture de leur
+    // onglet - pour ne pas declencher autant de series d'appels reseau inutiles a
+    // chaque connexion. Vide a la deconnexion : la session suivante repart de
+    // donnees fraiches.
+    private readonly HashSet<int> loadedModuleTabs = [];
 
     public MainWindow()
     {
@@ -119,7 +128,12 @@ public partial class MainWindow : Window
     {
         // Le style ModuleNavButton (Themes/RaqmiTheme.xaml) reagit a Tag="Active" :
         // barre laterale accent de 3px, teinte douce et texte en semi-gras.
-        foreach (var button in new[] { ShowHomeButton, ShowUnitsButton, ShowRevenueButton, ShowDashboardButton, ShowAuditButton })
+        foreach (var button in new[]
+                 {
+                     ShowHomeButton, ShowUnitsButton, ShowRevenueButton, ShowDashboardButton, ShowAuditButton,
+                     ShowClosingButton, ShowTreasuryButton, ShowCustomersButton, ShowInvoicesButton,
+                     ShowSettingsButton
+                 })
         {
             button.Tag = ReferenceEquals(button, active) ? "Active" : null;
         }
@@ -166,6 +180,11 @@ public partial class MainWindow : Window
         ApplyModuleAccess(PermissionCatalog.RevenueRead, ShowRevenueButton, RevenueTabItem);
         ApplyModuleAccess(PermissionCatalog.DashboardRead, ShowDashboardButton, DashboardTabItem);
         ApplyModuleAccess(PermissionCatalog.AuditRead, ShowAuditButton, AuditTabItem);
+        ApplyModuleAccess(PermissionCatalog.ClosingRead, ShowClosingButton, ClosingTabItem);
+        ApplyModuleAccess(PermissionCatalog.TreasuryRead, ShowTreasuryButton, TreasuryTabItem);
+        ApplyModuleAccess(PermissionCatalog.CustomersRead, ShowCustomersButton, CustomersTabItem);
+        ApplyModuleAccess(PermissionCatalog.InvoicesRead, ShowInvoicesButton, InvoicesTabItem);
+        ApplyModuleAccess(PermissionCatalog.SettingsRead, ShowSettingsButton, SettingsTabItem);
     }
 
     private void ApplyModuleAccess(string permission, Button navButton, TabItem tabItem)
@@ -305,7 +324,9 @@ public partial class MainWindow : Window
     }
 
     // Ordre des onglets de MainTabs : 0=Accueil, 1=Unités hôtelières,
-    // 2=Recettes journalières, 3=Tableau de bord, 4=Journal d'audit.
+    // 2=Recettes journalières, 3=Tableau de bord, 4=Journal d'audit,
+    // 5=Clôture journalière, 6=Trésorerie, 7=Clients, 8=Facturation,
+    // 9=Paramétrage global.
     private Button? SidebarButtonForTab(int tabIndex) => tabIndex switch
     {
         0 => ShowHomeButton,
@@ -313,13 +334,18 @@ public partial class MainWindow : Window
         2 => ShowRevenueButton,
         3 => ShowDashboardButton,
         4 => ShowAuditButton,
+        5 => ShowClosingButton,
+        6 => ShowTreasuryButton,
+        7 => ShowCustomersButton,
+        8 => ShowInvoicesButton,
+        9 => ShowSettingsButton,
         _ => null
     };
 
     // Fondu discret (150 ms) du contenu a chaque changement de module, et
     // resynchronisation de la surbrillance de la sidebar : quel que soit le chemin
     // de navigation (cartes, sidebar, cycle clavier), les deux restent alignes.
-    private void MainTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void MainTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         // SelectionChanged est un evenement routé : ignorer ceux qui remontent des
         // DataGrid/ComboBox internes.
@@ -349,6 +375,45 @@ public partial class MainWindow : Window
         };
 
         MainTabs.BeginAnimation(OpacityProperty, fade);
+
+        // Chargement paresseux des vues de module autonomes : la premiere
+        // ouverture de leur onglet declenche leur LoadAsync, les suivantes non.
+        await EnsureModuleTabLoadedAsync(MainTabs.SelectedIndex);
+    }
+
+    // Declenche le premier chargement de la vue hebergee par l'onglet demande.
+    // Les vues sortent d'elles-memes si le contexte n'a pas ete fourni ou si la
+    // session est fermee : rien a garder ici en plus de l'index deja charge.
+    private async Task EnsureModuleTabLoadedAsync(int tabIndex)
+    {
+        if (!apiClient.IsAuthenticated || !loadedModuleTabs.Add(tabIndex))
+        {
+            return;
+        }
+
+        switch (tabIndex)
+        {
+            case 5:
+                await ClosingView.LoadAsync();
+                break;
+            case 6:
+                await TreasuryView.LoadAsync();
+                break;
+            case 7:
+                await CustomersView.LoadAsync();
+                break;
+            case 8:
+                await InvoicesView.LoadAsync();
+                break;
+            case 9:
+                await SettingsView.LoadAsync();
+                break;
+            default:
+                // Les onglets 0 a 4 vivent dans MainWindow et sont charges a la
+                // connexion : rien a faire, et rien a retenir non plus.
+                loadedModuleTabs.Remove(tabIndex);
+                break;
+        }
     }
 
     private async void LoginButton_Click(object sender, RoutedEventArgs e)
@@ -392,6 +457,11 @@ public partial class MainWindow : Window
             }
             RefreshAuthState();
 
+            // Les vues de module autonomes recoivent le contexte de la
+            // session qui vient de s'ouvrir. Initialize ne fait que memoriser :
+            // aucun appel reseau tant que l'onglet correspondant n'est pas ouvert.
+            InitializeModuleViews();
+
             // La session s'ouvre toujours sur l'ecran d'accueil.
             NavigateToModule(0, ShowHomeButton);
 
@@ -418,6 +488,28 @@ public partial class MainWindow : Window
         });
     }
 
+    // Un seul contexte partage par les vues de module : le client API de la
+    // fenetre, l'URL saisie sur l'ecran de connexion, et les deux services
+    // transverses (bandeau de session, execution d'un appel avec curseur d'attente).
+    private void InitializeModuleViews()
+    {
+        var context = new ModuleViewContext(
+            apiClient,
+            () => ApiBaseUrlTextBox.Text,
+            SetStatus,
+            RunApiActionAsync,
+            HasModulePermission);
+
+        ClosingView.Initialize(context);
+        TreasuryView.Initialize(context);
+        CustomersView.Initialize(context);
+        InvoicesView.Initialize(context);
+        SettingsView.Initialize(context);
+
+        // Nouvelle session : aucune vue n'a encore charge ses donnees.
+        loadedModuleTabs.Clear();
+    }
+
     private void LogoutButton_Click(object sender, RoutedEventArgs e)
     {
         apiClient.Logout();
@@ -427,6 +519,12 @@ public partial class MainWindow : Window
         // Reconnexion facilitee : re-pre-remplit l'ecran de connexion depuis les
         // identifiants memorises (s'il y en a).
         PrefillRememberedCredentials();
+
+        // L'URL peut avoir ete changee depuis l'ecran Parametrage pendant la
+        // session : la relire ici evite que la connexion suivante ne reenregistre
+        // l'ancienne valeur encore affichee dans ce champ, ecrasant silencieusement
+        // ce que l'utilisateur venait d'enregistrer.
+        ApiBaseUrlTextBox.Text = DesktopSettings.Load();
 
         // Clear every grid/summary/form surface so the previous user's data never
         // stays visible after a subsequent login (own account or another one) -
@@ -451,6 +549,16 @@ public partial class MainWindow : Window
         DashboardGrandTotalTextBlock.Text = "0";
 
         AuditResultCountTextBlock.Text = string.Empty;
+
+        // Meme regle pour les vues de module autonomes : elles vident
+        // leurs grilles et formulaires, et oublier les onglets deja charges
+        // garantit des donnees fraiches a la prochaine connexion.
+        ClosingView.ResetState();
+        TreasuryView.ResetState();
+        CustomersView.ResetState();
+        InvoicesView.ResetState();
+        SettingsView.ResetState();
+        loadedModuleTabs.Clear();
 
         ResetUnitForm();
         ResetAmounts();
@@ -519,6 +627,31 @@ public partial class MainWindow : Window
     private void ShowAuditButton_Click(object sender, RoutedEventArgs e)
     {
         NavigateToModule(4, ShowAuditButton);
+    }
+
+    private void ShowClosingButton_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(5, ShowClosingButton);
+    }
+
+    private void ShowTreasuryButton_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(6, ShowTreasuryButton);
+    }
+
+    private void ShowCustomersButton_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(7, ShowCustomersButton);
+    }
+
+    private void ShowInvoicesButton_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(8, ShowInvoicesButton);
+    }
+
+    private void ShowSettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(9, ShowSettingsButton);
     }
 
     private async void CreateRevenueButton_Click(object sender, RoutedEventArgs e)
@@ -1108,6 +1241,16 @@ public partial class MainWindow : Window
         DeactivateUnitButton.IsEnabled = !isBusy;
         ValidateRevenueButton.IsEnabled = !isBusy;
         RejectRevenueButton.IsEnabled = !isBusy;
+
+        // Les vues de module (Cloture, Tresorerie, Clients, Facturation,
+        // Parametrage global) portent
+        // leurs propres boutons, que cette methode ne peut pas enumerer un par un.
+        // Neutraliser tout le conteneur d'onglets pendant un appel en vol empeche
+        // la double soumission (double clic = deux factures, deux encaissements,
+        // deux cloctures) sans avoir a maintenir une liste de boutons par vue.
+        // La barre laterale reste active : changer d'onglet pendant un appel est
+        // sans danger, les vues rechargent leurs donnees a l'ouverture.
+        MainTabs.IsEnabled = !isBusy;
     }
 
     // Mirrors the message onto both status surfaces: the sidebar's (visible once signed in)
