@@ -9,7 +9,16 @@ public sealed class DailyRevenueConfiguration : IEntityTypeConfiguration<DailyRe
 {
     public void Configure(EntityTypeBuilder<DailyRevenue> builder)
     {
-        builder.ToTable("daily_revenues", "exploitation");
+        builder.ToTable("daily_revenues", "exploitation", table =>
+        {
+            table.HasCheckConstraint(
+                "ck_daily_revenues_amounts_non_negative",
+                "accommodation >= 0 AND food >= 0 AND beverage >= 0 AND other_revenue >= 0");
+
+            table.HasCheckConstraint(
+                "ck_daily_revenues_status",
+                "status IN ('Draft', 'Submitted', 'Validated', 'Rejected')");
+        });
 
         builder.HasKey(revenue => revenue.Id);
 

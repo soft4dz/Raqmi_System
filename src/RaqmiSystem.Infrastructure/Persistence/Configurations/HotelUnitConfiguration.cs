@@ -8,7 +8,16 @@ public sealed class HotelUnitConfiguration : IEntityTypeConfiguration<HotelUnit>
 {
     public void Configure(EntityTypeBuilder<HotelUnit> builder)
     {
-        builder.ToTable("hotel_units", "organization");
+        builder.ToTable("hotel_units", "organization", table =>
+        {
+            table.HasCheckConstraint(
+                "ck_hotel_units_display_order_non_negative",
+                "display_order >= 0");
+
+            table.HasCheckConstraint(
+                "ck_hotel_units_unit_type",
+                "unit_type IN ('Hotel', 'Residence', 'BeachClub', 'Marina', 'Other')");
+        });
 
         builder.HasKey(unit => unit.Id);
 
@@ -40,9 +49,11 @@ public sealed class HotelUnitConfiguration : IEntityTypeConfiguration<HotelUnit>
         builder.Property(unit => unit.IsActive)
             .HasColumnName("is_active");
 
-        builder.HasIndex(unit => unit.Code)
-            .IsUnique();
-
+        // No separate unique index on Code here: DailyRevenueConfiguration's
+        // HasPrincipalKey(unit => unit.Code) already forces EF to create an alternate-key
+        // unique constraint on this column (AK_hotel_units_code). Adding another explicit
+        // HasIndex(...).IsUnique() would just duplicate that enforcement and its
+        // index-maintenance cost on every insert/update.
         builder.HasIndex(unit => unit.DisplayOrder);
     }
 }
