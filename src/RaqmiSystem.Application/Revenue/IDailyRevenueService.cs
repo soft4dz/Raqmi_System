@@ -50,4 +50,8 @@ public interface IDailyRevenueService
         string? hotelUnitCode,
         DailyRevenueStatus? status,
         CancellationToken cancellationToken);
+
+    Task<UnitDashboardResponse> GetUnitDashboardAsync(
+        DateOnly businessDate,
+        CancellationToken cancellationToken);
 }

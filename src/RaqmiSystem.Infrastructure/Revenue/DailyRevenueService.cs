@@ -253,6 +253,51 @@ public sealed class DailyRevenueService(
         return ApplicationResult<DailyRevenueSummaryResponse>.Success(summary);
     }
 
+    public async Task<UnitDashboardResponse> GetUnitDashboardAsync(
+        DateOnly businessDate,
+        CancellationToken cancellationToken)
+    {
+        var activeUnits = await dbContext.HotelUnits
+            .AsNoTracking()
+            .Where(unit => unit.IsActive)
+            .ToArrayAsync(cancellationToken);
+
+        var revenuesForDate = await dbContext.DailyRevenues
+            .AsNoTracking()
+            .Where(revenue => revenue.BusinessDate == businessDate)
+            .ToArrayAsync(cancellationToken);
+
+        // HotelUnit.IsActive only reflects the current state - there is no activation/deactivation
+        // timestamp - so filtering strictly by "currently active" silently drops any revenue entry
+        // recorded for a unit that has since been deactivated (the row still exists in the database,
+        // FK is Restrict, but UnitDashboardCalculator only loops over the units it is given). Widen
+        // the unit roster with any unit referenced by a revenue row for this date, even if it is no
+        // longer active, so the dashboard's GrandTotal/UnitsWithEntry never silently under-report a
+        // real recorded revenue. This does not retroactively fix units created/activated after
+        // businessDate still showing as "missing" for that date - that would require persisting an
+        // activation history on HotelUnit, which is out of scope here.
+        var activeUnitCodes = activeUnits.Select(unit => unit.Code).ToHashSet();
+        var missingUnitCodes = revenuesForDate
+            .Select(revenue => revenue.HotelUnitCode)
+            .Distinct()
+            .Where(code => !activeUnitCodes.Contains(code))
+            .ToArray();
+
+        var units = activeUnits;
+
+        if (missingUnitCodes.Length > 0)
+        {
+            var inactiveUnitsWithEntries = await dbContext.HotelUnits
+                .AsNoTracking()
+                .Where(unit => missingUnitCodes.Contains(unit.Code))
+                .ToArrayAsync(cancellationToken);
+
+            units = activeUnits.Concat(inactiveUnitsWithEntries).ToArray();
+        }
+
+        return new UnitDashboardCalculator().Build(businessDate, units, revenuesForDate);
+    }
+
     private async Task<ApplicationResult<DailyRevenueResponse>> ChangeStatusAsync(
         Guid id,
         OperationContext context,

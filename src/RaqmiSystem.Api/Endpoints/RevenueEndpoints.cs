@@ -1,3 +1,4 @@
+using System.Globalization;
 using RaqmiSystem.Application.Revenue;
 using RaqmiSystem.Domain.Identity;
 using RaqmiSystem.Domain.Revenue;
@@ -49,6 +50,20 @@ internal static class RevenueEndpoints
             var result = await service.GetSummaryAsync(from, to, hotelUnitCode, parsedStatus, cancellationToken);
             return result.ToHttpResult();
         }).RequireAuthorization(PermissionCatalog.RevenueRead);
+
+        revenue.MapGet("/dashboard", async (
+            string? date,
+            IDailyRevenueService service,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryParseBusinessDate(date, out var businessDate, out var error))
+            {
+                return Results.BadRequest(new ErrorResponse(error));
+            }
+
+            var result = await service.GetUnitDashboardAsync(businessDate, cancellationToken);
+            return Results.Ok(result);
+        }).RequireAuthorization(PermissionCatalog.DashboardRead);
 
         revenue.MapGet("/{id:guid}", async (
             Guid id,
@@ -135,6 +150,25 @@ internal static class RevenueEndpoints
         }
 
         error = "Daily revenue status must be Draft, Submitted, Validated or Rejected.";
+        return false;
+    }
+
+    private static bool TryParseBusinessDate(string? date, out DateOnly businessDate, out string error)
+    {
+        error = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(date))
+        {
+            businessDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            return true;
+        }
+
+        if (DateOnly.TryParse(date.Trim(), CultureInfo.InvariantCulture, DateTimeStyles.None, out businessDate))
+        {
+            return true;
+        }
+
+        error = "The date must be a valid date (yyyy-MM-dd).";
         return false;
     }
 }
