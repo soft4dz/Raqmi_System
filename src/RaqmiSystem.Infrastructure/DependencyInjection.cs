@@ -2,16 +2,22 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using RaqmiSystem.Application.Billing;
+using RaqmiSystem.Application.Closing;
 using RaqmiSystem.Application.Identity;
 using RaqmiSystem.Application.Organization;
 using RaqmiSystem.Application.Revenue;
 using RaqmiSystem.Application.Security;
+using RaqmiSystem.Application.Treasury;
 using RaqmiSystem.Infrastructure.Audit;
+using RaqmiSystem.Infrastructure.Billing;
+using RaqmiSystem.Infrastructure.Closing;
 using RaqmiSystem.Infrastructure.Identity;
 using RaqmiSystem.Infrastructure.Organization;
 using RaqmiSystem.Infrastructure.Persistence;
 using RaqmiSystem.Infrastructure.Revenue;
 using RaqmiSystem.Infrastructure.Security;
+using RaqmiSystem.Infrastructure.Treasury;
 
 namespace RaqmiSystem.Infrastructure;
 
@@ -40,6 +46,10 @@ public static class DependencyInjection
         services.AddScoped<ISecuritySeeder, SecuritySeeder>();
         services.AddScoped<IHotelUnitService, HotelUnitService>();
         services.AddScoped<IDailyRevenueService, DailyRevenueService>();
+        services.AddScoped<IDailyClosingService, DailyClosingService>();
+        services.AddScoped<IDailyClosingReadService, DailyClosingService>();
+        services.AddScoped<ITreasuryService, TreasuryService>();
+        services.AddScoped<IBillingService, BillingService>();
 
         return services;
     }

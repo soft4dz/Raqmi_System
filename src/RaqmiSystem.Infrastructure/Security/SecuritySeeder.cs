@@ -19,7 +19,11 @@ public sealed class SecuritySeeder(
             PermissionCatalog.DashboardRead,
             PermissionCatalog.TreasuryRead,
             PermissionCatalog.AuditRead,
-            PermissionCatalog.ReportsExport
+            PermissionCatalog.ReportsExport,
+            PermissionCatalog.ClosingRead,
+            PermissionCatalog.TreasuryApprove,
+            PermissionCatalog.CustomersRead,
+            PermissionCatalog.InvoicesRead
         ],
         [RoleCatalog.ExploitationControl] =
         [
@@ -29,7 +33,19 @@ public sealed class SecuritySeeder(
             PermissionCatalog.RevenueValidate,
             PermissionCatalog.DashboardRead,
             PermissionCatalog.AuditRead,
-            PermissionCatalog.ReportsExport
+            PermissionCatalog.ReportsExport,
+            PermissionCatalog.ClosingRead,
+            PermissionCatalog.ClosingClose,
+            PermissionCatalog.ClosingReopen,
+            // treasury.read accompanies treasury.approve: a controller cannot meaningfully
+            // approve payment orders without being able to consult treasury data first.
+            PermissionCatalog.TreasuryRead,
+            PermissionCatalog.TreasuryApprove,
+            PermissionCatalog.CustomersRead,
+            PermissionCatalog.CustomersWrite,
+            PermissionCatalog.InvoicesRead,
+            PermissionCatalog.InvoicesWrite,
+            PermissionCatalog.InvoicesIssue
         ],
         [RoleCatalog.UnitManager] =
         [
@@ -37,7 +53,13 @@ public sealed class SecuritySeeder(
             PermissionCatalog.RevenueRead,
             PermissionCatalog.RevenueWrite,
             PermissionCatalog.DashboardRead,
-            PermissionCatalog.ReportsExport
+            PermissionCatalog.ReportsExport,
+            PermissionCatalog.ClosingRead,
+            PermissionCatalog.ClosingClose,
+            PermissionCatalog.CustomersRead,
+            PermissionCatalog.CustomersWrite,
+            PermissionCatalog.InvoicesRead,
+            PermissionCatalog.InvoicesWrite
         ],
         [RoleCatalog.Cashier] =
         [
@@ -50,7 +72,10 @@ public sealed class SecuritySeeder(
         [
             PermissionCatalog.UnitsRead,
             PermissionCatalog.RevenueRead,
-            PermissionCatalog.DashboardRead
+            PermissionCatalog.DashboardRead,
+            PermissionCatalog.ClosingRead,
+            PermissionCatalog.CustomersRead,
+            PermissionCatalog.InvoicesRead
         ]
     };
 

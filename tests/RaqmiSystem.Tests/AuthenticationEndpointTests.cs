@@ -156,7 +156,11 @@ public sealed class AuthenticationEndpointTests : IClassFixture<RaqmiApiFactory>
             PermissionCatalog.DashboardRead,
             PermissionCatalog.TreasuryRead,
             PermissionCatalog.AuditRead,
-            PermissionCatalog.ReportsExport
+            PermissionCatalog.ReportsExport,
+            PermissionCatalog.ClosingRead,
+            PermissionCatalog.TreasuryApprove,
+            PermissionCatalog.CustomersRead,
+            PermissionCatalog.InvoicesRead
         };
 
         Assert.Equal(expectedPermissions.Order(), body.Permissions.Order());

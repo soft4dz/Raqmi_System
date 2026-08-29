@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using RaqmiSystem.Application.Closing;
 using RaqmiSystem.Application.Common;
 using RaqmiSystem.Application.Revenue;
 using RaqmiSystem.Application.Security;
@@ -11,8 +12,11 @@ namespace RaqmiSystem.Infrastructure.Revenue;
 
 public sealed class DailyRevenueService(
     RaqmiDbContext dbContext,
-    IAuditLogWriter auditLogWriter) : IDailyRevenueService
+    IAuditLogWriter auditLogWriter,
+    IDailyClosingReadService dailyClosingReadService) : IDailyRevenueService
 {
+    private const string BusinessDayClosedMessage = "The business day is closed for this hotel unit.";
+
     public async Task<IReadOnlyCollection<DailyRevenueResponse>> ListAsync(
         DateOnly? from,
         DateOnly? to,
@@ -88,6 +92,11 @@ public sealed class DailyRevenueService(
             return ApplicationResult<DailyRevenueResponse>.Validation("Daily revenue cannot be created for an inactive hotel unit.");
         }
 
+        if (await dailyClosingReadService.IsClosedAsync(request.BusinessDate, normalizedUnitCode, cancellationToken))
+        {
+            return ApplicationResult<DailyRevenueResponse>.Validation(BusinessDayClosedMessage);
+        }
+
         var exists = await dbContext.DailyRevenues.AnyAsync(
             current => current.BusinessDate == request.BusinessDate && current.HotelUnitCode == normalizedUnitCode,
             cancellationToken);
@@ -141,6 +150,11 @@ public sealed class DailyRevenueService(
         if (revenue is null)
         {
             return ApplicationResult<DailyRevenueResponse>.NotFound("Daily revenue entry was not found.");
+        }
+
+        if (await dailyClosingReadService.IsClosedAsync(revenue.BusinessDate, revenue.HotelUnitCode, cancellationToken))
+        {
+            return ApplicationResult<DailyRevenueResponse>.Validation(BusinessDayClosedMessage);
         }
 
         try
@@ -311,6 +325,11 @@ public sealed class DailyRevenueService(
         if (revenue is null)
         {
             return ApplicationResult<DailyRevenueResponse>.NotFound("Daily revenue entry was not found.");
+        }
+
+        if (await dailyClosingReadService.IsClosedAsync(revenue.BusinessDate, revenue.HotelUnitCode, cancellationToken))
+        {
+            return ApplicationResult<DailyRevenueResponse>.Validation(BusinessDayClosedMessage);
         }
 
         try

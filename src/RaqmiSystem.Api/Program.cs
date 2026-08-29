@@ -222,6 +222,9 @@ api.MapPost("/security/users/{id:guid}/reset-password", async (
 api.MapOrganizationEndpoints();
 api.MapRevenueEndpoints();
 api.MapAuditEndpoints();
+api.MapClosingEndpoints();
+api.MapTreasuryEndpoints();
+api.MapBillingEndpoints();
 
 app.Run();
 

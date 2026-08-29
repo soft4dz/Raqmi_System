@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RaqmiSystem.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using RaqmiSystem.Infrastructure.Persistence;
 namespace RaqmiSystem.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(RaqmiDbContext))]
-    partial class RaqmiDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260829150212_P1WaveOne")]
+    partial class P1WaveOne
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -215,41 +218,11 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(160)")
                         .HasColumnName("created_by");
 
-                    b.Property<string>("CustomerAddressSnapshot")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("customer_address_snapshot");
-
-                    b.Property<string>("CustomerAiSnapshot")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("customer_ai_snapshot");
-
                     b.Property<string>("CustomerCode")
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
                         .HasColumnName("customer_code");
-
-                    b.Property<string>("CustomerNameSnapshot")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("customer_name_snapshot");
-
-                    b.Property<string>("CustomerNifSnapshot")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("customer_nif_snapshot");
-
-                    b.Property<string>("CustomerNisSnapshot")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("customer_nis_snapshot");
-
-                    b.Property<string>("CustomerRcSnapshot")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("customer_rc_snapshot");
 
                     b.Property<string>("HotelUnitCode")
                         .IsRequired()

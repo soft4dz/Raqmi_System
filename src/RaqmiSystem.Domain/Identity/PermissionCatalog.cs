@@ -17,6 +17,15 @@ public static class PermissionCatalog
     public const string AuditRead = "audit.read";
     public const string ReportsExport = "reports.export";
     public const string SecuritySeed = "security.seed";
+    public const string ClosingRead = "closing.read";
+    public const string ClosingClose = "closing.close";
+    public const string ClosingReopen = "closing.reopen";
+    public const string TreasuryApprove = "treasury.approve";
+    public const string CustomersRead = "customers.read";
+    public const string CustomersWrite = "customers.write";
+    public const string InvoicesRead = "invoices.read";
+    public const string InvoicesWrite = "invoices.write";
+    public const string InvoicesIssue = "invoices.issue";
 
     public static IReadOnlyCollection<PermissionDefinition> All { get; } = new[]
     {
@@ -34,6 +43,15 @@ public static class PermissionCatalog
         new PermissionDefinition(TreasuryWrite, "Gerer la tresorerie", "finance", "Creer ou modifier les mouvements de tresorerie."),
         new PermissionDefinition(AuditRead, "Lire l'audit", "security", "Consulter le journal des actions sensibles."),
         new PermissionDefinition(ReportsExport, "Exporter les rapports", "reporting", "Exporter ou imprimer les etats."),
-        new PermissionDefinition(SecuritySeed, "Initialiser la securite", "security", "Executer les operations de socle securite.")
+        new PermissionDefinition(SecuritySeed, "Initialiser la securite", "security", "Executer les operations de socle securite."),
+        new PermissionDefinition(ClosingRead, "Lire les clotures", "exploitation", "Consulter les clotures journalieres des unites."),
+        new PermissionDefinition(ClosingClose, "Cloturer la journee", "exploitation", "Cloturer officiellement la journee d'exploitation d'une unite."),
+        new PermissionDefinition(ClosingReopen, "Reouvrir la journee", "exploitation", "Reouvrir une journee cloturee avec motif obligatoire."),
+        new PermissionDefinition(TreasuryApprove, "Approuver les ordres de paiement", "finance", "Approuver les ordres de paiement avant reglement."),
+        new PermissionDefinition(CustomersRead, "Lire les clients", "finance", "Consulter le fichier clients."),
+        new PermissionDefinition(CustomersWrite, "Gerer les clients", "finance", "Creer, modifier, activer ou desactiver les clients."),
+        new PermissionDefinition(InvoicesRead, "Lire les factures", "finance", "Consulter les factures de vente."),
+        new PermissionDefinition(InvoicesWrite, "Gerer les factures", "finance", "Creer les brouillons de facture, modifier les lignes, encaisser et annuler."),
+        new PermissionDefinition(InvoicesIssue, "Emettre les factures", "finance", "Emettre une facture et allouer son numero definitif.")
     };
 }

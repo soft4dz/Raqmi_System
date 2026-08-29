@@ -61,12 +61,14 @@ GRANT USAGE ON SCHEMA security TO raqmi_app;
 GRANT USAGE ON SCHEMA audit TO raqmi_app;
 GRANT USAGE ON SCHEMA organization TO raqmi_app;
 GRANT USAGE ON SCHEMA exploitation TO raqmi_app;
+GRANT USAGE ON SCHEMA finance TO raqmi_app;
 
 -- Row-level CRUD on every table that exists today in each schema.
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA security TO raqmi_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA audit TO raqmi_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA organization TO raqmi_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA exploitation TO raqmi_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA finance TO raqmi_app;
 
 -- EF Core's migrations history table lives at public."__EFMigrationsHistory"
 -- (HasDefaultSchema("raqmi") does not move it). raqmi_app never writes it, but
@@ -85,6 +87,7 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA security TO raqmi_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA audit TO raqmi_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA organization TO raqmi_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA exploitation TO raqmi_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA finance TO raqmi_app;
 
 -- Default privileges: apply the same grants automatically to tables/sequences
 -- created AFTER this point, so future `dotnet ef database update` runs do not
@@ -104,6 +107,8 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA organization
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO raqmi_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA exploitation
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO raqmi_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA finance
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO raqmi_app;
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA security
     GRANT USAGE, SELECT ON SEQUENCES TO raqmi_app;
@@ -112,6 +117,8 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA audit
 ALTER DEFAULT PRIVILEGES IN SCHEMA organization
     GRANT USAGE, SELECT ON SEQUENCES TO raqmi_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA exploitation
+    GRANT USAGE, SELECT ON SEQUENCES TO raqmi_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA finance
     GRANT USAGE, SELECT ON SEQUENCES TO raqmi_app;
 
 -- Deliberately NOT granted, by design:
