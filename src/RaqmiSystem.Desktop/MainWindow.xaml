@@ -548,6 +548,46 @@
                                 </StackPanel>
                             </Button>
 
+                            <Button x:Name="ShowTariffsButton"
+                                    Style="{StaticResource ModuleNavButton}"
+                                    ToolTip="Plans tarifaires, périodes de tarif et conventions clients"
+                                    Click="ShowTariffsButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16"
+                                          Height="16"
+                                          Stretch="None"
+                                          StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Data="M8.6,1.8 H14.2 V7.4 L7.4,14.2 L1.8,8.6 Z M11.2,4.8 A0.2,0.2 0 1 0 11.21,4.8"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0" />
+                                    <TextBlock Text="Tarifs &amp; conventions" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="ShowLodgingButton"
+                                    Style="{StaticResource ModuleNavButton}"
+                                    ToolTip="Types de chambre, réservations, folios et taux d'occupation"
+                                    Click="ShowLodgingButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16"
+                                          Height="16"
+                                          Stretch="None"
+                                          StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Data="M1.8,12.6 V4.2 M1.8,9.4 H14.2 M14.2,12.6 V9.4 M4.9,7.6 A1.3,1.3 0 1 0 4.91,7.6 M7.4,9.4 V6.8 H12.2 A2,2 0 0 1 14.2,8.8 V9.4"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0" />
+                                    <TextBlock Text="Hébergement &amp; occupation" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
                             <!-- Les deux derniers boutons forment le bloc d'administration :
                                  les comptes puis le parametrage. On les ouvre rarement, et
                                  jamais dans le flux de travail de la journee, d'ou leur
@@ -1693,13 +1733,13 @@
                         <views:UsersView x:Name="UsersView" />
                     </TabItem>
 
-                    <!-- Les trois onglets ci-dessous sont ajoutes A LA FIN, apres
-                         l'administration, et non a cote des autres modules Finance :
+                    <!-- Les onglets ci-dessous sont ajoutes A LA FIN, apres
+                         l'administration, et non a cote des autres modules metier :
                          l'index d'un onglet est l'identite d'un module dans tout le
                          code (sidebar, ModuleCatalog, chargement paresseux), donc
                          inserer au milieu renumeroterait silencieusement les modules
                          existants. L'ordre visible pour l'utilisateur est celui de la
-                         barre laterale, ou ces trois modules sont bien places parmi
+                         barre laterale, ou ces modules sont bien places parmi
                          les modules d'exploitation. -->
 
                     <!-- ======================= Comptabilité SCF ====================== -->
@@ -1715,6 +1755,16 @@
                     <!-- =================== Créances &amp; recouvrement ================== -->
                     <TabItem x:Name="ReceivablesTabItem" Header="Créances &amp; recouvrement">
                         <views:ReceivablesView x:Name="ReceivablesView" />
+                    </TabItem>
+
+                    <!-- ===================== Tarifs &amp; conventions ==================== -->
+                    <TabItem x:Name="TariffsTabItem" Header="Tarifs &amp; conventions">
+                        <views:TariffsView x:Name="TariffsView" />
+                    </TabItem>
+
+                    <!-- ================= Hébergement &amp; occupation ==================== -->
+                    <TabItem x:Name="LodgingTabItem" Header="Hébergement &amp; occupation">
+                        <views:LodgingView x:Name="LodgingView" />
                     </TabItem>
                 </TabControl>
             </Grid>

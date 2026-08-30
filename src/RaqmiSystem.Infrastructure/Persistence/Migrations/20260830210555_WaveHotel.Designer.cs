@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RaqmiSystem.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using RaqmiSystem.Infrastructure.Persistence;
 namespace RaqmiSystem.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(RaqmiDbContext))]
-    partial class RaqmiDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260830210555_WaveHotel")]
+    partial class WaveHotel
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2148,12 +2151,9 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_rate_plans_code");
 
-                    b.HasIndex(new[] { "HotelUnitCode" }, "ix_rate_plans_hotel_unit_code")
-                        .HasDatabaseName("ix_rate_plans_hotel_unit_code");
-
-                    b.HasIndex(new[] { "HotelUnitCode" }, "ux_rate_plans_default_per_unit")
+                    b.HasIndex("HotelUnitCode")
                         .IsUnique()
-                        .HasDatabaseName("ux_rate_plans_default_per_unit")
+                        .HasDatabaseName("ix_rate_plans_hotel_unit_code")
                         .HasFilter("is_default AND is_active");
 
                     b.ToTable("rate_plans", "tariffs");

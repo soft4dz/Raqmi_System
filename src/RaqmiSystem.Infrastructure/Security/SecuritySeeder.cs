@@ -38,7 +38,9 @@ public sealed class SecuritySeeder(
             // budget.approve is direction's alone: approving a budget is what freezes the year's
             // targets for everyone else, so it stays with the role that answers for them.
             PermissionCatalog.BudgetApprove,
-            PermissionCatalog.ReceivablesRead
+            PermissionCatalog.ReceivablesRead,
+            PermissionCatalog.TariffsRead,
+            PermissionCatalog.LodgingRead
         ],
         [RoleCatalog.ExploitationControl] =
         [
@@ -68,7 +70,12 @@ public sealed class SecuritySeeder(
             PermissionCatalog.BudgetRead,
             PermissionCatalog.BudgetWrite,
             PermissionCatalog.ReceivablesRead,
-            PermissionCatalog.ReceivablesWrite
+            PermissionCatalog.ReceivablesWrite,
+            PermissionCatalog.TariffsRead,
+            PermissionCatalog.TariffsWrite,
+            PermissionCatalog.LodgingRead,
+            PermissionCatalog.LodgingWrite,
+            PermissionCatalog.LodgingCheckin
         ],
         [RoleCatalog.UnitManager] =
         [
@@ -85,7 +92,12 @@ public sealed class SecuritySeeder(
             PermissionCatalog.InvoicesWrite,
             PermissionCatalog.SettingsRead,
             PermissionCatalog.BudgetRead,
-            PermissionCatalog.BudgetWrite
+            PermissionCatalog.BudgetWrite,
+            PermissionCatalog.TariffsRead,
+            PermissionCatalog.TariffsWrite,
+            PermissionCatalog.LodgingRead,
+            PermissionCatalog.LodgingWrite,
+            PermissionCatalog.LodgingCheckin
         ],
         [RoleCatalog.Cashier] =
         [
@@ -93,7 +105,9 @@ public sealed class SecuritySeeder(
             PermissionCatalog.RevenueWrite,
             PermissionCatalog.TreasuryRead,
             PermissionCatalog.TreasuryWrite,
-            PermissionCatalog.SettingsRead
+            PermissionCatalog.SettingsRead,
+            PermissionCatalog.LodgingRead,
+            PermissionCatalog.LodgingCheckin
         ],
         [RoleCatalog.Reader] =
         [
@@ -106,7 +120,9 @@ public sealed class SecuritySeeder(
             PermissionCatalog.SettingsRead,
             PermissionCatalog.AccountingRead,
             PermissionCatalog.BudgetRead,
-            PermissionCatalog.ReceivablesRead
+            PermissionCatalog.ReceivablesRead,
+            PermissionCatalog.TariffsRead,
+            PermissionCatalog.LodgingRead
         ]
     };
 

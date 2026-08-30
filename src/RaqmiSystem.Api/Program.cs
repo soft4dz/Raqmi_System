@@ -160,6 +160,8 @@ api.MapAuditEndpoints();
 api.MapClosingEndpoints();
 api.MapTreasuryEndpoints();
 api.MapBillingEndpoints();
+api.MapTariffsEndpoints();
+api.MapLodgingEndpoints();
 api.MapSettingsEndpoints();
 api.MapAccountEndpoints();
 api.MapAccountingEndpoints();

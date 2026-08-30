@@ -7,11 +7,13 @@ using RaqmiSystem.Application.Billing;
 using RaqmiSystem.Application.Budgeting;
 using RaqmiSystem.Application.Closing;
 using RaqmiSystem.Application.Identity;
+using RaqmiSystem.Application.Lodging;
 using RaqmiSystem.Application.Organization;
 using RaqmiSystem.Application.Receivables;
 using RaqmiSystem.Application.Revenue;
 using RaqmiSystem.Application.Security;
 using RaqmiSystem.Application.Settings;
+using RaqmiSystem.Application.Tariffs;
 using RaqmiSystem.Application.Treasury;
 using RaqmiSystem.Infrastructure.Accounting;
 using RaqmiSystem.Infrastructure.Audit;
@@ -19,12 +21,14 @@ using RaqmiSystem.Infrastructure.Billing;
 using RaqmiSystem.Infrastructure.Budgeting;
 using RaqmiSystem.Infrastructure.Closing;
 using RaqmiSystem.Infrastructure.Identity;
+using RaqmiSystem.Infrastructure.Lodging;
 using RaqmiSystem.Infrastructure.Organization;
 using RaqmiSystem.Infrastructure.Persistence;
 using RaqmiSystem.Infrastructure.Receivables;
 using RaqmiSystem.Infrastructure.Revenue;
 using RaqmiSystem.Infrastructure.Security;
 using RaqmiSystem.Infrastructure.Settings;
+using RaqmiSystem.Infrastructure.Tariffs;
 using RaqmiSystem.Infrastructure.Treasury;
 
 namespace RaqmiSystem.Infrastructure;
@@ -64,6 +68,9 @@ public static class DependencyInjection
         services.AddScoped<IAccountingService, AccountingService>();
         services.AddScoped<IBudgetService, BudgetService>();
         services.AddScoped<IReceivablesService, ReceivablesService>();
+        services.AddScoped<ITariffService, TariffService>();
+        services.AddScoped<ITariffResolutionService, TariffResolutionService>();
+        services.AddScoped<ILodgingService, LodgingService>();
 
         return services;
     }

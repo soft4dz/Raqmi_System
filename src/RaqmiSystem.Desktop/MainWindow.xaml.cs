@@ -74,10 +74,11 @@ public partial class MainWindow : Window
 
     // Onglets des vues de module (ClosingView, TreasuryView, CustomersView,
     // InvoicesView, SettingsView, UsersView, AccountingView, BudgetView,
-    // ReceivablesView) deja charges depuis la connexion en cours. Ces neuf vues sont
-    // chargees paresseusement - a la premiere ouverture de leur onglet - pour ne pas
-    // declencher autant de series d'appels reseau inutiles a chaque connexion. Vide
-    // a la deconnexion : la session suivante repart de donnees fraiches.
+    // ReceivablesView, TariffsView, LodgingView) deja charges depuis la connexion
+    // en cours. Ces onze vues sont chargees paresseusement - a la premiere
+    // ouverture de leur onglet - pour ne pas declencher autant de series d'appels
+    // reseau inutiles a chaque connexion. Vide a la deconnexion : la session
+    // suivante repart de donnees fraiches.
     private readonly HashSet<int> loadedModuleTabs = [];
 
     public MainWindow()
@@ -169,6 +170,7 @@ public partial class MainWindow : Window
                      ShowHomeButton, ShowUnitsButton, ShowRevenueButton, ShowDashboardButton, ShowAuditButton,
                      ShowClosingButton, ShowTreasuryButton, ShowCustomersButton, ShowInvoicesButton,
                      ShowAccountingButton, ShowBudgetButton, ShowReceivablesButton,
+                     ShowTariffsButton, ShowLodgingButton,
                      ShowSettingsButton, ShowUsersButton
                  })
         {
@@ -226,6 +228,8 @@ public partial class MainWindow : Window
         ApplyModuleAccess(PermissionCatalog.AccountingRead, ShowAccountingButton, AccountingTabItem);
         ApplyModuleAccess(PermissionCatalog.BudgetRead, ShowBudgetButton, BudgetTabItem);
         ApplyModuleAccess(PermissionCatalog.ReceivablesRead, ShowReceivablesButton, ReceivablesTabItem);
+        ApplyModuleAccess(PermissionCatalog.TariffsRead, ShowTariffsButton, TariffsTabItem);
+        ApplyModuleAccess(PermissionCatalog.LodgingRead, ShowLodgingButton, LodgingTabItem);
 
         ApplyWriteActionStates();
     }
@@ -407,7 +411,8 @@ public partial class MainWindow : Window
     // 2=Recettes journalières, 3=Tableau de bord, 4=Journal d'audit,
     // 5=Clôture journalière, 6=Trésorerie, 7=Clients, 8=Facturation,
     // 9=Paramétrage global, 10=Administration & utilisateurs,
-    // 11=Comptabilité SCF, 12=Budget & prévisions, 13=Créances & recouvrement.
+    // 11=Comptabilité SCF, 12=Budget & prévisions, 13=Créances & recouvrement,
+    // 14=Tarifs & conventions, 15=Hébergement & occupation.
     //
     // Cet ordre est celui des TabItem, pas celui de la barre latérale : l'index d'un
     // onglet est l'identité d'un module dans tout le code (ModuleCatalog.TabIndex y
@@ -429,6 +434,8 @@ public partial class MainWindow : Window
         11 => ShowAccountingButton,
         12 => ShowBudgetButton,
         13 => ShowReceivablesButton,
+        14 => ShowTariffsButton,
+        15 => ShowLodgingButton,
         _ => null
     };
 
@@ -509,6 +516,12 @@ public partial class MainWindow : Window
                 break;
             case 13:
                 await ReceivablesView.LoadAsync();
+                break;
+            case 14:
+                await TariffsView.LoadAsync();
+                break;
+            case 15:
+                await LodgingView.LoadAsync();
                 break;
             default:
                 // Les onglets 0 a 4 vivent dans MainWindow et sont charges a la
@@ -683,6 +696,8 @@ public partial class MainWindow : Window
         AccountingView.Initialize(context);
         BudgetView.Initialize(context);
         ReceivablesView.Initialize(context);
+        TariffsView.Initialize(context);
+        LodgingView.Initialize(context);
 
         // Nouvelle session : aucune vue n'a encore charge ses donnees.
         loadedModuleTabs.Clear();
@@ -740,6 +755,8 @@ public partial class MainWindow : Window
         AccountingView.ResetState();
         BudgetView.ResetState();
         ReceivablesView.ResetState();
+        TariffsView.ResetState();
+        LodgingView.ResetState();
         loadedModuleTabs.Clear();
 
         ResetUnitForm();
@@ -855,6 +872,16 @@ public partial class MainWindow : Window
     private void ShowReceivablesButton_Click(object sender, RoutedEventArgs e)
     {
         NavigateToModule(13, ShowReceivablesButton);
+    }
+
+    private void ShowTariffsButton_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(14, ShowTariffsButton);
+    }
+
+    private void ShowLodgingButton_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(15, ShowLodgingButton);
     }
 
     private async void CreateRevenueButton_Click(object sender, RoutedEventArgs e)
@@ -1478,8 +1505,8 @@ public partial class MainWindow : Window
 
         // Les vues de module (Cloture, Tresorerie, Clients, Facturation,
         // Parametrage global, Administration et utilisateurs, Comptabilite, Budget,
-        // Creances) portent leurs propres boutons, que cette methode ne peut pas
-        // enumerer un par un.
+        // Creances, Tarifs, Hebergement) portent leurs propres boutons, que cette
+        // methode ne peut pas enumerer un par un.
         // Neutraliser tout le conteneur d'onglets pendant un appel en vol empeche
         // la double soumission (double clic = deux factures, deux encaissements,
         // deux cloctures) sans avoir a maintenir une liste de boutons par vue.

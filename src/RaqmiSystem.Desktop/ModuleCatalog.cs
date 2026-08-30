@@ -43,10 +43,10 @@ public static class ModuleCatalog
 {
     // Totaux attendus - garde de coherence verifiee au chargement du type.
     public const int ExpectedTotal = 49;
-    public const int ExpectedAvailable = 14;
+    public const int ExpectedAvailable = 16;
     public const int ExpectedApiReady = 0;
     public const int ExpectedPartial = 3;
-    public const int ExpectedPlanned = 32;
+    public const int ExpectedPlanned = 30;
 
     // Libelles affiches des groupes fonctionnels (ordre d'apparition).
     public static class Groups
@@ -86,7 +86,7 @@ public static class ModuleCatalog
     static ModuleCatalog()
     {
         // Garde de coherence : le tableau de verite du depot compte 49 modules,
-        // repartis en 14 Disponible / 0 API prete / 3 Partiel / 32 Planifie.
+        // repartis en 16 Disponible / 0 API prete / 3 Partiel / 30 Planifie.
         // Toute edition qui casse ces totaux doit etre volontaire et reportee ici.
         EnsureCount("total", Entries.Count, ExpectedTotal);
         EnsureCount("Disponible", CountOf(ModuleStatus.Disponible), ExpectedAvailable);
@@ -139,8 +139,8 @@ public static class ModuleCatalog
 
         // --------------------------------------------------------- Exploitation
         new ModuleCatalogEntry("10", Groups.Exploitation, "Hébergement & occupation",
-            "PMS, réservations, folios et yield",
-            "P1", ModuleStatus.Planifie),
+            "Types de chambre, réservations, folios et taux d'occupation",
+            "P1", ModuleStatus.Disponible, PermissionCatalog.LodgingRead, 15),
         new ModuleCatalogEntry("10.2", Groups.Exploitation, "Housekeeping & chambres",
             "Planning des équipes, inspection, minibar",
             "P2", ModuleStatus.Planifie),
@@ -172,8 +172,8 @@ public static class ModuleCatalog
             "Serrures, PBX, TPE CIB et imprimantes",
             "P2", ModuleStatus.Planifie),
         new ModuleCatalogEntry("14.5", Groups.Exploitation, "Tarifs & conventions",
-            "Grilles tarifaires, promotions, conventions",
-            "P1", ModuleStatus.Planifie),
+            "Plans tarifaires, périodes de tarif et conventions clients",
+            "P1", ModuleStatus.Disponible, PermissionCatalog.TariffsRead, 14),
         new ModuleCatalogEntry("18", Groups.Exploitation, "Qualité & réclamations clients",
             "Réclamations, délais et analyse des causes",
             "P2", ModuleStatus.Planifie),

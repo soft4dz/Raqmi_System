@@ -36,6 +36,11 @@ public static class PermissionCatalog
     public const string BudgetApprove = "budget.approve";
     public const string ReceivablesRead = "receivables.read";
     public const string ReceivablesWrite = "receivables.write";
+    public const string TariffsRead = "tariffs.read";
+    public const string TariffsWrite = "tariffs.write";
+    public const string LodgingRead = "lodging.read";
+    public const string LodgingWrite = "lodging.write";
+    public const string LodgingCheckin = "lodging.checkin";
 
     public static IReadOnlyCollection<PermissionDefinition> All { get; } = new[]
     {
@@ -72,6 +77,11 @@ public static class PermissionCatalog
         new PermissionDefinition(BudgetWrite, "Gerer les budgets", "finance", "Creer et modifier les budgets annuels et leurs objectifs mensuels."),
         new PermissionDefinition(BudgetApprove, "Approuver les budgets", "finance", "Approuver et cloturer un budget annuel."),
         new PermissionDefinition(ReceivablesRead, "Lire les creances", "finance", "Consulter la balance agee, les relances et le risque client."),
-        new PermissionDefinition(ReceivablesWrite, "Enregistrer les relances", "finance", "Enregistrer la trace d'une relance client deja effectuee.")
+        new PermissionDefinition(ReceivablesWrite, "Enregistrer les relances", "finance", "Enregistrer la trace d'une relance client deja effectuee."),
+        new PermissionDefinition(TariffsRead, "Lire les tarifs", "exploitation", "Consulter les plans tarifaires, les periodes de tarif, les conventions clients et tester la resolution d'un tarif."),
+        new PermissionDefinition(TariffsWrite, "Gerer les tarifs", "exploitation", "Creer et modifier les plans tarifaires, definir le plan par defaut, gerer les periodes de tarif et les conventions clients."),
+        new PermissionDefinition(LodgingRead, "Lire l'hebergement", "exploitation", "Consulter les types de chambre, les chambres, les reservations, les folios et l'occupation."),
+        new PermissionDefinition(LodgingWrite, "Gerer l'hebergement", "exploitation", "Gerer les types de chambre et les chambres, creer, annuler et constater le no-show des reservations."),
+        new PermissionDefinition(LodgingCheckin, "Operer le comptoir", "exploitation", "Effectuer les operations du comptoir : check-in, check-out et ajout de lignes de folio.")
     };
 }

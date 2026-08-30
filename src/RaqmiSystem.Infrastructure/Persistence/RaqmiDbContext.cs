@@ -5,10 +5,12 @@ using RaqmiSystem.Domain.Billing;
 using RaqmiSystem.Domain.Budgeting;
 using RaqmiSystem.Domain.Closing;
 using RaqmiSystem.Domain.Identity;
+using RaqmiSystem.Domain.Lodging;
 using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Domain.Receivables;
 using RaqmiSystem.Domain.Revenue;
 using RaqmiSystem.Domain.Settings;
+using RaqmiSystem.Domain.Tariffs;
 using RaqmiSystem.Domain.Treasury;
 
 namespace RaqmiSystem.Infrastructure.Persistence;
@@ -56,6 +58,22 @@ public sealed class RaqmiDbContext(DbContextOptions<RaqmiDbContext> options) : D
     public DbSet<BudgetLine> BudgetLines => Set<BudgetLine>();
 
     public DbSet<Reminder> Reminders => Set<Reminder>();
+
+    public DbSet<RatePlan> RatePlans => Set<RatePlan>();
+
+    public DbSet<RatePeriod> RatePeriods => Set<RatePeriod>();
+
+    public DbSet<CustomerConvention> CustomerConventions => Set<CustomerConvention>();
+
+    public DbSet<RoomType> RoomTypes => Set<RoomType>();
+
+    public DbSet<Room> Rooms => Set<Room>();
+
+    public DbSet<Reservation> Reservations => Set<Reservation>();
+
+    public DbSet<Folio> Folios => Set<Folio>();
+
+    public DbSet<FolioCharge> FolioCharges => Set<FolioCharge>();
 
     /// <summary>
     /// Singleton row holding the global configuration (see
