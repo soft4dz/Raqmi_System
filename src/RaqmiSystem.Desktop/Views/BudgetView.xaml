@@ -1,0 +1,696 @@
+<UserControl x:Class="RaqmiSystem.Desktop.Views.BudgetView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontFamily="{StaticResource AppFontFamily}"
+             Background="Transparent">
+
+    <!-- =========================================================================
+         Budget & previsions.
+         En-tete de filtres (annee + unite hoteliere), puis deux sections :
+         - "Plan budgetaire" : la grille des objectifs, 12 mois x 4 categories de
+           recettes, avec les totaux par mois et par categorie ;
+         - "Realise et ecarts" : la confrontation budget / realise / ecart, coeur
+           du module.
+         Aucune ressource du theme n'est modifiee : les styles propres a cet ecran
+         sont declares ci-dessous.
+         ========================================================================= -->
+    <UserControl.Resources>
+
+        <!-- Onglets internes du module : le style implicite du theme masque les
+             en-tetes (le panneau lateral est l'unique navigation de
+             l'application), cet ecran a donc besoin de son propre gabarit. -->
+        <Style x:Key="SectionTabItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Grid SnapsToDevicePixels="True">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Border x:Name="tabBackground"
+                                    Background="Transparent"
+                                    CornerRadius="6,6,0,0"
+                                    Padding="18,9">
+                                <ContentPresenter ContentSource="Header"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
+                            </Border>
+
+                            <Rectangle x:Name="tabIndicator"
+                                       Grid.Row="1"
+                                       Height="2.5"
+                                       Fill="{StaticResource AccentBrush}"
+                                       Opacity="0" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="tabBackground" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="tabBackground" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="tabIndicator" Property="Opacity" Value="1" />
+                                <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SectionTabControl" TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource SectionTabItem}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border BorderBrush="{StaticResource PanelBorderBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <TabPanel IsItemsHost="True" HorizontalAlignment="Left" />
+                            </Border>
+
+                            <ContentPresenter Grid.Row="1"
+                                              Margin="0,16,0,0"
+                                              ContentSource="SelectedContent" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Saisie d'un objectif dans la grille : plus compact qu'un champ de
+             formulaire, aligne a droite comme tout montant. -->
+        <Style x:Key="TargetCellTextBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Margin" Value="0,5" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="TextAlignment" Value="Right" />
+        </Style>
+
+        <!-- Rappel de regle metier affiche a l'ecran. -->
+        <Style x:Key="BusinessRuleText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- Bandeau d'information : une regle que le lecteur doit connaitre pour
+             comprendre les chiffres affiches juste en dessous. -->
+        <Style x:Key="NoticeBorder" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource StatusSubmittedBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14,10" />
+        </Style>
+
+        <Style x:Key="NoticeText" TargetType="TextBlock" BasedOn="{StaticResource BodyText}">
+            <Setter Property="Foreground" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- Bandeau d'un budget fige : l'information est ecrite, pas seulement
+             traduite par des champs grises. -->
+        <Style x:Key="FrozenBorder" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource StatusValidatedBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource StatusValidatedForegroundBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14,10" />
+        </Style>
+
+        <Style x:Key="FrozenText" TargetType="TextBlock" BasedOn="{StaticResource BodyText}">
+            <Setter Property="Foreground" Value="{StaticResource StatusValidatedForegroundBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style x:Key="TotalLabelText" TargetType="TextBlock" BasedOn="{StaticResource MetricLabelText}">
+            <Setter Property="Margin" Value="0,0,0,3" />
+        </Style>
+
+        <Style x:Key="TotalValueText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextAlignment" Value="Right" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        </Style>
+
+        <!-- Ecart : la couleur porte le sens. Un ecart defavorable (realise
+             inferieur a l'objectif) prend la couleur semantique de rejet du
+             theme, un ecart favorable celle de validation ; un ecart nul reste
+             neutre. Aucune couleur n'est ecrite en dur. -->
+        <Style x:Key="VarianceCellText" TargetType="TextBlock" BasedOn="{StaticResource AmountCellText}">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsUnfavourable}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsFavourable}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource StatusValidatedForegroundBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Pastille de fond des cellules d'ecart defavorables : la couleur seule
+             ne doit pas etre le seul canal, la valeur negative reste lisible. -->
+        <Style x:Key="VarianceCellBackground" TargetType="Border">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="Margin" Value="0,2" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsUnfavourable}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource StatusRejectedBackgroundBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Lignes de total mensuel de la table des ecarts : mises en avant sans
+             changer de fond, pour ne pas entrer en conflit avec l'alternance de
+             couleur des lignes de la grille. -->
+        <Style x:Key="VarianceRowStyle" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMonthTotal}" Value="True">
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============================== En-tete et filtres ============================== -->
+        <Border Style="{StaticResource CardBorder}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="16" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <DockPanel>
+                    <StackPanel>
+                        <TextBlock Text="Budget &amp; prévisions"
+                                   Style="{StaticResource PageTitleText}" />
+                        <TextBlock Text="Objectifs mensuels par catégorie de recettes, et confrontation au réalisé de l'exercice."
+                                   Style="{StaticResource SubtitleText}"
+                                   Margin="0,4,0,0" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal"
+                                DockPanel.Dock="Right"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center">
+                        <Button x:Name="RefreshBudgetButton"
+                                Content="Actualiser"
+                                Style="{StaticResource SecondaryButton}"
+                                ToolTip="Recharger le plan budgétaire et les écarts de l'année et de l'unité sélectionnées"
+                                Click="RefreshBudgetButton_Click" />
+                    </StackPanel>
+                </DockPanel>
+
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="280" />
+                        <ColumnDefinition Width="20" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="Année" Style="{StaticResource LabelText}" />
+                        <ComboBox x:Name="YearComboBox"
+                                  ToolTip="Exercice budgétaire"
+                                  SelectionChanged="Filter_SelectionChanged" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Unité hôtelière" Style="{StaticResource LabelText}" />
+                        <ComboBox x:Name="UnitComboBox"
+                                  DisplayMemberPath="Label"
+                                  ToolTip="Unité dont le budget est piloté"
+                                  SelectionChanged="Filter_SelectionChanged" />
+                    </StackPanel>
+
+                    <!-- Etat du plan de l'exercice : c'est lui qui commande la
+                         modifiabilite de la grille, il est donc affiche des
+                         l'en-tete plutot que decouvert plus bas. -->
+                    <StackPanel Grid.Column="4" VerticalAlignment="Bottom">
+                        <TextBlock Text="Plan de l'exercice" Style="{StaticResource LabelText}" />
+                        <StackPanel Orientation="Horizontal">
+                            <Border x:Name="PlanStatusBadge"
+                                    CornerRadius="10"
+                                    Padding="12,4"
+                                    VerticalAlignment="Center"
+                                    Background="{StaticResource StatusDraftBackgroundBrush}">
+                                <TextBlock x:Name="PlanStatusBadgeText"
+                                           Text="Aucun plan"
+                                           FontSize="11.5"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource StatusDraftForegroundBrush}" />
+                            </Border>
+                            <TextBlock x:Name="PlanSummaryTextBlock"
+                                       Text="Sélectionnez une année et une unité, puis actualisez."
+                                       Style="{StaticResource CaptionText}"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center"
+                                       Margin="12,0,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <TabControl x:Name="BudgetTabs"
+                    Grid.Row="2"
+                    Style="{StaticResource SectionTabControl}">
+
+            <!-- ============================== Plan budgetaire ============================== -->
+            <TabItem Header="Plan budgétaire">
+                <Border Style="{StaticResource CardBorder}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <DockPanel>
+                            <StackPanel>
+                                <TextBlock Text="Objectifs mensuels"
+                                           Style="{StaticResource SectionTitleText}" />
+                                <TextBlock x:Name="PlanHintTextBlock"
+                                           Text="Un objectif par mois et par catégorie de recettes, en montant."
+                                           Style="{StaticResource BusinessRuleText}"
+                                           Margin="0,3,0,0" />
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal"
+                                        DockPanel.Dock="Right"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center">
+                                <Button x:Name="SavePlanLinesButton"
+                                        Content="Enregistrer la grille"
+                                        Style="{StaticResource PrimaryButton}"
+                                        ToolTip="Remplacer les objectifs du plan par ceux saisis ci-dessous"
+                                        Margin="0,0,10,0"
+                                        Click="SavePlanLinesButton_Click" />
+                                <Button x:Name="ApprovePlanButton"
+                                        Content="Approuver le budget"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Figer le budget de l'exercice : il ne sera plus modifiable"
+                                        Click="ApprovePlanButton_Click" />
+                            </StackPanel>
+                        </DockPanel>
+
+                        <!-- Creation du plan : visible tant que l'exercice n'en a pas. -->
+                        <Border x:Name="CreatePlanPanel"
+                                Grid.Row="2"
+                                Style="{StaticResource SubtleCardBorder}"
+                                Margin="0,0,0,14">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="10" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.ColumnSpan="3"
+                                           Text="Aucun plan budgétaire n'existe pour cette année et cette unité. Un exercice ne peut porter qu'un seul plan : créez-le pour saisir les objectifs."
+                                           Style="{StaticResource BusinessRuleText}" />
+
+                                <StackPanel Grid.Row="2">
+                                    <TextBlock Text="Libellé du plan" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="PlanLabelTextBox"
+                                             MaxLength="160"
+                                             Tag="Budget 2026 — unité principale"
+                                             ToolTip="Intitulé du plan budgétaire (160 caractères au maximum)" />
+                                </StackPanel>
+
+                                <Button x:Name="CreatePlanButton"
+                                        Grid.Row="2"
+                                        Grid.Column="2"
+                                        Content="Créer le plan"
+                                        Style="{StaticResource PrimaryButton}"
+                                        ToolTip="Créer le plan budgétaire de l'année et de l'unité sélectionnées"
+                                        VerticalAlignment="Bottom"
+                                        Click="CreatePlanButton_Click" />
+                            </Grid>
+                        </Border>
+
+                        <!-- Budget approuve : dit a l'ecran POURQUOI la grille ne
+                             repond plus, plutot que de laisser des champs grises
+                             sans explication. -->
+                        <Border x:Name="FrozenPlanPanel"
+                                Grid.Row="3"
+                                Style="{StaticResource FrozenBorder}"
+                                Margin="0,0,0,14"
+                                Visibility="Collapsed">
+                            <TextBlock x:Name="FrozenPlanTextBlock"
+                                       Style="{StaticResource FrozenText}"
+                                       Text="Ce budget est approuvé : il est figé et ne peut plus être modifié. La grille ci-dessous est en lecture seule." />
+                        </Border>
+
+                        <Grid Grid.Row="4">
+                            <DataGrid x:Name="PlanLinesDataGrid"
+                                      CanUserSortColumns="False"
+                                      VerticalScrollBarVisibility="Auto">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Mois"
+                                                        Binding="{Binding MonthLabel}"
+                                                        Width="130" />
+
+                                    <DataGridTemplateColumn Header="Hébergement" Width="*" MinWidth="120" HeaderStyle="{StaticResource RightAlignedColumnHeader}">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Text="{Binding AccommodationText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         Style="{StaticResource TargetCellTextBox}"
+                                                         IsEnabled="{Binding IsEditable}"
+                                                         ToolTip="Objectif d'hébergement du mois : positif ou nul, 2 décimales au maximum" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
+                                    <DataGridTemplateColumn Header="Restauration" Width="*" MinWidth="120" HeaderStyle="{StaticResource RightAlignedColumnHeader}">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Text="{Binding FoodText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         Style="{StaticResource TargetCellTextBox}"
+                                                         IsEnabled="{Binding IsEditable}"
+                                                         ToolTip="Objectif de restauration du mois : positif ou nul, 2 décimales au maximum" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
+                                    <DataGridTemplateColumn Header="Boissons" Width="*" MinWidth="120" HeaderStyle="{StaticResource RightAlignedColumnHeader}">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Text="{Binding BeverageText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         Style="{StaticResource TargetCellTextBox}"
+                                                         IsEnabled="{Binding IsEditable}"
+                                                         ToolTip="Objectif de boissons du mois : positif ou nul, 2 décimales au maximum" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
+                                    <DataGridTemplateColumn Header="Autres" Width="*" MinWidth="120" HeaderStyle="{StaticResource RightAlignedColumnHeader}">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Text="{Binding OtherText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         Style="{StaticResource TargetCellTextBox}"
+                                                         IsEnabled="{Binding IsEditable}"
+                                                         ToolTip="Objectif des autres recettes du mois : positif ou nul, 2 décimales au maximum" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
+                                    <DataGridTextColumn Header="Total du mois"
+                                                        Binding="{Binding MonthTotalText, Mode=OneWay}"
+                                                        Width="150"
+                                                        ElementStyle="{StaticResource TotalCellText}"
+                                                        HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        IsHitTestVisible="False">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Items.Count, ElementName=PlanLinesDataGrid}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <TextBlock Text="Aucune grille d'objectifs"
+                                           Style="{StaticResource EmptyStateTitleText}" />
+                                <TextBlock Text="Choisissez une année et une unité, puis actualisez pour afficher les douze mois de l'exercice."
+                                           Style="{StaticResource EmptyStateHintText}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Totaux par categorie sur l'annee entiere : le pendant
+                             de la colonne "Total du mois" de la grille. -->
+                        <Border Grid.Row="6" Style="{StaticResource SubtleCardBorder}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" MinWidth="120" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" MinWidth="120" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" MinWidth="120" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" MinWidth="120" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" MinWidth="140" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Text="Totaux de l'exercice par catégorie, recalculés pendant la saisie. Le total qui fait foi reste celui renvoyé par le serveur à l'enregistrement."
+                                           Style="{StaticResource BusinessRuleText}"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,10,0" />
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Hébergement" Style="{StaticResource TotalLabelText}" />
+                                    <TextBlock x:Name="PlanAccommodationTotalTextBlock"
+                                               Text="0,00"
+                                               Style="{StaticResource TotalValueText}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Restauration" Style="{StaticResource TotalLabelText}" />
+                                    <TextBlock x:Name="PlanFoodTotalTextBlock"
+                                               Text="0,00"
+                                               Style="{StaticResource TotalValueText}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6">
+                                    <TextBlock Text="Boissons" Style="{StaticResource TotalLabelText}" />
+                                    <TextBlock x:Name="PlanBeverageTotalTextBlock"
+                                               Text="0,00"
+                                               Style="{StaticResource TotalValueText}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="8">
+                                    <TextBlock Text="Autres" Style="{StaticResource TotalLabelText}" />
+                                    <TextBlock x:Name="PlanOtherTotalTextBlock"
+                                               Text="0,00"
+                                               Style="{StaticResource TotalValueText}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="10">
+                                    <TextBlock Text="Total de l'exercice" Style="{StaticResource TotalLabelText}" />
+                                    <TextBlock x:Name="PlanGrandTotalTextBlock"
+                                               Text="0,00"
+                                               Style="{StaticResource TotalValueText}"
+                                               Foreground="{StaticResource PrimaryBrush}" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+            </TabItem>
+
+            <!-- ============================ Realise et ecarts ============================ -->
+            <TabItem Header="Réalisé et écarts">
+                <Border Style="{StaticResource CardBorder}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel>
+                            <TextBlock Text="Budget, réalisé et écarts"
+                                       Style="{StaticResource SectionTitleText}" />
+                            <TextBlock Text="Mois par mois et catégorie par catégorie. L'écart est le réalisé moins le budget : négatif, l'unité est restée sous son objectif."
+                                       Style="{StaticResource BusinessRuleText}"
+                                       Margin="0,3,0,0" />
+                        </StackPanel>
+
+                        <!-- La regle qui surprend, et qui explique une bonne part
+                             des ecarts observes. Elle est ecrite au-dessus du
+                             tableau, pas releguee dans une info-bulle. -->
+                        <Border Grid.Row="2" Style="{StaticResource NoticeBorder}" Margin="0,0,0,12">
+                            <TextBlock Style="{StaticResource NoticeText}"
+                                       Text="Le réalisé ne compte QUE les recettes journalières VALIDÉES. Une recette encore en brouillon, soumise et en attente de contrôle, ou rejetée, n'entre pas dans ce tableau : ce n'est pas de l'argent que l'établissement peut déclarer avoir fait. Un écart défavorable inattendu vient souvent de saisies restées non validées, et non d'une contre-performance." />
+                        </Border>
+
+                        <!-- Un budget encore en brouillon n'engage personne : les
+                             ecarts calcules contre lui sont indicatifs. -->
+                        <Border x:Name="DraftPlanNoticePanel"
+                                Grid.Row="3"
+                                Style="{StaticResource NoticeBorder}"
+                                Margin="0,0,0,12"
+                                Visibility="Collapsed">
+                            <TextBlock Style="{StaticResource NoticeText}"
+                                       Text="Le budget de référence est encore un brouillon : il peut changer à tout moment. Les écarts ci-dessous sont des chiffres de travail, pas une mesure contre un engagement." />
+                        </Border>
+
+                        <Grid Grid.Row="4">
+                            <DataGrid x:Name="VarianceDataGrid"
+                                      CanUserSortColumns="False"
+                                      RowStyle="{StaticResource VarianceRowStyle}"
+                                      VerticalScrollBarVisibility="Auto">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Mois"
+                                                        Binding="{Binding MonthLabel}"
+                                                        Width="130" />
+                                    <DataGridTextColumn Header="Catégorie"
+                                                        Binding="{Binding CategoryLabel}"
+                                                        Width="*"
+                                                        MinWidth="140" />
+                                    <DataGridTextColumn Header="Budget"
+                                                        Binding="{Binding BudgetText}"
+                                                        Width="150"
+                                                        ElementStyle="{StaticResource AmountCellText}"
+                                                        HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                    <DataGridTextColumn Header="Réalisé"
+                                                        Binding="{Binding ActualText}"
+                                                        Width="150"
+                                                        ElementStyle="{StaticResource AmountCellText}"
+                                                        HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+
+                                    <DataGridTemplateColumn Header="Écart" Width="160" HeaderStyle="{StaticResource RightAlignedColumnHeader}">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Border Style="{StaticResource VarianceCellBackground}">
+                                                    <TextBlock Text="{Binding VarianceText}"
+                                                               Style="{StaticResource VarianceCellText}"
+                                                               ToolTip="{Binding VarianceTooltip}" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
+                                    <DataGridTemplateColumn Header="Écart %" Width="120" HeaderStyle="{StaticResource RightAlignedColumnHeader}">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Border Style="{StaticResource VarianceCellBackground}">
+                                                    <TextBlock Text="{Binding VariancePercentageText}"
+                                                               Style="{StaticResource VarianceCellText}"
+                                                               ToolTip="{Binding VariancePercentageTooltip}" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        IsHitTestVisible="False">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Items.Count, ElementName=VarianceDataGrid}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <TextBlock x:Name="VarianceEmptyTitleTextBlock"
+                                           Text="Aucun écart à afficher"
+                                           Style="{StaticResource EmptyStateTitleText}" />
+                                <TextBlock x:Name="VarianceEmptyHintTextBlock"
+                                           Text="Sans plan budgétaire pour cette année et cette unité, il n'y a rien à confronter au réalisé."
+                                           Style="{StaticResource EmptyStateHintText}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Border Grid.Row="6" Style="{StaticResource SubtleCardBorder}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" MinWidth="140" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" MinWidth="140" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" MinWidth="140" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" MinWidth="110" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock x:Name="VarianceScopeTextBlock"
+                                           Text="Totaux de l'exercice."
+                                           Style="{StaticResource BusinessRuleText}"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,10,0" />
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Budget" Style="{StaticResource TotalLabelText}" />
+                                    <TextBlock x:Name="TotalBudgetTextBlock"
+                                               Text="—"
+                                               Style="{StaticResource TotalValueText}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Réalisé (validé)" Style="{StaticResource TotalLabelText}" />
+                                    <TextBlock x:Name="TotalActualTextBlock"
+                                               Text="—"
+                                               Style="{StaticResource TotalValueText}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6">
+                                    <TextBlock Text="Écart" Style="{StaticResource TotalLabelText}" />
+                                    <TextBlock x:Name="TotalVarianceTextBlock"
+                                               Text="—"
+                                               Style="{StaticResource TotalValueText}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="8">
+                                    <TextBlock Text="Écart %" Style="{StaticResource TotalLabelText}" />
+                                    <TextBlock x:Name="TotalVariancePercentageTextBlock"
+                                               Text="—"
+                                               Style="{StaticResource TotalValueText}" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

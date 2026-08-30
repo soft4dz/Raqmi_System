@@ -1,0 +1,1094 @@
+<UserControl x:Class="RaqmiSystem.Desktop.Views.ReceivablesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             FontFamily="{StaticResource AppFontFamily}"
+             Background="Transparent"
+             d:DesignWidth="1400"
+             d:DesignHeight="820">
+
+    <!-- =========================================================================
+         Creances & recouvrement.
+
+         Trois sections en onglets internes : la balance agee (etat de ce qui est
+         du, par tranche d'anciennete), les relances (historique et consignation
+         d'une action deja effectuee) et le risque porte par un client.
+
+         Le module ne cree aucune donnee financiere : la balance et le risque sont
+         recalcules par le serveur a chaque appel, et la seule ecriture est la
+         trace d'une relance qu'un agent a DEJA faite. L'application n'envoie rien
+         au client final : ni courriel, ni SMS, ni courrier. Cet ecran le dit sans
+         detour, a l'endroit ou l'on pourrait s'y tromper.
+
+         Aucune ressource du theme n'est modifiee : les styles propres a cet ecran
+         sont declares ci-dessous.
+         ========================================================================= -->
+    <UserControl.Resources>
+
+        <!-- Onglets internes du module : le style implicite du theme supprime les
+             en-tetes d'onglet (le panneau lateral est l'unique navigation de
+             l'application), ce module a donc besoin de son propre gabarit. -->
+        <Style x:Key="SectionTabItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Grid SnapsToDevicePixels="True">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Border x:Name="tabBackground"
+                                    Background="Transparent"
+                                    CornerRadius="6,6,0,0"
+                                    Padding="18,9">
+                                <ContentPresenter ContentSource="Header"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
+                            </Border>
+
+                            <Rectangle x:Name="tabIndicator"
+                                       Grid.Row="1"
+                                       Height="2.5"
+                                       Fill="{StaticResource AccentBrush}"
+                                       Opacity="0" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="tabBackground" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="tabBackground" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="tabIndicator" Property="Opacity" Value="1" />
+                                <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SectionTabControl" TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource SectionTabItem}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border BorderBrush="{StaticResource PanelBorderBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <TabPanel IsItemsHost="True" HorizontalAlignment="Left" />
+                            </Border>
+
+                            <ContentPresenter Grid.Row="1"
+                                              Margin="0,16,0,0"
+                                              ContentSource="SelectedContent" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Rappel de regle metier affiche a l'ecran, sous le bloc concerne. -->
+        <Style x:Key="BusinessRuleText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- Mention reprise TELLE QUELLE de la reponse du serveur : elle voyage
+             avec les chiffres et n'est jamais reformulee par le poste. -->
+        <Style x:Key="ServerNoticeText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+        </Style>
+
+        <!-- Bandeau d'avertissement : sert ici a dire que le systeme n'envoie
+             rien, la ou l'operateur pourrait croire le contraire. -->
+        <Style x:Key="WarningBanner" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource StatusSubmittedBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14,10" />
+        </Style>
+
+        <Style x:Key="WarningBannerTitleText" TargetType="TextBlock" BasedOn="{StaticResource BodyText}">
+            <Setter Property="Foreground" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style x:Key="WarningBannerText" TargetType="TextBlock" BasedOn="{StaticResource BodyText}">
+            <Setter Property="Foreground" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+        </Style>
+
+        <!-- Precision affichee sous un champ dont la saisie obeit a une regle metier. -->
+        <Style x:Key="FieldHintText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+            <Setter Property="Margin" Value="0,4,0,0" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- ================= Montants des tranches d'anciennete =================
+             Les deux tranches les plus anciennes portent une couleur semantique du
+             theme : ambre pour 61-90 jours, rouge pour plus de 90 jours. Un
+             montant nul ne doit rien crier : il repasse alors en gris, pour que
+             seule une creance reellement agee attire l'oeil. Chaque style est lie
+             a la propriete de SA colonne, d'ou deux styles distincts. -->
+        <Style x:Key="AgingWarningAmountText" TargetType="TextBlock" BasedOn="{StaticResource AmountCellText}">
+            <Setter Property="Foreground" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Days61To90IsZero}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                    <Setter Property="FontWeight" Value="Normal" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="AgingCriticalAmountText" TargetType="TextBlock" BasedOn="{StaticResource AmountCellText}">
+            <Setter Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Over90IsZero}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                    <Setter Property="FontWeight" Value="Normal" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Bandeau des totaux generaux, sous le tableau : les libelles suivent
+             l'ordre exact des colonnes de tranches. -->
+        <Style x:Key="TotalsCellLabelText" TargetType="TextBlock" BasedOn="{StaticResource MetricLabelText}">
+            <Setter Property="TextAlignment" Value="Right" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style x:Key="TotalsCellValueText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextAlignment" Value="Right" />
+            <Setter Property="Margin" Value="0,3,0,0" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        </Style>
+
+        <!-- Detail du risque client : libelle au-dessus, valeur en dessous. -->
+        <Style x:Key="RiskLabelText" TargetType="TextBlock" BasedOn="{StaticResource MetricLabelText}">
+            <Setter Property="Margin" Value="0,0,0,2" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style x:Key="RiskValueText" TargetType="TextBlock" BasedOn="{StaticResource BodyText}">
+            <Setter Property="Margin" Value="0,0,0,12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============================ En-tete du module ============================ -->
+        <DockPanel>
+            <Button x:Name="RefreshAllButton"
+                    DockPanel.Dock="Right"
+                    Content="Tout actualiser"
+                    Style="{StaticResource SecondaryButton}"
+                    ToolTip="Recharger la balance âgée et l'historique des relances"
+                    VerticalAlignment="Center"
+                    Click="RefreshAllButton_Click" />
+
+            <StackPanel>
+                <TextBlock Text="Créances &amp; recouvrement"
+                           Style="{StaticResource PageTitleText}" />
+                <TextBlock Text="Balance âgée des factures dues, trace des relances effectuées et risque porté par un client."
+                           Style="{StaticResource SubtitleText}"
+                           Margin="0,4,0,0" />
+            </StackPanel>
+        </DockPanel>
+
+        <TabControl x:Name="ReceivablesTabs"
+                    Grid.Row="2"
+                    Style="{StaticResource SectionTabControl}">
+
+            <!-- ============================== Balance agee ============================== -->
+            <TabItem Header="Balance âgée">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Filtres de l'arrete -->
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="320" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Date d'arrêté" Style="{StaticResource LabelText}" />
+                                <DatePicker x:Name="AsOfDatePicker"
+                                            ToolTip="Date à laquelle la situation des créances est arrêtée" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Client" Style="{StaticResource LabelText}" />
+                                <ComboBox x:Name="AgingCustomerComboBox"
+                                          DisplayMemberPath="Label"
+                                          ToolTip="Limiter la balance à un seul client (facultatif). La liste propose les clients ayant une créance ou une relance connue." />
+                            </StackPanel>
+
+                            <TextBlock Grid.Column="4"
+                                       Style="{StaticResource BusinessRuleText}"
+                                       VerticalAlignment="Bottom"
+                                       Margin="0,0,0,6"
+                                       Text="Seules les factures émises et non encore payées entrent dans cette balance, et leur ancienneté est comptée depuis la date de facture. Le détail des mentions du serveur figure sous le tableau." />
+
+                            <Button Grid.Column="6"
+                                    x:Name="RefreshAgingButton"
+                                    Content="Actualiser"
+                                    Style="{StaticResource PrimaryButton}"
+                                    ToolTip="Recalculer la balance âgée à la date d'arrêté"
+                                    VerticalAlignment="Bottom"
+                                    Click="RefreshAgingButton_Click" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Tableau par client + totaux generaux -->
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <TextBlock x:Name="AgingCountTextBlock"
+                                           DockPanel.Dock="Right"
+                                           Text="Balance non chargée."
+                                           Style="{StaticResource CaptionText}"
+                                           VerticalAlignment="Center" />
+
+                                <StackPanel>
+                                    <TextBlock Text="Créances par client"
+                                               Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock x:Name="AgingAsOfTextBlock"
+                                               Text="Aucun arrêté chargé."
+                                               Style="{StaticResource CaptionText}"
+                                               Margin="0,3,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <Grid Grid.Row="2">
+                                <DataGrid x:Name="AgingDataGrid"
+                                          SelectionChanged="AgingDataGrid_SelectionChanged">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Client"
+                                                            Binding="{Binding CustomerLabel}"
+                                                            Width="*"
+                                                            MinWidth="200" />
+                                        <DataGridTextColumn Header="Factures"
+                                                            Binding="{Binding InvoiceCount}"
+                                                            Width="85"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Plus ancienne"
+                                                            Binding="{Binding OldestInvoiceDate, StringFormat={}{0:dd/MM/yyyy}}"
+                                                            Width="115"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                        <DataGridTextColumn Header="Ancienneté"
+                                                            Binding="{Binding OldestInvoiceAgeLabel}"
+                                                            Width="105"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Non échu"
+                                                            Binding="{Binding NotDue, StringFormat={}{0:N2}}"
+                                                            Width="115"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="1 à 30 j"
+                                                            Binding="{Binding Days1To30, StringFormat={}{0:N2}}"
+                                                            Width="115"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="31 à 60 j"
+                                                            Binding="{Binding Days31To60, StringFormat={}{0:N2}}"
+                                                            Width="115"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="61 à 90 j"
+                                                            Binding="{Binding Days61To90, StringFormat={}{0:N2}}"
+                                                            Width="115"
+                                                            ElementStyle="{StaticResource AgingWarningAmountText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Plus de 90 j"
+                                                            Binding="{Binding Over90, StringFormat={}{0:N2}}"
+                                                            Width="125"
+                                                            ElementStyle="{StaticResource AgingCriticalAmountText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Total dû"
+                                                            Binding="{Binding Total, StringFormat={}{0:N2}}"
+                                                            Width="135"
+                                                            ElementStyle="{StaticResource TotalCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <!-- Etat vide : superpose a la grille tant qu'elle est sans ligne. -->
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=AgingDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <Path Data="M3,1.5 H11 L13.5,4 V14.5 H3 Z M5.4,6.4 H11 M5.4,8.9 H11 M5.4,11.4 H9"
+                                          Stroke="{StaticResource BorderStrongBrush}"
+                                          StrokeThickness="1.5"
+                                          StrokeLineJoin="Round"
+                                          Width="42"
+                                          Height="44"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,10" />
+                                    <TextBlock x:Name="AgingEmptyTitleTextBlock"
+                                               Text="Aucune créance à cette date"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock x:Name="AgingEmptyHintTextBlock"
+                                               Text="Changez la date d'arrêté ou retirez le filtre client, puis actualisez."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Totaux generaux : memes tranches, meme ordre que les colonnes. -->
+                            <Border Grid.Row="4" Style="{StaticResource SubtleCardBorder}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" MinWidth="120" />
+                                        <ColumnDefinition Width="18" />
+                                        <ColumnDefinition Width="Auto" MinWidth="110" />
+                                        <ColumnDefinition Width="18" />
+                                        <ColumnDefinition Width="Auto" MinWidth="110" />
+                                        <ColumnDefinition Width="18" />
+                                        <ColumnDefinition Width="Auto" MinWidth="110" />
+                                        <ColumnDefinition Width="18" />
+                                        <ColumnDefinition Width="Auto" MinWidth="110" />
+                                        <ColumnDefinition Width="18" />
+                                        <ColumnDefinition Width="Auto" MinWidth="120" />
+                                        <ColumnDefinition Width="18" />
+                                        <ColumnDefinition Width="Auto" MinWidth="130" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Totaux généraux"
+                                                   Style="{StaticResource MetricLabelText}" />
+                                        <TextBlock x:Name="TotalsScopeTextBlock"
+                                                   Text="Tous les clients de l'arrêté affiché."
+                                                   Style="{StaticResource BusinessRuleText}"
+                                                   Margin="0,3,0,0" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Non échu" Style="{StaticResource TotalsCellLabelText}" />
+                                        <TextBlock x:Name="TotalNotDueTextBlock"
+                                                   Text="—"
+                                                   Style="{StaticResource TotalsCellValueText}" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Text="1 à 30 j" Style="{StaticResource TotalsCellLabelText}" />
+                                        <TextBlock x:Name="TotalDays1To30TextBlock"
+                                                   Text="—"
+                                                   Style="{StaticResource TotalsCellValueText}" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="6">
+                                        <TextBlock Text="31 à 60 j" Style="{StaticResource TotalsCellLabelText}" />
+                                        <TextBlock x:Name="TotalDays31To60TextBlock"
+                                                   Text="—"
+                                                   Style="{StaticResource TotalsCellValueText}" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="8">
+                                        <TextBlock Text="61 à 90 j" Style="{StaticResource TotalsCellLabelText}" />
+                                        <TextBlock x:Name="TotalDays61To90TextBlock"
+                                                   Text="—"
+                                                   Style="{StaticResource TotalsCellValueText}"
+                                                   Foreground="{StaticResource StatusSubmittedForegroundBrush}" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="10">
+                                        <TextBlock Text="Plus de 90 j" Style="{StaticResource TotalsCellLabelText}" />
+                                        <TextBlock x:Name="TotalOver90TextBlock"
+                                                   Text="—"
+                                                   Style="{StaticResource TotalsCellValueText}"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource StatusRejectedForegroundBrush}" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="12">
+                                        <TextBlock Text="Total dû" Style="{StaticResource TotalsCellLabelText}" />
+                                        <TextBlock x:Name="TotalDueTextBlock"
+                                                   Text="—"
+                                                   Style="{StaticResource TotalsCellValueText}"
+                                                   FontSize="16"
+                                                   Foreground="{StaticResource PrimaryBrush}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <!-- Perimetre et base de calcul : ce que ces chiffres comptent -->
+                    <Border Grid.Row="4" Style="{StaticResource SubtleCardBorder}">
+                        <StackPanel>
+                            <TextBlock Text="Ce que ces chiffres comptent"
+                                       Style="{StaticResource MetricLabelText}" />
+
+                            <!-- Lecture francaise des deux mentions que le serveur joint aux
+                                 chiffres. Le texte exact du serveur est affiche juste en
+                                 dessous : si l'un venait a changer sans l'autre, l'ecart
+                                 serait visible a l'ecran plutot que masque. -->
+                            <TextBlock Style="{StaticResource BusinessRuleText}"
+                                       Margin="0,8,0,0"
+                                       Text="Seules les factures ÉMISES et NON ENCORE PAYÉES sont comptées : ni brouillon (qui n'est pas une créance), ni facture payée (qui est soldée), ni facture annulée (qui ne porte plus de créance). Le montant retenu est le total TTC de la facture : le système n'enregistre aucun règlement partiel." />
+
+                            <TextBlock Style="{StaticResource BusinessRuleText}"
+                                       Margin="0,6,0,0"
+                                       Text="L'ancienneté est comptée depuis la DATE DE LA FACTURE, et non depuis une date d'échéance : la facture ne porte aucune échéance et le système ne connaît aucun délai de paiement. « Non échu » désigne donc une facture datée du jour de l'arrêté ou après." />
+
+                            <TextBlock Text="Mentions renvoyées par le serveur avec ces chiffres :"
+                                       Style="{StaticResource BusinessRuleText}"
+                                       Margin="0,12,0,0"
+                                       FontWeight="SemiBold" />
+
+                            <TextBlock x:Name="AgingScopeNoticeTextBlock"
+                                       Style="{StaticResource ServerNoticeText}"
+                                       Text="Elles s'afficheront ici après le premier chargement." />
+
+                            <TextBlock x:Name="AgingBasisNoticeTextBlock"
+                                       Style="{StaticResource ServerNoticeText}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ================================ Relances ================================ -->
+            <TabItem Header="Relances">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Le point qui ne doit preter a aucune ambiguite. -->
+                    <Border Style="{StaticResource WarningBanner}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource WarningBannerTitleText}"
+                                       Text="Le système n'envoie rien." />
+                            <TextBlock Style="{StaticResource WarningBannerText}"
+                                       Text="Aucun courriel, aucun SMS et aucun courrier ne part de cette application. Enregistrer une relance ne relance personne : cela consigne une action que vous avez DÉJÀ effectuée vous-même (appel, courriel, courrier, visite), avec sa date, son canal et son auteur. Cette trace est conservée dans le dossier du client et dans le journal d'audit." />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Consignation d'une relance deja effectuee -->
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="14" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Consigner une relance déjà effectuée"
+                                           Style="{StaticResource SectionTitleText}" />
+                                <TextBlock Text="La relance porte sur une facture émise et non encore payée. Un même niveau ne peut être consigné qu'une seule fois pour une même facture."
+                                           Style="{StaticResource SubtitleText}"
+                                           Margin="0,4,0,0" />
+                            </StackPanel>
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="220" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="200" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="190" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="170" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="N° de facture *" Style="{StaticResource LabelText}" />
+                                    <!-- Longueur alignee sur Reminder.InvoiceNumberMaxLength (30). -->
+                                    <TextBox x:Name="ReminderInvoiceNumberTextBox"
+                                             MaxLength="30"
+                                             Tag="ex. FAC-2026-000123"
+                                             ToolTip="Numéro définitif de la facture relancée (facture émise)" />
+                                    <TextBlock Text="Le numéro est enregistré en majuscules."
+                                               Style="{StaticResource FieldHintText}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Niveau *" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="ReminderLevelComboBox"
+                                              DisplayMemberPath="Label"
+                                              SelectedValuePath="Value"
+                                              ToolTip="Degré d'escalade de la relance effectuée"
+                                              SelectionChanged="ReminderLevelComboBox_SelectionChanged" />
+                                    <TextBlock x:Name="FormalNoticeHintTextBlock"
+                                               Text="Niveau le plus grave : une confirmation sera demandée."
+                                               Style="{StaticResource FieldHintText}"
+                                               Foreground="{StaticResource StatusRejectedForegroundBrush}"
+                                               Visibility="Collapsed" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Canal *" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="ReminderChannelComboBox"
+                                              DisplayMemberPath="Label"
+                                              SelectedValuePath="Value"
+                                              ToolTip="Moyen par lequel la relance a été effectuée" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6">
+                                    <TextBlock Text="Date de la relance *" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="ReminderSentAtPicker"
+                                                ToolTip="Jour où la relance a réellement été effectuée" />
+                                    <TextBlock Text="Jamais dans le futur."
+                                               Style="{StaticResource FieldHintText}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="8">
+                                    <TextBlock Text="Notes" Style="{StaticResource LabelText}" />
+                                    <!-- Longueur alignee sur Reminder.Notes (1000 caracteres). -->
+                                    <TextBox x:Name="ReminderNotesTextBox"
+                                             MaxLength="1000"
+                                             Tag="Interlocuteur, engagement obtenu, suite à donner"
+                                             ToolTip="Notes libres conservées avec la trace de la relance (1000 caractères au maximum)" />
+                                </StackPanel>
+                            </Grid>
+
+                            <StackPanel Grid.Row="4"
+                                        Orientation="Horizontal"
+                                        HorizontalAlignment="Right">
+                                <Button x:Name="ClearReminderFormButton"
+                                        Content="Vider le formulaire"
+                                        Style="{StaticResource GhostButton}"
+                                        ToolTip="Repartir d'un formulaire vierge"
+                                        Margin="0,0,10,0"
+                                        Click="ClearReminderFormButton_Click" />
+
+                                <!-- Seule ecriture du module : grisee sans receivables.write,
+                                     l'info-bulle expliquant alors pourquoi. -->
+                                <Button x:Name="RecordReminderButton"
+                                        Content="Consigner la relance"
+                                        Style="{StaticResource PrimaryButton}"
+                                        ToolTip="Enregistrer la trace de cette relance déjà effectuée"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        Click="RecordReminderButton_Click" />
+                            </StackPanel>
+
+                            <TextBlock Grid.Row="6"
+                                       Style="{StaticResource BusinessRuleText}"
+                                       Text="Enregistrer ne relance pas : cette action écrit une trace datée et signée de ce qui a déjà été fait." />
+                        </Grid>
+                    </Border>
+
+                    <!-- Historique filtrable -->
+                    <Border Grid.Row="4" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <TextBlock x:Name="ReminderCountTextBlock"
+                                           DockPanel.Dock="Right"
+                                           Text="Historique non chargé."
+                                           Style="{StaticResource CaptionText}"
+                                           VerticalAlignment="Center" />
+
+                                <TextBlock Text="Historique des relances consignées"
+                                           Style="{StaticResource SectionTitleText}" />
+                            </DockPanel>
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" MinWidth="220" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="190" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="200" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Client" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="ReminderCustomerFilterComboBox"
+                                              DisplayMemberPath="Label"
+                                              ToolTip="Limiter l'historique à un client" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Du" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="ReminderFromDatePicker"
+                                                ToolTip="Début de la période (date de la relance)" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Au" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="ReminderToDatePicker"
+                                                ToolTip="Fin de la période (date de la relance)" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6">
+                                    <TextBlock Text="Niveau" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="ReminderLevelFilterComboBox"
+                                              DisplayMemberPath="Label"
+                                              ToolTip="Limiter l'historique à un niveau d'escalade" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="8">
+                                    <TextBlock Text="N° de facture" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="ReminderInvoiceFilterTextBox"
+                                             MaxLength="30"
+                                             Tag="Facultatif"
+                                             ToolTip="Limiter l'historique aux relances d'une facture" />
+                                </StackPanel>
+
+                                <Button Grid.Column="10"
+                                        x:Name="RefreshRemindersButton"
+                                        Content="Actualiser"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Recharger l'historique des relances selon ces filtres"
+                                        VerticalAlignment="Bottom"
+                                        Click="RefreshRemindersButton_Click" />
+                            </Grid>
+
+                            <Grid Grid.Row="4">
+                                <DataGrid x:Name="RemindersDataGrid">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Date"
+                                                            Binding="{Binding SentAt, StringFormat={}{0:dd/MM/yyyy}}"
+                                                            Width="105" />
+                                        <DataGridTextColumn Header="Client"
+                                                            Binding="{Binding CustomerLabel}"
+                                                            Width="*"
+                                                            MinWidth="180" />
+                                        <DataGridTextColumn Header="N° de facture"
+                                                            Binding="{Binding InvoiceNumber}"
+                                                            Width="160" />
+                                        <DataGridTemplateColumn Header="Niveau" Width="150" SortMemberPath="Level">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border x:Name="LevelBadge"
+                                                            CornerRadius="10"
+                                                            Padding="10,3"
+                                                            HorizontalAlignment="Left"
+                                                            VerticalAlignment="Center"
+                                                            Background="{StaticResource StatusDraftBackgroundBrush}">
+                                                        <TextBlock x:Name="LevelBadgeText"
+                                                                   Text="{Binding LevelLabel}"
+                                                                   FontSize="11.5"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource StatusDraftForegroundBrush}" />
+                                                    </Border>
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding Level}" Value="Second">
+                                                            <Setter TargetName="LevelBadge" Property="Background" Value="{StaticResource StatusSubmittedBackgroundBrush}" />
+                                                            <Setter TargetName="LevelBadgeText" Property="Foreground" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Level}" Value="FormalNotice">
+                                                            <Setter TargetName="LevelBadge" Property="Background" Value="{StaticResource StatusRejectedBackgroundBrush}" />
+                                                            <Setter TargetName="LevelBadgeText" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                        </DataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Canal"
+                                                            Binding="{Binding ChannelLabel}"
+                                                            Width="120" />
+                                        <DataGridTextColumn Header="Notes"
+                                                            Binding="{Binding Notes}"
+                                                            Width="260"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                        <DataGridTextColumn Header="Consignée"
+                                                            Binding="{Binding RecordedLabel}"
+                                                            Width="230"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=RemindersDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <TextBlock Text="Aucune relance consignée pour ces critères"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Élargissez la période ou retirez les filtres, puis actualisez."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ============================== Risque client ============================== -->
+            <TabItem Header="Risque client">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="360" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Client" Style="{StaticResource LabelText}" />
+                                <ComboBox x:Name="RiskCustomerComboBox"
+                                          DisplayMemberPath="Label"
+                                          ToolTip="Client dont le risque est examiné" />
+                            </StackPanel>
+
+                            <TextBlock Grid.Column="2"
+                                       Style="{StaticResource BusinessRuleText}"
+                                       VerticalAlignment="Bottom"
+                                       Margin="0,0,0,6"
+                                       Text="Le risque est arrêté par le serveur à sa propre date du jour, et non à la date d'arrêté de la balance âgée. Il retient toutes les factures émises non payées du client, y compris celles datées après aujourd'hui." />
+
+                            <Button Grid.Column="4"
+                                    x:Name="RefreshRiskButton"
+                                    Content="Afficher le risque"
+                                    Style="{StaticResource PrimaryButton}"
+                                    ToolTip="Recalculer le risque du client sélectionné"
+                                    VerticalAlignment="Bottom"
+                                    Click="RefreshRiskButton_Click" />
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="2">
+                        <!-- Contenu du risque : masque tant qu'aucun client n'a ete affiche. -->
+                        <Border x:Name="RiskContentPanel"
+                                Style="{StaticResource CardBorder}"
+                                Visibility="Collapsed">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="14" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="14" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="14" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="14" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <DockPanel>
+                                        <Border x:Name="RiskCustomerStateBadge"
+                                                DockPanel.Dock="Right"
+                                                CornerRadius="10"
+                                                Padding="10,3"
+                                                VerticalAlignment="Center"
+                                                Background="{StaticResource StatusValidatedBackgroundBrush}">
+                                            <TextBlock x:Name="RiskCustomerStateBadgeText"
+                                                       Text="Actif"
+                                                       FontSize="11.5"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource StatusValidatedForegroundBrush}" />
+                                        </Border>
+
+                                        <StackPanel>
+                                            <TextBlock x:Name="RiskCustomerTextBlock"
+                                                       Text="—"
+                                                       Style="{StaticResource SectionTitleText}" />
+                                            <TextBlock x:Name="RiskAsOfTextBlock"
+                                                       Style="{StaticResource CaptionText}"
+                                                       Margin="0,3,0,0" />
+                                        </StackPanel>
+                                    </DockPanel>
+
+                                    <!-- Encours et facture la plus ancienne -->
+                                    <Grid Grid.Row="2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="14" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <Border Style="{StaticResource SubtleCardBorder}">
+                                            <StackPanel>
+                                                <TextBlock Text="Encours total" Style="{StaticResource RiskLabelText}" />
+                                                <TextBlock x:Name="RiskOutstandingTotalTextBlock"
+                                                           Text="—"
+                                                           Style="{StaticResource MetricValueText}"
+                                                           TextAlignment="Right"
+                                                           Foreground="{StaticResource PrimaryBrush}"
+                                                           Margin="0,0,0,10" />
+
+                                                <TextBlock Text="Factures émises non payées" Style="{StaticResource RiskLabelText}" />
+                                                <TextBlock x:Name="RiskOutstandingCountTextBlock"
+                                                           Text="—"
+                                                           Style="{StaticResource RiskValueText}"
+                                                           TextAlignment="Right" />
+
+                                                <TextBlock Text="Dont plus de 90 jours" Style="{StaticResource RiskLabelText}" />
+                                                <TextBlock x:Name="RiskOver90TextBlock"
+                                                           Text="—"
+                                                           Style="{StaticResource RiskValueText}"
+                                                           TextAlignment="Right"
+                                                           Foreground="{StaticResource StatusRejectedForegroundBrush}" />
+                                            </StackPanel>
+                                        </Border>
+
+                                        <Border Grid.Column="2" Style="{StaticResource SubtleCardBorder}">
+                                            <StackPanel>
+                                                <TextBlock Text="Facture la plus ancienne non payée"
+                                                           Style="{StaticResource RiskLabelText}" />
+                                                <TextBlock x:Name="RiskOldestInvoiceTextBlock"
+                                                           Text="—"
+                                                           Style="{StaticResource RiskValueText}" />
+
+                                                <TextBlock Text="Ancienneté" Style="{StaticResource RiskLabelText}" />
+                                                <TextBlock x:Name="RiskOldestAgeTextBlock"
+                                                           Text="—"
+                                                           Style="{StaticResource RiskValueText}" />
+
+                                                <TextBlock Text="Montant TTC de cette facture" Style="{StaticResource RiskLabelText}" />
+                                                <TextBlock x:Name="RiskOldestAmountTextBlock"
+                                                           Text="—"
+                                                           Style="{StaticResource RiskValueText}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- Tranches d'anciennete du client -->
+                                    <Border Grid.Row="4" Style="{StaticResource SubtleCardBorder}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="14" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="14" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="14" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="14" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel>
+                                                <TextBlock Text="Non échu" Style="{StaticResource TotalsCellLabelText}" />
+                                                <TextBlock x:Name="RiskNotDueTextBlock"
+                                                           Text="—"
+                                                           Style="{StaticResource TotalsCellValueText}" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="1 à 30 j" Style="{StaticResource TotalsCellLabelText}" />
+                                                <TextBlock x:Name="RiskDays1To30TextBlock"
+                                                           Text="—"
+                                                           Style="{StaticResource TotalsCellValueText}" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="4">
+                                                <TextBlock Text="31 à 60 j" Style="{StaticResource TotalsCellLabelText}" />
+                                                <TextBlock x:Name="RiskDays31To60TextBlock"
+                                                           Text="—"
+                                                           Style="{StaticResource TotalsCellValueText}" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="6">
+                                                <TextBlock Text="61 à 90 j" Style="{StaticResource TotalsCellLabelText}" />
+                                                <TextBlock x:Name="RiskDays61To90TextBlock"
+                                                           Text="—"
+                                                           Style="{StaticResource TotalsCellValueText}"
+                                                           Foreground="{StaticResource StatusSubmittedForegroundBrush}" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="8">
+                                                <TextBlock Text="Plus de 90 j" Style="{StaticResource TotalsCellLabelText}" />
+                                                <TextBlock x:Name="RiskBucketOver90TextBlock"
+                                                           Text="—"
+                                                           Style="{StaticResource TotalsCellValueText}"
+                                                           FontWeight="Bold"
+                                                           Foreground="{StaticResource StatusRejectedForegroundBrush}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Trace des relances -->
+                                    <Border Grid.Row="6" Style="{StaticResource SubtleCardBorder}">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="12" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="12" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+
+                                            <TextBlock Text="Relances consignées pour ce client"
+                                                       Style="{StaticResource MetricLabelText}" />
+
+                                            <Grid Grid.Row="2">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="14" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="14" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel>
+                                                    <TextBlock Text="Nombre de relances" Style="{StaticResource RiskLabelText}" />
+                                                    <TextBlock x:Name="RiskReminderCountTextBlock"
+                                                               Text="—"
+                                                               Style="{StaticResource RiskValueText}" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="Dernière relance consignée" Style="{StaticResource RiskLabelText}" />
+                                                    <TextBlock x:Name="RiskLastReminderTextBlock"
+                                                               Text="—"
+                                                               Style="{StaticResource RiskValueText}" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="4">
+                                                    <TextBlock Text="Niveau le plus élevé atteint" Style="{StaticResource RiskLabelText}" />
+                                                    <TextBlock x:Name="RiskHighestLevelTextBlock"
+                                                               Text="—"
+                                                               Style="{StaticResource RiskValueText}" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <TextBlock Grid.Row="4"
+                                                       Style="{StaticResource BusinessRuleText}"
+                                                       Text="Le niveau le plus élevé atteint n'est pas toujours celui de la dernière relance : une mise en demeure sur une facture n'est pas effacée par une première relance consignée plus tard sur une autre." />
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Perimetre et base de calcul, repris tels quels de la
+                                         reponse du serveur : le lecteur n'a pas a deviner ce
+                                         que l'encours compte ni depuis quand il vieillit. -->
+                                    <Border Grid.Row="8" Style="{StaticResource SubtleCardBorder}">
+                                        <StackPanel>
+                                            <TextBlock Text="Ce que ces chiffres comptent"
+                                                       Style="{StaticResource MetricLabelText}" />
+
+                                            <TextBlock Style="{StaticResource BusinessRuleText}"
+                                                       Margin="0,8,0,0"
+                                                       Text="Seules les factures émises et non encore payées sont comptées, pour leur total TTC, et leur ancienneté part de la date de facture (aucune échéance n'existe dans le système)." />
+
+                                            <TextBlock Text="Mentions renvoyées par le serveur avec ces chiffres :"
+                                                       Style="{StaticResource BusinessRuleText}"
+                                                       Margin="0,12,0,0"
+                                                       FontWeight="SemiBold" />
+
+                                            <TextBlock x:Name="RiskScopeNoticeTextBlock"
+                                                       Style="{StaticResource ServerNoticeText}" />
+
+                                            <TextBlock x:Name="RiskBasisNoticeTextBlock"
+                                                       Style="{StaticResource ServerNoticeText}" />
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                            </ScrollViewer>
+                        </Border>
+
+                        <StackPanel x:Name="RiskEmptyPanel"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    IsHitTestVisible="False">
+                            <TextBlock Text="Aucun client examiné"
+                                       Style="{StaticResource EmptyStateTitleText}" />
+                            <TextBlock Text="Choisissez un client ci-dessus, puis affichez son risque."
+                                       Style="{StaticResource EmptyStateHintText}" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

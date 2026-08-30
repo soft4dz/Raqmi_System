@@ -161,6 +161,10 @@ api.MapClosingEndpoints();
 api.MapTreasuryEndpoints();
 api.MapBillingEndpoints();
 api.MapSettingsEndpoints();
+api.MapAccountEndpoints();
+api.MapAccountingEndpoints();
+api.MapBudgetEndpoints();
+api.MapReceivablesEndpoints();
 
 app.Run();
 

@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using RaqmiSystem.Domain.Accounting;
 using RaqmiSystem.Domain.Audit;
 using RaqmiSystem.Domain.Billing;
+using RaqmiSystem.Domain.Budgeting;
 using RaqmiSystem.Domain.Closing;
 using RaqmiSystem.Domain.Identity;
 using RaqmiSystem.Domain.Organization;
+using RaqmiSystem.Domain.Receivables;
 using RaqmiSystem.Domain.Revenue;
 using RaqmiSystem.Domain.Settings;
 using RaqmiSystem.Domain.Treasury;
@@ -39,6 +42,20 @@ public sealed class RaqmiDbContext(DbContextOptions<RaqmiDbContext> options) : D
     public DbSet<Invoice> Invoices => Set<Invoice>();
 
     public DbSet<InvoiceLine> InvoiceLines => Set<InvoiceLine>();
+
+    public DbSet<ChartAccount> ChartAccounts => Set<ChartAccount>();
+
+    public DbSet<AccountingJournal> AccountingJournals => Set<AccountingJournal>();
+
+    public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+
+    public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
+
+    public DbSet<BudgetPlan> BudgetPlans => Set<BudgetPlan>();
+
+    public DbSet<BudgetLine> BudgetLines => Set<BudgetLine>();
+
+    public DbSet<Reminder> Reminders => Set<Reminder>();
 
     /// <summary>
     /// Singleton row holding the global configuration (see

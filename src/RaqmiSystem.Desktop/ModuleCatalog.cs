@@ -43,10 +43,10 @@ public static class ModuleCatalog
 {
     // Totaux attendus - garde de coherence verifiee au chargement du type.
     public const int ExpectedTotal = 49;
-    public const int ExpectedAvailable = 11;
+    public const int ExpectedAvailable = 14;
     public const int ExpectedApiReady = 0;
     public const int ExpectedPartial = 3;
-    public const int ExpectedPlanned = 35;
+    public const int ExpectedPlanned = 32;
 
     // Libelles affiches des groupes fonctionnels (ordre d'apparition).
     public static class Groups
@@ -86,7 +86,7 @@ public static class ModuleCatalog
     static ModuleCatalog()
     {
         // Garde de coherence : le tableau de verite du depot compte 49 modules,
-        // repartis en 11 Disponible / 0 API prete / 3 Partiel / 35 Planifie.
+        // repartis en 14 Disponible / 0 API prete / 3 Partiel / 32 Planifie.
         // Toute edition qui casse ces totaux doit etre volontaire et reportee ici.
         EnsureCount("total", Entries.Count, ExpectedTotal);
         EnsureCount("Disponible", CountOf(ModuleStatus.Disponible), ExpectedAvailable);
@@ -120,19 +120,19 @@ public static class ModuleCatalog
             "P1", ModuleStatus.Disponible, PermissionCatalog.TreasuryRead, 6),
         new ModuleCatalogEntry("5.2", Groups.Finance, "Comptabilité SCF",
             "Plan SCF, journaux, balance et lettrage",
-            "P1", ModuleStatus.Planifie),
+            "P1", ModuleStatus.Disponible, PermissionCatalog.AccountingRead, 11),
         new ModuleCatalogEntry("5.4", Groups.Finance, "Fiscalité DGI & SIFEC",
             "TVA, déclarations, liasse et lien SIFEC",
             "P2", ModuleStatus.Planifie),
         new ModuleCatalogEntry("6", Groups.Finance, "Budget & prévisions",
             "Objectifs, budgets mensuels et écarts",
-            "P1", ModuleStatus.Planifie),
+            "P1", ModuleStatus.Disponible, PermissionCatalog.BudgetRead, 12),
         new ModuleCatalogEntry("8", Groups.Finance, "Facturation",
             "Factures clients, avoirs et registre des ventes",
             "P1", ModuleStatus.Disponible, PermissionCatalog.InvoicesRead, 8),
         new ModuleCatalogEntry("9", Groups.Finance, "Créances & recouvrement",
             "Balance âgée, relances et risque client",
-            "P1", ModuleStatus.Planifie),
+            "P1", ModuleStatus.Disponible, PermissionCatalog.ReceivablesRead, 13),
         new ModuleCatalogEntry("9.2", Groups.Finance, "Clients",
             "Fichier clients et historique commercial",
             "P1", ModuleStatus.Disponible, PermissionCatalog.CustomersRead, 7),

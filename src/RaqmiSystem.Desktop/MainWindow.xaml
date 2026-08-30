@@ -60,6 +60,12 @@
                                FontSize="13"
                                VerticalAlignment="Center"
                                Margin="0,0,18,0" />
+                    <Button x:Name="ChangePasswordButton"
+                            Content="Changer mon mot de passe"
+                            Style="{StaticResource HeaderGhostButton}"
+                            ToolTip="Choisir un nouveau mot de passe pour ce compte. Toutes les autres sessions ouvertes seront fermées."
+                            Margin="0,0,10,0"
+                            Click="ChangePasswordButton_Click" />
                     <Button x:Name="LogoutButton"
                             Content="Déconnexion"
                             Style="{StaticResource HeaderGhostButton}"
@@ -472,6 +478,66 @@
                                           VerticalAlignment="Center"
                                           Margin="0,0,10,0" />
                                     <TextBlock Text="Facturation" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="ShowAccountingButton"
+                                    Style="{StaticResource ModuleNavButton}"
+                                    ToolTip="Plan comptable SCF, journaux, écritures et balance"
+                                    Click="ShowAccountingButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16"
+                                          Height="16"
+                                          Stretch="None"
+                                          StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Data="M2.6,1.8 H13.4 V14.2 H2.6 Z M2.6,5.2 H13.4 M6.2,5.2 V14.2 M9.8,5.2 V14.2"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0" />
+                                    <TextBlock Text="Comptabilité" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="ShowBudgetButton"
+                                    Style="{StaticResource ModuleNavButton}"
+                                    ToolTip="Budgets annuels, objectifs mensuels et écarts budget/réalisé"
+                                    Click="ShowBudgetButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16"
+                                          Height="16"
+                                          Stretch="None"
+                                          StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Data="M1.8,13.6 L6,8.4 L9.2,11 L14.2,3.4 M14.2,3.4 H10.6 M14.2,3.4 V7"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0" />
+                                    <TextBlock Text="Budget &amp; prévisions" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="ShowReceivablesButton"
+                                    Style="{StaticResource ModuleNavButton}"
+                                    ToolTip="Balance âgée, relances et risque client"
+                                    Click="ShowReceivablesButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16"
+                                          Height="16"
+                                          Stretch="None"
+                                          StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Data="M2.2,1.8 H9.6 L13.2,5.4 V9.4 M9.6,1.8 V5.4 H13.2 M2.2,1.8 V14.2 H7.4 M5,7.4 H10.4 M5,9.8 H7.8 M11.4,10 A3,3 0 1 1 11.39,10 M11.4,11.2 V13 L12.6,13.8"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0" />
+                                    <TextBlock Text="Créances &amp; recouvrement" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
 
@@ -1609,6 +1675,30 @@
                     <!-- ================ Administration & utilisateurs =============== -->
                     <TabItem x:Name="UsersTabItem" Header="Administration &amp; utilisateurs">
                         <views:UsersView x:Name="UsersView" />
+                    </TabItem>
+
+                    <!-- Les trois onglets ci-dessous sont ajoutes A LA FIN, apres
+                         l'administration, et non a cote des autres modules Finance :
+                         l'index d'un onglet est l'identite d'un module dans tout le
+                         code (sidebar, ModuleCatalog, chargement paresseux), donc
+                         inserer au milieu renumeroterait silencieusement les modules
+                         existants. L'ordre visible pour l'utilisateur est celui de la
+                         barre laterale, ou ces trois modules sont bien places parmi
+                         les modules d'exploitation. -->
+
+                    <!-- ======================= Comptabilité SCF ====================== -->
+                    <TabItem x:Name="AccountingTabItem" Header="Comptabilité SCF">
+                        <views:AccountingView x:Name="AccountingView" />
+                    </TabItem>
+
+                    <!-- ===================== Budget &amp; prévisions ==================== -->
+                    <TabItem x:Name="BudgetTabItem" Header="Budget &amp; prévisions">
+                        <views:BudgetView x:Name="BudgetView" />
+                    </TabItem>
+
+                    <!-- =================== Créances &amp; recouvrement ================== -->
+                    <TabItem x:Name="ReceivablesTabItem" Header="Créances &amp; recouvrement">
+                        <views:ReceivablesView x:Name="ReceivablesView" />
                     </TabItem>
                 </TabControl>
             </Grid>

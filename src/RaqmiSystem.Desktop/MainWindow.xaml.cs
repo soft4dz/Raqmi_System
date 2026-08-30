@@ -50,11 +50,11 @@ public partial class MainWindow : Window
     private Guid? currentUserId;
 
     // Onglets des vues de module (ClosingView, TreasuryView, CustomersView,
-    // InvoicesView, SettingsView, UsersView) deja charges depuis la connexion en
-    // cours. Ces six vues sont chargees paresseusement - a la premiere ouverture
-    // de leur onglet - pour ne pas declencher autant de series d'appels reseau
-    // inutiles a chaque connexion. Vide a la deconnexion : la session suivante
-    // repart de donnees fraiches.
+    // InvoicesView, SettingsView, UsersView, AccountingView, BudgetView,
+    // ReceivablesView) deja charges depuis la connexion en cours. Ces neuf vues sont
+    // chargees paresseusement - a la premiere ouverture de leur onglet - pour ne pas
+    // declencher autant de series d'appels reseau inutiles a chaque connexion. Vide
+    // a la deconnexion : la session suivante repart de donnees fraiches.
     private readonly HashSet<int> loadedModuleTabs = [];
 
     public MainWindow()
@@ -139,6 +139,7 @@ public partial class MainWindow : Window
                  {
                      ShowHomeButton, ShowUnitsButton, ShowRevenueButton, ShowDashboardButton, ShowAuditButton,
                      ShowClosingButton, ShowTreasuryButton, ShowCustomersButton, ShowInvoicesButton,
+                     ShowAccountingButton, ShowBudgetButton, ShowReceivablesButton,
                      ShowSettingsButton, ShowUsersButton
                  })
         {
@@ -193,6 +194,9 @@ public partial class MainWindow : Window
         ApplyModuleAccess(PermissionCatalog.InvoicesRead, ShowInvoicesButton, InvoicesTabItem);
         ApplyModuleAccess(PermissionCatalog.SettingsRead, ShowSettingsButton, SettingsTabItem);
         ApplyModuleAccess(PermissionCatalog.UsersRead, ShowUsersButton, UsersTabItem);
+        ApplyModuleAccess(PermissionCatalog.AccountingRead, ShowAccountingButton, AccountingTabItem);
+        ApplyModuleAccess(PermissionCatalog.BudgetRead, ShowBudgetButton, BudgetTabItem);
+        ApplyModuleAccess(PermissionCatalog.ReceivablesRead, ShowReceivablesButton, ReceivablesTabItem);
     }
 
     private void ApplyModuleAccess(string permission, Button navButton, TabItem tabItem)
@@ -334,7 +338,13 @@ public partial class MainWindow : Window
     // Ordre des onglets de MainTabs : 0=Accueil, 1=Unités hôtelières,
     // 2=Recettes journalières, 3=Tableau de bord, 4=Journal d'audit,
     // 5=Clôture journalière, 6=Trésorerie, 7=Clients, 8=Facturation,
-    // 9=Paramétrage global, 10=Administration & utilisateurs.
+    // 9=Paramétrage global, 10=Administration & utilisateurs,
+    // 11=Comptabilité SCF, 12=Budget & prévisions, 13=Créances & recouvrement.
+    //
+    // Cet ordre est celui des TabItem, pas celui de la barre latérale : l'index d'un
+    // onglet est l'identité d'un module dans tout le code (ModuleCatalog.TabIndex y
+    // compris), donc les nouveaux modules s'ajoutent à la fin. La barre latérale, elle,
+    // les présente à leur place métier, parmi les modules d'exploitation.
     private Button? SidebarButtonForTab(int tabIndex) => tabIndex switch
     {
         0 => ShowHomeButton,
@@ -348,6 +358,9 @@ public partial class MainWindow : Window
         8 => ShowInvoicesButton,
         9 => ShowSettingsButton,
         10 => ShowUsersButton,
+        11 => ShowAccountingButton,
+        12 => ShowBudgetButton,
+        13 => ShowReceivablesButton,
         _ => null
     };
 
@@ -420,6 +433,15 @@ public partial class MainWindow : Window
             case 10:
                 await UsersView.LoadAsync();
                 break;
+            case 11:
+                await AccountingView.LoadAsync();
+                break;
+            case 12:
+                await BudgetView.LoadAsync();
+                break;
+            case 13:
+                await ReceivablesView.LoadAsync();
+                break;
             default:
                 // Les onglets 0 a 4 vivent dans MainWindow et sont charges a la
                 // connexion : rien a faire, et rien a retenir non plus.
@@ -430,6 +452,11 @@ public partial class MainWindow : Window
 
     private async void LoginButton_Click(object sender, RoutedEventArgs e)
     {
+        // Releve pendant l'appel, exploite apres : ouvrir une fenetre modale depuis
+        // l'interieur de RunApiActionAsync le ferait pendant que le curseur d'attente
+        // est encore pose et que la fenetre principale n'a pas fini de basculer.
+        var mustChangePassword = false;
+
         await RunApiActionAsync(async () =>
         {
             if (string.IsNullOrWhiteSpace(UserNameTextBox.Text) || string.IsNullOrWhiteSpace(PasswordBox.Password))
@@ -446,6 +473,7 @@ public partial class MainWindow : Window
                 new LoginRequest(userName, password));
 
             CurrentUserTextBlock.Text = $"{login.User.DisplayName} - {login.User.UserName}";
+            mustChangePassword = login.User.MustChangePassword;
             PasswordBox.Password = string.Empty;
             DesktopSettings.Save(ApiBaseUrlTextBox.Text.Trim());
 
@@ -499,6 +527,73 @@ public partial class MainWindow : Window
 
             SetStatus("Données chargées.");
         });
+
+        // C'est ici que le drapeau MustChangePassword devient utile. Un administrateur
+        // le pose en remettant un mot de passe temporaire - qu'il a donc pu lire - et
+        // rien d'autre dans l'application ne vient jamais le lever : sans cette
+        // ouverture automatique, le compte resterait indefiniment sur un mot de passe
+        // connu d'un tiers.
+        if (mustChangePassword && apiClient.IsAuthenticated)
+        {
+            ShowChangePasswordDialog(isMandatory: true);
+        }
+    }
+
+    private void ChangePasswordButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!apiClient.IsAuthenticated)
+        {
+            SetStatus("Connectez-vous avant de changer votre mot de passe.", isError: true);
+            return;
+        }
+
+        ShowChangePasswordDialog(isMandatory: false);
+    }
+
+    /// <summary>
+    /// Ouvre la fenetre de changement de mot de passe et tire les consequences de son
+    /// resultat sur ce poste.
+    /// </summary>
+    /// <param name="isMandatory">
+    /// Vrai quand la connexion a signale que le mot de passe doit etre change : la
+    /// fenetre explique alors pourquoi, et un abandon laisse un rappel dans le bandeau
+    /// de session plutot que de passer sous silence un compte a regulariser.
+    /// </param>
+    private void ShowChangePasswordDialog(bool isMandatory)
+    {
+        var dialog = new ChangePasswordWindow(apiClient, ApiBaseUrlTextBox.Text, isMandatory)
+        {
+            Owner = this
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            if (isMandatory)
+            {
+                SetStatus(
+                    "Mot de passe temporaire toujours en place. Utilisez « Changer mon mot de passe » dans l'en-tête dès que possible.",
+                    isError: true);
+            }
+
+            return;
+        }
+
+        // Les identifiants memorises sur ce poste viennent de devenir faux : les
+        // garder pre-remplirait la prochaine connexion avec un mot de passe que le
+        // serveur refuse desormais, et quelques essais suffisent a verrouiller le
+        // compte. On les efface plutot que de laisser l'utilisateur decouvrir cela.
+        DesktopSettings.ClearCredentials();
+        RememberMeCheckBox.IsChecked = false;
+
+        // Le compte a le droit de savoir combien de sessions le changement a fermees :
+        // c'est la confirmation visible qu'un acces indesirable a bien ete ejecte.
+        SetStatus(dialog.RevokedSessionCount switch
+        {
+            0 => "Mot de passe changé. Aucune autre session n'était ouverte.",
+            1 => "Mot de passe changé. 1 autre session a été fermée.",
+            var count =>
+                $"Mot de passe changé. {count.ToString(CultureInfo.CurrentCulture)} sessions ont été fermées."
+        });
     }
 
     // Un seul contexte partage par les vues de module : le client API de la
@@ -520,6 +615,9 @@ public partial class MainWindow : Window
         InvoicesView.Initialize(context);
         SettingsView.Initialize(context);
         UsersView.Initialize(context);
+        AccountingView.Initialize(context);
+        BudgetView.Initialize(context);
+        ReceivablesView.Initialize(context);
 
         // Nouvelle session : aucune vue n'a encore charge ses donnees.
         loadedModuleTabs.Clear();
@@ -574,6 +672,9 @@ public partial class MainWindow : Window
         InvoicesView.ResetState();
         SettingsView.ResetState();
         UsersView.ResetState();
+        AccountingView.ResetState();
+        BudgetView.ResetState();
+        ReceivablesView.ResetState();
         loadedModuleTabs.Clear();
 
         ResetUnitForm();
@@ -674,6 +775,21 @@ public partial class MainWindow : Window
     private void ShowUsersButton_Click(object sender, RoutedEventArgs e)
     {
         NavigateToModule(10, ShowUsersButton);
+    }
+
+    private void ShowAccountingButton_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(11, ShowAccountingButton);
+    }
+
+    private void ShowBudgetButton_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(12, ShowBudgetButton);
+    }
+
+    private void ShowReceivablesButton_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(13, ShowReceivablesButton);
     }
 
     private async void CreateRevenueButton_Click(object sender, RoutedEventArgs e)
@@ -1251,6 +1367,7 @@ public partial class MainWindow : Window
         BusyProgressBar.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
         LoginBusyProgressBar.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
         LoginButton.IsEnabled = !isBusy;
+        ChangePasswordButton.IsEnabled = !isBusy;
         RefreshUnitsButton.IsEnabled = !isBusy;
         RefreshRevenueButton.IsEnabled = !isBusy;
         RefreshDashboardButton.IsEnabled = !isBusy;
@@ -1265,8 +1382,9 @@ public partial class MainWindow : Window
         RejectRevenueButton.IsEnabled = !isBusy;
 
         // Les vues de module (Cloture, Tresorerie, Clients, Facturation,
-        // Parametrage global, Administration et utilisateurs) portent
-        // leurs propres boutons, que cette methode ne peut pas enumerer un par un.
+        // Parametrage global, Administration et utilisateurs, Comptabilite, Budget,
+        // Creances) portent leurs propres boutons, que cette methode ne peut pas
+        // enumerer un par un.
         // Neutraliser tout le conteneur d'onglets pendant un appel en vol empeche
         // la double soumission (double clic = deux factures, deux encaissements,
         // deux cloctures) sans avoir a maintenir une liste de boutons par vue.

@@ -28,6 +28,14 @@ public static class PermissionCatalog
     public const string InvoicesIssue = "invoices.issue";
     public const string SettingsRead = "settings.read";
     public const string SettingsWrite = "settings.write";
+    public const string AccountingRead = "accounting.read";
+    public const string AccountingWrite = "accounting.write";
+    public const string AccountingPost = "accounting.post";
+    public const string BudgetRead = "budget.read";
+    public const string BudgetWrite = "budget.write";
+    public const string BudgetApprove = "budget.approve";
+    public const string ReceivablesRead = "receivables.read";
+    public const string ReceivablesWrite = "receivables.write";
 
     public static IReadOnlyCollection<PermissionDefinition> All { get; } = new[]
     {
@@ -56,6 +64,14 @@ public static class PermissionCatalog
         new PermissionDefinition(InvoicesWrite, "Gerer les factures", "finance", "Creer les brouillons de facture, modifier les lignes, encaisser et annuler."),
         new PermissionDefinition(InvoicesIssue, "Emettre les factures", "finance", "Emettre une facture et allouer son numero definitif."),
         new PermissionDefinition(SettingsRead, "Lire le parametrage global", "configuration", "Consulter l'identite de l'etablissement et les parametres d'exploitation."),
-        new PermissionDefinition(SettingsWrite, "Gerer le parametrage global", "configuration", "Modifier l'identite de l'etablissement et les parametres d'exploitation.")
+        new PermissionDefinition(SettingsWrite, "Gerer le parametrage global", "configuration", "Modifier l'identite de l'etablissement et les parametres d'exploitation."),
+        new PermissionDefinition(AccountingRead, "Lire la comptabilite", "finance", "Consulter le plan comptable, les journaux, les ecritures et la balance."),
+        new PermissionDefinition(AccountingWrite, "Saisir la comptabilite", "finance", "Creer et modifier le plan comptable, les journaux et les ecritures en brouillon."),
+        new PermissionDefinition(AccountingPost, "Comptabiliser les ecritures", "finance", "Comptabiliser une ecriture et enregistrer une ecriture d'extourne."),
+        new PermissionDefinition(BudgetRead, "Lire les budgets", "finance", "Consulter les budgets annuels et les ecarts budget/realise."),
+        new PermissionDefinition(BudgetWrite, "Gerer les budgets", "finance", "Creer et modifier les budgets annuels et leurs objectifs mensuels."),
+        new PermissionDefinition(BudgetApprove, "Approuver les budgets", "finance", "Approuver et cloturer un budget annuel."),
+        new PermissionDefinition(ReceivablesRead, "Lire les creances", "finance", "Consulter la balance agee, les relances et le risque client."),
+        new PermissionDefinition(ReceivablesWrite, "Enregistrer les relances", "finance", "Enregistrer la trace d'une relance client deja effectuee.")
     };
 }

@@ -23,6 +23,301 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("RaqmiSystem.Domain.Accounting.AccountingJournal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("label");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive")
+                        .HasDatabaseName("ix_journals_is_active");
+
+                    b.ToTable("journals", "accounting");
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Accounting.ChartAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AccountClass")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_class");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("label");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountClass")
+                        .HasDatabaseName("ix_chart_accounts_account_class");
+
+                    b.ToTable("chart_accounts", "accounting", t =>
+                        {
+                            t.HasCheckConstraint("ck_chart_accounts_account_class", "account_class BETWEEN 1 AND 7");
+
+                            t.HasCheckConstraint("ck_chart_accounts_kind", "kind IN ('Asset', 'Liability', 'Equity', 'Revenue', 'Expense')");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Accounting.JournalEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("cancellation_reason");
+
+                    b.Property<DateTimeOffset?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<string>("CancelledBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("cancelled_by");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateOnly>("EntryDate")
+                        .HasColumnType("date")
+                        .HasColumnName("entry_date");
+
+                    b.Property<string>("JournalCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("journal_code");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("label");
+
+                    b.Property<DateTimeOffset?>("PostedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("posted_at");
+
+                    b.Property<string>("PostedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("posted_by");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("reference");
+
+                    b.Property<DateTimeOffset?>("ReversedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reversed_at");
+
+                    b.Property<string>("ReversedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("reversed_by");
+
+                    b.Property<Guid?>("ReversedByEntryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reversed_by_entry_id");
+
+                    b.Property<Guid?>("ReversesEntryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reverses_entry_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<decimal>("TotalCredit")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("total_credit");
+
+                    b.Property<decimal>("TotalDebit")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("total_debit");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EntryDate")
+                        .HasDatabaseName("ix_journal_entries_entry_date");
+
+                    b.HasIndex("JournalCode")
+                        .HasDatabaseName("ix_journal_entries_journal_code");
+
+                    b.HasIndex("ReversesEntryId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_journal_entries_reverses_entry_id");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_journal_entries_status");
+
+                    b.ToTable("journal_entries", "accounting", t =>
+                        {
+                            t.HasCheckConstraint("ck_journal_entries_reverses_not_self", "reverses_entry_id IS NULL OR reverses_entry_id <> id");
+
+                            t.HasCheckConstraint("ck_journal_entries_status", "status IN ('Draft', 'Posted', 'Cancelled')");
+
+                            t.HasCheckConstraint("ck_journal_entries_totals_positive", "CAST(total_debit AS numeric) >= 0 AND CAST(total_credit AS numeric) >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Accounting.JournalEntryLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AccountCode")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("account_code");
+
+                    b.Property<decimal>("Credit")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("credit");
+
+                    b.Property<decimal>("Debit")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("debit");
+
+                    b.Property<Guid>("JournalEntryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("journal_entry_id");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("label");
+
+                    b.Property<int>("LineNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("line_number");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountCode")
+                        .HasDatabaseName("ix_journal_entry_lines_account_code");
+
+                    b.HasIndex("JournalEntryId")
+                        .HasDatabaseName("ix_journal_entry_lines_journal_entry_id");
+
+                    b.ToTable("journal_entry_lines", "accounting", t =>
+                        {
+                            t.HasCheckConstraint("ck_journal_entry_lines_debit_credit_exclusive", "CAST(debit AS numeric) >= 0 AND CAST(credit AS numeric) >= 0 AND (CAST(debit AS numeric) = 0) <> (CAST(credit AS numeric) = 0)");
+
+                            t.HasCheckConstraint("ck_journal_entry_lines_line_number_positive", "line_number >= 1");
+                        });
+                });
+
             modelBuilder.Entity("RaqmiSystem.Domain.Audit.AuditLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -428,6 +723,132 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                     b.ToTable("invoice_lines", "finance", t =>
                         {
                             t.HasCheckConstraint("ck_invoice_lines_line_number_positive", "line_number >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Budgeting.BudgetLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("AmountTarget")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("amount_target");
+
+                    b.Property<Guid>("BudgetPlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("budget_plan_id");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("category");
+
+                    b.Property<int>("Month")
+                        .HasColumnType("integer")
+                        .HasColumnName("month");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BudgetPlanId", "Month", "Category")
+                        .IsUnique()
+                        .HasDatabaseName("ux_budget_lines_plan_month_category");
+
+                    b.ToTable("budget_lines", "budgeting", t =>
+                        {
+                            t.HasCheckConstraint("ck_budget_lines_amount_target_non_negative", "CAST(amount_target AS numeric) >= 0");
+
+                            t.HasCheckConstraint("ck_budget_lines_category", "category IN ('Accommodation', 'Food', 'Beverage', 'Other')");
+
+                            t.HasCheckConstraint("ck_budget_lines_month", "month BETWEEN 1 AND 12");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Budgeting.BudgetPlan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("approved_at");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("approved_by");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<string>("ClosedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("closed_by");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("HotelUnitCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("hotel_unit_code");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("label");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer")
+                        .HasColumnName("year");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HotelUnitCode");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_budget_plans_status");
+
+                    b.HasIndex("Year", "HotelUnitCode")
+                        .IsUnique()
+                        .HasDatabaseName("ux_budget_plans_year_hotel_unit");
+
+                    b.ToTable("budget_plans", "budgeting", t =>
+                        {
+                            t.HasCheckConstraint("ck_budget_plans_status", "status IN ('Draft', 'Approved', 'Closed')");
+
+                            t.HasCheckConstraint("ck_budget_plans_year", "year BETWEEN 2000 AND 2999");
                         });
                 });
 
@@ -880,6 +1301,85 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_hotel_units_display_order_non_negative", "display_order >= 0");
 
                             t.HasCheckConstraint("ck_hotel_units_unit_type", "unit_type IN ('Hotel', 'Residence', 'BeachClub', 'Marina', 'Other')");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Receivables.Reminder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("channel");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("CustomerCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("customer_code");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("invoice_number");
+
+                    b.Property<string>("Level")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("level");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("notes");
+
+                    b.Property<DateOnly>("SentAt")
+                        .HasColumnType("date")
+                        .HasColumnName("sent_at");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerCode")
+                        .HasDatabaseName("ix_reminders_customer_code");
+
+                    b.HasIndex("SentAt")
+                        .HasDatabaseName("ix_reminders_sent_at");
+
+                    b.HasIndex("InvoiceNumber", "Level")
+                        .IsUnique()
+                        .HasDatabaseName("ux_reminders_invoice_number_level");
+
+                    b.ToTable("reminders", "finance", t =>
+                        {
+                            t.HasCheckConstraint("ck_reminders_channel", "channel IN ('Phone', 'Email', 'Letter', 'InPerson')");
+
+                            t.HasCheckConstraint("ck_reminders_level", "level IN ('First', 'Second', 'FormalNotice')");
                         });
                 });
 
@@ -1391,6 +1891,32 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("RaqmiSystem.Domain.Accounting.JournalEntry", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Accounting.AccountingJournal", null)
+                        .WithMany()
+                        .HasForeignKey("JournalCode")
+                        .HasPrincipalKey("Code")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Accounting.JournalEntryLine", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Accounting.ChartAccount", null)
+                        .WithMany()
+                        .HasForeignKey("AccountCode")
+                        .HasPrincipalKey("Code")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RaqmiSystem.Domain.Accounting.JournalEntry", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("JournalEntryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("RaqmiSystem.Domain.Billing.Invoice", b =>
                 {
                     b.HasOne("RaqmiSystem.Domain.Billing.Customer", null)
@@ -1414,6 +1940,25 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .WithMany("Lines")
                         .HasForeignKey("InvoiceId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Budgeting.BudgetLine", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Budgeting.BudgetPlan", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("BudgetPlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Budgeting.BudgetPlan", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Organization.HotelUnit", null)
+                        .WithMany()
+                        .HasForeignKey("HotelUnitCode")
+                        .HasPrincipalKey("Code")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 
@@ -1474,6 +2019,16 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("RaqmiSystem.Domain.Receivables.Reminder", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Billing.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerCode")
+                        .HasPrincipalKey("Code")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("RaqmiSystem.Domain.Revenue.DailyRevenue", b =>
                 {
                     b.HasOne("RaqmiSystem.Domain.Organization.HotelUnit", null)
@@ -1510,7 +2065,17 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("RaqmiSystem.Domain.Accounting.JournalEntry", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
             modelBuilder.Entity("RaqmiSystem.Domain.Billing.Invoice", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Budgeting.BudgetPlan", b =>
                 {
                     b.Navigation("Lines");
                 });

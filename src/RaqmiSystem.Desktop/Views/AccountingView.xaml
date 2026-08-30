@@ -1,0 +1,967 @@
+<UserControl x:Class="RaqmiSystem.Desktop.Views.AccountingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             FontFamily="{StaticResource AppFontFamily}"
+             Background="Transparent"
+             d:DesignWidth="1400"
+             d:DesignHeight="820">
+
+    <!-- =========================================================================
+         Comptabilite SCF.
+
+         Trois sections en onglets internes : le plan comptable (la nomenclature de
+         l'etablissement), les ecritures (brouillons, comptabilisation, extourne) et
+         la balance generale.
+
+         Deux regles du domaine gouvernent tout cet ecran, et l'interface les rend
+         visibles plutot que de les laisser decouvrir sur un refus du serveur :
+           - un compte ne se supprime pas, il se desactive ;
+           - une ecriture comptabilisee est immuable ; on la corrige par une
+             extourne, qui cree une ecriture inverse. Seul un brouillon s'abandonne.
+
+         Aucune ressource du theme n'est modifiee : les styles propres a cet ecran
+         sont declares ci-dessous.
+         ========================================================================= -->
+    <UserControl.Resources>
+
+        <!-- Onglets internes du module : le style implicite du theme supprime les
+             en-tetes d'onglet (le panneau lateral est l'unique navigation de
+             l'application), ce module a donc besoin de son propre gabarit. -->
+        <Style x:Key="SectionTabItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Grid SnapsToDevicePixels="True">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Border x:Name="tabBackground"
+                                    Background="Transparent"
+                                    CornerRadius="6,6,0,0"
+                                    Padding="18,9">
+                                <ContentPresenter ContentSource="Header"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
+                            </Border>
+
+                            <Rectangle x:Name="tabIndicator"
+                                       Grid.Row="1"
+                                       Height="2.5"
+                                       Fill="{StaticResource AccentBrush}"
+                                       Opacity="0" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="tabBackground" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="tabBackground" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="tabIndicator" Property="Opacity" Value="1" />
+                                <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SectionTabControl" TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource SectionTabItem}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border BorderBrush="{StaticResource PanelBorderBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <TabPanel IsItemsHost="True" HorizontalAlignment="Left" />
+                            </Border>
+
+                            <ContentPresenter Grid.Row="1"
+                                              Margin="0,16,0,0"
+                                              ContentSource="SelectedContent" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Rappel de regle metier affiche a l'ecran, sous le bloc concerne. -->
+        <Style x:Key="BusinessRuleText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- Ligne d'ecriture deja comptabilisee : grisee dans la grille de detail,
+             pour que l'immuabilite se voie avant d'etre subie. -->
+        <Style x:Key="PostedRowStyle" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsPosted}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Montant d'equilibre : rouge tant que debit et credit different. -->
+        <Style x:Key="BalanceValueText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextAlignment" Value="Right" />
+            <Setter Property="Margin" Value="0,3,0,0" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        </Style>
+
+        <Style x:Key="TotalsCellLabelText" TargetType="TextBlock" BasedOn="{StaticResource MetricLabelText}">
+            <Setter Property="TextAlignment" Value="Right" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- Cellule de saisie d'un montant dans la grille des lignes du brouillon. -->
+        <Style x:Key="LineAmountEditor" TargetType="TextBox" BasedOn="{StaticResource AmountTextBox}">
+            <Setter Property="Margin" Value="2,1" />
+            <Setter Property="MinHeight" Value="26" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============================ En-tete du module ============================ -->
+        <DockPanel>
+            <Button x:Name="RefreshAllButton"
+                    DockPanel.Dock="Right"
+                    Content="Tout actualiser"
+                    Style="{StaticResource SecondaryButton}"
+                    ToolTip="Recharger le plan comptable, les journaux et les écritures"
+                    VerticalAlignment="Center"
+                    Click="RefreshAllButton_Click" />
+
+            <StackPanel>
+                <TextBlock Text="Comptabilité SCF"
+                           Style="{StaticResource PageTitleText}" />
+                <TextBlock Text="Plan comptable, journaux, écritures et balance générale."
+                           Style="{StaticResource SubtitleText}"
+                           Margin="0,4,0,0" />
+            </StackPanel>
+        </DockPanel>
+
+        <TabControl x:Name="AccountingTabs"
+                    Grid.Row="2"
+                    Style="{StaticResource SectionTabControl}">
+
+            <!-- ============================== Plan comptable ============================== -->
+            <TabItem Header="Plan comptable">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" MinWidth="200" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="260" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Recherche" Style="{StaticResource LabelText}" />
+                                <TextBox x:Name="AccountSearchTextBox"
+                                         Tag="Code ou libellé"
+                                         ToolTip="Filtrer sur le code ou le libellé du compte"
+                                         KeyDown="AccountSearchTextBox_KeyDown" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Classe SCF" Style="{StaticResource LabelText}" />
+                                <ComboBox x:Name="AccountClassComboBox"
+                                          DisplayMemberPath="Label"
+                                          ToolTip="Limiter aux comptes d'une classe du plan SCF" />
+                            </StackPanel>
+
+                            <CheckBox x:Name="IncludeInactiveAccountsCheckBox"
+                                      Grid.Column="4"
+                                      Content="Inclure les comptes désactivés"
+                                      VerticalAlignment="Bottom"
+                                      Margin="0,0,0,7"
+                                      ToolTip="Un compte ne se supprime pas : il se désactive et reste visible ici" />
+
+                            <Button Grid.Column="6"
+                                    x:Name="RefreshAccountsButton"
+                                    Content="Actualiser"
+                                    Style="{StaticResource PrimaryButton}"
+                                    ToolTip="Recharger le plan comptable"
+                                    VerticalAlignment="Bottom"
+                                    Click="RefreshAccountsButton_Click" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Formulaire de compte : creation, ou correction du compte selectionne. -->
+                    <Border Grid.Row="2" Style="{StaticResource SubtleCardBorder}" Padding="16">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="10" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock x:Name="AccountFormTitleTextBlock"
+                                       Text="Nouveau compte"
+                                       Style="{StaticResource SectionTitleText}"
+                                       FontSize="14" />
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="*" MinWidth="200" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="180" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Code" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="AccountCodeTextBox" Tag="ex. 411000" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Libellé" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="AccountLabelTextBox" Tag="Intitulé du compte" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Nature" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="AccountKindComboBox" DisplayMemberPath="Label" />
+                                </StackPanel>
+
+                                <Button x:Name="NewAccountButton"
+                                        Grid.Column="6"
+                                        Content="Nouveau"
+                                        Style="{StaticResource GhostButton}"
+                                        ToolTip="Vider le formulaire pour créer un compte"
+                                        VerticalAlignment="Bottom"
+                                        Click="NewAccountButton_Click" />
+
+                                <Button x:Name="SaveAccountButton"
+                                        Grid.Column="8"
+                                        Content="Créer"
+                                        Style="{StaticResource PrimaryButton}"
+                                        ToolTip="Enregistrer le compte"
+                                        VerticalAlignment="Bottom"
+                                        Click="SaveAccountButton_Click" />
+
+                                <Button x:Name="ActivateAccountButton"
+                                        Grid.Column="10"
+                                        Content="Activer"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Réactiver le compte sélectionné"
+                                        VerticalAlignment="Bottom"
+                                        Click="ActivateAccountButton_Click" />
+
+                                <Button x:Name="DeactivateAccountButton"
+                                        Grid.Column="12"
+                                        Content="Désactiver"
+                                        Style="{StaticResource DangerButton}"
+                                        ToolTip="Désactiver le compte sélectionné : il reste dans les écritures déjà passées"
+                                        VerticalAlignment="Bottom"
+                                        Click="DeactivateAccountButton_Click" />
+                            </Grid>
+
+                            <TextBlock Grid.Row="3"
+                                       Style="{StaticResource BusinessRuleText}"
+                                       Margin="0,10,0,0"
+                                       Text="Le code d'un compte n'est jamais modifiable : il porte sa classe SCF et toutes les lignes déjà comptabilisées le référencent. Un compte devenu inutile se désactive." />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="4" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <TextBlock x:Name="AccountsCountTextBlock"
+                                           DockPanel.Dock="Right"
+                                           Text="Plan comptable non chargé."
+                                           Style="{StaticResource CaptionText}"
+                                           VerticalAlignment="Center" />
+
+                                <TextBlock Text="Comptes"
+                                           Style="{StaticResource SectionTitleText}" />
+                            </DockPanel>
+
+                            <Grid Grid.Row="2">
+                                <DataGrid x:Name="AccountsDataGrid"
+                                          IsReadOnly="True"
+                                          SelectionChanged="AccountsDataGrid_SelectionChanged">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="120" />
+                                        <DataGridTextColumn Header="Libellé" Binding="{Binding Label}" Width="*" MinWidth="220" />
+                                        <DataGridTextColumn Header="Classe" Binding="{Binding AccountClassLabel}" Width="220" />
+                                        <DataGridTextColumn Header="Nature" Binding="{Binding KindLabel}" Width="140" />
+                                        <DataGridCheckBoxColumn Header="Actif" Binding="{Binding IsActive}" Width="70" />
+                                        <DataGridTextColumn Header="Mis à jour par"
+                                                            Binding="{Binding UpdatedBy}"
+                                                            Width="160"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=AccountsDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <Path Data="M3,1.5 H11 L13.5,4 V14.5 H3 Z M5.4,6.4 H11 M5.4,8.9 H11 M5.4,11.4 H9"
+                                          Stroke="{StaticResource BorderStrongBrush}"
+                                          StrokeThickness="1.5"
+                                          StrokeLineJoin="Round"
+                                          Width="42"
+                                          Height="44"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,10" />
+                                    <TextBlock Text="Aucun compte à afficher"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Créez un premier compte, ou élargissez la recherche puis actualisez."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ================================= Ecritures ================================= -->
+            <TabItem Header="Écritures">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="520" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="460" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- ========================= Colonne gauche : liste ========================= -->
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Border Style="{StaticResource CardBorder}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="12" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="150" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="150" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="*" MinWidth="150" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="*" MinWidth="150" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel>
+                                        <TextBlock Text="Du" Style="{StaticResource LabelText}" />
+                                        <DatePicker x:Name="EntryFromDatePicker" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Au" Style="{StaticResource LabelText}" />
+                                        <DatePicker x:Name="EntryToDatePicker" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Text="Journal" Style="{StaticResource LabelText}" />
+                                        <ComboBox x:Name="EntryJournalComboBox" DisplayMemberPath="Label" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="6">
+                                        <TextBlock Text="Statut" Style="{StaticResource LabelText}" />
+                                        <ComboBox x:Name="EntryStatusComboBox" DisplayMemberPath="Label" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <Grid Grid.Row="2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" MinWidth="150" />
+                                        <ColumnDefinition Width="18" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel>
+                                        <TextBlock Text="Compte mouvementé" Style="{StaticResource LabelText}" />
+                                        <TextBox x:Name="EntryAccountTextBox"
+                                                 Tag="ex. 411000"
+                                                 ToolTip="Ne retenir que les écritures touchant ce compte"
+                                                 KeyDown="EntryAccountTextBox_KeyDown" />
+                                    </StackPanel>
+
+                                    <Button Grid.Column="2"
+                                            x:Name="RefreshEntriesButton"
+                                            Content="Actualiser"
+                                            Style="{StaticResource PrimaryButton}"
+                                            ToolTip="Recharger les écritures de la période"
+                                            VerticalAlignment="Bottom"
+                                            Click="RefreshEntriesButton_Click" />
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="12" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <DockPanel>
+                                    <TextBlock x:Name="EntriesCountTextBlock"
+                                               DockPanel.Dock="Right"
+                                               Text="Écritures non chargées."
+                                               Style="{StaticResource CaptionText}"
+                                               VerticalAlignment="Center" />
+
+                                    <TextBlock Text="Écritures"
+                                               Style="{StaticResource SectionTitleText}" />
+                                </DockPanel>
+
+                                <Grid Grid.Row="2">
+                                    <DataGrid x:Name="EntriesDataGrid"
+                                              IsReadOnly="True"
+                                              RowStyle="{StaticResource PostedRowStyle}"
+                                              SelectionChanged="EntriesDataGrid_SelectionChanged">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Date"
+                                                                Binding="{Binding EntryDate, StringFormat={}{0:dd/MM/yyyy}}"
+                                                                Width="105" />
+                                            <DataGridTextColumn Header="Journal" Binding="{Binding JournalCode}" Width="90" />
+                                            <DataGridTextColumn Header="Libellé" Binding="{Binding Label}" Width="*" MinWidth="180" />
+                                            <DataGridTextColumn Header="Référence"
+                                                                Binding="{Binding Reference}"
+                                                                Width="120"
+                                                                ElementStyle="{StaticResource MutedCellText}" />
+                                            <DataGridTextColumn Header="Statut" Binding="{Binding StatusLabel}" Width="130" />
+                                            <DataGridTextColumn Header="Débit"
+                                                                Binding="{Binding TotalDebit, StringFormat={}{0:N2}}"
+                                                                Width="120"
+                                                                ElementStyle="{StaticResource AmountCellText}"
+                                                                HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                            <DataGridTextColumn Header="Crédit"
+                                                                Binding="{Binding TotalCredit, StringFormat={}{0:N2}}"
+                                                                Width="120"
+                                                                ElementStyle="{StaticResource AmountCellText}"
+                                                                HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+
+                                    <StackPanel HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                IsHitTestVisible="False">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Items.Count, ElementName=EntriesDataGrid}" Value="0">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <Path Data="M3,1.5 H11 L13.5,4 V14.5 H3 Z M5.4,6.4 H11 M5.4,8.9 H11 M5.4,11.4 H9"
+                                              Stroke="{StaticResource BorderStrongBrush}"
+                                              StrokeThickness="1.5"
+                                              StrokeLineJoin="Round"
+                                              Width="42"
+                                              Height="44"
+                                              Stretch="Uniform"
+                                              HorizontalAlignment="Center"
+                                              Margin="0,0,0,10" />
+                                        <TextBlock Text="Aucune écriture sur cette période"
+                                                   Style="{StaticResource EmptyStateTitleText}" />
+                                        <TextBlock Text="Élargissez les dates ou retirez les filtres, puis actualisez."
+                                                   Style="{StaticResource EmptyStateHintText}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                        <!-- Detail de l'ecriture selectionnee + actions sur son statut. -->
+                        <Border Grid.Row="4" Style="{StaticResource CardBorder}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="10" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="12" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Écriture sélectionnée"
+                                               Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock x:Name="EntryDetailTextBlock"
+                                               Text="Sélectionnez une écriture pour en voir les lignes."
+                                               Style="{StaticResource BusinessRuleText}"
+                                               Margin="0,3,0,0" />
+                                </StackPanel>
+
+                                <DataGrid x:Name="EntryLinesDataGrid"
+                                          Grid.Row="2"
+                                          IsReadOnly="True"
+                                          MaxHeight="170"
+                                          HeadersVisibility="Column">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="N°" Binding="{Binding LineNumber}" Width="50" />
+                                        <DataGridTextColumn Header="Compte" Binding="{Binding AccountCode}" Width="110" />
+                                        <DataGridTextColumn Header="Libellé" Binding="{Binding Label}" Width="*" MinWidth="160" />
+                                        <DataGridTextColumn Header="Débit"
+                                                            Binding="{Binding Debit, StringFormat={}{0:N2}}"
+                                                            Width="120"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Crédit"
+                                                            Binding="{Binding Credit, StringFormat={}{0:N2}}"
+                                                            Width="120"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <Grid Grid.Row="4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" MinWidth="160" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel>
+                                        <TextBlock Text="Motif (abandon d'un brouillon)" Style="{StaticResource LabelText}" />
+                                        <TextBox x:Name="CancelEntryReasonTextBox"
+                                                 Tag="Pourquoi ce brouillon est abandonné"
+                                                 ToolTip="Obligatoire pour abandonner un brouillon ; sans objet sur une écriture comptabilisée" />
+                                    </StackPanel>
+
+                                    <Button x:Name="PostEntryButton"
+                                            Grid.Column="2"
+                                            Content="Comptabiliser"
+                                            Style="{StaticResource PrimaryButton}"
+                                            ToolTip="Comptabiliser le brouillon sélectionné : l'écriture devient immuable"
+                                            VerticalAlignment="Bottom"
+                                            Click="PostEntryButton_Click" />
+
+                                    <Button x:Name="ReverseEntryButton"
+                                            Grid.Column="4"
+                                            Content="Extourner"
+                                            Style="{StaticResource SecondaryButton}"
+                                            ToolTip="Créer l'écriture inverse d'une écriture comptabilisée"
+                                            VerticalAlignment="Bottom"
+                                            Click="ReverseEntryButton_Click" />
+
+                                    <Button x:Name="CancelEntryButton"
+                                            Grid.Column="6"
+                                            Content="Abandonner"
+                                            Style="{StaticResource DangerButton}"
+                                            ToolTip="Abandonner le brouillon sélectionné"
+                                            VerticalAlignment="Bottom"
+                                            Click="CancelEntryButton_Click" />
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!-- ==================== Colonne droite : nouveau brouillon ==================== -->
+                    <Border Grid.Column="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="10" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Nouvelle écriture (brouillon)"
+                                           Style="{StaticResource SectionTitleText}" />
+                                <TextBlock Text="Un brouillon a le droit d'être déséquilibré : c'est la comptabilisation qui exige l'équilibre."
+                                           Style="{StaticResource BusinessRuleText}"
+                                           Margin="0,3,0,0" />
+                            </StackPanel>
+
+                            <Grid Grid.Row="2">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="10" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Date" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="NewEntryDatePicker" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Journal" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="NewEntryJournalComboBox" DisplayMemberPath="Label" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="2">
+                                    <TextBlock Text="Libellé" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="NewEntryLabelTextBox" Tag="Objet de l'écriture" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="2" Grid.Column="2">
+                                    <TextBlock Text="Référence" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="NewEntryReferenceTextBox" Tag="Pièce (facultatif)" />
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Grid.Row="4"
+                                       Text="Lignes"
+                                       Style="{StaticResource MetricLabelText}"
+                                       VerticalAlignment="Top" />
+
+                            <DataGrid x:Name="NewEntryLinesDataGrid"
+                                      Grid.Row="4"
+                                      Margin="0,20,0,0"
+                                      AutoGenerateColumns="False"
+                                      CanUserAddRows="False"
+                                      CanUserDeleteRows="False"
+                                      HeadersVisibility="Column">
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="Compte" Width="100">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Text="{Binding AccountCode, UpdateSourceTrigger=PropertyChanged}"
+                                                         Margin="2,1"
+                                                         MinHeight="26" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Libellé" Width="*" MinWidth="110">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Text="{Binding Label, UpdateSourceTrigger=PropertyChanged}"
+                                                         Margin="2,1"
+                                                         MinHeight="26" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Débit" Width="105" HeaderStyle="{StaticResource RightAlignedColumnHeader}">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Text="{Binding DebitText, UpdateSourceTrigger=PropertyChanged}"
+                                                         Style="{StaticResource LineAmountEditor}" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Crédit" Width="105" HeaderStyle="{StaticResource RightAlignedColumnHeader}">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Text="{Binding CreditText, UpdateSourceTrigger=PropertyChanged}"
+                                                         Style="{StaticResource LineAmountEditor}" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <Grid Grid.Row="6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <Button x:Name="AddEntryLineButton"
+                                        Content="Ajouter une ligne"
+                                        Style="{StaticResource GhostButton}"
+                                        ToolTip="Ajouter une ligne vide au brouillon"
+                                        Click="AddEntryLineButton_Click" />
+
+                                <Button x:Name="RemoveEntryLineButton"
+                                        Grid.Column="2"
+                                        Content="Retirer la ligne"
+                                        Style="{StaticResource GhostButton}"
+                                        ToolTip="Retirer la ligne sélectionnée du brouillon"
+                                        Click="RemoveEntryLineButton_Click" />
+
+                                <TextBlock x:Name="NewEntryBalanceTextBlock"
+                                           Grid.Column="3"
+                                           Text="—"
+                                           Style="{StaticResource BalanceValueText}"
+                                           VerticalAlignment="Center"
+                                           Margin="12,0,0,0" />
+                            </Grid>
+
+                            <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button x:Name="ResetNewEntryButton"
+                                        Content="Vider"
+                                        Style="{StaticResource GhostButton}"
+                                        ToolTip="Repartir d'un brouillon vierge"
+                                        Margin="0,0,10,0"
+                                        Click="ResetNewEntryButton_Click" />
+                                <Button x:Name="CreateEntryButton"
+                                        Content="Créer le brouillon"
+                                        Style="{StaticResource PrimaryButton}"
+                                        ToolTip="Enregistrer cette écriture en brouillon"
+                                        Click="CreateEntryButton_Click" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ============================== Balance generale ============================== -->
+            <TabItem Header="Balance générale">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Du" Style="{StaticResource LabelText}" />
+                                <DatePicker x:Name="BalanceFromDatePicker" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Au" Style="{StaticResource LabelText}" />
+                                <DatePicker x:Name="BalanceToDatePicker" />
+                            </StackPanel>
+
+                            <TextBlock Grid.Column="4"
+                                       Style="{StaticResource BusinessRuleText}"
+                                       VerticalAlignment="Bottom"
+                                       Margin="0,0,0,6"
+                                       Text="Les deux bornes sont incluses et facultatives. Seules les écritures comptabilisées sont comptées : un brouillon n'entre jamais dans la balance." />
+
+                            <Button Grid.Column="6"
+                                    x:Name="RefreshBalanceButton"
+                                    Content="Actualiser"
+                                    Style="{StaticResource PrimaryButton}"
+                                    ToolTip="Recalculer la balance générale sur la période"
+                                    VerticalAlignment="Bottom"
+                                    Click="RefreshBalanceButton_Click" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <TextBlock x:Name="BalanceCountTextBlock"
+                                           DockPanel.Dock="Right"
+                                           Text="Balance non chargée."
+                                           Style="{StaticResource CaptionText}"
+                                           VerticalAlignment="Center" />
+
+                                <StackPanel>
+                                    <TextBlock Text="Balance par compte"
+                                               Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock x:Name="BalancePeriodTextBlock"
+                                               Text="Aucune période chargée."
+                                               Style="{StaticResource CaptionText}"
+                                               Margin="0,3,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <Grid Grid.Row="2">
+                                <DataGrid x:Name="TrialBalanceDataGrid" IsReadOnly="True">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Compte" Binding="{Binding AccountCode}" Width="120" />
+                                        <DataGridTextColumn Header="Libellé" Binding="{Binding AccountLabel}" Width="*" MinWidth="220" />
+                                        <DataGridTextColumn Header="Classe" Binding="{Binding AccountClassLabel}" Width="90" />
+                                        <DataGridTextColumn Header="Nature" Binding="{Binding KindLabel}" Width="130" />
+                                        <DataGridTextColumn Header="Débit"
+                                                            Binding="{Binding TotalDebit, StringFormat={}{0:N2}}"
+                                                            Width="140"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Crédit"
+                                                            Binding="{Binding TotalCredit, StringFormat={}{0:N2}}"
+                                                            Width="140"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Solde"
+                                                            Binding="{Binding Balance, StringFormat={}{0:N2}}"
+                                                            Width="150"
+                                                            ElementStyle="{StaticResource TotalCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=TrialBalanceDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <Path Data="M2.5,14 V9.5 M6.2,14 V4.5 M9.8,14 V7.5 M13.5,14 V2.5"
+                                          Stroke="{StaticResource BorderStrongBrush}"
+                                          StrokeThickness="2"
+                                          StrokeLineJoin="Round"
+                                          Width="44"
+                                          Height="42"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,10" />
+                                    <TextBlock Text="Aucun mouvement comptabilisé"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Élargissez la période, ou comptabilisez d'abord une écriture."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="4" Style="{StaticResource SubtleCardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" MinWidth="160" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="Auto" MinWidth="140" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="Auto" MinWidth="140" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="Auto" MinWidth="150" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Totaux de la période"
+                                           Style="{StaticResource MetricLabelText}" />
+                                <TextBlock x:Name="BalanceScopeTextBlock"
+                                           Text="Écritures comptabilisées uniquement."
+                                           Style="{StaticResource BusinessRuleText}"
+                                           Margin="0,3,0,0" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Total débit" Style="{StaticResource TotalsCellLabelText}" />
+                                <TextBlock x:Name="BalanceTotalDebitTextBlock"
+                                           Text="—"
+                                           Style="{StaticResource BalanceValueText}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="Total crédit" Style="{StaticResource TotalsCellLabelText}" />
+                                <TextBlock x:Name="BalanceTotalCreditTextBlock"
+                                           Text="—"
+                                           Style="{StaticResource BalanceValueText}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="6">
+                                <TextBlock Text="Écart débit / crédit" Style="{StaticResource TotalsCellLabelText}" />
+                                <TextBlock x:Name="BalanceDifferenceTextBlock"
+                                           Text="—"
+                                           Style="{StaticResource BalanceValueText}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

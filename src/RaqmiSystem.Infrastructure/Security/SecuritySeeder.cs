@@ -32,7 +32,13 @@ public sealed class SecuritySeeder(
             PermissionCatalog.TreasuryApprove,
             PermissionCatalog.CustomersRead,
             PermissionCatalog.InvoicesRead,
-            PermissionCatalog.SettingsRead
+            PermissionCatalog.SettingsRead,
+            PermissionCatalog.AccountingRead,
+            PermissionCatalog.BudgetRead,
+            // budget.approve is direction's alone: approving a budget is what freezes the year's
+            // targets for everyone else, so it stays with the role that answers for them.
+            PermissionCatalog.BudgetApprove,
+            PermissionCatalog.ReceivablesRead
         ],
         [RoleCatalog.ExploitationControl] =
         [
@@ -55,7 +61,14 @@ public sealed class SecuritySeeder(
             PermissionCatalog.InvoicesRead,
             PermissionCatalog.InvoicesWrite,
             PermissionCatalog.InvoicesIssue,
-            PermissionCatalog.SettingsRead
+            PermissionCatalog.SettingsRead,
+            PermissionCatalog.AccountingRead,
+            PermissionCatalog.AccountingWrite,
+            PermissionCatalog.AccountingPost,
+            PermissionCatalog.BudgetRead,
+            PermissionCatalog.BudgetWrite,
+            PermissionCatalog.ReceivablesRead,
+            PermissionCatalog.ReceivablesWrite
         ],
         [RoleCatalog.UnitManager] =
         [
@@ -70,7 +83,9 @@ public sealed class SecuritySeeder(
             PermissionCatalog.CustomersWrite,
             PermissionCatalog.InvoicesRead,
             PermissionCatalog.InvoicesWrite,
-            PermissionCatalog.SettingsRead
+            PermissionCatalog.SettingsRead,
+            PermissionCatalog.BudgetRead,
+            PermissionCatalog.BudgetWrite
         ],
         [RoleCatalog.Cashier] =
         [
@@ -88,7 +103,10 @@ public sealed class SecuritySeeder(
             PermissionCatalog.ClosingRead,
             PermissionCatalog.CustomersRead,
             PermissionCatalog.InvoicesRead,
-            PermissionCatalog.SettingsRead
+            PermissionCatalog.SettingsRead,
+            PermissionCatalog.AccountingRead,
+            PermissionCatalog.BudgetRead,
+            PermissionCatalog.ReceivablesRead
         ]
     };
 
