@@ -86,10 +86,28 @@ public interface ILodgingService
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Creates a Booked reservation. The nightly rate is resolved through the tariff module for
-    /// the arrival night (applying the customer's convention when one exists) and FROZEN into
-    /// the reservation; when the resolution fails the creation fails with the resolver's own
-    /// message. The anti-double-booking invariant is enforced atomically here.
+    /// The dates-first booking flow: every ACTIVE room of the unit whose type can host
+    /// <paramref name="guests"/> and that no blocking reservation overlaps over
+    /// [<paramref name="from"/>, <paramref name="to"/>), each priced night by night through the
+    /// tariff module (applying <paramref name="customerCode"/>'s convention when one exists).
+    /// A free room the tariff module cannot fully price stays listed with HasRate=false and the
+    /// resolver's message - a rate-coverage hole must be seen, not disguised as occupancy.
+    /// </summary>
+    Task<ApplicationResult<AvailabilityResponse>> GetAvailabilityAsync(
+        string hotelUnitCode,
+        DateOnly from,
+        DateOnly to,
+        int guests,
+        string? customerCode,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Creates a Booked reservation. The rate of EVERY night is resolved through the tariff
+    /// module (applying the customer's convention when one exists) and FROZEN into the
+    /// reservation - the arrival night as the flat snapshot, the full detail per night - so the
+    /// folio opened at check-in bills exactly what the availability search announced. When any
+    /// night's resolution fails the creation fails with the resolver's own message. The
+    /// anti-double-booking invariant is enforced atomically here.
     /// </summary>
     Task<ApplicationResult<ReservationResponse>> CreateReservationAsync(
         CreateReservationRequest request,
@@ -98,7 +116,7 @@ public interface ILodgingService
 
     /// <summary>
     /// Booked -> CheckedIn (on the arrival day or after). Opens the folio and generates one
-    /// Night line per night at the frozen nightly rate.
+    /// Night line per night at that night's frozen rate.
     /// </summary>
     Task<ApplicationResult<ReservationResponse>> CheckInAsync(
         Guid id,
@@ -149,5 +167,17 @@ public interface ILodgingService
         string hotelUnitCode,
         DateOnly from,
         DateOnly to,
+        CancellationToken cancellationToken);
+
+    // Front desk ---------------------------------------------------------------------------
+
+    /// <summary>
+    /// The counter screen of one unit for one business day: arrivals of the day, departures of
+    /// the day with folio balances, overdue arrivals (no-show candidates) and overdue
+    /// departures, the in-house count for the night and the day's occupancy.
+    /// </summary>
+    Task<ApplicationResult<FrontDeskResponse>> GetFrontDeskAsync(
+        string hotelUnitCode,
+        DateOnly date,
         CancellationToken cancellationToken);
 }

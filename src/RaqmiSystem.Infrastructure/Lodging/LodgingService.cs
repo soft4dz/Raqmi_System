@@ -8,6 +8,8 @@ using RaqmiSystem.Domain.Lodging;
 using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Infrastructure.Persistence;
 using System.Data;
+using System.Globalization;
+using System.Linq.Expressions;
 using System.Text.Json;
 
 namespace RaqmiSystem.Infrastructure.Lodging;
@@ -54,6 +56,30 @@ public sealed class LodgingService(
     /// into an arbitrary amount of work.
     /// </summary>
     private const int MaxOccupancyWindowDays = 366;
+
+    /// <summary>
+    /// An availability search resolves one tariff per room type and per night; a window longer
+    /// than a season is not a booking search anymore, it is a batch job.
+    /// </summary>
+    private const int MaxAvailabilityWindowNights = 92;
+
+    /// <summary>
+    /// THE overlap rule of the anti-double-booking invariant as a database-translatable
+    /// expression, in ONE place: a reservation blocks its room over [arrivalDate, departureDate)
+    /// when it is neither Cancelled nor NoShow (<see cref="Reservation.IsBlocking"/>) and its
+    /// own half-open period overlaps it (<see cref="Reservation.PeriodsOverlap"/>). The creation
+    /// guard and the availability search filter through this same expression - they can never
+    /// drift apart and disagree on whether a room is free.
+    /// </summary>
+    private static Expression<Func<Reservation, bool>> BlocksPeriod(
+        DateOnly arrivalDate,
+        DateOnly departureDate)
+    {
+        return reservation => reservation.Status != ReservationStatus.Cancelled
+            && reservation.Status != ReservationStatus.NoShow
+            && reservation.ArrivalDate < departureDate
+            && reservation.DepartureDate > arrivalDate;
+    }
 
     // Room types -----------------------------------------------------------------------------
 
@@ -592,22 +618,34 @@ public sealed class LodgingService(
                 "Reservations cannot be taken for an inactive customer.");
         }
 
-        // The nightly rate is resolved ONCE, for the arrival night, and frozen into the
-        // reservation (same snapshot discipline as the issuer identity of issued invoices).
-        // A failed resolution fails the creation with the resolver's own message - a booking
-        // without a price is not a booking.
-        var rateResult = await tariffResolutionService.ResolveAsync(
-            unitFailure.UnitCode,
-            room.RoomTypeCode,
-            request.ArrivalDate,
-            normalizedCustomerCode,
-            cancellationToken);
+        // The rate of EVERY night is resolved and frozen into the reservation (same snapshot
+        // discipline as the issuer identity of issued invoices): the arrival night doubles as
+        // the flat snapshot, and the per-night detail is what the folio bills at check-in - so
+        // a stay crossing two rate periods is billed exactly what the availability search
+        // announced, not the arrival rate flattened over every night. Any failed resolution
+        // fails the creation with the resolver's own message - a booking with an unpriced
+        // night is not a booking.
+        var nightlyRates = new List<ReservationNightRate>();
+        ResolvedNightlyRate? arrivalRate = null;
 
-        if (!rateResult.Succeeded || rateResult.Value is null)
+        for (var night = request.ArrivalDate; night < request.DepartureDate; night = night.AddDays(1))
         {
-            return MirrorFailure<ResolvedNightlyRate, ReservationResponse>(
-                rateResult,
-                "The nightly rate could not be resolved.");
+            var rateResult = await tariffResolutionService.ResolveAsync(
+                unitFailure.UnitCode,
+                room.RoomTypeCode,
+                night,
+                normalizedCustomerCode,
+                cancellationToken);
+
+            if (!rateResult.Succeeded || rateResult.Value is null)
+            {
+                return MirrorFailure<ResolvedNightlyRate, ReservationResponse>(
+                    rateResult,
+                    "The nightly rate could not be resolved.");
+            }
+
+            arrivalRate ??= rateResult.Value;
+            nightlyRates.Add(new ReservationNightRate(night, rateResult.Value.Amount, rateResult.Value.RatePlanCode));
         }
 
         // ANTI-DOUBLE-BOOKING GUARD. The overlap check must run INSIDE a Serializable
@@ -622,13 +660,9 @@ public sealed class LodgingService(
                 cancellationToken);
 
             var overlapping = await dbContext.Set<Reservation>()
-                .AnyAsync(
-                    current => current.RoomId == room.Id
-                        && current.Status != ReservationStatus.Cancelled
-                        && current.Status != ReservationStatus.NoShow
-                        && current.ArrivalDate < request.DepartureDate
-                        && current.DepartureDate > request.ArrivalDate,
-                    cancellationToken);
+                .Where(current => current.RoomId == room.Id)
+                .Where(BlocksPeriod(request.ArrivalDate, request.DepartureDate))
+                .AnyAsync(cancellationToken);
 
             if (overlapping)
             {
@@ -646,8 +680,10 @@ public sealed class LodgingService(
                     request.ArrivalDate,
                     request.DepartureDate,
                     request.GuestCount,
-                    rateResult.Value.Amount,
-                    rateResult.Value.RatePlanCode);
+                    arrivalRate!.Amount,
+                    arrivalRate.RatePlanCode);
+
+                reservation.FreezeNightlyRates(nightlyRates);
             }
             catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
             {
@@ -672,7 +708,8 @@ public sealed class LodgingService(
                     reservation.DepartureDate,
                     reservation.GuestCount,
                     reservation.NightlyRateSnapshot,
-                    reservation.RatePlanCodeSnapshot
+                    reservation.RatePlanCodeSnapshot,
+                    reservation.TotalStayAmount
                 },
                 cancellationToken);
 
@@ -735,16 +772,24 @@ public sealed class LodgingService(
                 return ApplicationResult<ReservationResponse>.Validation(ex.Message);
             }
 
-            // The folio opens with one Night line per night of the stay, at the rate frozen at
-            // booking time - never re-resolved here.
+            // The folio opens with one Night line per night of the stay, each at THAT night's
+            // rate frozen at booking time (never re-resolved here): the guest is billed exactly
+            // what the availability search announced, even across a rate-period boundary. A
+            // zero-rate night (e.g. a 100% convention discount) produces no line - a folio line
+            // cannot carry a zero amount, and a free night has nothing to bill.
             var folio = new Folio(reservation.Id);
 
-            for (var night = reservation.ArrivalDate; night < reservation.DepartureDate; night = night.AddDays(1))
+            foreach (var nightRate in reservation.GetNightlyRates())
             {
+                if (nightRate.Amount == 0)
+                {
+                    continue;
+                }
+
                 folio.AddCharge(new FolioCharge(
-                    night,
-                    $"Night of {night:yyyy-MM-dd}",
-                    reservation.NightlyRateSnapshot,
+                    nightRate.Night,
+                    $"Night of {nightRate.Night:yyyy-MM-dd}",
+                    nightRate.Amount,
                     ChargeKind.Night));
             }
 
@@ -764,7 +809,8 @@ public sealed class LodgingService(
                     reservation.RoomId,
                     FolioId = folio.Id,
                     NightCount = reservation.Nights,
-                    reservation.NightlyRateSnapshot
+                    reservation.NightlyRateSnapshot,
+                    FolioTotal = folio.Balance
                 },
                 cancellationToken);
 
@@ -1099,6 +1145,293 @@ public sealed class LodgingService(
 
         return ApplicationResult<OccupancyResponse>.Success(
             new OccupancyResponse(normalizedUnitCode, from, to, days));
+    }
+
+    // Availability ---------------------------------------------------------------------------
+
+    public async Task<ApplicationResult<AvailabilityResponse>> GetAvailabilityAsync(
+        string hotelUnitCode,
+        DateOnly from,
+        DateOnly to,
+        int guests,
+        string? customerCode,
+        CancellationToken cancellationToken)
+    {
+        if (to <= from)
+        {
+            return ApplicationResult<AvailabilityResponse>.Validation(
+                "The to date must be after the from date (an availability search covers at least one night).");
+        }
+
+        var nights = to.DayNumber - from.DayNumber;
+
+        if (nights > MaxAvailabilityWindowNights)
+        {
+            return ApplicationResult<AvailabilityResponse>.Validation(
+                $"The availability window cannot exceed {MaxAvailabilityWindowNights} nights.");
+        }
+
+        if (guests <= 0)
+        {
+            return ApplicationResult<AvailabilityResponse>.Validation("Guest count must be strictly positive.");
+        }
+
+        var normalizedUnitCode = NormalizeCodeOrEmpty(hotelUnitCode);
+
+        var unitExists = await dbContext.Set<HotelUnit>()
+            .AsNoTracking()
+            .AnyAsync(current => current.Code == normalizedUnitCode, cancellationToken);
+
+        if (!unitExists)
+        {
+            return ApplicationResult<AvailabilityResponse>.NotFound("Hotel unit was not found.");
+        }
+
+        // Same customer discipline as the creation the search leads to: quoting convention
+        // rates for a customer who cannot book would announce prices no reservation can honor.
+        var normalizedCustomerCode = NormalizeNullableCode(customerCode);
+
+        if (normalizedCustomerCode is not null)
+        {
+            var customer = await dbContext.Set<Customer>()
+                .AsNoTracking()
+                .SingleOrDefaultAsync(current => current.Code == normalizedCustomerCode, cancellationToken);
+
+            if (customer is null)
+            {
+                return ApplicationResult<AvailabilityResponse>.NotFound("Customer was not found.");
+            }
+
+            if (!customer.IsActive)
+            {
+                return ApplicationResult<AvailabilityResponse>.Validation(
+                    "Reservations cannot be taken for an inactive customer.");
+            }
+        }
+
+        // Candidate rooms: ACTIVE, of a type whose capacity can host the party. Mirrors what
+        // the creation checks (active room, capacity cap) - a listed room must be bookable
+        // as-is once it prices.
+        var candidateRooms = await (
+            from room in dbContext.Set<Room>().AsNoTracking()
+            where room.HotelUnitCode == normalizedUnitCode && room.IsActive
+            join roomType in dbContext.Set<RoomType>().AsNoTracking()
+                on new { Unit = room.HotelUnitCode, Code = room.RoomTypeCode }
+                equals new { Unit = roomType.HotelUnitCode, Code = roomType.Code }
+            where roomType.Capacity >= guests
+            orderby room.Number
+            select new
+            {
+                room.Id,
+                room.Number,
+                RoomTypeCode = roomType.Code,
+                RoomTypeLabel = roomType.Label,
+                roomType.Capacity
+            })
+            .ToArrayAsync(cancellationToken);
+
+        // Rooms taken over the period, through the SAME overlap expression as the creation
+        // guard: what this search calls free is exactly what a creation would accept (up to the
+        // race the creation's Serializable transaction then settles).
+        var occupiedRoomIds = (await dbContext.Set<Reservation>()
+            .AsNoTracking()
+            .Where(reservation => reservation.HotelUnitCode == normalizedUnitCode)
+            .Where(BlocksPeriod(from, to))
+            .Select(reservation => reservation.RoomId)
+            .Distinct()
+            .ToArrayAsync(cancellationToken))
+            .ToHashSet();
+
+        // One resolution per (room type, night), shared by every room of the type: pricing is
+        // a function of the type, not of the individual room.
+        var rateCache = new Dictionary<(string RoomTypeCode, DateOnly Night), ApplicationResult<ResolvedNightlyRate>>();
+        var rooms = new List<AvailableRoomResponse>();
+
+        foreach (var candidate in candidateRooms)
+        {
+            if (occupiedRoomIds.Contains(candidate.Id))
+            {
+                continue;
+            }
+
+            var nightRates = new List<AvailableNightRateResponse>(nights);
+            ResolvedNightlyRate? arrivalRate = null;
+            string? rateIssue = null;
+
+            for (var night = from; night < to; night = night.AddDays(1))
+            {
+                if (!rateCache.TryGetValue((candidate.RoomTypeCode, night), out var rateResult))
+                {
+                    rateResult = await tariffResolutionService.ResolveAsync(
+                        normalizedUnitCode,
+                        candidate.RoomTypeCode,
+                        night,
+                        normalizedCustomerCode,
+                        cancellationToken);
+
+                    rateCache[(candidate.RoomTypeCode, night)] = rateResult;
+                }
+
+                if (!rateResult.Succeeded || rateResult.Value is null)
+                {
+                    // A free room the tariff module cannot price stays LISTED, flagged with the
+                    // resolver's own message: the operator must see the rate-coverage hole, not
+                    // a room silently missing from the search.
+                    rateIssue =
+                        $"Night of {night.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}: " +
+                        (rateResult.Error ?? "the nightly rate could not be resolved.");
+                    break;
+                }
+
+                arrivalRate ??= rateResult.Value;
+                nightRates.Add(new AvailableNightRateResponse(night, rateResult.Value.Amount, rateResult.Value.RatePlanCode));
+            }
+
+            var hasRate = rateIssue is null;
+
+            rooms.Add(new AvailableRoomResponse(
+                candidate.Id,
+                candidate.Number,
+                candidate.RoomTypeCode,
+                candidate.RoomTypeLabel,
+                candidate.Capacity,
+                hasRate,
+                rateIssue,
+                arrivalRate?.RatePlanCode,
+                arrivalRate?.ConventionCustomerCode,
+                arrivalRate?.DiscountPercent,
+                hasRate ? nightRates.Sum(rate => rate.Amount) : null,
+                nightRates));
+        }
+
+        return ApplicationResult<AvailabilityResponse>.Success(
+            new AvailabilityResponse(normalizedUnitCode, from, to, nights, guests, rooms));
+    }
+
+    // Front desk -----------------------------------------------------------------------------
+
+    public async Task<ApplicationResult<FrontDeskResponse>> GetFrontDeskAsync(
+        string hotelUnitCode,
+        DateOnly date,
+        CancellationToken cancellationToken)
+    {
+        var normalizedUnitCode = NormalizeCodeOrEmpty(hotelUnitCode);
+
+        var unitExists = await dbContext.Set<HotelUnit>()
+            .AsNoTracking()
+            .AnyAsync(current => current.Code == normalizedUnitCode, cancellationToken);
+
+        if (!unitExists)
+        {
+            return ApplicationResult<FrontDeskResponse>.NotFound("Hotel unit was not found.");
+        }
+
+        // Booked stays whose arrival date is reached or past: today's arrivals plus the overdue
+        // ones (no-show candidates the receptionist must deal with first).
+        var expectedArrivals = await dbContext.Set<Reservation>()
+            .AsNoTracking()
+            .Where(reservation => reservation.HotelUnitCode == normalizedUnitCode
+                && reservation.Status == ReservationStatus.Booked
+                && reservation.ArrivalDate <= date)
+            .OrderBy(reservation => reservation.ArrivalDate)
+            .ThenBy(reservation => reservation.CustomerCode)
+            .ToArrayAsync(cancellationToken);
+
+        // Every in-house stay: today's departures, the overdue ones, and the in-house count.
+        var inHouseReservations = await dbContext.Set<Reservation>()
+            .AsNoTracking()
+            .Where(reservation => reservation.HotelUnitCode == normalizedUnitCode
+                && reservation.Status == ReservationStatus.CheckedIn)
+            .OrderBy(reservation => reservation.DepartureDate)
+            .ThenBy(reservation => reservation.CustomerCode)
+            .ToArrayAsync(cancellationToken);
+
+        var arrivals = expectedArrivals.Where(reservation => reservation.ArrivalDate == date).ToArray();
+        var overdueArrivals = expectedArrivals.Where(reservation => reservation.ArrivalDate < date).ToArray();
+        var departures = inHouseReservations.Where(reservation => reservation.DepartureDate == date).ToArray();
+        var overdueDepartures = inHouseReservations.Where(reservation => reservation.DepartureDate < date).ToArray();
+        var inHouseCount = inHouseReservations.Count(reservation => reservation.CoversNight(date));
+
+        // The departure lists carry the folio balance: who still has to pay before leaving.
+        var departureIds = departures.Concat(overdueDepartures)
+            .Select(reservation => reservation.Id)
+            .ToArray();
+
+        var folioBalances = departureIds.Length == 0
+            ? new Dictionary<Guid, decimal>()
+            : (await dbContext.Set<Folio>()
+                .AsNoTracking()
+                .Include(folio => folio.Charges)
+                .Where(folio => departureIds.Contains(folio.ReservationId))
+                .ToArrayAsync(cancellationToken))
+                .ToDictionary(folio => folio.ReservationId, folio => folio.Balance);
+
+        var allListed = arrivals.Concat(overdueArrivals).Concat(departures).Concat(overdueDepartures).ToArray();
+
+        var roomNumbers = await LoadRoomNumbersAsync(
+            allListed.Select(reservation => reservation.RoomId).Distinct().ToArray(),
+            cancellationToken);
+
+        var customerCodes = allListed.Select(reservation => reservation.CustomerCode).Distinct().ToArray();
+
+        var customerNames = customerCodes.Length == 0
+            ? new Dictionary<string, string>()
+            : await dbContext.Set<Customer>()
+                .AsNoTracking()
+                .Where(customer => customerCodes.Contains(customer.Code))
+                .ToDictionaryAsync(customer => customer.Code, customer => customer.Name, cancellationToken);
+
+        // The day's occupancy reuses the exact occupancy logic - one figure, one definition.
+        var occupancyResult = await GetOccupancyAsync(normalizedUnitCode, date, date, cancellationToken);
+
+        if (!occupancyResult.Succeeded || occupancyResult.Value is null)
+        {
+            return MirrorFailure<OccupancyResponse, FrontDeskResponse>(
+                occupancyResult,
+                "The day's occupancy could not be computed.");
+        }
+
+        FrontDeskArrivalResponse MapArrival(Reservation reservation)
+        {
+            return new FrontDeskArrivalResponse(
+                reservation.Id,
+                reservation.CustomerCode,
+                customerNames.GetValueOrDefault(reservation.CustomerCode),
+                reservation.RoomId,
+                roomNumbers.GetValueOrDefault(reservation.RoomId),
+                reservation.ArrivalDate,
+                reservation.DepartureDate,
+                reservation.Nights,
+                reservation.GuestCount,
+                reservation.NightlyRateSnapshot,
+                reservation.RatePlanCodeSnapshot,
+                reservation.TotalStayAmount);
+        }
+
+        FrontDeskDepartureResponse MapDeparture(Reservation reservation)
+        {
+            return new FrontDeskDepartureResponse(
+                reservation.Id,
+                reservation.CustomerCode,
+                customerNames.GetValueOrDefault(reservation.CustomerCode),
+                reservation.RoomId,
+                roomNumbers.GetValueOrDefault(reservation.RoomId),
+                reservation.ArrivalDate,
+                reservation.DepartureDate,
+                reservation.Nights,
+                reservation.GuestCount,
+                folioBalances.TryGetValue(reservation.Id, out var balance) ? balance : null);
+        }
+
+        return ApplicationResult<FrontDeskResponse>.Success(new FrontDeskResponse(
+            normalizedUnitCode,
+            date,
+            arrivals.Select(MapArrival).ToArray(),
+            overdueArrivals.Select(MapArrival).ToArray(),
+            departures.Select(MapDeparture).ToArray(),
+            overdueDepartures.Select(MapDeparture).ToArray(),
+            inHouseCount,
+            occupancyResult.Value.Days.Single()));
     }
 
     // Shared helpers -------------------------------------------------------------------------

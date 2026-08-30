@@ -20,9 +20,83 @@ internal static class LodgingEndpoints
     {
         MapRoomTypeEndpoints(api);
         MapRoomEndpoints(api);
+        MapAvailabilityEndpoints(api);
         MapReservationEndpoints(api);
         MapOccupancyEndpoints(api);
+        MapFrontDeskEndpoints(api);
         return api;
+    }
+
+    /// <summary>
+    /// The dates-first booking flow of a PMS: GET /lodging/availability lists every bookable
+    /// room of the unit over [from, to) for the party size, priced night by night (with the
+    /// customer's convention when customerCode is passed). Free rooms the tariff module cannot
+    /// price come back flagged HasRate=false rather than hidden.
+    /// </summary>
+    private static void MapAvailabilityEndpoints(RouteGroupBuilder api)
+    {
+        var availability = api.MapGroup("/lodging/availability")
+            .WithTags("Availability");
+
+        availability.MapGet("", async (
+            string? hotelUnitCode,
+            DateOnly? from,
+            DateOnly? to,
+            int? guests,
+            string? customerCode,
+            ILodgingService service,
+            CancellationToken cancellationToken) =>
+        {
+            if (string.IsNullOrWhiteSpace(hotelUnitCode))
+            {
+                return Results.BadRequest(new ErrorResponse("Hotel unit code is required."));
+            }
+
+            if (!from.HasValue || !to.HasValue)
+            {
+                return Results.BadRequest(new ErrorResponse("Both from and to dates are required."));
+            }
+
+            var result = await service.GetAvailabilityAsync(
+                hotelUnitCode,
+                from.Value,
+                to.Value,
+                guests ?? 1,
+                customerCode,
+                cancellationToken);
+
+            return result.ToHttpResult();
+        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+    }
+
+    /// <summary>
+    /// The counter screen: GET /lodging/front-desk returns the arrivals, departures (with folio
+    /// balances), overdue lists, in-house count and occupancy of one unit for one day.
+    /// </summary>
+    private static void MapFrontDeskEndpoints(RouteGroupBuilder api)
+    {
+        var frontDesk = api.MapGroup("/lodging/front-desk")
+            .WithTags("FrontDesk");
+
+        frontDesk.MapGet("", async (
+            string? hotelUnitCode,
+            DateOnly? date,
+            ILodgingService service,
+            CancellationToken cancellationToken) =>
+        {
+            if (string.IsNullOrWhiteSpace(hotelUnitCode))
+            {
+                return Results.BadRequest(new ErrorResponse("Hotel unit code is required."));
+            }
+
+            if (!date.HasValue)
+            {
+                return Results.BadRequest(new ErrorResponse("The date is required."));
+            }
+
+            var result = await service.GetFrontDeskAsync(hotelUnitCode, date.Value, cancellationToken);
+            return result.ToHttpResult();
+        }).RequireAuthorization(PermissionCatalog.LodgingRead);
     }
 
     private static void MapRoomTypeEndpoints(RouteGroupBuilder api)

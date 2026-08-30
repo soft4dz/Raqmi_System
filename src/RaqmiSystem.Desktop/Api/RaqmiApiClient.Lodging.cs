@@ -212,6 +212,77 @@ public sealed partial class RaqmiApiClient
         return await ReadResponseAsync<OccupancyResponse>(response, cancellationToken);
     }
 
+    // ============================== Disponibilites ================================
+
+    /// <summary>
+    /// Flux de reservation "dates d'abord" : toutes les chambres actives de l'unite
+    /// pouvant accueillir le groupe et libres sur [from, to), chacune tarifee nuit
+    /// par nuit (convention du client appliquee quand customerCode est fourni).
+    /// Une chambre libre que le module tarifaire ne sait pas tarifer revient avec
+    /// HasRate=false et le message du resolveur : un trou de couverture tarifaire
+    /// doit se voir, pas se deguiser en occupation.
+    /// </summary>
+    public async Task<AvailabilityResponse> GetAvailabilityAsync(
+        string apiBaseUrl,
+        string hotelUnitCode,
+        DateOnly from,
+        DateOnly to,
+        int guests,
+        string? customerCode,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var query = new List<string>();
+
+        AppendLodgingText(query, "hotelUnitCode", hotelUnitCode);
+        AppendLodgingDate(query, "from", from);
+        AppendLodgingDate(query, "to", to);
+        query.Add("guests=" + guests.ToString(CultureInfo.InvariantCulture));
+        AppendLodgingText(query, "customerCode", customerCode);
+
+        var response = await SendAsync(
+            apiBaseUrl,
+            HttpMethod.Get,
+            "/api/v1/lodging/availability?" + string.Join("&", query),
+            null,
+            includeAuthorization: true,
+            cancellationToken);
+
+        return await ReadResponseAsync<AvailabilityResponse>(response, cancellationToken);
+    }
+
+    // ================================ Reception ===================================
+
+    /// <summary>
+    /// Instantane du comptoir d'une unite pour une journee : arrivees et departs du
+    /// jour (avec soldes de folio), listes de retards (arrivees non honorees,
+    /// departs depasses), presents de la nuit et occupation du jour - en un appel.
+    /// </summary>
+    public async Task<FrontDeskResponse> GetFrontDeskAsync(
+        string apiBaseUrl,
+        string hotelUnitCode,
+        DateOnly date,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var query = new List<string>();
+
+        AppendLodgingText(query, "hotelUnitCode", hotelUnitCode);
+        AppendLodgingDate(query, "date", date);
+
+        var response = await SendAsync(
+            apiBaseUrl,
+            HttpMethod.Get,
+            "/api/v1/lodging/front-desk?" + string.Join("&", query),
+            null,
+            includeAuthorization: true,
+            cancellationToken);
+
+        return await ReadResponseAsync<FrontDeskResponse>(response, cancellationToken);
+    }
+
     // ============================ Resolution tarifaire ============================
 
     /// <summary>

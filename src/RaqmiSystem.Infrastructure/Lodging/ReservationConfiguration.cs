@@ -77,6 +77,12 @@ public sealed class ReservationConfiguration : IEntityTypeConfiguration<Reservat
             .HasMaxLength(60)
             .IsRequired();
 
+        // Per-night frozen rate detail (JSON array, one entry per night), written once at
+        // creation. Nullable: rows created before this column existed keep billing the flat
+        // nightly_rate_snapshot, which GetNightlyRates falls back to.
+        builder.Property(reservation => reservation.NightlyRatesSnapshotJson)
+            .HasColumnName("nightly_rates_snapshot");
+
         builder.Property(reservation => reservation.CancelReason)
             .HasColumnName("cancel_reason")
             .HasMaxLength(500);
@@ -92,6 +98,7 @@ public sealed class ReservationConfiguration : IEntityTypeConfiguration<Reservat
 
         builder.Ignore(reservation => reservation.Nights);
         builder.Ignore(reservation => reservation.IsBlocking);
+        builder.Ignore(reservation => reservation.TotalStayAmount);
 
         // The anti-double-booking check scans the reservations of one room over a period; the
         // rest of the module lists by unit, status, customer and dates.

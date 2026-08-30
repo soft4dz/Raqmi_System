@@ -133,18 +133,30 @@ public sealed class SecuritySeeder(
         await SeedInitialAdminAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Inserts the catalog permissions that are missing AND re-aligns the display fields (name,
+    /// category, description) of the existing ones on the catalog: a wording fixed in
+    /// PermissionCatalog must reach databases seeded before the fix, not only fresh installs.
+    /// The KEY is never touched - it is the permission's identity, referenced by role grants and
+    /// authorization policies. Idempotent: an already-aligned permission is left untouched.
+    /// </summary>
     private async Task SeedPermissionsAsync(CancellationToken cancellationToken)
     {
         var existingPermissions = await dbContext.Permissions
-            .Select(permission => permission.Key)
-            .ToArrayAsync(cancellationToken);
-
-        var existing = existingPermissions.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .ToDictionaryAsync(
+                permission => permission.Key,
+                StringComparer.OrdinalIgnoreCase,
+                cancellationToken);
 
         foreach (var definition in PermissionCatalog.All)
         {
-            if (existing.Contains(definition.Key))
+            if (existingPermissions.TryGetValue(definition.Key, out var permission))
             {
+                if (permission.SyncDefinition(definition.Name, definition.Category, definition.Description))
+                {
+                    permission.MarkUpdated("system", DateTimeOffset.UtcNow);
+                }
+
                 continue;
             }
 

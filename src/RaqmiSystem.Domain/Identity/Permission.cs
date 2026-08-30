@@ -27,6 +27,30 @@ public sealed class Permission : AuditableEntity
 
     public bool IsSystem { get; private set; }
 
+    /// <summary>
+    /// Aligns the display fields (name, category, description) on the catalog definition. The
+    /// KEY is the permission's identity and never changes - only the human-readable labels
+    /// follow the catalog, so a wording fixed in <c>PermissionCatalog</c> reaches databases
+    /// seeded before the fix. Returns true when something actually changed (idempotent
+    /// otherwise), so the caller can stamp the update only when one happened.
+    /// </summary>
+    public bool SyncDefinition(string name, string category, string description)
+    {
+        var normalizedName = RequireValue(name, nameof(name));
+        var normalizedCategory = RequireValue(category, nameof(category)).ToLowerInvariant();
+        var normalizedDescription = RequireValue(description, nameof(description));
+
+        if (Name == normalizedName && Category == normalizedCategory && Description == normalizedDescription)
+        {
+            return false;
+        }
+
+        Name = normalizedName;
+        Category = normalizedCategory;
+        Description = normalizedDescription;
+        return true;
+    }
+
     private static string RequireValue(string value, string argumentName)
     {
         if (string.IsNullOrWhiteSpace(value))

@@ -1,6 +1,8 @@
 using RaqmiSystem.Domain.Billing;
 using RaqmiSystem.Domain.Common;
 using RaqmiSystem.Domain.Organization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace RaqmiSystem.Domain.Lodging;
 
@@ -74,11 +76,25 @@ public sealed class Reservation : AuditableEntity
 
     public ReservationStatus Status { get; private set; } = ReservationStatus.Booked;
 
-    /// <summary>Price of one night, frozen at creation time. Never re-resolved afterwards.</summary>
+    /// <summary>
+    /// Price of the ARRIVAL night, frozen at creation time. Never re-resolved afterwards. When
+    /// the stay crosses rate periods, the authoritative per-night detail lives in
+    /// <see cref="NightlyRatesSnapshotJson"/>; this flat figure remains the arrival-night rate
+    /// for display and for legacy rows created before the per-night detail existed.
+    /// </summary>
     public decimal NightlyRateSnapshot { get; private set; }
 
-    /// <summary>Rate plan the frozen price came from, for traceability.</summary>
+    /// <summary>Rate plan the frozen arrival-night price came from, for traceability.</summary>
     public string RatePlanCodeSnapshot { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// JSON array of the per-night frozen rates ([{"night","amount","ratePlanCode"}], one entry
+    /// per night, ordered by night), written once by <see cref="FreezeNightlyRates"/> at
+    /// creation time. Null on rows created before this detail existed - those stays billed (and
+    /// keep billing) <see cref="NightlyRateSnapshot"/> flat, which <see cref="GetNightlyRates"/>
+    /// falls back to.
+    /// </summary>
+    public string? NightlyRatesSnapshotJson { get; private set; }
 
     public string? CancelReason { get; private set; }
 
@@ -126,6 +142,109 @@ public sealed class Reservation : AuditableEntity
     {
         return ArrivalDate <= night && night < DepartureDate;
     }
+
+    /// <summary>
+    /// Freezes the per-night rate detail at creation time (same snapshot discipline as
+    /// <see cref="NightlyRateSnapshot"/>: later tariff changes never rewrite it). The detail
+    /// must cover EXACTLY the nights of [ArrivalDate, DepartureDate) and its arrival-night
+    /// amount and plan must equal the flat snapshot - the two representations may never
+    /// diverge. Only a Booked reservation (i.e. one being created) accepts it.
+    /// </summary>
+    public void FreezeNightlyRates(IReadOnlyCollection<ReservationNightRate> nightlyRates)
+    {
+        ArgumentNullException.ThrowIfNull(nightlyRates);
+
+        if (Status != ReservationStatus.Booked)
+        {
+            throw new InvalidOperationException(
+                "Nightly rates can only be frozen on a booked reservation, at creation time.");
+        }
+
+        if (nightlyRates.Count != Nights)
+        {
+            throw new ArgumentException(
+                $"The nightly rate detail must carry exactly one entry per night ({Nights}), got {nightlyRates.Count}.",
+                nameof(nightlyRates));
+        }
+
+        var ordered = nightlyRates.OrderBy(rate => rate.Night).ToArray();
+        var expectedNight = ArrivalDate;
+
+        foreach (var rate in ordered)
+        {
+            if (rate.Night != expectedNight)
+            {
+                throw new ArgumentException(
+                    $"The nightly rate detail must cover each night of the stay exactly once; " +
+                    $"expected {expectedNight:yyyy-MM-dd}, got {rate.Night:yyyy-MM-dd}.",
+                    nameof(nightlyRates));
+            }
+
+            RequireMoney(rate.Amount, nameof(nightlyRates));
+            RequireValue(rate.RatePlanCode, nameof(nightlyRates), 60);
+            expectedNight = expectedNight.AddDays(1);
+        }
+
+        if (ordered[0].Amount != NightlyRateSnapshot)
+        {
+            throw new ArgumentException(
+                "The arrival-night amount of the detail must equal the flat nightly rate snapshot.",
+                nameof(nightlyRates));
+        }
+
+        NightlyRatesSnapshotJson = JsonSerializer.Serialize(
+            ordered.Select(rate => new NightRateDocument(rate.Night, rate.Amount, rate.RatePlanCode)).ToArray());
+    }
+
+    /// <summary>
+    /// The per-night rates of the stay, ordered by night: the frozen detail when one was stored,
+    /// otherwise the flat <see cref="NightlyRateSnapshot"/> applied to every night (legacy rows,
+    /// or an unreadable detail - billing then matches exactly what those stays always billed).
+    /// The folio generated at check-in charges these amounts, night by night.
+    /// </summary>
+    public IReadOnlyList<ReservationNightRate> GetNightlyRates()
+    {
+        if (!string.IsNullOrWhiteSpace(NightlyRatesSnapshotJson))
+        {
+            try
+            {
+                var documents = JsonSerializer.Deserialize<NightRateDocument[]>(NightlyRatesSnapshotJson);
+
+                if (documents is not null && documents.Length == Nights)
+                {
+                    return documents
+                        .Select(document => new ReservationNightRate(document.Night, document.Amount, document.RatePlanCode))
+                        .OrderBy(rate => rate.Night)
+                        .ToArray();
+                }
+            }
+            catch (JsonException)
+            {
+                // Fall through to the flat snapshot below.
+            }
+        }
+
+        var flatRates = new ReservationNightRate[Nights];
+
+        for (var index = 0; index < flatRates.Length; index++)
+        {
+            flatRates[index] = new ReservationNightRate(
+                ArrivalDate.AddDays(index),
+                NightlyRateSnapshot,
+                RatePlanCodeSnapshot);
+        }
+
+        return flatRates;
+    }
+
+    /// <summary>Total price of the stay: the sum of its per-night frozen rates.</summary>
+    public decimal TotalStayAmount => GetNightlyRates().Sum(rate => rate.Amount);
+
+    /// <summary>Storage shape of one entry of <see cref="NightlyRatesSnapshotJson"/>.</summary>
+    private sealed record NightRateDocument(
+        [property: JsonPropertyName("night")] DateOnly Night,
+        [property: JsonPropertyName("amount")] decimal Amount,
+        [property: JsonPropertyName("ratePlanCode")] string RatePlanCode);
 
     /// <summary>
     /// Booked -> CheckedIn. Allowed from the UTC eve of the arrival date (see the lower-bound

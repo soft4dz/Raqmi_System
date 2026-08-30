@@ -3,798 +3,1636 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              FontFamily="{StaticResource AppFontFamily}">
 
-    <!-- Hebergement & occupation : referentiel des types de chambre et des
-         chambres (lecture), reservations et cycle comptoir (check-in, check-out,
-         annulation, no-show), folio de la reservation selectionnee et taux
-         d'occupation d'une unite. Mise en page alignee sur les autres vues de
-         module : cartes empilees dans un ScrollViewer. La vue n'affiche que des
-         dates metier (DateOnly) - aucun horodatage UTC, donc aucun
-         convertisseur d'heure locale n'est necessaire ici. -->
+    <!-- Hebergement & occupation : le poste de travail hotelier complet, organise
+         comme un vrai PMS en cinq sous-onglets :
+           1. Reception     - l'ecran du comptoir : KPI du jour, retards,
+                              arrivees et departs avec actions directes ;
+           2. Nouvelle      - le flux disponibilite-d'abord : dates puis chambres
+              reservation     tarifees nuit par nuit, puis reservation ;
+           3. Planning      - le tape chart : 14 jours x chambres, barres de
+                              reservation continues, carte de sejour ;
+           4. Folio         - le folio de la reservation selectionnee ;
+           5. Chambres &    - le referentiel (types, chambres) et le taux
+              occupation      d'occupation par periode.
+         La vue n'affiche que des dates metier (DateOnly) - aucun horodatage UTC,
+         donc aucun convertisseur d'heure locale n'est necessaire ici. -->
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                  HorizontalScrollBarVisibility="Disabled">
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="16" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="16" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="16" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="16" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="16" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+    <UserControl.Resources>
+        <!-- Onglets internes du module : le style implicite du theme supprime les
+             en-tetes (le panneau lateral est l'unique navigation de l'application),
+             ce module a donc besoin de son propre gabarit d'onglets visibles -
+             meme gabarit SectionTabControl que TreasuryView. -->
+        <Style x:Key="SectionTabItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Grid SnapsToDevicePixels="True">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
 
-            <!-- ======================== Bandeau de filtres ======================== -->
-            <Border Style="{StaticResource CardBorder}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="16" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+                            <Border x:Name="tabBackground"
+                                    Background="Transparent"
+                                    CornerRadius="6,6,0,0"
+                                    Padding="18,9">
+                                <ContentPresenter ContentSource="Header"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
+                            </Border>
 
-                    <StackPanel>
-                        <TextBlock Text="Hébergement &amp; occupation"
-                                   Style="{StaticResource PageTitleText}" />
-                        <TextBlock Text="Types de chambre, chambres, réservations, folios et taux d'occupation."
-                                   Style="{StaticResource SubtitleText}"
-                                   Margin="0,4,0,0" />
-                    </StackPanel>
+                            <Rectangle x:Name="tabIndicator"
+                                       Grid.Row="1"
+                                       Height="2.5"
+                                       Fill="{StaticResource AccentBrush}"
+                                       Opacity="0" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="tabBackground" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="tabBackground" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="tabIndicator" Property="Opacity" Value="1" />
+                                <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
-                    <Grid Grid.Row="2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="150" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="150" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="240" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="170" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
+        <Style x:Key="SectionTabControl" TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource SectionTabItem}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
 
-                        <StackPanel>
-                            <TextBlock Text="Séjours du" Style="{StaticResource LabelText}" />
-                            <DatePicker x:Name="ReservationsFromDatePicker"
-                                        ToolTip="Retient toute réservation dont le séjour touche la période" />
-                        </StackPanel>
+                            <Border BorderBrush="{StaticResource PanelBorderBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <TabPanel IsItemsHost="True" HorizontalAlignment="Left" />
+                            </Border>
 
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="Au" Style="{StaticResource LabelText}" />
-                            <DatePicker x:Name="ReservationsToDatePicker" />
-                        </StackPanel>
+                            <ContentPresenter Grid.Row="1"
+                                              Margin="0,16,0,0"
+                                              ContentSource="SelectedContent" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
-                        <StackPanel Grid.Column="4">
-                            <TextBlock Text="Unité hôtelière" Style="{StaticResource LabelText}" />
-                            <ComboBox x:Name="FilterUnitComboBox"
-                                      DisplayMemberPath="Label"
-                                      ToolTip="Restreindre les réservations à une unité hôtelière" />
-                        </StackPanel>
+        <!-- Ligne de liste (arrivee, depart, chambre disponible) : une carte fine
+             par element, plus lisible au comptoir qu'une grille dense. -->
+        <Style x:Key="ListRowBorder" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14,10" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
 
-                        <StackPanel Grid.Column="6">
-                            <TextBlock Text="Statut" Style="{StaticResource LabelText}" />
-                            <ComboBox x:Name="StatusFilterComboBox"
-                                      DisplayMemberPath="Label"
-                                      ToolTip="Restreindre les réservations à un statut" />
-                        </StackPanel>
+        <!-- Textes des lignes de liste, derives des styles nommes du theme. -->
+        <Style x:Key="RowTitleText" TargetType="TextBlock" BasedOn="{StaticResource BodyText}">
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
 
-                        <StackPanel Grid.Column="8">
-                            <TextBlock Text="Code client" Style="{StaticResource LabelText}" />
-                            <TextBox x:Name="FilterCustomerTextBox" MaxLength="40" Tag="Facultatif" />
-                        </StackPanel>
+        <Style x:Key="RowMetaText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}" />
 
-                        <Button x:Name="RefreshLodgingButton"
-                                Grid.Column="10"
-                                Content="Actualiser"
-                                Style="{StaticResource SecondaryButton}"
-                                ToolTip="Recharger le référentiel et les réservations de la période"
-                                VerticalAlignment="Bottom"
-                                Click="RefreshLodgingButton_Click" />
-                    </Grid>
-                </Grid>
-            </Border>
+        <!-- Section des retards : fond d'avertissement doux (teinte Submitted du
+             theme), c'est la liste que le comptoir doit voir en premier. -->
+        <Style x:Key="OverdueSectionBorder" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource StatusSubmittedBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="16,14" />
+        </Style>
 
-            <!-- ======================= Nouvelle réservation ======================= -->
-            <Border Grid.Row="2" Style="{StaticResource CardBorder}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="14" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="10" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+        <Style x:Key="OverdueTitleText" TargetType="TextBlock" BasedOn="{StaticResource SectionTitleText}">
+            <Setter Property="Foreground" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+        </Style>
 
-                    <StackPanel>
-                        <TextBlock Text="Nouvelle réservation" Style="{StaticResource SectionTitleText}" />
-                        <TextBlock Text="Le tarif de la nuitée est figé par le serveur à la création, convention client comprise."
-                                   Style="{StaticResource CaptionText}"
-                                   Margin="0,3,0,0" />
-                    </StackPanel>
+        <!-- Pastille de legende du planning. -->
+        <Style x:Key="LegendChipText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="6,0,14,0" />
+        </Style>
+    </UserControl.Resources>
 
-                    <Grid Grid.Row="2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="240" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="180" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="150" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="150" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="90" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-                        <StackPanel>
-                            <TextBlock Text="Unité hôtelière" Style="{StaticResource LabelText}" />
-                            <ComboBox x:Name="NewReservationUnitComboBox"
-                                      ToolTip="Unité hôtelière du séjour"
-                                      SelectionChanged="NewReservationUnitComboBox_SelectionChanged">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock>
-                                            <TextBlock.Text>
-                                                <MultiBinding StringFormat="{}{0} — {1}">
-                                                    <Binding Path="Code" Mode="OneWay" />
-                                                    <Binding Path="Name" Mode="OneWay" />
-                                                </MultiBinding>
-                                            </TextBlock.Text>
-                                        </TextBlock>
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </StackPanel>
+        <!-- ============================== En-tete du module ============================== -->
+        <StackPanel>
+            <TextBlock Text="Hébergement &amp; occupation"
+                       Style="{StaticResource PageTitleText}" />
+            <TextBlock Text="Réception du jour, réservations, planning des chambres, folios et taux d'occupation."
+                       Style="{StaticResource SubtitleText}"
+                       Margin="0,4,0,0" />
+        </StackPanel>
 
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="Chambre" Style="{StaticResource LabelText}" />
-                            <ComboBox x:Name="NewReservationRoomComboBox"
-                                      ToolTip="Chambre réservée (les chambres actives de l'unité sélectionnée)">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock>
-                                            <TextBlock.Text>
-                                                <MultiBinding StringFormat="{}{0} — {1}">
-                                                    <Binding Path="Number" Mode="OneWay" />
-                                                    <Binding Path="RoomTypeCode" Mode="OneWay" />
-                                                </MultiBinding>
-                                            </TextBlock.Text>
-                                        </TextBlock>
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </StackPanel>
+        <TabControl x:Name="LodgingTabs"
+                    Grid.Row="2"
+                    Style="{StaticResource SectionTabControl}"
+                    SelectionChanged="LodgingTabs_SelectionChanged">
 
-                        <StackPanel Grid.Column="4">
-                            <TextBlock Text="Code client" Style="{StaticResource LabelText}" />
-                            <TextBox x:Name="NewReservationCustomerTextBox" MaxLength="40" Tag="ex. C0001" />
-                        </StackPanel>
+            <!-- ================================ RECEPTION ================================ -->
+            <TabItem Header="Réception">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
 
-                        <StackPanel Grid.Column="6">
-                            <TextBlock Text="Arrivée" Style="{StaticResource LabelText}" />
-                            <DatePicker x:Name="NewReservationArrivalDatePicker" />
-                        </StackPanel>
+                        <!-- Selecteur + tuiles KPI du jour -->
+                        <Border Style="{StaticResource CardBorder}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="14" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
 
-                        <StackPanel Grid.Column="8">
-                            <TextBlock Text="Départ" Style="{StaticResource LabelText}" />
-                            <DatePicker x:Name="NewReservationDepartureDatePicker" />
-                        </StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="260" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="150" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
 
-                        <StackPanel Grid.Column="10">
-                            <TextBlock Text="Personnes" Style="{StaticResource LabelText}" />
-                            <TextBox x:Name="NewReservationGuestsTextBox"
-                                     Text="1"
-                                     Style="{StaticResource AmountTextBox}" />
-                        </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="Unité hôtelière" Style="{StaticResource LabelText}" />
+                                        <ComboBox x:Name="FrontDeskUnitComboBox"
+                                                  ToolTip="Unité dont la réception est affichée"
+                                                  SelectionChanged="FrontDeskUnitComboBox_SelectionChanged">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock>
+                                                        <TextBlock.Text>
+                                                            <MultiBinding StringFormat="{}{0} — {1}">
+                                                                <Binding Path="Code" Mode="OneWay" />
+                                                                <Binding Path="Name" Mode="OneWay" />
+                                                            </MultiBinding>
+                                                        </TextBlock.Text>
+                                                    </TextBlock>
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </StackPanel>
 
-                        <StackPanel Grid.Column="12" Orientation="Horizontal" VerticalAlignment="Bottom">
-                            <Button x:Name="PreviewRateButton"
-                                    Content="Aperçu tarif"
-                                    Style="{StaticResource GhostButton}"
-                                    ToolTip="Estimer la nuitée pour la chambre et la date d'arrivée choisies (permission tariffs.read)"
-                                    ToolTipService.ShowOnDisabled="True"
-                                    Margin="0,0,8,0"
-                                    Click="PreviewRateButton_Click" />
-                            <Button x:Name="CreateReservationButton"
-                                    Content="Créer la réservation"
-                                    Style="{StaticResource PrimaryButton}"
-                                    ToolTip="Enregistrer la réservation"
-                                    ToolTipService.ShowOnDisabled="True"
-                                    Click="CreateReservationButton_Click" />
-                        </StackPanel>
-                    </Grid>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Journée" Style="{StaticResource LabelText}" />
+                                        <DatePicker x:Name="FrontDeskDatePicker"
+                                                    ToolTip="Journée d'exploitation affichée (aujourd'hui par défaut)" />
+                                    </StackPanel>
 
-                    <TextBlock x:Name="RatePreviewTextBlock"
-                               Grid.Row="4"
-                               Text=""
-                               Style="{StaticResource CaptionText}"
-                               TextWrapping="Wrap" />
-                </Grid>
-            </Border>
+                                    <Button x:Name="RefreshFrontDeskButton"
+                                            Grid.Column="4"
+                                            Content="Actualiser"
+                                            Style="{StaticResource SecondaryButton}"
+                                            ToolTip="Recharger l'instantané de la réception"
+                                            VerticalAlignment="Bottom"
+                                            Click="RefreshFrontDeskButton_Click" />
+                                </Grid>
 
-            <!-- ========================== Réservations ============================ -->
-            <Border Grid.Row="4" Style="{StaticResource CardBorder}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="12" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="12" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+                                <!-- Rangee de tuiles KPI, gabarit du bandeau de l'accueil. -->
+                                <Grid Grid.Row="2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
 
-                    <StackPanel>
-                        <TextBlock Text="Réservations" Style="{StaticResource SectionTitleText}" />
-                        <TextBlock Text="Sélectionnez une réservation pour agir sur son séjour et consulter son folio."
-                                   Style="{StaticResource CaptionText}"
-                                   Margin="0,3,0,0" />
-                    </StackPanel>
+                                    <Border Style="{StaticResource SubtleCardBorder}">
+                                        <StackPanel>
+                                            <TextBlock Text="Arrivées" Style="{StaticResource MetricLabelText}" />
+                                            <TextBlock x:Name="KpiArrivalsTextBlock"
+                                                       Text="—"
+                                                       Style="{StaticResource MetricValueText}" />
+                                        </StackPanel>
+                                    </Border>
 
-                    <Grid Grid.Row="2" MinHeight="190" MaxHeight="260">
-                        <DataGrid x:Name="ReservationsDataGrid"
-                                  SelectionChanged="ReservationsDataGrid_SelectionChanged">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Unité" Binding="{Binding HotelUnitCode}" Width="90" />
-                                <DataGridTextColumn Header="Chambre" Binding="{Binding RoomNumber}" Width="90" />
-                                <DataGridTextColumn Header="Client" Binding="{Binding CustomerCode}" Width="110" />
-                                <DataGridTextColumn Header="Arrivée"
-                                                    Binding="{Binding ArrivalDate, StringFormat={}{0:dd/MM/yyyy}}"
-                                                    Width="100" />
-                                <DataGridTextColumn Header="Départ"
-                                                    Binding="{Binding DepartureDate, StringFormat={}{0:dd/MM/yyyy}}"
-                                                    Width="100" />
-                                <DataGridTextColumn Header="Nuits"
-                                                    Binding="{Binding Nights}"
-                                                    Width="65"
-                                                    ElementStyle="{StaticResource AmountCellText}"
-                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
-                                <DataGridTextColumn Header="Pers."
-                                                    Binding="{Binding GuestCount}"
-                                                    Width="60"
-                                                    ElementStyle="{StaticResource AmountCellText}"
-                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
-                                <DataGridTemplateColumn Header="Statut" Width="115" SortMemberPath="Status">
-                                    <DataGridTemplateColumn.CellTemplate>
+                                    <Border Grid.Column="2" Style="{StaticResource SubtleCardBorder}">
+                                        <StackPanel>
+                                            <TextBlock Text="Départs" Style="{StaticResource MetricLabelText}" />
+                                            <TextBlock x:Name="KpiDeparturesTextBlock"
+                                                       Text="—"
+                                                       Style="{StaticResource MetricValueText}" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Grid.Column="4" Style="{StaticResource SubtleCardBorder}">
+                                        <StackPanel>
+                                            <TextBlock Text="Présents cette nuit" Style="{StaticResource MetricLabelText}" />
+                                            <TextBlock x:Name="KpiInHouseTextBlock"
+                                                       Text="—"
+                                                       Style="{StaticResource MetricValueText}"
+                                                       Foreground="{StaticResource PrimaryBrush}" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Grid.Column="6" Style="{StaticResource SubtleCardBorder}">
+                                        <StackPanel>
+                                            <TextBlock Text="Taux d'occupation" Style="{StaticResource MetricLabelText}" />
+                                            <TextBlock x:Name="KpiOccupancyTextBlock"
+                                                       Text="—"
+                                                       Style="{StaticResource MetricValueText}"
+                                                       Foreground="{StaticResource AccentPressedBrush}" />
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                        <!-- Retards : la liste que le comptoir doit voir en premier.
+                             Masquee quand elle est vide. -->
+                        <Border x:Name="OverdueSectionBorder"
+                                Grid.Row="2"
+                                Style="{StaticResource OverdueSectionBorder}"
+                                Visibility="Collapsed">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="10" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right"
+                                                Width="240"
+                                                HorizontalAlignment="Right">
+                                        <TextBlock Text="Motif d'annulation" Style="{StaticResource LabelText}" />
+                                        <TextBox x:Name="OverdueCancelReasonTextBox"
+                                                 MaxLength="500"
+                                                 Tag="Obligatoire pour annuler"
+                                                 ToolTip="Motif exigé par le bouton Annuler d'une arrivée non honorée" />
+                                    </StackPanel>
+
+                                    <StackPanel>
+                                        <TextBlock x:Name="OverdueTitleTextBlock"
+                                                   Text="Retards à traiter"
+                                                   Style="{StaticResource OverdueTitleText}" />
+                                        <TextBlock Text="Arrivées non honorées (no-show ou annulation) et départs dépassés (check-out à solder)."
+                                                   Style="{StaticResource RowMetaText}"
+                                                   Margin="0,3,0,0" />
+                                    </StackPanel>
+                                </DockPanel>
+
+                                <!-- Arrivees non honorees : arrivee prevue avant la journee,
+                                     toujours au statut Reservee. -->
+                                <ItemsControl x:Name="OverdueArrivalsItemsControl" Grid.Row="2">
+                                    <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border x:Name="StatusBadge"
-                                                    CornerRadius="10"
-                                                    Padding="10,3"
-                                                    HorizontalAlignment="Left"
-                                                    VerticalAlignment="Center"
-                                                    Background="{StaticResource StatusSubmittedBackgroundBrush}">
-                                                <TextBlock x:Name="StatusBadgeText"
-                                                           Text="Réservée"
-                                                           FontSize="11.5"
-                                                           FontWeight="SemiBold"
-                                                           Foreground="{StaticResource StatusSubmittedForegroundBrush}" />
+                                            <Border Style="{StaticResource ListRowBorder}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="90" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="10" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="8" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding RoomNumber}" Style="{StaticResource RowTitleText}" />
+                                                        <TextBlock Text="Chambre" Style="{StaticResource RowMetaText}" />
+                                                    </StackPanel>
+
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding CustomerDisplay}" Style="{StaticResource RowTitleText}" />
+                                                        <TextBlock Text="{Binding StayText}" Style="{StaticResource RowMetaText}" />
+                                                    </StackPanel>
+
+                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                        <TextBlock Text="{Binding LatenessText}"
+                                                                   Style="{StaticResource RowTitleText}"
+                                                                   Foreground="{StaticResource StatusSubmittedForegroundBrush}"
+                                                                   HorizontalAlignment="Right" />
+                                                        <TextBlock Text="{Binding TotalText}"
+                                                                   Style="{StaticResource RowMetaText}"
+                                                                   HorizontalAlignment="Right" />
+                                                    </StackPanel>
+
+                                                    <Button Grid.Column="4"
+                                                            Content="No-show"
+                                                            Style="{StaticResource SecondaryButton}"
+                                                            IsEnabled="{Binding CanDecide}"
+                                                            ToolTip="{Binding DecideToolTip}"
+                                                            ToolTipService.ShowOnDisabled="True"
+                                                            VerticalAlignment="Center"
+                                                            Click="OverdueNoShowButton_Click" />
+
+                                                    <Button Grid.Column="6"
+                                                            Content="Annuler"
+                                                            Style="{StaticResource DangerButton}"
+                                                            IsEnabled="{Binding CanDecide}"
+                                                            ToolTip="{Binding CancelToolTip}"
+                                                            ToolTipService.ShowOnDisabled="True"
+                                                            VerticalAlignment="Center"
+                                                            Click="OverdueCancelButton_Click" />
+                                                </Grid>
                                             </Border>
-                                            <DataTemplate.Triggers>
-                                                <DataTrigger Binding="{Binding Status}" Value="CheckedIn">
-                                                    <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusValidatedBackgroundBrush}" />
-                                                    <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusValidatedForegroundBrush}" />
-                                                    <Setter TargetName="StatusBadgeText" Property="Text" Value="En séjour" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding Status}" Value="CheckedOut">
-                                                    <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusDraftBackgroundBrush}" />
-                                                    <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusDraftForegroundBrush}" />
-                                                    <Setter TargetName="StatusBadgeText" Property="Text" Value="Terminée" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding Status}" Value="Cancelled">
-                                                    <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusRejectedBackgroundBrush}" />
-                                                    <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
-                                                    <Setter TargetName="StatusBadgeText" Property="Text" Value="Annulée" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding Status}" Value="NoShow">
-                                                    <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusRejectedBackgroundBrush}" />
-                                                    <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
-                                                    <Setter TargetName="StatusBadgeText" Property="Text" Value="No-show" />
-                                                </DataTrigger>
-                                            </DataTemplate.Triggers>
                                         </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                                <DataGridTextColumn Header="Nuitée"
-                                                    Binding="{Binding NightlyRateSnapshot, StringFormat={}{0:N2}}"
-                                                    Width="110"
-                                                    ElementStyle="{StaticResource AmountCellText}"
-                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
-                                <DataGridTextColumn Header="Plan"
-                                                    Binding="{Binding RatePlanCodeSnapshot}"
-                                                    Width="90"
-                                                    ElementStyle="{StaticResource MutedCellText}" />
-                                <DataGridTextColumn Header="Créée par"
-                                                    Binding="{Binding CreatedBy}"
-                                                    Width="*"
-                                                    ElementStyle="{StaticResource MutedCellText}" />
-                            </DataGrid.Columns>
-                        </DataGrid>
-                        <StackPanel HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    IsHitTestVisible="False">
-                            <StackPanel.Style>
-                                <Style TargetType="StackPanel">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Items.Count, ElementName=ReservationsDataGrid}" Value="0">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </StackPanel.Style>
-                            <!-- Pictogramme au trait (calendrier coche), meme gabarit que les
-                                 etats vides des autres ecrans. -->
-                            <Path Data="M2,3.5 H14 V14 H2 Z M2,6.5 H14 M5,1.5 V4.5 M11,1.5 V4.5 M5.5,10.2 L7.3,12 L10.7,8.6"
-                                  Stroke="{StaticResource BorderStrongBrush}"
-                                  StrokeThickness="1.5"
-                                  StrokeLineJoin="Round"
-                                  Width="44"
-                                  Height="42"
-                                  Stretch="Uniform"
-                                  HorizontalAlignment="Center"
-                                  Margin="0,0,0,10" />
-                            <TextBlock Text="Aucune réservation pour cette période"
-                                       Style="{StaticResource EmptyStateTitleText}" />
-                            <TextBlock Text="Élargissez la période, changez les filtres, ou créez une première réservation ci-dessus."
-                                       Style="{StaticResource EmptyStateHintText}" />
-                        </StackPanel>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- Departs depasses : sejours toujours en cours apres la date
+                                     de depart prevue, solde a l'appui. -->
+                                <ItemsControl x:Name="OverdueDeparturesItemsControl" Grid.Row="3">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource ListRowBorder}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="90" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="10" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding RoomNumber}" Style="{StaticResource RowTitleText}" />
+                                                        <TextBlock Text="Chambre" Style="{StaticResource RowMetaText}" />
+                                                    </StackPanel>
+
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding CustomerDisplay}" Style="{StaticResource RowTitleText}" />
+                                                        <TextBlock Text="{Binding StayText}" Style="{StaticResource RowMetaText}" />
+                                                    </StackPanel>
+
+                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                        <TextBlock Text="Solde du folio"
+                                                                   Style="{StaticResource RowMetaText}"
+                                                                   HorizontalAlignment="Right" />
+                                                        <TextBlock Text="{Binding BalanceText}" HorizontalAlignment="Right">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock" BasedOn="{StaticResource RowTitleText}">
+                                                                    <Setter Property="Foreground" Value="{StaticResource StatusValidatedForegroundBrush}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsBalanceDue}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </StackPanel>
+
+                                                    <Button Grid.Column="4"
+                                                            Content="Check-out"
+                                                            Style="{StaticResource PrimaryButton}"
+                                                            IsEnabled="{Binding CanCheckOut}"
+                                                            ToolTip="{Binding CheckOutToolTip}"
+                                                            ToolTipService.ShowOnDisabled="True"
+                                                            VerticalAlignment="Center"
+                                                            Click="DepartureCheckOutButton_Click" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+                        </Border>
+
+                        <!-- Arrivees du jour -->
+                        <Border Grid.Row="4" Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="12" />
+                                    <RowDefinition Height="Auto" MinHeight="120" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Arrivées du jour" Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock Text="Réservations attendues ce jour : le check-in ouvre le folio avec une ligne par nuit au tarif figé."
+                                               Style="{StaticResource CaptionText}"
+                                               Margin="0,3,0,0" />
+                                </StackPanel>
+
+                                <Grid Grid.Row="2">
+                                    <ItemsControl x:Name="ArrivalsItemsControl">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Style="{StaticResource ListRowBorder}">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="90" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="24" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="10" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <StackPanel VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding RoomNumber}" Style="{StaticResource RowTitleText}" />
+                                                            <TextBlock Text="Chambre" Style="{StaticResource RowMetaText}" />
+                                                        </StackPanel>
+
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding CustomerDisplay}" Style="{StaticResource RowTitleText}" />
+                                                            <TextBlock Text="{Binding StayText}" Style="{StaticResource RowMetaText}" />
+                                                        </StackPanel>
+
+                                                        <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                            <TextBlock Text="{Binding NightsGuestsText}"
+                                                                       Style="{StaticResource RowMetaText}"
+                                                                       HorizontalAlignment="Right" />
+                                                            <TextBlock Text="{Binding RateText}"
+                                                                       Style="{StaticResource RowTitleText}"
+                                                                       HorizontalAlignment="Right" />
+                                                        </StackPanel>
+
+                                                        <StackPanel Grid.Column="4" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                            <TextBlock Text="Total séjour"
+                                                                       Style="{StaticResource RowMetaText}"
+                                                                       HorizontalAlignment="Right" />
+                                                            <TextBlock Text="{Binding TotalText}"
+                                                                       Style="{StaticResource RowTitleText}"
+                                                                       Foreground="{StaticResource PrimaryBrush}"
+                                                                       HorizontalAlignment="Right" />
+                                                        </StackPanel>
+
+                                                        <Button Grid.Column="6"
+                                                                Content="Check-in"
+                                                                Style="{StaticResource PrimaryButton}"
+                                                                IsEnabled="{Binding CanCheckIn}"
+                                                                ToolTip="{Binding CheckInToolTip}"
+                                                                ToolTipService.ShowOnDisabled="True"
+                                                                VerticalAlignment="Center"
+                                                                Click="ArrivalCheckInButton_Click" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <StackPanel HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                IsHitTestVisible="False">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Items.Count, ElementName=ArrivalsItemsControl}" Value="0">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <!-- Pictogramme au trait (valise), meme gabarit que les
+                                             etats vides des autres ecrans. -->
+                                        <Path Data="M3,5.5 H13 V13.5 H3 Z M6,5.5 V3.5 A1,1 0 0 1 7,2.5 H9 A1,1 0 0 1 10,3.5 V5.5 M6,8 V11 M10,8 V11"
+                                              Stroke="{StaticResource BorderStrongBrush}"
+                                              StrokeThickness="1.5"
+                                              StrokeLineJoin="Round"
+                                              Width="44"
+                                              Height="42"
+                                              Stretch="Uniform"
+                                              HorizontalAlignment="Center"
+                                              Margin="0,0,0,10" />
+                                        <TextBlock Text="Aucune arrivée attendue"
+                                                   Style="{StaticResource EmptyStateTitleText}" />
+                                        <TextBlock Text="Choisissez une unité et une journée, puis cliquez sur Actualiser."
+                                                   Style="{StaticResource EmptyStateHintText}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                        <!-- Departs du jour -->
+                        <Border Grid.Row="5" Style="{StaticResource CardBorder}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="12" />
+                                    <RowDefinition Height="Auto" MinHeight="120" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Départs du jour" Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock Text="Le check-out exige un folio soldé à zéro : encaissez d'abord en trésorerie, puis ajoutez la ligne de règlement au folio."
+                                               Style="{StaticResource CaptionText}"
+                                               Margin="0,3,0,0" />
+                                </StackPanel>
+
+                                <Grid Grid.Row="2">
+                                    <ItemsControl x:Name="DeparturesItemsControl">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Style="{StaticResource ListRowBorder}">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="90" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="24" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="10" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <StackPanel VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding RoomNumber}" Style="{StaticResource RowTitleText}" />
+                                                            <TextBlock Text="Chambre" Style="{StaticResource RowMetaText}" />
+                                                        </StackPanel>
+
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding CustomerDisplay}" Style="{StaticResource RowTitleText}" />
+                                                            <TextBlock Text="{Binding StayText}" Style="{StaticResource RowMetaText}" />
+                                                        </StackPanel>
+
+                                                        <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                            <TextBlock Text="Solde du folio"
+                                                                       Style="{StaticResource RowMetaText}"
+                                                                       HorizontalAlignment="Right" />
+                                                            <TextBlock Text="{Binding BalanceText}" HorizontalAlignment="Right">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource RowTitleText}">
+                                                                        <Setter Property="Foreground" Value="{StaticResource StatusValidatedForegroundBrush}" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsBalanceDue}" Value="True">
+                                                                                <Setter Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </StackPanel>
+
+                                                        <Button Grid.Column="4"
+                                                                Content="Folio"
+                                                                Style="{StaticResource GhostButton}"
+                                                                ToolTip="Ouvrir le folio de ce séjour dans l'onglet Folio"
+                                                                VerticalAlignment="Center"
+                                                                Click="DepartureFolioButton_Click" />
+
+                                                        <Button Grid.Column="6"
+                                                                Content="Check-out"
+                                                                Style="{StaticResource PrimaryButton}"
+                                                                IsEnabled="{Binding CanCheckOut}"
+                                                                ToolTip="{Binding CheckOutToolTip}"
+                                                                ToolTipService.ShowOnDisabled="True"
+                                                                VerticalAlignment="Center"
+                                                                Click="DepartureCheckOutButton_Click" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <StackPanel HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                IsHitTestVisible="False">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Items.Count, ElementName=DeparturesItemsControl}" Value="0">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <!-- Pictogramme au trait (porte avec fleche de sortie). -->
+                                        <Path Data="M9,1.5 H14 V14.5 H9 M6.5,5 L3.5,8 L6.5,11 M3.5,8 H10.5"
+                                              Stroke="{StaticResource BorderStrongBrush}"
+                                              StrokeThickness="1.5"
+                                              StrokeLineJoin="Round"
+                                              Width="42"
+                                              Height="42"
+                                              Stretch="Uniform"
+                                              HorizontalAlignment="Center"
+                                              Margin="0,0,0,10" />
+                                        <TextBlock Text="Aucun départ prévu"
+                                                   Style="{StaticResource EmptyStateTitleText}" />
+                                        <TextBlock Text="Les séjours en cours dont le départ tombe ce jour apparaîtront ici, solde à l'appui."
+                                                   Style="{StaticResource EmptyStateHintText}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
                     </Grid>
+                </ScrollViewer>
+            </TabItem>
 
-                    <Grid Grid.Row="4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="18" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
+            <!-- ============================ NOUVELLE RESERVATION ============================ -->
+            <TabItem Header="Nouvelle réservation">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
 
-                        <Button x:Name="CheckInButton"
-                                Content="Check-in"
-                                Style="{StaticResource PrimaryButton}"
-                                ToolTip="Enregistrer l'arrivée : ouvre le folio avec une ligne par nuit du séjour"
-                                ToolTipService.ShowOnDisabled="True"
-                                VerticalAlignment="Bottom"
-                                Click="CheckInButton_Click" />
+                        <!-- Etape 1 : les dates d'abord -->
+                        <Border Style="{StaticResource CardBorder}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="14" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="10" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
 
-                        <Button x:Name="CheckOutButton"
-                                Grid.Column="2"
-                                Content="Check-out"
-                                Style="{StaticResource SecondaryButton}"
-                                ToolTip="Enregistrer le départ (le folio doit être soldé à zéro)"
-                                ToolTipService.ShowOnDisabled="True"
-                                VerticalAlignment="Bottom"
-                                Click="CheckOutButton_Click" />
+                                <StackPanel>
+                                    <TextBlock Text="1. Séjour recherché" Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock Text="Choisissez les dates : chaque chambre libre est tarifée nuit par nuit par le serveur, convention client comprise quand un client est retenu."
+                                               Style="{StaticResource CaptionText}"
+                                               Margin="0,3,0,0" />
+                                </StackPanel>
 
-                        <Button x:Name="NoShowButton"
-                                Grid.Column="4"
-                                Content="No-show"
-                                Style="{StaticResource SecondaryButton}"
-                                ToolTip="Constater que le client n'est jamais arrivé (après la date d'arrivée)"
-                                ToolTipService.ShowOnDisabled="True"
-                                VerticalAlignment="Bottom"
-                                Click="NoShowButton_Click" />
+                                <Grid Grid.Row="2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="240" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="140" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="140" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
 
-                        <StackPanel Grid.Column="6">
-                            <TextBlock Text="Motif d'annulation (réservation sélectionnée)" Style="{StaticResource LabelText}" />
-                            <TextBox x:Name="CancelReasonTextBox" MaxLength="500" Tag="Obligatoire pour annuler" />
-                        </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="Unité hôtelière" Style="{StaticResource LabelText}" />
+                                        <ComboBox x:Name="AvailabilityUnitComboBox"
+                                                  ToolTip="Unité hôtelière du séjour">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock>
+                                                        <TextBlock.Text>
+                                                            <MultiBinding StringFormat="{}{0} — {1}">
+                                                                <Binding Path="Code" Mode="OneWay" />
+                                                                <Binding Path="Name" Mode="OneWay" />
+                                                            </MultiBinding>
+                                                        </TextBlock.Text>
+                                                    </TextBlock>
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </StackPanel>
 
-                        <Button x:Name="CancelReservationButton"
-                                Grid.Column="8"
-                                Content="Annuler"
-                                Style="{StaticResource DangerButton}"
-                                ToolTip="Annuler la réservation sélectionnée avant l'arrivée (motif requis)"
-                                ToolTipService.ShowOnDisabled="True"
-                                VerticalAlignment="Bottom"
-                                Click="CancelReservationButton_Click" />
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Arrivée" Style="{StaticResource LabelText}" />
+                                        <DatePicker x:Name="AvailabilityFromDatePicker" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Text="Départ" Style="{StaticResource LabelText}" />
+                                        <DatePicker x:Name="AvailabilityToDatePicker" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="6">
+                                        <TextBlock Text="Personnes" Style="{StaticResource LabelText}" />
+                                        <TextBox x:Name="AvailabilityGuestsTextBox"
+                                                 Text="1"
+                                                 Style="{StaticResource AmountTextBox}" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="8">
+                                        <TextBlock Text="Client (code ou nom)" Style="{StaticResource LabelText}" />
+                                        <DockPanel>
+                                            <Button x:Name="SearchCustomerButton"
+                                                    DockPanel.Dock="Right"
+                                                    Content="Chercher"
+                                                    Style="{StaticResource GhostButton}"
+                                                    ToolTip="Rechercher le client dans le fichier clients"
+                                                    Margin="8,0,0,0"
+                                                    Click="SearchCustomerButton_Click" />
+                                            <!-- Borne du domaine : le nom client est limite a 200. -->
+                                            <TextBox x:Name="CustomerSearchTextBox"
+                                                     MaxLength="200"
+                                                     Tag="ex. C0001 ou Dupont" />
+                                        </DockPanel>
+                                    </StackPanel>
+
+                                    <Button x:Name="SearchAvailabilityButton"
+                                            Grid.Column="10"
+                                            Content="Rechercher les disponibilités"
+                                            Style="{StaticResource PrimaryButton}"
+                                            ToolTip="Lister les chambres libres sur la période, tarifées nuit par nuit"
+                                            VerticalAlignment="Bottom"
+                                            Click="SearchAvailabilityButton_Click" />
+                                </Grid>
+
+                                <DockPanel Grid.Row="4">
+                                    <StackPanel DockPanel.Dock="Right"
+                                                Width="360"
+                                                HorizontalAlignment="Right">
+                                        <TextBlock Text="Client retenu" Style="{StaticResource LabelText}" />
+                                        <ComboBox x:Name="CustomerResultsComboBox"
+                                                  DisplayMemberPath="Label"
+                                                  ToolTip="Client de la réservation, choisi parmi les résultats de la recherche"
+                                                  SelectionChanged="CustomerResultsComboBox_SelectionChanged" />
+                                    </StackPanel>
+
+                                    <TextBlock x:Name="AvailabilitySummaryTextBlock"
+                                               Text=""
+                                               Style="{StaticResource CaptionText}"
+                                               TextWrapping="Wrap"
+                                               VerticalAlignment="Bottom"
+                                               Margin="0,0,14,4" />
+                                </DockPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Etape 2 : les chambres disponibles -->
+                        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="12" />
+                                    <RowDefinition Height="Auto" MinHeight="150" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="2. Chambres disponibles" Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock Text="Une chambre libre sans tarif couvrant les dates reste visible : un trou de tarification doit se voir, pas se déguiser en occupation."
+                                               Style="{StaticResource CaptionText}"
+                                               Margin="0,3,0,0" />
+                                </StackPanel>
+
+                                <Grid Grid.Row="2">
+                                    <ItemsControl x:Name="AvailabilityRoomsItemsControl">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border>
+                                                    <Border.Style>
+                                                        <Style TargetType="Border" BasedOn="{StaticResource ListRowBorder}">
+                                                            <Style.Triggers>
+                                                                <!-- Chambre libre mais sans tarif : grisee, non reservable. -->
+                                                                <DataTrigger Binding="{Binding IsRateMissing}" Value="True">
+                                                                    <Setter Property="Background" Value="{StaticResource DisabledBackgroundBrush}" />
+                                                                    <Setter Property="BorderBrush" Value="{StaticResource DisabledBorderBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="90" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="24" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="10" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <StackPanel VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding RoomNumber}" Style="{StaticResource RowTitleText}" />
+                                                            <TextBlock Text="Chambre" Style="{StaticResource RowMetaText}" />
+                                                        </StackPanel>
+
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding RoomTypeText}" Style="{StaticResource RowTitleText}" />
+                                                            <TextBlock Text="{Binding PlanText}"
+                                                                       Style="{StaticResource RowMetaText}"
+                                                                       TextWrapping="Wrap" />
+                                                        </StackPanel>
+
+                                                        <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                            <TextBlock Text="{Binding RateLabel}"
+                                                                       Style="{StaticResource RowMetaText}"
+                                                                       HorizontalAlignment="Right" />
+                                                            <TextBlock Text="{Binding RateText}"
+                                                                       Style="{StaticResource RowTitleText}"
+                                                                       ToolTip="{Binding NightDetailToolTip}"
+                                                                       HorizontalAlignment="Right" />
+                                                        </StackPanel>
+
+                                                        <StackPanel Grid.Column="4" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                            <TextBlock Text="Total du séjour"
+                                                                       Style="{StaticResource RowMetaText}"
+                                                                       HorizontalAlignment="Right" />
+                                                            <TextBlock Text="{Binding TotalText}"
+                                                                       Style="{StaticResource RowTitleText}"
+                                                                       Foreground="{StaticResource PrimaryBrush}"
+                                                                       HorizontalAlignment="Right" />
+                                                        </StackPanel>
+
+                                                        <Button Grid.Column="6"
+                                                                Content="Réserver"
+                                                                Style="{StaticResource PrimaryButton}"
+                                                                IsEnabled="{Binding CanBook}"
+                                                                ToolTip="{Binding BookToolTip}"
+                                                                ToolTipService.ShowOnDisabled="True"
+                                                                VerticalAlignment="Center"
+                                                                Click="BookRoomButton_Click" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <StackPanel HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                IsHitTestVisible="False">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Items.Count, ElementName=AvailabilityRoomsItemsControl}" Value="0">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <!-- Pictogramme au trait (lit avec loupe). -->
+                                        <Path Data="M1.5,6 V13 M1.5,10.5 H10 M10,13 V9.5 A1.5,1.5 0 0 0 8.5,8 H5.5 V10.5 M11.6,3.4 A2.4,2.4 0 1 0 11.61,3.4 M13.3,5.6 L15,7.3"
+                                              Stroke="{StaticResource BorderStrongBrush}"
+                                              StrokeThickness="1.5"
+                                              StrokeLineJoin="Round"
+                                              Width="46"
+                                              Height="42"
+                                              Stretch="Uniform"
+                                              HorizontalAlignment="Center"
+                                              Margin="0,0,0,10" />
+                                        <TextBlock x:Name="AvailabilityEmptyTitleTextBlock"
+                                                   Text="Aucune recherche lancée"
+                                                   Style="{StaticResource EmptyStateTitleText}"
+                                                   HorizontalAlignment="Center" />
+                                        <TextBlock x:Name="AvailabilityEmptyHintTextBlock"
+                                                   Text="Renseignez le séjour recherché ci-dessus puis cliquez sur « Rechercher les disponibilités »."
+                                                   Style="{StaticResource EmptyStateHintText}"
+                                                   HorizontalAlignment="Center" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                        <!-- Etape 3 : apres creation, proposer la suite du travail -->
+                        <Border x:Name="BookingSuccessBorder"
+                                Grid.Row="3"
+                                Style="{StaticResource CardBorder}"
+                                Visibility="Collapsed"
+                                Margin="0,0,0,14">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center">
+                                    <Button x:Name="GoToFrontDeskButton"
+                                            Content="Ouvrir la réception"
+                                            Style="{StaticResource SecondaryButton}"
+                                            ToolTip="Basculer sur l'onglet Réception"
+                                            Margin="0,0,8,0"
+                                            Click="GoToFrontDeskButton_Click" />
+                                    <Button x:Name="GoToPlanningButton"
+                                            Content="Ouvrir le planning"
+                                            Style="{StaticResource SecondaryButton}"
+                                            ToolTip="Basculer sur l'onglet Planning"
+                                            Click="GoToPlanningButton_Click" />
+                                </StackPanel>
+
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Réservation créée" Style="{StaticResource SectionTitleText}"
+                                               Foreground="{StaticResource StatusValidatedForegroundBrush}" />
+                                    <TextBlock x:Name="BookingSuccessTextBlock"
+                                               Text=""
+                                               Style="{StaticResource CaptionText}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,3,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
                     </Grid>
-                </Grid>
-            </Border>
+                </ScrollViewer>
+            </TabItem>
 
-            <!-- ============================== Folio =============================== -->
-            <Border Grid.Row="6" Style="{StaticResource CardBorder}">
+            <!-- ================================= PLANNING ================================= -->
+            <TabItem Header="Planning">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="12" />
-                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" MinHeight="260" />
                         <RowDefinition Height="12" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <DockPanel>
-                        <StackPanel DockPanel.Dock="Right"
-                                    HorizontalAlignment="Right"
-                                    VerticalAlignment="Center">
-                            <TextBlock Text="Solde" Style="{StaticResource MetricLabelText}" HorizontalAlignment="Right" />
-                            <TextBlock x:Name="FolioBalanceTextBlock"
-                                       Text="—"
-                                       Style="{StaticResource MetricValueText}"
-                                       HorizontalAlignment="Right" />
-                        </StackPanel>
+                    <!-- Barre d'outils du tape chart -->
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="260" />
+                                <ColumnDefinition Width="14" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="14" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
 
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Folio de la réservation sélectionnée" Style="{StaticResource SectionTitleText}" />
-                            <TextBlock x:Name="FolioCaptionTextBlock"
-                                       Text="Sélectionnez une réservation arrivée ou terminée pour consulter son folio."
-                                       Style="{StaticResource CaptionText}"
-                                       Margin="0,3,0,0" />
-                        </StackPanel>
-                    </DockPanel>
+                            <StackPanel>
+                                <TextBlock Text="Unité hôtelière" Style="{StaticResource LabelText}" />
+                                <ComboBox x:Name="PlanningUnitComboBox"
+                                          ToolTip="Unité dont le planning des chambres est affiché"
+                                          SelectionChanged="PlanningUnitComboBox_SelectionChanged">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock>
+                                                <TextBlock.Text>
+                                                    <MultiBinding StringFormat="{}{0} — {1}">
+                                                        <Binding Path="Code" Mode="OneWay" />
+                                                        <Binding Path="Name" Mode="OneWay" />
+                                                    </MultiBinding>
+                                                </TextBlock.Text>
+                                            </TextBlock>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </StackPanel>
 
-                    <Grid Grid.Row="2" MinHeight="150" MaxHeight="220">
-                        <DataGrid x:Name="FolioChargesDataGrid">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="N°"
-                                                    Binding="{Binding LineNumber}"
-                                                    Width="55"
-                                                    ElementStyle="{StaticResource AmountCellText}"
-                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
-                                <DataGridTextColumn Header="Date"
-                                                    Binding="{Binding ChargeDate, StringFormat={}{0:dd/MM/yyyy}}"
-                                                    Width="100" />
-                                <DataGridTextColumn Header="Libellé" Binding="{Binding Label}" Width="*" />
-                                <DataGridTextColumn Header="Nature" Binding="{Binding KindLabel}" Width="130" />
-                                <DataGridTextColumn Header="Montant"
-                                                    Binding="{Binding Amount, StringFormat={}{0:N2}}"
-                                                    Width="120"
-                                                    ElementStyle="{StaticResource AmountCellText}"
-                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
-                                <DataGridTextColumn Header="Référence"
-                                                    Binding="{Binding Reference}"
-                                                    Width="150"
-                                                    ElementStyle="{StaticResource MutedCellText}" />
-                            </DataGrid.Columns>
-                        </DataGrid>
-                        <StackPanel HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    IsHitTestVisible="False">
-                            <StackPanel.Style>
-                                <Style TargetType="StackPanel">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Items.Count, ElementName=FolioChargesDataGrid}" Value="0">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </StackPanel.Style>
-                            <!-- Pictogramme au trait (document a lignes), meme gabarit que les
-                                 etats vides des autres ecrans. -->
-                            <Path Data="M3,1.5 H10 L13,4.5 V14.5 H3 Z M5.5,8 H10.5 M5.5,11 H10.5"
-                                  Stroke="{StaticResource BorderStrongBrush}"
-                                  StrokeThickness="1.5"
-                                  StrokeLineJoin="Round"
-                                  Width="42"
-                                  Height="44"
-                                  Stretch="Uniform"
-                                  HorizontalAlignment="Center"
-                                  Margin="0,0,0,10" />
-                            <TextBlock Text="Aucune ligne de folio"
-                                       Style="{StaticResource EmptyStateTitleText}" />
-                            <TextBlock Text="Le folio s'ouvre au check-in, avec une ligne par nuit du séjour."
-                                       Style="{StaticResource EmptyStateHintText}" />
-                        </StackPanel>
-                    </Grid>
+                            <StackPanel Grid.Column="2"
+                                        Orientation="Horizontal"
+                                        VerticalAlignment="Bottom">
+                                <Button x:Name="PlanningPrevButton"
+                                        Content="◀ Précédent"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Reculer la fenêtre de 7 jours"
+                                        Margin="0,0,8,0"
+                                        Click="PlanningPrevButton_Click" />
+                                <Button x:Name="PlanningTodayButton"
+                                        Content="Aujourd'hui"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Recentrer la fenêtre sur la journée du poste"
+                                        Margin="0,0,8,0"
+                                        Click="PlanningTodayButton_Click" />
+                                <Button x:Name="PlanningNextButton"
+                                        Content="Suivant ▶"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Avancer la fenêtre de 7 jours"
+                                        Click="PlanningNextButton_Click" />
+                            </StackPanel>
 
-                    <Grid Grid.Row="4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="150" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="150" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="200" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="170" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="4" VerticalAlignment="Bottom">
+                                <TextBlock Text="Fenêtre affichée" Style="{StaticResource MetricLabelText}" />
+                                <TextBlock x:Name="PlanningRangeTextBlock"
+                                           Text="—"
+                                           Style="{StaticResource RowTitleText}" />
+                            </StackPanel>
 
-                        <StackPanel>
-                            <TextBlock Text="Date" Style="{StaticResource LabelText}" />
-                            <DatePicker x:Name="ChargeDatePicker" />
-                        </StackPanel>
+                            <!-- Legende des statuts, teintes Status* du theme. -->
+                            <StackPanel Grid.Column="5"
+                                        Orientation="Horizontal"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Bottom"
+                                        Margin="14,0">
+                                <Border Width="14" Height="14" CornerRadius="4"
+                                        Background="{StaticResource StatusSubmittedBackgroundBrush}"
+                                        BorderBrush="{StaticResource StatusSubmittedForegroundBrush}"
+                                        BorderThickness="1"
+                                        VerticalAlignment="Center" />
+                                <TextBlock Text="Réservée" Style="{StaticResource LegendChipText}" />
+                                <Border Width="14" Height="14" CornerRadius="4"
+                                        Background="{StaticResource StatusValidatedBackgroundBrush}"
+                                        BorderBrush="{StaticResource StatusValidatedForegroundBrush}"
+                                        BorderThickness="1"
+                                        VerticalAlignment="Center" />
+                                <TextBlock Text="En séjour" Style="{StaticResource LegendChipText}" />
+                                <Border Width="14" Height="14" CornerRadius="4"
+                                        Background="{StaticResource StatusDraftBackgroundBrush}"
+                                        BorderBrush="{StaticResource StatusDraftForegroundBrush}"
+                                        BorderThickness="1"
+                                        Opacity="0.6"
+                                        VerticalAlignment="Center" />
+                                <TextBlock Text="Terminée" Style="{StaticResource LegendChipText}" />
+                            </StackPanel>
 
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="Libellé" Style="{StaticResource LabelText}" />
-                            <!-- Bornes alignees sur le domaine (FolioCharge) : libelle 300,
-                                 reference 100. -->
-                            <TextBox x:Name="ChargeLabelTextBox" MaxLength="300" Tag="ex. Minibar" />
-                        </StackPanel>
+                            <Button x:Name="RefreshPlanningButton"
+                                    Grid.Column="6"
+                                    Content="Actualiser"
+                                    Style="{StaticResource SecondaryButton}"
+                                    ToolTip="Recharger le planning de l'unité sur la fenêtre affichée"
+                                    VerticalAlignment="Bottom"
+                                    Click="RefreshPlanningButton_Click" />
+                        </Grid>
+                    </Border>
 
-                        <StackPanel Grid.Column="4">
-                            <TextBlock Text="Montant" Style="{StaticResource LabelText}" />
-                            <TextBox x:Name="ChargeAmountTextBox"
-                                     Style="{StaticResource AmountTextBox}"
-                                     ToolTip="Négatif uniquement pour un règlement ou un ajustement" />
-                        </StackPanel>
+                    <!-- Le tape chart : grille chambres x jours construite en code-behind
+                         (BuildPlanningGrid), barres de reservation continues cliquables. -->
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <ScrollViewer x:Name="PlanningScrollViewer"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Auto">
+                                <Grid x:Name="PlanningGrid" />
+                            </ScrollViewer>
 
-                        <StackPanel Grid.Column="6">
-                            <TextBlock Text="Nature" Style="{StaticResource LabelText}" />
-                            <ComboBox x:Name="ChargeKindComboBox"
-                                      DisplayMemberPath="Label"
-                                      ToolTip="Extra (consommation), règlement (montant négatif, référence de reçu) ou ajustement" />
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="8">
-                            <TextBlock Text="Référence" Style="{StaticResource LabelText}" />
-                            <TextBox x:Name="ChargeReferenceTextBox"
-                                     MaxLength="100"
-                                     Tag="Reçu de caisse…"
-                                     ToolTip="Pour un règlement : numéro du reçu de trésorerie qu'il reflète" />
-                        </StackPanel>
-
-                        <Button x:Name="AddChargeButton"
-                                Grid.Column="10"
-                                Content="Ajouter la ligne"
-                                Style="{StaticResource PrimaryButton}"
-                                ToolTip="Ajouter la ligne au folio de la réservation sélectionnée (séjour en cours)"
-                                ToolTipService.ShowOnDisabled="True"
-                                VerticalAlignment="Bottom"
-                                Click="AddChargeButton_Click" />
-                    </Grid>
-                </Grid>
-            </Border>
-
-            <!-- ================= Types de chambre &amp; chambres =================== -->
-            <Border Grid.Row="8" Style="{StaticResource CardBorder}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="12" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-
-                    <DockPanel>
-                        <CheckBox x:Name="IncludeInactiveRoomsCheckBox"
-                                  DockPanel.Dock="Right"
-                                  Content="Inclure inactifs"
-                                  ToolTip="Afficher aussi les types de chambre et chambres désactivés"
-                                  VerticalAlignment="Center" />
-
-                        <StackPanel>
-                            <TextBlock Text="Types de chambre &amp; chambres" Style="{StaticResource SectionTitleText}" />
-                            <TextBlock Text="Référentiel en consultation. Rechargé par le bouton Actualiser ci-dessus."
-                                       Style="{StaticResource CaptionText}"
-                                       Margin="0,3,0,0" />
-                        </StackPanel>
-                    </DockPanel>
-
-                    <Grid Grid.Row="2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="16" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <Grid MinHeight="150" MaxHeight="220">
-                            <DataGrid x:Name="RoomTypesDataGrid">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Unité" Binding="{Binding HotelUnitCode}" Width="85" />
-                                    <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="85" />
-                                    <DataGridTextColumn Header="Libellé" Binding="{Binding Label}" Width="*" />
-                                    <DataGridTextColumn Header="Capacité"
-                                                        Binding="{Binding Capacity}"
-                                                        Width="80"
-                                                        ElementStyle="{StaticResource AmountCellText}"
-                                                        HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
-                                    <DataGridCheckBoxColumn Header="Actif" Binding="{Binding IsActive}" Width="65" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-                            <StackPanel HorizontalAlignment="Center"
+                            <StackPanel x:Name="PlanningEmptyStatePanel"
+                                        HorizontalAlignment="Center"
                                         VerticalAlignment="Center"
                                         IsHitTestVisible="False">
-                                <StackPanel.Style>
-                                    <Style TargetType="StackPanel">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Items.Count, ElementName=RoomTypesDataGrid}" Value="0">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </StackPanel.Style>
-                                <!-- Pictogramme au trait (lit), meme gabarit que les etats
-                                     vides des autres ecrans. -->
-                                <Path Data="M1.5,5 V13.5 M1.5,11 H14.5 M14.5,13.5 V9.5 A1.5,1.5 0 0 0 13,8 H6.5 V11 M3,7 A1.2,1.2 0 1 0 5.4,7 A1.2,1.2 0 1 0 3,7"
+                                <!-- Pictogramme au trait (planning a barres). Etat vide bascule
+                                     en code-behind : la grille est construite a la main, sans
+                                     ItemsControl dont compter les elements. -->
+                                <Path Data="M2,2.5 H14 V13.5 H2 Z M2,5.5 H14 M5.5,2.5 V13.5 M7,7.5 H12 M3.5,10.5 H9"
                                       Stroke="{StaticResource BorderStrongBrush}"
                                       StrokeThickness="1.5"
                                       StrokeLineJoin="Round"
                                       Width="46"
-                                      Height="40"
+                                      Height="42"
                                       Stretch="Uniform"
                                       HorizontalAlignment="Center"
                                       Margin="0,0,0,10" />
-                                <TextBlock Text="Aucun type de chambre"
-                                           Style="{StaticResource EmptyStateTitleText}" />
-                                <TextBlock Text="Cliquez sur Actualiser pour recharger le référentiel."
-                                           Style="{StaticResource EmptyStateHintText}" />
+                                <TextBlock x:Name="PlanningEmptyTitleTextBlock"
+                                           Text="Aucun planning affiché"
+                                           Style="{StaticResource EmptyStateTitleText}"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock x:Name="PlanningEmptyHintTextBlock"
+                                           Text="Choisissez une unité hôtelière pour afficher ses chambres sur 14 jours."
+                                           Style="{StaticResource EmptyStateHintText}"
+                                           HorizontalAlignment="Center" />
                             </StackPanel>
                         </Grid>
+                    </Border>
 
-                        <Grid Grid.Column="2" MinHeight="150" MaxHeight="220">
-                            <DataGrid x:Name="RoomsDataGrid">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Unité" Binding="{Binding HotelUnitCode}" Width="85" />
-                                    <DataGridTextColumn Header="Chambre" Binding="{Binding Number}" Width="95" />
-                                    <DataGridTextColumn Header="Type" Binding="{Binding RoomTypeCode}" Width="*" />
-                                    <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive}" Width="70" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-                            <StackPanel HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        IsHitTestVisible="False">
-                                <StackPanel.Style>
-                                    <Style TargetType="StackPanel">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Items.Count, ElementName=RoomsDataGrid}" Value="0">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </StackPanel.Style>
-                                <!-- Pictogramme au trait (porte), meme gabarit que les etats
-                                     vides des autres ecrans. -->
-                                <Path Data="M4,14.5 V1.5 H12 V14.5 M2,14.5 H14 M9.6,8 A0.9,0.9 0 1 0 11.4,8 A0.9,0.9 0 1 0 9.6,8"
-                                      Stroke="{StaticResource BorderStrongBrush}"
-                                      StrokeThickness="1.5"
-                                      StrokeLineJoin="Round"
-                                      Width="40"
-                                      Height="44"
-                                      Stretch="Uniform"
-                                      HorizontalAlignment="Center"
-                                      Margin="0,0,0,10" />
-                                <TextBlock Text="Aucune chambre"
-                                           Style="{StaticResource EmptyStateTitleText}" />
-                                <TextBlock Text="Cliquez sur Actualiser pour recharger le référentiel."
-                                           Style="{StaticResource EmptyStateHintText}" />
+                    <!-- Carte de sejour : le detail de la barre selectionnee et ses
+                         actions contextuelles. -->
+                    <Border Grid.Row="4" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <StackPanel x:Name="StayCardEmptyPanel">
+                                <TextBlock Text="Carte de séjour" Style="{StaticResource SectionTitleText}" />
+                                <TextBlock Text="Cliquez sur une barre du planning pour afficher le détail du séjour et agir dessus."
+                                           Style="{StaticResource CaptionText}"
+                                           Margin="0,3,0,0" />
                             </StackPanel>
+
+                            <Grid x:Name="StayCardPanel" Visibility="Collapsed">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="12" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <DockPanel>
+                                    <Border x:Name="StayStatusBadgeBorder"
+                                            DockPanel.Dock="Right"
+                                            CornerRadius="10"
+                                            Padding="12,4"
+                                            VerticalAlignment="Center"
+                                            Background="{StaticResource StatusSubmittedBackgroundBrush}">
+                                        <TextBlock x:Name="StayStatusBadgeTextBlock"
+                                                   Text="Réservée"
+                                                   FontSize="11.5"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource StatusSubmittedForegroundBrush}" />
+                                    </Border>
+
+                                    <StackPanel>
+                                        <TextBlock x:Name="StayCardTitleTextBlock"
+                                                   Text="Carte de séjour"
+                                                   Style="{StaticResource SectionTitleText}" />
+                                        <TextBlock x:Name="StayCardSubtitleTextBlock"
+                                                   Text=""
+                                                   Style="{StaticResource CaptionText}"
+                                                   Margin="0,3,0,0" />
+                                    </StackPanel>
+                                </DockPanel>
+
+                                <Grid Grid.Row="2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="28" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="28" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="28" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel>
+                                        <TextBlock Text="Séjour" Style="{StaticResource MetricLabelText}" />
+                                        <TextBlock x:Name="StayDatesTextBlock" Text="—" Style="{StaticResource RowTitleText}" />
+                                        <TextBlock x:Name="StayNightsTextBlock" Text="" Style="{StaticResource RowMetaText}" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Nuitée (arrivée)" Style="{StaticResource MetricLabelText}" />
+                                        <TextBlock x:Name="StayRateTextBlock" Text="—" Style="{StaticResource RowTitleText}" />
+                                        <TextBlock x:Name="StayPlanTextBlock" Text="" Style="{StaticResource RowMetaText}" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Text="Solde du folio" Style="{StaticResource MetricLabelText}" />
+                                        <TextBlock x:Name="StayBalanceTextBlock" Text="—" Style="{StaticResource RowTitleText}" />
+                                        <TextBlock x:Name="StayBalanceHintTextBlock" Text="" Style="{StaticResource RowMetaText}" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="6" Width="240">
+                                        <TextBlock Text="Motif d'annulation" Style="{StaticResource LabelText}" />
+                                        <TextBox x:Name="StayCancelReasonTextBox"
+                                                 MaxLength="500"
+                                                 Tag="Obligatoire pour annuler" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="8"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Bottom">
+                                        <Button x:Name="StayFolioButton"
+                                                Content="Folio"
+                                                Style="{StaticResource GhostButton}"
+                                                ToolTip="Ouvrir le folio de ce séjour dans l'onglet Folio"
+                                                Margin="0,0,8,0"
+                                                Click="StayFolioButton_Click" />
+                                        <Button x:Name="StayCheckInButton"
+                                                Content="Check-in"
+                                                Style="{StaticResource PrimaryButton}"
+                                                ToolTip="Enregistrer l'arrivée : ouvre le folio avec une ligne par nuit au tarif figé"
+                                                ToolTipService.ShowOnDisabled="True"
+                                                Margin="0,0,8,0"
+                                                Click="StayCheckInButton_Click" />
+                                        <Button x:Name="StayCheckOutButton"
+                                                Content="Check-out"
+                                                Style="{StaticResource PrimaryButton}"
+                                                ToolTip="Enregistrer le départ (folio soldé à zéro exigé)"
+                                                ToolTipService.ShowOnDisabled="True"
+                                                Margin="0,0,8,0"
+                                                Click="StayCheckOutButton_Click" />
+                                        <Button x:Name="StayNoShowButton"
+                                                Content="No-show"
+                                                Style="{StaticResource SecondaryButton}"
+                                                ToolTip="Constater que le client n'est jamais arrivé"
+                                                ToolTipService.ShowOnDisabled="True"
+                                                Margin="0,0,8,0"
+                                                Click="StayNoShowButton_Click" />
+                                        <Button x:Name="StayCancelButton"
+                                                Content="Annuler"
+                                                Style="{StaticResource DangerButton}"
+                                                ToolTip="Annuler la réservation avant l'arrivée (motif requis)"
+                                                ToolTipService.ShowOnDisabled="True"
+                                                Click="StayCancelButton_Click" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
                         </Grid>
-                    </Grid>
+                    </Border>
                 </Grid>
-            </Border>
+            </TabItem>
 
-            <!-- ============================ Occupation ============================ -->
-            <Border Grid.Row="10" Style="{StaticResource CardBorder}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="12" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="12" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+            <!-- ================================== FOLIO ================================== -->
+            <TabItem Header="Folio">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" MinHeight="180" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
 
-                    <StackPanel>
-                        <TextBlock Text="Taux d'occupation" Style="{StaticResource SectionTitleText}" />
-                        <TextBlock Text="Chambres occupées par nuit (séjours non annulés : réservés, en cours ou terminés) rapportées aux chambres actives de l'unité."
-                                   Style="{StaticResource CaptionText}"
-                                   Margin="0,3,0,0" />
-                    </StackPanel>
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center">
+                                    <TextBlock Text="Solde" Style="{StaticResource MetricLabelText}" HorizontalAlignment="Right" />
+                                    <TextBlock x:Name="FolioBalanceTextBlock"
+                                               Text="—"
+                                               Style="{StaticResource MetricValueText}"
+                                               HorizontalAlignment="Right" />
+                                </StackPanel>
 
-                    <Grid Grid.Row="2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="260" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="150" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="150" />
-                            <ColumnDefinition Width="14" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Folio du séjour sélectionné" Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock x:Name="FolioCaptionTextBlock"
+                                               Text="Sélectionnez un séjour depuis la Réception ou le Planning pour consulter son folio."
+                                               Style="{StaticResource CaptionText}"
+                                               Margin="0,3,0,0" />
+                                </StackPanel>
+                            </DockPanel>
 
-                        <StackPanel>
-                            <TextBlock Text="Unité hôtelière" Style="{StaticResource LabelText}" />
-                            <ComboBox x:Name="OccupancyUnitComboBox">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock>
-                                            <TextBlock.Text>
-                                                <MultiBinding StringFormat="{}{0} — {1}">
-                                                    <Binding Path="Code" Mode="OneWay" />
-                                                    <Binding Path="Name" Mode="OneWay" />
-                                                </MultiBinding>
-                                            </TextBlock.Text>
-                                        </TextBlock>
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </StackPanel>
+                            <Grid Grid.Row="2" MinHeight="180" MaxHeight="320">
+                                <DataGrid x:Name="FolioChargesDataGrid">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="N°"
+                                                            Binding="{Binding LineNumber}"
+                                                            Width="55"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Date"
+                                                            Binding="{Binding ChargeDate, StringFormat={}{0:dd/MM/yyyy}}"
+                                                            Width="100" />
+                                        <DataGridTextColumn Header="Libellé" Binding="{Binding Label}" Width="*" />
+                                        <DataGridTextColumn Header="Nature" Binding="{Binding KindLabel}" Width="130" />
+                                        <DataGridTextColumn Header="Montant"
+                                                            Binding="{Binding Amount, StringFormat={}{0:N2}}"
+                                                            Width="120"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Référence"
+                                                            Binding="{Binding Reference}"
+                                                            Width="150"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=FolioChargesDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <!-- Pictogramme au trait (document a lignes). -->
+                                    <Path Data="M3,1.5 H10 L13,4.5 V14.5 H3 Z M5.5,8 H10.5 M5.5,11 H10.5"
+                                          Stroke="{StaticResource BorderStrongBrush}"
+                                          StrokeThickness="1.5"
+                                          StrokeLineJoin="Round"
+                                          Width="42"
+                                          Height="44"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,10" />
+                                    <TextBlock Text="Aucune ligne de folio"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Le folio s'ouvre au check-in ; sélectionnez un séjour arrivé depuis la Réception ou le Planning."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
 
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="Du" Style="{StaticResource LabelText}" />
-                            <DatePicker x:Name="OccupancyFromDatePicker" />
-                        </StackPanel>
+                            <Grid Grid.Row="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="200" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="170" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
 
-                        <StackPanel Grid.Column="4">
-                            <TextBlock Text="Au" Style="{StaticResource LabelText}" />
-                            <DatePicker x:Name="OccupancyToDatePicker" />
-                        </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Date" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="ChargeDatePicker" />
+                                </StackPanel>
 
-                        <Button x:Name="LoadOccupancyButton"
-                                Grid.Column="6"
-                                Content="Calculer"
-                                Style="{StaticResource SecondaryButton}"
-                                ToolTip="Calculer l'occupation de l'unité sur la période"
-                                VerticalAlignment="Bottom"
-                                Click="LoadOccupancyButton_Click" />
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Libellé" Style="{StaticResource LabelText}" />
+                                    <!-- Bornes alignees sur le domaine (FolioCharge) : libelle 300,
+                                         reference 100. -->
+                                    <TextBox x:Name="ChargeLabelTextBox" MaxLength="300" Tag="ex. Minibar" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Montant" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="ChargeAmountTextBox"
+                                             Style="{StaticResource AmountTextBox}"
+                                             ToolTip="Négatif uniquement pour un règlement ou un ajustement" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6">
+                                    <TextBlock Text="Nature" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="ChargeKindComboBox"
+                                              DisplayMemberPath="Label"
+                                              ToolTip="Extra (consommation), règlement (montant négatif, référence de reçu) ou ajustement" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="8">
+                                    <TextBlock Text="Référence" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="ChargeReferenceTextBox"
+                                             MaxLength="100"
+                                             Tag="Reçu de caisse…"
+                                             ToolTip="Pour un règlement : numéro du reçu de trésorerie qu'il reflète" />
+                                </StackPanel>
+
+                                <Button x:Name="AddChargeButton"
+                                        Grid.Column="10"
+                                        Content="Ajouter la ligne"
+                                        Style="{StaticResource PrimaryButton}"
+                                        ToolTip="Ajouter la ligne au folio du séjour sélectionné (séjour en cours)"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        VerticalAlignment="Bottom"
+                                        Click="AddChargeButton_Click" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ====================== CHAMBRES & TAUX D'OCCUPATION ====================== -->
+            <TabItem Header="Chambres &amp; occupation">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Referentiel : types de chambre et chambres (consultation) -->
+                        <Border Style="{StaticResource CardBorder}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="12" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <CheckBox x:Name="IncludeInactiveRoomsCheckBox"
+                                                  Content="Inclure inactifs"
+                                                  ToolTip="Afficher aussi les types de chambre et chambres désactivés"
+                                                  VerticalAlignment="Center"
+                                                  Margin="0,0,14,0" />
+                                        <Button x:Name="RefreshReferentialButton"
+                                                Content="Actualiser"
+                                                Style="{StaticResource SecondaryButton}"
+                                                ToolTip="Recharger le référentiel des types de chambre et des chambres"
+                                                Click="RefreshReferentialButton_Click" />
+                                    </StackPanel>
+
+                                    <StackPanel>
+                                        <TextBlock Text="Types de chambre &amp; chambres" Style="{StaticResource SectionTitleText}" />
+                                        <TextBlock Text="Référentiel en consultation : la création et la modification passent par l'administration."
+                                                   Style="{StaticResource CaptionText}"
+                                                   Margin="0,3,0,0" />
+                                    </StackPanel>
+                                </DockPanel>
+
+                                <Grid Grid.Row="2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Grid MinHeight="150" MaxHeight="240">
+                                        <DataGrid x:Name="RoomTypesDataGrid">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Unité" Binding="{Binding HotelUnitCode}" Width="85" />
+                                                <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="85" />
+                                                <DataGridTextColumn Header="Libellé" Binding="{Binding Label}" Width="*" />
+                                                <DataGridTextColumn Header="Capacité"
+                                                                    Binding="{Binding Capacity}"
+                                                                    Width="80"
+                                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                                <DataGridCheckBoxColumn Header="Actif" Binding="{Binding IsActive}" Width="65" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                        <StackPanel HorizontalAlignment="Center"
+                                                    VerticalAlignment="Center"
+                                                    IsHitTestVisible="False">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Items.Count, ElementName=RoomTypesDataGrid}" Value="0">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <!-- Pictogramme au trait (lit). -->
+                                            <Path Data="M1.5,5 V13.5 M1.5,11 H14.5 M14.5,13.5 V9.5 A1.5,1.5 0 0 0 13,8 H6.5 V11 M3,7 A1.2,1.2 0 1 0 5.4,7 A1.2,1.2 0 1 0 3,7"
+                                                  Stroke="{StaticResource BorderStrongBrush}"
+                                                  StrokeThickness="1.5"
+                                                  StrokeLineJoin="Round"
+                                                  Width="46"
+                                                  Height="40"
+                                                  Stretch="Uniform"
+                                                  HorizontalAlignment="Center"
+                                                  Margin="0,0,0,10" />
+                                            <TextBlock Text="Aucun type de chambre"
+                                                       Style="{StaticResource EmptyStateTitleText}" />
+                                            <TextBlock Text="Cliquez sur Actualiser pour recharger le référentiel."
+                                                       Style="{StaticResource EmptyStateHintText}" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Grid Grid.Column="2" MinHeight="150" MaxHeight="240">
+                                        <DataGrid x:Name="RoomsDataGrid">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Unité" Binding="{Binding HotelUnitCode}" Width="85" />
+                                                <DataGridTextColumn Header="Chambre" Binding="{Binding Number}" Width="95" />
+                                                <DataGridTextColumn Header="Type" Binding="{Binding RoomTypeCode}" Width="*" />
+                                                <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive}" Width="70" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                        <StackPanel HorizontalAlignment="Center"
+                                                    VerticalAlignment="Center"
+                                                    IsHitTestVisible="False">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Items.Count, ElementName=RoomsDataGrid}" Value="0">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <!-- Pictogramme au trait (porte). -->
+                                            <Path Data="M4,14.5 V1.5 H12 V14.5 M2,14.5 H14 M9.6,8 A0.9,0.9 0 1 0 11.4,8 A0.9,0.9 0 1 0 9.6,8"
+                                                  Stroke="{StaticResource BorderStrongBrush}"
+                                                  StrokeThickness="1.5"
+                                                  StrokeLineJoin="Round"
+                                                  Width="40"
+                                                  Height="44"
+                                                  Stretch="Uniform"
+                                                  HorizontalAlignment="Center"
+                                                  Margin="0,0,0,10" />
+                                            <TextBlock Text="Aucune chambre"
+                                                       Style="{StaticResource EmptyStateTitleText}" />
+                                            <TextBlock Text="Cliquez sur Actualiser pour recharger le référentiel."
+                                                       Style="{StaticResource EmptyStateHintText}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                        <!-- Taux d'occupation par periode -->
+                        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="12" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="12" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Taux d'occupation" Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock Text="Chambres occupées par nuit (séjours non annulés : réservés, en cours ou terminés) rapportées aux chambres actives de l'unité."
+                                               Style="{StaticResource CaptionText}"
+                                               Margin="0,3,0,0" />
+                                </StackPanel>
+
+                                <Grid Grid.Row="2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="260" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="150" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="150" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel>
+                                        <TextBlock Text="Unité hôtelière" Style="{StaticResource LabelText}" />
+                                        <ComboBox x:Name="OccupancyUnitComboBox">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock>
+                                                        <TextBlock.Text>
+                                                            <MultiBinding StringFormat="{}{0} — {1}">
+                                                                <Binding Path="Code" Mode="OneWay" />
+                                                                <Binding Path="Name" Mode="OneWay" />
+                                                            </MultiBinding>
+                                                        </TextBlock.Text>
+                                                    </TextBlock>
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Du" Style="{StaticResource LabelText}" />
+                                        <DatePicker x:Name="OccupancyFromDatePicker" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Text="Au" Style="{StaticResource LabelText}" />
+                                        <DatePicker x:Name="OccupancyToDatePicker" />
+                                    </StackPanel>
+
+                                    <Button x:Name="LoadOccupancyButton"
+                                            Grid.Column="6"
+                                            Content="Calculer"
+                                            Style="{StaticResource SecondaryButton}"
+                                            ToolTip="Calculer l'occupation de l'unité sur la période"
+                                            VerticalAlignment="Bottom"
+                                            Click="LoadOccupancyButton_Click" />
+                                </Grid>
+
+                                <Grid Grid.Row="4" MinHeight="150" MaxHeight="240">
+                                    <DataGrid x:Name="OccupancyDataGrid">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Nuit du"
+                                                                Binding="{Binding Date, StringFormat={}{0:dd/MM/yyyy}}"
+                                                                Width="120" />
+                                            <DataGridTextColumn Header="Chambres actives"
+                                                                Binding="{Binding TotalActiveRooms}"
+                                                                Width="140"
+                                                                ElementStyle="{StaticResource AmountCellText}"
+                                                                HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                            <DataGridTextColumn Header="Occupées"
+                                                                Binding="{Binding OccupiedRooms}"
+                                                                Width="110"
+                                                                ElementStyle="{StaticResource AmountCellText}"
+                                                                HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                            <DataGridTextColumn Header="Taux %"
+                                                                Binding="{Binding OccupancyRatePercent, StringFormat={}{0:N2}}"
+                                                                Width="*"
+                                                                ElementStyle="{StaticResource TotalCellText}"
+                                                                HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <StackPanel HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                IsHitTestVisible="False">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Items.Count, ElementName=OccupancyDataGrid}" Value="0">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <!-- Pictogramme au trait (barres de taux). Epaisseur 2 :
+                                             la charte la prescrit pour le pictogramme "barres". -->
+                                        <Path Data="M2,14 H14 M4.5,14 V9 M8,14 V4.5 M11.5,14 V11"
+                                              Stroke="{StaticResource BorderStrongBrush}"
+                                              StrokeThickness="2"
+                                              StrokeLineJoin="Round"
+                                              Width="44"
+                                              Height="40"
+                                              Stretch="Uniform"
+                                              HorizontalAlignment="Center"
+                                              Margin="0,0,0,10" />
+                                        <TextBlock Text="Aucune occupation calculée"
+                                                   Style="{StaticResource EmptyStateTitleText}" />
+                                        <TextBlock Text="Choisissez une unité et une période puis cliquez sur Calculer."
+                                                   Style="{StaticResource EmptyStateHintText}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
                     </Grid>
-
-                    <Grid Grid.Row="4" MinHeight="150" MaxHeight="220">
-                        <DataGrid x:Name="OccupancyDataGrid">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Nuit du"
-                                                    Binding="{Binding Date, StringFormat={}{0:dd/MM/yyyy}}"
-                                                    Width="120" />
-                                <DataGridTextColumn Header="Chambres actives"
-                                                    Binding="{Binding TotalActiveRooms}"
-                                                    Width="140"
-                                                    ElementStyle="{StaticResource AmountCellText}"
-                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
-                                <DataGridTextColumn Header="Occupées"
-                                                    Binding="{Binding OccupiedRooms}"
-                                                    Width="110"
-                                                    ElementStyle="{StaticResource AmountCellText}"
-                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
-                                <DataGridTextColumn Header="Taux %"
-                                                    Binding="{Binding OccupancyRatePercent, StringFormat={}{0:N2}}"
-                                                    Width="*"
-                                                    ElementStyle="{StaticResource TotalCellText}"
-                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
-                            </DataGrid.Columns>
-                        </DataGrid>
-                        <StackPanel HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    IsHitTestVisible="False">
-                            <StackPanel.Style>
-                                <Style TargetType="StackPanel">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Items.Count, ElementName=OccupancyDataGrid}" Value="0">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </StackPanel.Style>
-                            <!-- Pictogramme au trait (barres de taux), meme gabarit que les
-                                 etats vides des autres ecrans. -->
-                            <!-- Epaisseur 2 : la charte la prescrit pour le pictogramme
-                                 "barres", precedent AccountingView. -->
-                            <Path Data="M2,14 H14 M4.5,14 V9 M8,14 V4.5 M11.5,14 V11"
-                                  Stroke="{StaticResource BorderStrongBrush}"
-                                  StrokeThickness="2"
-                                  StrokeLineJoin="Round"
-                                  Width="44"
-                                  Height="40"
-                                  Stretch="Uniform"
-                                  HorizontalAlignment="Center"
-                                  Margin="0,0,0,10" />
-                            <TextBlock Text="Aucune occupation calculée"
-                                       Style="{StaticResource EmptyStateTitleText}" />
-                            <TextBlock Text="Choisissez une unité et une période puis cliquez sur Calculer."
-                                       Style="{StaticResource EmptyStateHintText}" />
-                        </StackPanel>
-                    </Grid>
-                </Grid>
-            </Border>
-        </Grid>
-    </ScrollViewer>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </Grid>
 </UserControl>

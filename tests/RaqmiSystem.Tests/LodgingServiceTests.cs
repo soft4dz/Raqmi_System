@@ -47,7 +47,10 @@ public sealed class LodgingServiceTests
         Assert.Equal("STD", result.Value.RatePlanCodeSnapshot);
         Assert.Equal(3, result.Value.Nights);
         Assert.Equal("101", result.Value.RoomNumber);
-        Assert.Equal(1, harness.Resolver.ResolveCallCount);
+
+        // One resolution per night: the whole stay is priced at creation, not just the arrival
+        // night flattened over every night.
+        Assert.Equal(3, harness.Resolver.ResolveCallCount);
     }
 
     [Fact]
@@ -380,6 +383,307 @@ public sealed class LodgingServiceTests
         var tooWide = await harness.Service.GetOccupancyAsync(
             UnitCode, new DateOnly(2030, 1, 1), new DateOnly(2031, 6, 1), CancellationToken.None);
         Assert.Equal(ApplicationErrorType.Validation, tooWide.ErrorType);
+    }
+
+    // Availability ---------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Availability_lists_free_rooms_and_excludes_overlapping_undersized_and_inactive_ones()
+    {
+        await using var harness = await HarnessAsync();
+
+        // 102: same type, free - must be listed. 103: inactive - never listed. 201: single
+        // (capacity 1) - filtered out for a party of 2.
+        var room102 = new Room(UnitCode, "102", "DBL");
+        var room103 = new Room(UnitCode, "103", "DBL");
+        room103.Deactivate();
+        var room201 = new Room(UnitCode, "201", "SGL");
+        harness.DbContext.Set<RoomType>().Add(new RoomType(UnitCode, "SGL", "Chambre simple", 1));
+        harness.DbContext.Set<Room>().AddRange(room102, room103, room201);
+        await harness.DbContext.SaveChangesAsync();
+
+        // 101 is taken over [d, d+2).
+        var d = new DateOnly(2030, 5, 1);
+        var created = await CreateReservationAsync(harness, d, d.AddDays(2));
+        Assert.True(created.Succeeded, created.Error);
+
+        var result = await harness.Service.GetAvailabilityAsync(
+            UnitCode, d, d.AddDays(2), 2, null, CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(2, result.Value!.Nights);
+
+        var onlyRoom = Assert.Single(result.Value.Rooms);
+        Assert.Equal("102", onlyRoom.RoomNumber);
+        Assert.True(onlyRoom.HasRate);
+        Assert.Equal(2 * NightlyRate, onlyRoom.TotalStayAmount);
+        Assert.Equal(2, onlyRoom.NightlyRates.Count);
+        Assert.Equal("STD", onlyRoom.RatePlanCode);
+
+        // Same boundary rule as the creation guard: the departure day is free, so a search
+        // starting on the departure date sees 101 again.
+        var backToBack = await harness.Service.GetAvailabilityAsync(
+            UnitCode, d.AddDays(2), d.AddDays(3), 2, null, CancellationToken.None);
+
+        Assert.True(backToBack.Succeeded, backToBack.Error);
+        Assert.Contains(backToBack.Value!.Rooms, room => room.RoomNumber == "101");
+    }
+
+    [Fact]
+    public async Task Availability_totals_a_stay_crossing_two_rate_periods_night_by_night()
+    {
+        await using var harness = await HarnessAsync();
+
+        // Low season until the 31st of May at 10000, high season from the 1st of June at 15000.
+        var boundary = new DateOnly(2030, 6, 1);
+
+        harness.Resolver.RateByNight = (night, _) =>
+            ApplicationResult<ResolvedNightlyRate>.Success(night < boundary
+                ? new ResolvedNightlyRate(10_000.00m, "STD", null, null)
+                : new ResolvedNightlyRate(15_000.00m, "STD", null, null));
+
+        var result = await harness.Service.GetAvailabilityAsync(
+            UnitCode, boundary.AddDays(-1), boundary.AddDays(1), 2, null, CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.Error);
+
+        var room = Assert.Single(result.Value!.Rooms);
+        Assert.True(room.HasRate);
+
+        // The total is the SUM of the per-night rates, not one rate flattened over the stay.
+        Assert.Equal(25_000.00m, room.TotalStayAmount);
+        Assert.Equal(
+            new[] { 10_000.00m, 15_000.00m },
+            room.NightlyRates.OrderBy(rate => rate.Night).Select(rate => rate.Amount).ToArray());
+    }
+
+    [Fact]
+    public async Task Availability_flags_a_room_without_rate_coverage_instead_of_hiding_it()
+    {
+        await using var harness = await HarnessAsync();
+
+        var d = new DateOnly(2030, 5, 1);
+
+        // The second night has no rate period: a real tariff-setup hole.
+        harness.Resolver.RateByNight = (night, _) => night == d.AddDays(1)
+            ? ApplicationResult<ResolvedNightlyRate>.NotFound(
+                "Rate plan 'STD' has no period covering the night of 2030-05-02 for room type 'DBL'.")
+            : ApplicationResult<ResolvedNightlyRate>.Success(
+                new ResolvedNightlyRate(NightlyRate, "STD", null, null));
+
+        var result = await harness.Service.GetAvailabilityAsync(
+            UnitCode, d, d.AddDays(3), 2, null, CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.Error);
+
+        // The room stays VISIBLE - the operator must see the pricing hole, not a full hotel.
+        var room = Assert.Single(result.Value!.Rooms);
+        Assert.False(room.HasRate);
+        Assert.Null(room.TotalStayAmount);
+        Assert.Contains("2030-05-02", room.RateIssue);
+        Assert.Contains("has no period covering", room.RateIssue);
+
+        // The nights priced before the hole are listed, showing exactly where coverage stops.
+        var pricedNight = Assert.Single(room.NightlyRates);
+        Assert.Equal(d, pricedNight.Night);
+    }
+
+    [Fact]
+    public async Task Availability_applies_the_customer_convention_through_the_resolver()
+    {
+        await using var harness = await HarnessAsync();
+
+        harness.Resolver.RateByNight = (_, customerCode) => customerCode == CustomerCode
+            ? ApplicationResult<ResolvedNightlyRate>.Success(
+                new ResolvedNightlyRate(10_800.00m, "CONV", CustomerCode, 10m))
+            : ApplicationResult<ResolvedNightlyRate>.Success(
+                new ResolvedNightlyRate(NightlyRate, "STD", null, null));
+
+        var conventioned = await harness.Service.GetAvailabilityAsync(
+            UnitCode, new DateOnly(2030, 5, 1), new DateOnly(2030, 5, 3), 2, CustomerCode, CancellationToken.None);
+
+        Assert.True(conventioned.Succeeded, conventioned.Error);
+
+        var room = Assert.Single(conventioned.Value!.Rooms);
+        Assert.Equal(2 * 10_800.00m, room.TotalStayAmount);
+        Assert.Equal("CONV", room.RatePlanCode);
+        Assert.Equal(CustomerCode, room.ConventionCustomerCode);
+        Assert.Equal(10m, room.DiscountPercent);
+
+        // An unknown customer cannot be quoted convention rates it could never book at.
+        var unknownCustomer = await harness.Service.GetAvailabilityAsync(
+            UnitCode, new DateOnly(2030, 5, 1), new DateOnly(2030, 5, 3), 2, "NOPE", CancellationToken.None);
+
+        Assert.Equal(ApplicationErrorType.NotFound, unknownCustomer.ErrorType);
+    }
+
+    [Fact]
+    public async Task Availability_validates_window_guests_and_unit()
+    {
+        await using var harness = await HarnessAsync();
+
+        var inverted = await harness.Service.GetAvailabilityAsync(
+            UnitCode, new DateOnly(2030, 5, 2), new DateOnly(2030, 5, 2), 2, null, CancellationToken.None);
+        Assert.Equal(ApplicationErrorType.Validation, inverted.ErrorType);
+
+        var tooWide = await harness.Service.GetAvailabilityAsync(
+            UnitCode, new DateOnly(2030, 5, 1), new DateOnly(2030, 9, 1), 2, null, CancellationToken.None);
+        Assert.Equal(ApplicationErrorType.Validation, tooWide.ErrorType);
+
+        var noGuests = await harness.Service.GetAvailabilityAsync(
+            UnitCode, new DateOnly(2030, 5, 1), new DateOnly(2030, 5, 2), 0, null, CancellationToken.None);
+        Assert.Equal(ApplicationErrorType.Validation, noGuests.ErrorType);
+
+        var unknownUnit = await harness.Service.GetAvailabilityAsync(
+            "NOPE", new DateOnly(2030, 5, 1), new DateOnly(2030, 5, 2), 2, null, CancellationToken.None);
+        Assert.Equal(ApplicationErrorType.NotFound, unknownUnit.ErrorType);
+    }
+
+    /// <summary>
+    /// The coherence contract of this wave: the total the availability search announces for a
+    /// room is EXACTLY what the folio bills after booking that room and checking the guest in -
+    /// including when the rates differ from night to night across rate periods.
+    /// </summary>
+    [Fact]
+    public async Task Availability_total_is_exactly_what_the_folio_bills_after_check_in()
+    {
+        await using var harness = await HarnessAsync();
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        // Three nights, three different prices (a boundary plus a one-night event rate).
+        var scriptedRates = new Dictionary<DateOnly, decimal>
+        {
+            [today] = 12_000.00m,
+            [today.AddDays(1)] = 13_500.50m,
+            [today.AddDays(2)] = 11_000.00m
+        };
+
+        harness.Resolver.RateByNight = (night, _) => scriptedRates.TryGetValue(night, out var rate)
+            ? ApplicationResult<ResolvedNightlyRate>.Success(new ResolvedNightlyRate(rate, "STD", null, null))
+            : ApplicationResult<ResolvedNightlyRate>.NotFound("No rate scripted for this night.");
+
+        var availability = await harness.Service.GetAvailabilityAsync(
+            UnitCode, today, today.AddDays(3), 2, CustomerCode, CancellationToken.None);
+
+        Assert.True(availability.Succeeded, availability.Error);
+
+        var announcedRoom = Assert.Single(availability.Value!.Rooms);
+        Assert.True(announcedRoom.HasRate);
+        Assert.Equal(36_500.50m, announcedRoom.TotalStayAmount);
+
+        // Book the announced room over the announced dates, then check the guest in.
+        var created = await CreateReservationAsync(harness, today, today.AddDays(3));
+        Assert.True(created.Succeeded, created.Error);
+
+        // The flat snapshot stays the ARRIVAL night's rate.
+        Assert.Equal(12_000.00m, created.Value!.NightlyRateSnapshot);
+
+        var checkedIn = await harness.Service.CheckInAsync(created.Value.Id, Context, CancellationToken.None);
+        Assert.True(checkedIn.Succeeded, checkedIn.Error);
+
+        var folio = await harness.Service.GetFolioAsync(created.Value.Id, CancellationToken.None);
+        Assert.True(folio.Succeeded, folio.Error);
+
+        // The folio bills the announced total, night by night at the announced rates.
+        Assert.Equal(announcedRoom.TotalStayAmount, folio.Value!.Balance);
+        Assert.Equal(
+            announcedRoom.NightlyRates.OrderBy(rate => rate.Night).Select(rate => rate.Amount).ToArray(),
+            folio.Value.Charges.OrderBy(charge => charge.ChargeDate).Select(charge => charge.Amount).ToArray());
+    }
+
+    // Front desk -----------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Front_desk_splits_arrivals_departures_and_overdue_lists_with_folio_balances()
+    {
+        await using var harness = await HarnessAsync();
+
+        var rooms = new[]
+        {
+            new Room(UnitCode, "102", "DBL"),
+            new Room(UnitCode, "103", "DBL"),
+            new Room(UnitCode, "104", "DBL"),
+            new Room(UnitCode, "105", "DBL")
+        };
+        harness.DbContext.Set<Room>().AddRange(rooms);
+
+        var day = new DateOnly(2030, 9, 10);
+
+        // Arrival of the day: Booked, arriving on the 10th (room 101).
+        var arrivingToday = new Reservation(
+            UnitCode, harness.RoomId, CustomerCode, day, day.AddDays(2), 2, NightlyRate, "STD");
+
+        // Overdue arrival: Booked, should have arrived on the 8th - a no-show candidate (102).
+        var overdueArrival = new Reservation(
+            UnitCode, rooms[0].Id, CustomerCode, day.AddDays(-2), day.AddDays(1), 1, NightlyRate, "STD");
+
+        // Departure of the day: CheckedIn, leaving on the 10th, folio NOT settled (103).
+        var departingToday = new Reservation(
+            UnitCode, rooms[1].Id, CustomerCode, day.AddDays(-2), day, 2, NightlyRate, "STD");
+        departingToday.CheckIn(day.AddDays(-2), "receptionist", DateTimeOffset.UtcNow);
+
+        var departingFolio = new Folio(departingToday.Id);
+        departingFolio.AddCharge(new FolioCharge(day.AddDays(-2), "Night", NightlyRate, ChargeKind.Night));
+        departingFolio.AddCharge(new FolioCharge(day.AddDays(-1), "Night", NightlyRate, ChargeKind.Night));
+        departingFolio.AddCharge(new FolioCharge(
+            day.AddDays(-1), "Acompte", -NightlyRate, ChargeKind.Settlement, "REC-0100"));
+
+        // Overdue departure: CheckedIn, should have left on the 9th, folio unpaid (104).
+        var overdueDeparture = new Reservation(
+            UnitCode, rooms[2].Id, CustomerCode, day.AddDays(-3), day.AddDays(-1), 1, NightlyRate, "STD");
+        overdueDeparture.CheckIn(day.AddDays(-3), "receptionist", DateTimeOffset.UtcNow);
+
+        var overdueFolio = new Folio(overdueDeparture.Id);
+        overdueFolio.AddCharge(new FolioCharge(day.AddDays(-3), "Night", NightlyRate, ChargeKind.Night));
+        overdueFolio.AddCharge(new FolioCharge(day.AddDays(-2), "Night", NightlyRate, ChargeKind.Night));
+
+        // In house: CheckedIn, sleeping the night of the 10th, leaving later (105).
+        var inHouse = new Reservation(
+            UnitCode, rooms[3].Id, CustomerCode, day.AddDays(-1), day.AddDays(2), 2, NightlyRate, "STD");
+        inHouse.CheckIn(day.AddDays(-1), "receptionist", DateTimeOffset.UtcNow);
+
+        harness.DbContext.Set<Reservation>().AddRange(
+            arrivingToday, overdueArrival, departingToday, overdueDeparture, inHouse);
+        harness.DbContext.Set<Folio>().AddRange(departingFolio, overdueFolio);
+        await harness.DbContext.SaveChangesAsync();
+
+        var result = await harness.Service.GetFrontDeskAsync(UnitCode, day, CancellationToken.None);
+        Assert.True(result.Succeeded, result.Error);
+
+        var frontDesk = result.Value!;
+
+        var arrival = Assert.Single(frontDesk.Arrivals);
+        Assert.Equal(arrivingToday.Id, arrival.ReservationId);
+        Assert.Equal("101", arrival.RoomNumber);
+        Assert.Equal("Client Un", arrival.CustomerName);
+        Assert.Equal(2, arrival.Nights);
+        Assert.Equal(NightlyRate, arrival.NightlyRateSnapshot);
+        Assert.Equal(2 * NightlyRate, arrival.TotalStayAmount);
+
+        var lateArrival = Assert.Single(frontDesk.OverdueArrivals);
+        Assert.Equal(overdueArrival.Id, lateArrival.ReservationId);
+        Assert.Equal("102", lateArrival.RoomNumber);
+
+        // The receptionist sees WHO STILL OWES WHAT before letting anyone leave.
+        var departure = Assert.Single(frontDesk.Departures);
+        Assert.Equal(departingToday.Id, departure.ReservationId);
+        Assert.Equal("103", departure.RoomNumber);
+        Assert.Equal(NightlyRate, departure.FolioBalance);
+
+        var lateDeparture = Assert.Single(frontDesk.OverdueDepartures);
+        Assert.Equal(overdueDeparture.Id, lateDeparture.ReservationId);
+        Assert.Equal(2 * NightlyRate, lateDeparture.FolioBalance);
+
+        // Only the stay actually covering the night of the 10th counts as in house.
+        Assert.Equal(1, frontDesk.InHouseCount);
+
+        // The day's occupancy rides along, computed by the exact same logic as /occupancy.
+        Assert.Equal(day, frontDesk.Occupancy.Date);
+        Assert.Equal(5, frontDesk.Occupancy.TotalActiveRooms);
+
+        var unknownUnit = await harness.Service.GetFrontDeskAsync("NOPE", day, CancellationToken.None);
+        Assert.Equal(ApplicationErrorType.NotFound, unknownUnit.ErrorType);
     }
 
     private static Task<ApplicationResult<ReservationResponse>> CreateReservationAsync(

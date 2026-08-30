@@ -83,6 +83,21 @@ public sealed class LodgingEndpointTests : IClassFixture<RaqmiApiFactory>
 
         // Booking: the nightly rate comes back frozen from the (stubbed) tariff resolution.
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var fromDay = today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var toDay = today.AddDays(2).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        // The dates-first flow: before booking, the availability search lists the room, priced
+        // night by night, with the stay total the folio will later bill.
+        var availabilityResponse = await client.GetAsync(
+            $"/api/v1/lodging/availability?hotelUnitCode={hotelUnitCode}&from={fromDay}&to={toDay}&guests=2");
+        Assert.Equal(HttpStatusCode.OK, availabilityResponse.StatusCode);
+
+        var availability = await availabilityResponse.Content.ReadFromJsonAsync<AvailabilityResponse>(RaqmiApiFactory.JsonOptions);
+        var availableRoom = Assert.Single(availability!.Rooms);
+        Assert.Equal("101", availableRoom.RoomNumber);
+        Assert.True(availableRoom.HasRate);
+        Assert.Equal(2 * NightlyRate, availableRoom.TotalStayAmount);
+        Assert.Equal(2, availableRoom.NightlyRates.Count);
 
         var createResponse = await client.PostAsJsonAsync(
             "/api/v1/lodging/reservations",
@@ -123,6 +138,24 @@ public sealed class LodgingEndpointTests : IClassFixture<RaqmiApiFactory>
         Assert.All(folio.Charges, charge => Assert.Equal(ChargeKind.Night, charge.Kind));
         Assert.All(folio.Charges, charge => Assert.Equal(NightlyRate, charge.Amount));
         Assert.Equal(2 * NightlyRate, folio.Balance);
+
+        // Once booked, the room disappears from the availability search over the same period.
+        var afterBooking = await client.GetAsync(
+            $"/api/v1/lodging/availability?hotelUnitCode={hotelUnitCode}&from={fromDay}&to={toDay}&guests=2");
+        Assert.Equal(HttpStatusCode.OK, afterBooking.StatusCode);
+
+        var afterBookingAvailability = await afterBooking.Content.ReadFromJsonAsync<AvailabilityResponse>(RaqmiApiFactory.JsonOptions);
+        Assert.Empty(afterBookingAvailability!.Rooms);
+
+        // The front-desk snapshot sees the guest in house for the night.
+        var frontDeskResponse = await client.GetAsync(
+            $"/api/v1/lodging/front-desk?hotelUnitCode={hotelUnitCode}&date={fromDay}");
+        Assert.Equal(HttpStatusCode.OK, frontDeskResponse.StatusCode);
+
+        var frontDesk = await frontDeskResponse.Content.ReadFromJsonAsync<FrontDeskResponse>(RaqmiApiFactory.JsonOptions);
+        Assert.Equal(1, frontDesk!.InHouseCount);
+        Assert.Empty(frontDesk.Arrivals);
+        Assert.Empty(frontDesk.Departures);
 
         // While the guest is in-house, the unit's only room is occupied: 100%.
         var day = today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
