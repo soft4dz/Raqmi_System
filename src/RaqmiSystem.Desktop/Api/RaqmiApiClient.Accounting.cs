@@ -127,6 +127,23 @@ public sealed partial class RaqmiApiClient
         return await ReadResponseAsync<IReadOnlyCollection<AccountingJournalResponse>>(response, cancellationToken);
     }
 
+    /// <summary>
+    /// Declare un journal comptable (permission accounting.write). Le serveur normalise le code
+    /// en majuscules et refuse un doublon ; comme pour un compte, il n'existe aucune suppression :
+    /// un journal devenu inutile se desactive.
+    /// </summary>
+    public async Task<AccountingJournalResponse> CreateAccountingJournalAsync(
+        string apiBaseUrl,
+        CreateAccountingJournalRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, "/api/v1/accounting/journals", request, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<AccountingJournalResponse>(response, cancellationToken);
+    }
+
     // =================================== Ecritures ==================================
 
     public async Task<IReadOnlyCollection<JournalEntryResponse>> GetJournalEntriesAsync(

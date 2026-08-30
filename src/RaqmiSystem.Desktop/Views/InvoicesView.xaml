@@ -184,7 +184,10 @@
                     </DockPanel>
 
                     <!-- Actions : chaque bouton n'est actif que pour les statuts
-                         ou l'operation a un sens (voir UpdateActionAvailability). -->
+                         ou l'operation a un sens, croises avec les droits
+                         invoices.write / invoices.issue (voir
+                         UpdateActionAvailability). ShowOnDisabled laisse
+                         l'info-bulle expliquer pourquoi un bouton est grise. -->
                     <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" MinWidth="150" />
@@ -212,6 +215,7 @@
                                 Content="Modifier les lignes"
                                 Style="{StaticResource SecondaryButton}"
                                 ToolTip="Reprendre les lignes du brouillon sélectionné dans le formulaire de saisie"
+                                ToolTipService.ShowOnDisabled="True"
                                 VerticalAlignment="Bottom"
                                 Click="EditLinesButton_Click" />
 
@@ -220,6 +224,7 @@
                                 Content="Émettre"
                                 Style="{StaticResource PrimaryButton}"
                                 ToolTip="Attribuer le numéro définitif et figer la facture"
+                                ToolTipService.ShowOnDisabled="True"
                                 VerticalAlignment="Bottom"
                                 Click="IssueInvoiceButton_Click" />
 
@@ -228,6 +233,7 @@
                                 Content="Marquer payée"
                                 Style="{StaticResource SecondaryButton}"
                                 ToolTip="Enregistrer l'encaissement de la facture émise"
+                                ToolTipService.ShowOnDisabled="True"
                                 VerticalAlignment="Bottom"
                                 Click="MarkPaidButton_Click" />
 
@@ -236,6 +242,7 @@
                                 Content="Annuler"
                                 Style="{StaticResource DangerButton}"
                                 ToolTip="Annuler la facture sélectionnée (motif obligatoire)"
+                                ToolTipService.ShowOnDisabled="True"
                                 VerticalAlignment="Bottom"
                                 Click="CancelInvoiceButton_Click" />
                     </Grid>
@@ -249,7 +256,7 @@
                                                     Binding="{Binding Number, TargetNullValue=—}"
                                                     Width="125" />
                                 <DataGridTextColumn Header="Date"
-                                                    Binding="{Binding InvoiceDate, StringFormat={}{0:yyyy-MM-dd}}"
+                                                    Binding="{Binding InvoiceDate, StringFormat={}{0:dd/MM/yyyy}}"
                                                     Width="100" />
                                 <DataGridTextColumn Header="Client"
                                                     Binding="{Binding CustomerName, TargetNullValue=—}"
@@ -289,9 +296,11 @@
                                                            Foreground="{StaticResource StatusDraftForegroundBrush}" />
                                             </Border>
                                             <DataTemplate.Triggers>
+                                                <!-- Emise = en attente d'encaissement : teinte Submitted de la
+                                                     famille Status*, seule famille admise pour les pastilles. -->
                                                 <DataTrigger Binding="{Binding Status}" Value="Issued">
-                                                    <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource AccentSoftBrush}" />
-                                                    <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource ModuleStatusApiForegroundBrush}" />
+                                                    <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusSubmittedBackgroundBrush}" />
+                                                    <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusSubmittedForegroundBrush}" />
                                                     <Setter TargetName="StatusBadgeText" Property="Text" Value="Émise" />
                                                 </DataTrigger>
                                                 <DataTrigger Binding="{Binding Status}" Value="Paid">
@@ -407,7 +416,7 @@
                             <TextBlock Grid.Row="2" Text="Date" Style="{StaticResource DetailLabelText}" />
                             <TextBlock Grid.Row="2"
                                        Grid.Column="1"
-                                       Text="{Binding InvoiceDate, StringFormat={}{0:yyyy-MM-dd}, FallbackValue=—, Mode=OneWay}"
+                                       Text="{Binding InvoiceDate, StringFormat={}{0:dd/MM/yyyy}, FallbackValue=—, Mode=OneWay}"
                                        Style="{StaticResource DetailValueText}" />
 
                             <TextBlock Grid.Row="3" Text="Client" Style="{StaticResource DetailLabelText}" />
@@ -603,6 +612,7 @@
                                 Content="Créer le brouillon"
                                 Style="{StaticResource PrimaryButton}"
                                 ToolTip="Enregistrer la facture brouillon"
+                                ToolTipService.ShowOnDisabled="True"
                                 Click="SaveInvoiceButton_Click" />
                     </StackPanel>
                 </DockPanel>
@@ -701,13 +711,25 @@
                             <DataGridTemplateColumn Header="" Width="52">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <Button Content="✕"
-                                                Style="{StaticResource GhostButton}"
+                                        <!-- Croix dessinee au trait (jamais un caractere en guise
+                                             d'icone) : le trait suit la couleur du texte du bouton,
+                                             donc ses etats survol / desactive. -->
+                                        <Button Style="{StaticResource GhostButton}"
                                                 Foreground="{StaticResource DangerBrush}"
                                                 MinHeight="26"
                                                 Padding="8,2"
                                                 ToolTip="Retirer cette ligne"
-                                                Click="RemoveLineButton_Click" />
+                                                Click="RemoveLineButton_Click">
+                                            <Path Data="M4.5,4.5 L11.5,11.5 M11.5,4.5 L4.5,11.5"
+                                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                  StrokeThickness="1.5"
+                                                  StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round"
+                                                  StrokeLineJoin="Round"
+                                                  Width="10"
+                                                  Height="10"
+                                                  Stretch="Uniform" />
+                                        </Button>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
@@ -727,6 +749,16 @@
                                 </Style.Triggers>
                             </Style>
                         </StackPanel.Style>
+                        <!-- Lignes de document au trait, gabarit des autres etats vides. -->
+                        <Path Data="M2,4 H14 M2,8 H14 M2,12 H10"
+                              Stroke="{StaticResource BorderStrongBrush}"
+                              StrokeThickness="1.5"
+                              StrokeLineJoin="Round"
+                              Width="42"
+                              Height="30"
+                              Stretch="Uniform"
+                              HorizontalAlignment="Center"
+                              Margin="0,0,0,10" />
                         <TextBlock Text="Aucune ligne dans ce brouillon"
                                    Style="{StaticResource EmptyStateTitleText}" />
                         <TextBlock Text="Une facture doit comporter au moins une ligne pour pouvoir être émise."

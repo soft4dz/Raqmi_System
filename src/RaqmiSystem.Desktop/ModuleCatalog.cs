@@ -119,7 +119,7 @@ public static class ModuleCatalog
             "Caisses, banques et ordres de paiement",
             "P1", ModuleStatus.Disponible, PermissionCatalog.TreasuryRead, 6),
         new ModuleCatalogEntry("5.2", Groups.Finance, "Comptabilité SCF",
-            "Plan SCF, journaux, balance et lettrage",
+            "Plan de comptes, journaux, écritures en partie double et balance",
             "P1", ModuleStatus.Disponible, PermissionCatalog.AccountingRead, 11),
         new ModuleCatalogEntry("5.4", Groups.Finance, "Fiscalité DGI & SIFEC",
             "TVA, déclarations, liasse et lien SIFEC",

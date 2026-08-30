@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using RaqmiSystem.Application.Accounting;
+using RaqmiSystem.Application.Common;
 using RaqmiSystem.Application.Security;
 using RaqmiSystem.Domain.Accounting;
 using RaqmiSystem.Domain.Identity;
@@ -346,6 +347,94 @@ public sealed class AccountingEndpointTests : IClassFixture<RaqmiApiFactory>
 
         Assert.Equal(HttpStatusCode.BadRequest, twoSidedLine.StatusCode);
         Assert.Contains("never both", await twoSidedLine.Content.ReadAsStringAsync());
+    }
+
+    /// <summary>
+    /// Proves the anti-TOCTOU guard on the immutability of a posted entry. The race is reproduced
+    /// deterministically instead of hoping two HTTP requests interleave: a scoped DbContext loads
+    /// the entry while it is still a draft, a concurrent request then posts it, and the service
+    /// sharing that scope is asked to mutate it. EF's identity resolution guarantees the service
+    /// re-reads the STALE tracked instance - still marked Draft - so the in-memory status check
+    /// passes exactly as it would inside the race window; only the atomic conditional claim
+    /// (UPDATE ... WHERE status = draft) can refuse, and it must.
+    /// </summary>
+    [Fact]
+    public async Task A_posted_entry_cannot_be_modified_or_cancelled_by_a_request_that_read_it_as_a_draft()
+    {
+        await CreateAccountingUserAsync(
+            "accounting.racer",
+            "accounting.racer@example.com",
+            "Accounting Racer",
+            AccountingRead, AccountingWrite, AccountingPost);
+
+        using var client = await _factory.CreateAuthenticatedClientAsync("accounting.racer", Password);
+
+        await CreateAccountAsync(client, "512400", "Banque principale", AccountKind.Asset);
+        await CreateAccountAsync(client, "707400", "Ventes de sejours", AccountKind.Revenue);
+        await CreateJournalAsync(client, "BQR", "Banque race");
+
+        var entryId = await CreateEntryAsync(
+            client,
+            new DateOnly(2026, 8, 12),
+            "BQR",
+            "Encaissement course",
+            new JournalEntryLineRequest("512400", "Banque", 1_000.00m, 0m),
+            new JournalEntryLineRequest("707400", "Vente", 0m, 1_000.00m));
+
+        // This scope plays the "slow" request: its DbContext tracks the entry as a draft.
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<RaqmiDbContext>();
+        var service = scope.ServiceProvider.GetRequiredService<IAccountingService>();
+
+        var staleEntry = await dbContext.Set<JournalEntry>()
+            .Include(current => current.Lines)
+            .SingleAsync(current => current.Id == entryId);
+
+        Assert.Equal(EntryStatus.Draft, staleEntry.Status);
+
+        // Meanwhile the "fast" request posts the entry: it is now immutable in the database.
+        var postResponse = await client.PostAsync($"/api/v1/accounting/entries/{entryId}/post", content: null);
+        Assert.Equal(HttpStatusCode.OK, postResponse.StatusCode);
+
+        // The tracked instance still believes the entry is a draft - the exact in-memory state a
+        // request inside the race window would reason on.
+        Assert.Equal(EntryStatus.Draft, staleEntry.Status);
+
+        var operationContext = new OperationContext(null, "accounting.racer", null);
+
+        var updateResult = await service.UpdateEntryLinesAsync(
+            entryId,
+            new UpdateJournalEntryLinesRequest(new[]
+            {
+                new JournalEntryLineRequest("512400", "Correction perdante", 1.00m, 0m),
+                new JournalEntryLineRequest("707400", "Correction perdante", 0m, 1.00m)
+            }),
+            operationContext,
+            CancellationToken.None);
+
+        Assert.False(updateResult.Succeeded);
+        Assert.Equal(ApplicationErrorType.Conflict, updateResult.ErrorType);
+
+        var cancelResult = await service.CancelEntryAsync(
+            entryId,
+            new CancelJournalEntryRequest("Course perdue"),
+            operationContext,
+            CancellationToken.None);
+
+        Assert.False(cancelResult.Succeeded);
+        Assert.Equal(ApplicationErrorType.Conflict, cancelResult.ErrorType);
+
+        // The books kept the posted entry exactly as posted: original lines, no cancellation.
+        var reloadResponse = await client.GetAsync($"/api/v1/accounting/entries/{entryId}");
+        Assert.Equal(HttpStatusCode.OK, reloadResponse.StatusCode);
+
+        var reloaded = await reloadResponse.Content.ReadFromJsonAsync<JournalEntryResponse>(RaqmiApiFactory.JsonOptions);
+        Assert.NotNull(reloaded);
+        Assert.Equal(EntryStatus.Posted, reloaded!.Status);
+        Assert.Null(reloaded.CancelledAt);
+        Assert.Equal(1_000.00m, reloaded.TotalDebit);
+        Assert.Equal(1_000.00m, reloaded.TotalCredit);
+        Assert.All(reloaded.Lines, line => Assert.DoesNotContain("perdante", line.Label));
     }
 
     private static async Task<ChartAccountResponse> CreateAccountAsync(

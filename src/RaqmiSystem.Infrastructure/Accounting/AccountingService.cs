@@ -4,6 +4,7 @@ using RaqmiSystem.Application.Common;
 using RaqmiSystem.Application.Security;
 using RaqmiSystem.Domain.Accounting;
 using RaqmiSystem.Infrastructure.Persistence;
+using System.Data;
 using System.Text.Json;
 
 namespace RaqmiSystem.Infrastructure.Accounting;
@@ -22,6 +23,15 @@ public sealed class AccountingService(
     private const string JournalsEntity = "accounting.journals";
 
     private const string JournalEntriesEntity = "accounting.journal_entries";
+
+    /// <summary>
+    /// Answer given when the atomic draft claim (see <see cref="TryClaimDraftEntryAsync"/>) finds
+    /// that the entry loaded as a draft is no longer one: a concurrent request posted or cancelled
+    /// it between our read and our write. Nothing was modified.
+    /// </summary>
+    private const string ConcurrentEntryMutationRefused =
+        "This journal entry was just posted or cancelled by a concurrent operation, so this change " +
+        "was rolled back and nothing was modified. Reload the entry and try again.";
 
     public async Task<IReadOnlyCollection<ChartAccountResponse>> ListAccountsAsync(
         string? search,
@@ -498,57 +508,85 @@ public sealed class AccountingService(
             return ApplicationResult<JournalEntryResponse>.Validation("A journal entry must contain at least one line.");
         }
 
-        var entry = await dbContext.Set<JournalEntry>()
-            .Include(current => current.Lines)
-            .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
-
-        if (entry is null)
-        {
-            return ApplicationResult<JournalEntryResponse>.NotFound("Journal entry was not found.");
-        }
-
-        // The entity refuses this too, but the status is checked here first so that the
-        // immutability of a posted entry surfaces as a 409 Conflict (the state of the resource
-        // forbids the operation) rather than as a 400 among the input-validation failures.
-        var editableFailure = RequireEditable(entry);
-
-        if (editableFailure is not null)
-        {
-            return editableFailure;
-        }
-
+        // Read, check and write happen inside one Serializable transaction, and the draft status
+        // is re-asserted by the atomic claim below: without both, checking "is it a draft?" in
+        // memory and persisting afterwards leaves the classic TOCTOU window in which a concurrent
+        // /post slips between the check and the save, and a POSTED - therefore immutable - entry
+        // gets its lines rewritten. Same pattern as UserAdministrationService.RunGuardedMutationAsync.
         try
         {
-            entry.ReplaceLines(BuildLines(request.Lines));
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable,
+                cancellationToken);
+
+            var entry = await dbContext.Set<JournalEntry>()
+                .Include(current => current.Lines)
+                .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
+
+            if (entry is null)
+            {
+                return ApplicationResult<JournalEntryResponse>.NotFound("Journal entry was not found.");
+            }
+
+            // The entity refuses this too, but the status is checked here first so that the
+            // immutability of a posted entry surfaces as a 409 Conflict (the state of the resource
+            // forbids the operation) rather than as a 400 among the input-validation failures.
+            var editableFailure = RequireEditable(entry);
+
+            if (editableFailure is not null)
+            {
+                return editableFailure;
+            }
+
+            var now = DateTimeOffset.UtcNow;
+
+            // The status just checked in memory is re-asserted as the WHERE clause of a single
+            // conditional UPDATE: only the request whose statement actually matched the row goes
+            // on to mutate. A concurrent posting or cancellation makes the claim miss, and the
+            // refusal is a retryable 409 rather than a silent corruption.
+            if (!await TryClaimDraftEntryAsync(entry.Id, now, cancellationToken))
+            {
+                return ApplicationResult<JournalEntryResponse>.Conflict(ConcurrentEntryMutationRefused);
+            }
+
+            try
+            {
+                entry.ReplaceLines(BuildLines(request.Lines));
+            }
+            catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException or InvalidOperationException)
+            {
+                return ApplicationResult<JournalEntryResponse>.Validation(ex.Message);
+            }
+
+            var referenceFailure = await ValidateReferencesAsync(
+                entry.JournalCode,
+                DistinctAccountCodes(entry),
+                cancellationToken);
+
+            if (referenceFailure is not null)
+            {
+                return referenceFailure;
+            }
+
+            entry.MarkUpdated(context.UserName, now);
+
+            await WriteAuditAsync(
+                "accounting.journal_entry.lines_updated",
+                JournalEntriesEntity,
+                entry.Id,
+                context,
+                new { entry.JournalCode, entry.TotalDebit, entry.TotalCredit, LineCount = entry.Lines.Count },
+                cancellationToken);
+
+            await SaveAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return ApplicationResult<JournalEntryResponse>.Success(Map(entry));
         }
-        catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException or InvalidOperationException)
+        catch (Exception exception) when (exception.IsSerializationFailure())
         {
-            return ApplicationResult<JournalEntryResponse>.Validation(ex.Message);
+            return ApplicationResult<JournalEntryResponse>.Conflict(ConcurrentEntryMutationRefused);
         }
-
-        var referenceFailure = await ValidateReferencesAsync(
-            entry.JournalCode,
-            DistinctAccountCodes(entry),
-            cancellationToken);
-
-        if (referenceFailure is not null)
-        {
-            return referenceFailure;
-        }
-
-        entry.MarkUpdated(context.UserName, DateTimeOffset.UtcNow);
-
-        await WriteAuditAsync(
-            "accounting.journal_entry.lines_updated",
-            JournalEntriesEntity,
-            entry.Id,
-            context,
-            new { entry.JournalCode, entry.TotalDebit, entry.TotalCredit, LineCount = entry.Lines.Count },
-            cancellationToken);
-
-        await SaveAsync(cancellationToken);
-
-        return ApplicationResult<JournalEntryResponse>.Success(Map(entry));
     }
 
     public async Task<ApplicationResult<JournalEntryResponse>> PostEntryAsync(
@@ -556,60 +594,82 @@ public sealed class AccountingService(
         OperationContext context,
         CancellationToken cancellationToken)
     {
-        var entry = await dbContext.Set<JournalEntry>()
-            .Include(current => current.Lines)
-            .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
-
-        if (entry is null)
-        {
-            return ApplicationResult<JournalEntryResponse>.NotFound("Journal entry was not found.");
-        }
-
-        // Checked before the reference re-check below so that a double-click on /post answers
-        // "already posted" (409) rather than whatever the references happen to say now.
-        if (entry.Status != EntryStatus.Draft)
-        {
-            return ApplicationResult<JournalEntryResponse>.Conflict(
-                entry.Status == EntryStatus.Posted
-                    ? "This journal entry has already been posted."
-                    : "A cancelled journal entry cannot be posted.");
-        }
-
-        // Posting engages the accounts, so the references are re-checked here and not only at
-        // capture time: an account or a journal may have been deactivated while the entry sat in
-        // the drafts.
-        var referenceFailure = await ValidateReferencesAsync(
-            entry.JournalCode,
-            DistinctAccountCodes(entry),
-            cancellationToken);
-
-        if (referenceFailure is not null)
-        {
-            return referenceFailure;
-        }
-
+        // Same Serializable transaction + atomic draft claim as UpdateEntryLinesAsync: posting
+        // reads the lines to validate the balance, so a concurrent line rewrite between that read
+        // and this commit would let an entry enter the books with lines nobody validated.
         try
         {
-            entry.Post(context.UserName, DateTimeOffset.UtcNow);
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable,
+                cancellationToken);
+
+            var entry = await dbContext.Set<JournalEntry>()
+                .Include(current => current.Lines)
+                .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
+
+            if (entry is null)
+            {
+                return ApplicationResult<JournalEntryResponse>.NotFound("Journal entry was not found.");
+            }
+
+            // Checked before the reference re-check below so that a double-click on /post answers
+            // "already posted" (409) rather than whatever the references happen to say now.
+            if (entry.Status != EntryStatus.Draft)
+            {
+                return ApplicationResult<JournalEntryResponse>.Conflict(
+                    entry.Status == EntryStatus.Posted
+                        ? "This journal entry has already been posted."
+                        : "A cancelled journal entry cannot be posted.");
+            }
+
+            var now = DateTimeOffset.UtcNow;
+
+            if (!await TryClaimDraftEntryAsync(entry.Id, now, cancellationToken))
+            {
+                return ApplicationResult<JournalEntryResponse>.Conflict(ConcurrentEntryMutationRefused);
+            }
+
+            // Posting engages the accounts, so the references are re-checked here and not only at
+            // capture time: an account or a journal may have been deactivated while the entry sat in
+            // the drafts.
+            var referenceFailure = await ValidateReferencesAsync(
+                entry.JournalCode,
+                DistinctAccountCodes(entry),
+                cancellationToken);
+
+            if (referenceFailure is not null)
+            {
+                return referenceFailure;
+            }
+
+            try
+            {
+                entry.Post(context.UserName, now);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return ApplicationResult<JournalEntryResponse>.Validation(ex.Message);
+            }
+
+            entry.MarkUpdated(context.UserName, now);
+
+            await WriteAuditAsync(
+                "accounting.journal_entry.posted",
+                JournalEntriesEntity,
+                entry.Id,
+                context,
+                new { entry.JournalCode, entry.EntryDate, entry.TotalDebit, entry.TotalCredit },
+                cancellationToken);
+
+            await SaveAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return ApplicationResult<JournalEntryResponse>.Success(Map(entry));
         }
-        catch (InvalidOperationException ex)
+        catch (Exception exception) when (exception.IsSerializationFailure())
         {
-            return ApplicationResult<JournalEntryResponse>.Validation(ex.Message);
+            return ApplicationResult<JournalEntryResponse>.Conflict(ConcurrentEntryMutationRefused);
         }
-
-        entry.MarkUpdated(context.UserName, DateTimeOffset.UtcNow);
-
-        await WriteAuditAsync(
-            "accounting.journal_entry.posted",
-            JournalEntriesEntity,
-            entry.Id,
-            context,
-            new { entry.JournalCode, entry.EntryDate, entry.TotalDebit, entry.TotalCredit },
-            cancellationToken);
-
-        await SaveAsync(cancellationToken);
-
-        return ApplicationResult<JournalEntryResponse>.Success(Map(entry));
     }
 
     public async Task<ApplicationResult<JournalEntryResponse>> ReverseEntryAsync(
@@ -691,44 +751,70 @@ public sealed class AccountingService(
         OperationContext context,
         CancellationToken cancellationToken)
     {
-        var entry = await dbContext.Set<JournalEntry>()
-            .Include(current => current.Lines)
-            .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
-
-        if (entry is null)
-        {
-            return ApplicationResult<JournalEntryResponse>.NotFound("Journal entry was not found.");
-        }
-
-        if (entry.Status == EntryStatus.Posted)
-        {
-            return ApplicationResult<JournalEntryResponse>.Conflict(
-                "A posted journal entry cannot be cancelled. Record a reversing entry instead " +
-                "(POST /accounting/entries/{id}/reverse).");
-        }
-
+        // Same Serializable transaction + atomic draft claim as UpdateEntryLinesAsync: a
+        // cancellation racing a posting must lose against the posted - immutable - entry rather
+        // than quietly stamp it Cancelled.
         try
         {
-            entry.Cancel(request.Reason, context.UserName, DateTimeOffset.UtcNow);
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable,
+                cancellationToken);
+
+            var entry = await dbContext.Set<JournalEntry>()
+                .Include(current => current.Lines)
+                .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
+
+            if (entry is null)
+            {
+                return ApplicationResult<JournalEntryResponse>.NotFound("Journal entry was not found.");
+            }
+
+            if (entry.Status == EntryStatus.Posted)
+            {
+                return ApplicationResult<JournalEntryResponse>.Conflict(
+                    "A posted journal entry cannot be cancelled. Record a reversing entry instead " +
+                    "(POST /accounting/entries/{id}/reverse).");
+            }
+
+            var now = DateTimeOffset.UtcNow;
+
+            // Claimed only when the loaded status is Draft: an entry already seen as Cancelled
+            // falls through to entry.Cancel, whose own refusal names the real reason instead of a
+            // concurrency that never happened.
+            if (entry.Status == EntryStatus.Draft
+                && !await TryClaimDraftEntryAsync(entry.Id, now, cancellationToken))
+            {
+                return ApplicationResult<JournalEntryResponse>.Conflict(ConcurrentEntryMutationRefused);
+            }
+
+            try
+            {
+                entry.Cancel(request.Reason, context.UserName, now);
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+            {
+                return ApplicationResult<JournalEntryResponse>.Validation(ex.Message);
+            }
+
+            entry.MarkUpdated(context.UserName, now);
+
+            await WriteAuditAsync(
+                "accounting.journal_entry.cancelled",
+                JournalEntriesEntity,
+                entry.Id,
+                context,
+                new { entry.JournalCode, entry.EntryDate, entry.CancellationReason },
+                cancellationToken);
+
+            await SaveAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return ApplicationResult<JournalEntryResponse>.Success(Map(entry));
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        catch (Exception exception) when (exception.IsSerializationFailure())
         {
-            return ApplicationResult<JournalEntryResponse>.Validation(ex.Message);
+            return ApplicationResult<JournalEntryResponse>.Conflict(ConcurrentEntryMutationRefused);
         }
-
-        entry.MarkUpdated(context.UserName, DateTimeOffset.UtcNow);
-
-        await WriteAuditAsync(
-            "accounting.journal_entry.cancelled",
-            JournalEntriesEntity,
-            entry.Id,
-            context,
-            new { entry.JournalCode, entry.EntryDate, entry.CancellationReason },
-            cancellationToken);
-
-        await SaveAsync(cancellationToken);
-
-        return ApplicationResult<JournalEntryResponse>.Success(Map(entry));
     }
 
     public async Task<TrialBalanceResponse> GetTrialBalanceAsync(
@@ -805,6 +891,32 @@ public sealed class AccountingService(
             generalCredit,
             generalDebit - generalCredit,
             rows);
+    }
+
+    /// <summary>
+    /// Atomic form of "this entry is still a draft". The invariant travels as the WHERE clause of
+    /// one conditional UPDATE on the entry's own row, so it is evaluated by the database at the
+    /// instant the row is claimed rather than answered by the earlier SELECT that a concurrent
+    /// posting or cancellation can invalidate - the claim-in-one-statement pattern of
+    /// <c>UserAdministrationService.TryClaimAnotherActiveAdministratorAsync</c>. Returns true only
+    /// when the statement really matched the row.
+    ///
+    /// The single column it writes, <c>UpdatedAt</c>, is one the caller's mutation is about to
+    /// stamp anyway with the very same timestamp: the claim adds no state of its own, it only
+    /// needs to be a write so that the row is claimed, not merely read.
+    /// </summary>
+    private async Task<bool> TryClaimDraftEntryAsync(
+        Guid entryId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var claimedRows = await dbContext.Set<JournalEntry>()
+            .Where(current => current.Id == entryId && current.Status == EntryStatus.Draft)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(current => current.UpdatedAt, now),
+                cancellationToken);
+
+        return claimedRows == 1;
     }
 
     /// <summary>

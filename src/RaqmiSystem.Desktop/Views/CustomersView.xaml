@@ -5,7 +5,8 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DesignWidth="1100"
-             d:DesignHeight="700">
+             d:DesignHeight="700"
+             FontFamily="{StaticResource AppFontFamily}">
 
     <!-- ============================================================================
          Fichier clients : recherche, fiche client (identifiants fiscaux algeriens)

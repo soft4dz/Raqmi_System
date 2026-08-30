@@ -126,10 +126,16 @@ public partial class ReceivablesView : UserControl
 
         await active.RunAsync(async () =>
         {
-            await ReloadAgingAsync(active);
-            await ReloadRemindersAsync(active);
+            // Chaque rechargement peut etre abandonne (date d'arrete absente,
+            // periode inversee) en ayant deja affiche son erreur : le message de
+            // succes n'a le droit d'apparaitre que si les deux ont vraiment abouti.
+            var agingReloaded = await ReloadAgingAsync(active);
+            var remindersReloaded = await ReloadRemindersAsync(active);
 
-            active.SetStatus("Créances et relances actualisées.");
+            if (agingReloaded && remindersReloaded)
+            {
+                active.SetStatus("Créances et relances actualisées.");
+            }
         });
     }
 
@@ -147,6 +153,11 @@ public partial class ReceivablesView : UserControl
 
         AgingCountTextBlock.Text = "Balance non chargée.";
         AgingAsOfTextBlock.Text = "Aucun arrêté chargé.";
+
+        // Reecrit a chaque chargement d'apres le filtre client : sans cette remise a
+        // zero, le perimetre choisi par le profil precedent resterait affiche au
+        // profil suivant sur la meme instance de vue.
+        TotalsScopeTextBlock.Text = "Tous les clients de l'arrêté affiché.";
         AgingScopeNoticeTextBlock.Text = "Elles s'afficheront ici après le premier chargement.";
         AgingBasisNoticeTextBlock.Text = string.Empty;
         ReminderCountTextBlock.Text = "Historique non chargé.";
@@ -192,17 +203,24 @@ public partial class ReceivablesView : UserControl
 
         await active.RunAsync(async () =>
         {
-            await ReloadAgingAsync(active);
-            active.SetStatus("Balance âgée actualisée.");
+            if (await ReloadAgingAsync(active))
+            {
+                active.SetStatus("Balance âgée actualisée.");
+            }
         });
     }
 
-    private async Task ReloadAgingAsync(ModuleViewContext active)
+    /// <summary>
+    /// Recharge la balance agee. Renvoie false quand le rechargement est ABANDONNE
+    /// (date d'arrete absente, message d'erreur deja affiche) : l'appelant ne doit
+    /// alors pas conclure par un message de succes.
+    /// </summary>
+    private async Task<bool> ReloadAgingAsync(ModuleViewContext active)
     {
         if (AsOfDatePicker.SelectedDate is not DateTime asOfDate)
         {
             active.SetStatus("La date d'arrêté est obligatoire.", isError: true);
-            return;
+            return false;
         }
 
         var customerCode = SelectedCustomerCode(AgingCustomerComboBox);
@@ -241,6 +259,8 @@ public partial class ReceivablesView : UserControl
 
         MergeKnownCustomers(balance.Customers.Select(customer => (customer.CustomerCode, customer.CustomerName)));
         RebuildCustomerOptions();
+
+        return true;
     }
 
     private void ShowAgingTotals(AgingBucketsResponse? totals)
@@ -287,12 +307,19 @@ public partial class ReceivablesView : UserControl
 
         await active.RunAsync(async () =>
         {
-            await ReloadRemindersAsync(active);
-            active.SetStatus("Historique des relances actualisé.");
+            if (await ReloadRemindersAsync(active))
+            {
+                active.SetStatus("Historique des relances actualisé.");
+            }
         });
     }
 
-    private async Task ReloadRemindersAsync(ModuleViewContext active)
+    /// <summary>
+    /// Recharge l'historique des relances. Renvoie false quand le rechargement est
+    /// ABANDONNE (periode inversee, message d'erreur deja affiche) : l'appelant ne
+    /// doit alors pas conclure par un message de succes.
+    /// </summary>
+    private async Task<bool> ReloadRemindersAsync(ModuleViewContext active)
     {
         var from = ToDateOnly(ReminderFromDatePicker.SelectedDate);
         var to = ToDateOnly(ReminderToDatePicker.SelectedDate);
@@ -302,7 +329,7 @@ public partial class ReceivablesView : UserControl
         if (from.HasValue && to.HasValue && from > to)
         {
             active.SetStatus("La date de début ne peut pas être postérieure à la date de fin.", isError: true);
-            return;
+            return false;
         }
 
         var invoiceNumber = ReadOptional(ReminderInvoiceFilterTextBox);
@@ -332,6 +359,8 @@ public partial class ReceivablesView : UserControl
 
         MergeKnownCustomers(reminders.Select(reminder => (reminder.CustomerCode, reminder.CustomerName)));
         RebuildCustomerOptions();
+
+        return true;
     }
 
     private void ReminderLevelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -391,11 +420,17 @@ public partial class ReceivablesView : UserControl
         var sentAt = DateOnly.FromDateTime(sentAtDate);
 
         // Une relance consigne une action deja faite : une date future decrirait
-        // quelque chose que personne n'a encore fait. Le serveur applique la meme
-        // regle sur sa propre date du jour, qui fait foi.
-        if (sentAt > DateOnly.FromDateTime(DateTime.Today))
+        // quelque chose que personne n'a encore fait. Le serveur applique cette
+        // regle sur SA date du jour, obtenue en UTC (ReceivablesService), et elle
+        // fait foi : le controle local reprend donc la meme horloge, plutot que
+        // DateTime.Today qui, sur un poste en avance sur UTC (UTC+1 apres minuit,
+        // par exemple), accepterait une date que le serveur refuserait ensuite.
+        // Miroir de la regle serveur, jamais une regle differente (charte, 3.9).
+        if (sentAt > DateOnly.FromDateTime(DateTime.UtcNow))
         {
-            active.SetStatus("Une relance ne peut pas être datée dans le futur : elle consigne une action déjà effectuée.", isError: true);
+            active.SetStatus(
+                "Une relance ne peut pas être datée dans le futur : elle consigne une action déjà effectuée. La date du jour s'apprécie en temps universel, comme sur le serveur.",
+                isError: true);
             return;
         }
 
@@ -417,7 +452,7 @@ public partial class ReceivablesView : UserControl
             ClearReminderForm();
 
             MergeKnownCustomers([(created.CustomerCode, created.CustomerName)]);
-            await ReloadRemindersAsync(active);
+            var remindersReloaded = await ReloadRemindersAsync(active);
 
             // Le panneau de risque affiche des chiffres qui viennent de changer pour
             // ce client : il serait faux de le laisser sur son etat precedent.
@@ -426,8 +461,15 @@ public partial class ReceivablesView : UserControl
                 await ReloadRiskAsync(active, created.CustomerCode);
             }
 
-            active.SetStatus(
-                $"Relance consignée : {DescribeLevel(created.Level)} du {FormatDate(created.SentAt)} sur la facture {created.InvoiceNumber} ({DescribeChannel(created.Channel)}). Aucun envoi n'a été effectué par le système.");
+            // La consignation a bien eu lieu meme si le rechargement de l'historique
+            // a ete abandonne (periode filtree inversee) : le message final dit les
+            // deux faits plutot que de laisser croire que l'ecran est a jour.
+            var recordedMessage =
+                $"Relance consignée : {DescribeLevel(created.Level)} du {FormatDate(created.SentAt)} sur la facture {created.InvoiceNumber} ({DescribeChannel(created.Channel)}). Aucun envoi n'a été effectué par le système.";
+
+            active.SetStatus(remindersReloaded
+                ? recordedMessage
+                : recordedMessage + " L'historique n'a pas pu être actualisé : corrigez la période du filtre, puis actualisez.");
         });
     }
 

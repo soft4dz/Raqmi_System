@@ -5,6 +5,7 @@ using System.Windows.Data;
 using RaqmiSystem.Application.Closing;
 using RaqmiSystem.Application.Organization;
 using RaqmiSystem.Domain.Closing;
+using RaqmiSystem.Domain.Identity;
 
 namespace RaqmiSystem.Desktop.Views;
 
@@ -17,7 +18,24 @@ namespace RaqmiSystem.Desktop.Views;
 /// </summary>
 public partial class ClosingView : UserControl
 {
+    private const string ClosePermissionHint =
+        "Permission closing.close requise : votre profil ne peut pas clôturer une journée d'exploitation.";
+
+    private const string ReopenPermissionHint =
+        "Permission closing.reopen requise : votre profil ne peut pas rouvrir une journée clôturée.";
+
     private ModuleViewContext? context;
+
+    // Info-bulles d'origine des boutons, capturees avant toute substitution par un
+    // message de permission : l'affectation doit rester symetrique (voir
+    // ApplyPermissionHint).
+    private readonly Dictionary<Button, object?> originalToolTips = [];
+
+    // Droits du profil connecte, releves a l'ouverture de session : les actions
+    // sont grisees plutot que de laisser decouvrir un 403 apres la saisie. Le
+    // serveur reste la seule autorite en matiere de droits.
+    private bool canCloseDay = true;
+    private bool canReopenDay = true;
 
     public ClosingView()
     {
@@ -26,12 +44,18 @@ public partial class ClosingView : UserControl
     }
 
     /// <summary>
-    /// Memorise le contexte prete par la fenetre. Aucun appel reseau ici : le
-    /// premier chargement est declenche par LoadAsync().
+    /// Memorise le contexte prete par la fenetre et releve les permissions du
+    /// profil. Aucun appel reseau ici : le premier chargement est declenche par
+    /// LoadAsync().
     /// </summary>
     public void Initialize(ModuleViewContext context)
     {
         this.context = context;
+
+        canCloseDay = context.HasPermission(PermissionCatalog.ClosingClose);
+        canReopenDay = context.HasPermission(PermissionCatalog.ClosingReopen);
+
+        UpdateActionStates();
     }
 
     /// <summary>
@@ -204,14 +228,12 @@ public partial class ClosingView : UserControl
 
         // Acte engageant : la journee est verrouillee pour tous les modules qui
         // ecrivent des donnees datees.
-        var confirmation = MessageBox.Show(
+        var confirmed = Confirm(
             $"Clôturer la journée du {formattedDate} pour l'unité {unit.Code} — {unit.Name} ?\n\n" +
             "Les recettes de cette journée ne pourront plus être saisies ni modifiées tant que la journée n'est pas rouverte.",
-            "Clôture de la journée",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
+            "Clôture de la journée");
 
-        if (confirmation != MessageBoxResult.Yes)
+        if (!confirmed)
         {
             return;
         }
@@ -278,14 +300,12 @@ public partial class ClosingView : UserControl
         var formattedDate = selected.BusinessDate.ToString("dd/MM/yyyy", CultureInfo.CurrentCulture);
 
         // Acte de controle : la reouverture est tracee et doit etre confirmee.
-        var confirmation = MessageBox.Show(
+        var confirmed = Confirm(
             $"Rouvrir la journée du {formattedDate} pour l'unité {selected.HotelUnitCode} ?\n\n" +
             $"Motif : {reason}\n\nCette réouverture est enregistrée dans le journal d'audit.",
-            "Réouverture de la journée",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
+            "Réouverture de la journée");
 
-        if (confirmation != MessageBoxResult.Yes)
+        if (!confirmed)
         {
             return;
         }
@@ -334,20 +354,55 @@ public partial class ClosingView : UserControl
     }
 
     // Une action indisponible est desactivee plutot que de laisser l'utilisateur
-    // declencher une erreur API previsible.
+    // declencher une erreur API previsible. L'etat metier est croise avec les
+    // droits closing.close / closing.reopen du profil connecte.
     private void UpdateActionStates()
     {
-        var canClose = CloseUnitComboBox.SelectedItem is HotelUnitResponse
+        var canClose = canCloseDay
+            && CloseUnitComboBox.SelectedItem is HotelUnitResponse
             && CloseDatePicker.SelectedDate is DateTime selectedDate
             && DateOnly.FromDateTime(selectedDate) <= LastClosableDate;
 
         CloseDayButton.IsEnabled = canClose;
 
-        var canReopen = ClosingDataGrid.SelectedItem is DailyClosingResponse selected
+        var canReopen = canReopenDay
+            && ClosingDataGrid.SelectedItem is DailyClosingResponse selected
             && selected.Status == ClosingStatus.Closed;
 
         ReopenButton.IsEnabled = canReopen;
         ConfirmReopenButton.IsEnabled = canReopen && !string.IsNullOrWhiteSpace(ReopenReasonTextBox.Text);
+
+        ApplyPermissionHint(CloseDayButton, canCloseDay, ClosePermissionHint);
+        ApplyPermissionHint(ReopenButton, canReopenDay, ReopenPermissionHint);
+        ApplyPermissionHint(ConfirmReopenButton, canReopenDay, ReopenPermissionHint);
+    }
+
+    // Pose le message d'explication quand le droit manque, et RESTAURE l'info-bulle
+    // d'origine du bouton quand il est present : l'affectation doit etre symetrique,
+    // sinon un message pose pour un profil restreint survit a la reconnexion d'un
+    // profil qui, lui, a le droit (les vues survivent a la deconnexion).
+    private void ApplyPermissionHint(Button button, bool allowed, string hint)
+    {
+        if (!originalToolTips.ContainsKey(button))
+        {
+            originalToolTips[button] = button.ToolTip;
+        }
+
+        button.ToolTip = allowed ? originalToolTips[button] : hint;
+    }
+
+    // Gabarit de confirmation des actes engageants : fenetre proprietaire, icone
+    // d'avertissement, defaut sur Non - la touche Entree ne suffit jamais a
+    // engager l'action.
+    private bool Confirm(string message, string caption)
+    {
+        var owner = Window.GetWindow(this);
+
+        var result = owner is null
+            ? MessageBox.Show(message, caption, MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No)
+            : MessageBox.Show(owner, message, caption, MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+
+        return result == MessageBoxResult.Yes;
     }
 
     /// <summary>

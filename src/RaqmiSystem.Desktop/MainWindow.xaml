@@ -11,6 +11,12 @@
         FontFamily="{StaticResource AppFontFamily}"
         Background="{StaticResource AppBackgroundBrush}">
 
+    <Window.Resources>
+        <!-- Convertisseur partage (declare dans ClosingView.xaml.cs) : tout horodatage
+             UTC renvoye par l'API est affiche en heure du poste (charte, regle 3.8). -->
+        <views:UtcToLocalTimeConverter x:Key="UtcToLocalTimeConverter" />
+    </Window.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="76" />
@@ -159,9 +165,10 @@
                                    HorizontalAlignment="Left"
                                    Margin="0,0,0,20" />
 
+                            <!-- Titre de la carte : taille de l'echelle typographique du theme
+                                 (PageTitleText), seule la couleur de marque est surchargee. -->
                             <TextBlock Text="Connexion"
-                                       FontSize="24"
-                                       FontWeight="SemiBold"
+                                       Style="{StaticResource PageTitleText}"
                                        Foreground="{StaticResource StructureBrush}" />
                             <TextBlock Text="Accédez à votre espace Raqmi System"
                                        Style="{StaticResource SubtitleText}"
@@ -922,12 +929,12 @@
 
                                             <StackPanel>
                                                 <TextBlock Text="Code" Style="{StaticResource LabelText}" />
-                                                <TextBox x:Name="UnitCodeTextBox" Tag="ex. HTL-01" />
+                                                <TextBox x:Name="UnitCodeTextBox" MaxLength="40" Tag="ex. HTL-01" />
                                             </StackPanel>
 
                                             <StackPanel Grid.Column="2">
                                                 <TextBlock Text="Nom" Style="{StaticResource LabelText}" />
-                                                <TextBox x:Name="UnitNameTextBox" Tag="Nom de l'unité" />
+                                                <TextBox x:Name="UnitNameTextBox" MaxLength="160" Tag="Nom de l'unité" />
                                             </StackPanel>
 
                                             <StackPanel Grid.Column="4">
@@ -955,6 +962,7 @@
                                                     Content="Créer"
                                                     Style="{StaticResource PrimaryButton}"
                                                     ToolTip="Enregistrer l'unité"
+                                                    ToolTipService.ShowOnDisabled="True"
                                                     VerticalAlignment="Bottom"
                                                     Click="SaveUnitButton_Click" />
 
@@ -963,6 +971,7 @@
                                                     Content="Activer"
                                                     Style="{StaticResource SecondaryButton}"
                                                     ToolTip="Réactiver l'unité sélectionnée"
+                                                    ToolTipService.ShowOnDisabled="True"
                                                     VerticalAlignment="Bottom"
                                                     Click="ActivateUnitButton_Click" />
 
@@ -971,6 +980,7 @@
                                                     Content="Désactiver"
                                                     Style="{StaticResource DangerButton}"
                                                     ToolTip="Désactiver l'unité sélectionnée"
+                                                    ToolTipService.ShowOnDisabled="True"
                                                     VerticalAlignment="Bottom"
                                                     Click="DeactivateUnitButton_Click" />
                                         </Grid>
@@ -1103,7 +1113,7 @@
 
                                         <StackPanel Grid.Column="4">
                                             <TextBlock Text="Notes" Style="{StaticResource LabelText}" />
-                                            <TextBox x:Name="NotesTextBox" Tag="Commentaire facultatif" />
+                                            <TextBox x:Name="NotesTextBox" MaxLength="1000" Tag="Commentaire facultatif" />
                                         </StackPanel>
                                     </Grid>
 
@@ -1147,6 +1157,7 @@
                                                 Content="Créer brouillon"
                                                 Style="{StaticResource PrimaryButton}"
                                                 ToolTip="Enregistrer la recette en brouillon"
+                                                ToolTipService.ShowOnDisabled="True"
                                                 VerticalAlignment="Bottom"
                                                 Click="CreateRevenueButton_Click" />
 
@@ -1155,6 +1166,7 @@
                                                 Content="Créer + soumettre"
                                                 Style="{StaticResource SecondaryButton}"
                                                 ToolTip="Enregistrer puis soumettre immédiatement au contrôle"
+                                                ToolTipService.ShowOnDisabled="True"
                                                 VerticalAlignment="Bottom"
                                                 Click="CreateAndSubmitRevenueButton_Click" />
                                     </Grid>
@@ -1225,7 +1237,7 @@
 
                                         <StackPanel>
                                             <TextBlock Text="Motif de rejet (recette sélectionnée)" Style="{StaticResource LabelText}" />
-                                            <TextBox x:Name="RejectReasonTextBox" Tag="Obligatoire pour rejeter" />
+                                            <TextBox x:Name="RejectReasonTextBox" MaxLength="500" Tag="Obligatoire pour rejeter" />
                                         </StackPanel>
 
                                         <Button x:Name="ValidateRevenueButton"
@@ -1233,6 +1245,7 @@
                                                 Content="Valider"
                                                 Style="{StaticResource PrimaryButton}"
                                                 ToolTip="Valider la recette sélectionnée"
+                                                ToolTipService.ShowOnDisabled="True"
                                                 VerticalAlignment="Bottom"
                                                 Click="ValidateRevenueButton_Click" />
 
@@ -1241,6 +1254,7 @@
                                                 Content="Rejeter"
                                                 Style="{StaticResource DangerButton}"
                                                 ToolTip="Rejeter la recette sélectionnée (motif requis)"
+                                                ToolTipService.ShowOnDisabled="True"
                                                 VerticalAlignment="Bottom"
                                                 Click="RejectRevenueButton_Click" />
                                     </Grid>
@@ -1248,7 +1262,9 @@
                                     <Grid Grid.Row="6">
                                         <DataGrid x:Name="DailyRevenueDataGrid">
                                             <DataGrid.Columns>
-                                                <DataGridTextColumn Header="Date" Binding="{Binding BusinessDate}" Width="100" />
+                                                <DataGridTextColumn Header="Date"
+                                                                    Binding="{Binding BusinessDate, StringFormat={}{0:dd/MM/yyyy}}"
+                                                                    Width="100" />
                                                 <DataGridTextColumn Header="Unité" Binding="{Binding HotelUnitCode}" Width="110" />
                                                 <DataGridTextColumn Header="Hébergement"
                                                                     Binding="{Binding Accommodation, StringFormat={}{0:N2}}"
@@ -1363,7 +1379,7 @@
 
                                 <DockPanel>
                                     <StackPanel>
-                                        <TextBlock Text="Tableau de bord - recettes par unité"
+                                        <TextBlock Text="Tableau de bord — recettes par unité"
                                                    Style="{StaticResource PageTitleText}" />
                                         <TextBlock Text="Répartition par unité hôtelière de l'état des recettes journalières pour une date donnée."
                                                    Style="{StaticResource SubtitleText}"
@@ -1445,14 +1461,14 @@
                                                                 <Setter TargetName="EntryStatusTextBlock" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
                                                                 <Setter TargetName="EntryStatusTextBlock" Property="FontWeight" Value="SemiBold" />
                                                             </DataTrigger>
-                                                            <DataTrigger Binding="{Binding EntryStatusText}" Value="Validé">
+                                                            <DataTrigger Binding="{Binding EntryStatusText}" Value="Validée">
                                                                 <Setter TargetName="EntryStatusTextBlock" Property="Foreground" Value="{StaticResource StatusValidatedForegroundBrush}" />
                                                                 <Setter TargetName="EntryStatusTextBlock" Property="FontWeight" Value="SemiBold" />
                                                             </DataTrigger>
-                                                            <DataTrigger Binding="{Binding EntryStatusText}" Value="Soumis - en attente de validation">
+                                                            <DataTrigger Binding="{Binding EntryStatusText}" Value="Soumise — en attente de validation">
                                                                 <Setter TargetName="EntryStatusTextBlock" Property="Foreground" Value="{StaticResource StatusSubmittedForegroundBrush}" />
                                                             </DataTrigger>
-                                                            <DataTrigger Binding="{Binding EntryStatusText}" Value="Rejeté">
+                                                            <DataTrigger Binding="{Binding EntryStatusText}" Value="Rejetée">
                                                                 <Setter TargetName="EntryStatusTextBlock" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
                                                             </DataTrigger>
                                                         </DataTemplate.Triggers>
@@ -1465,11 +1481,11 @@
                                                                 ElementStyle="{StaticResource TotalCellText}"
                                                                 HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
                                             <DataGridTextColumn Header="Soumis le"
-                                                                Binding="{Binding SubmittedAt, StringFormat={}{0:yyyy-MM-dd HH:mm}}"
+                                                                Binding="{Binding SubmittedAt, Converter={StaticResource UtcToLocalTimeConverter}, StringFormat={}{0:dd/MM/yyyy HH:mm}}"
                                                                 Width="145"
                                                                 ElementStyle="{StaticResource MutedCellText}" />
                                             <DataGridTextColumn Header="Validé le"
-                                                                Binding="{Binding ValidatedAt, StringFormat={}{0:yyyy-MM-dd HH:mm}}"
+                                                                Binding="{Binding ValidatedAt, Converter={StaticResource UtcToLocalTimeConverter}, StringFormat={}{0:dd/MM/yyyy HH:mm}}"
                                                                 Width="145"
                                                                 ElementStyle="{StaticResource MutedCellText}" />
                                         </DataGrid.Columns>
@@ -1568,7 +1584,7 @@
 
                                     <StackPanel Grid.Column="4">
                                         <TextBlock Text="Action" Style="{StaticResource LabelText}" />
-                                        <TextBox x:Name="AuditActionTextBox" Tag="Filtrer par action (ex. Login)" />
+                                        <TextBox x:Name="AuditActionTextBox" MaxLength="160" Tag="Filtrer par action (ex. Login)" />
                                     </StackPanel>
                                 </Grid>
 
@@ -1581,7 +1597,7 @@
                                     <DataGrid x:Name="AuditDataGrid">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="Date/heure"
-                                                                Binding="{Binding OccurredAt, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}"
+                                                                Binding="{Binding OccurredAt, Converter={StaticResource UtcToLocalTimeConverter}, StringFormat={}{0:dd/MM/yyyy HH:mm:ss}}"
                                                                 Width="155" />
                                             <DataGridTextColumn Header="Utilisateur" Binding="{Binding UserName}" Width="140" />
                                             <DataGridTemplateColumn Header="Action" Width="170" SortMemberPath="Action">

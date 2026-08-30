@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using Microsoft.Win32;
@@ -23,6 +24,28 @@ namespace RaqmiSystem.Desktop;
 
 public partial class MainWindow : Window
 {
+    // Info-bulles expliquant pourquoi une action d'ecriture est grisee quand le
+    // droit manque. Le serveur reste la seule autorite : ceci n'est qu'un confort
+    // d'interface, jamais une mesure de securite.
+    private const string UnitsWritePermissionHint =
+        "Permission requise : units.write. Votre profil ne peut que consulter les unités.";
+
+    private const string RevenueWritePermissionHint =
+        "Permission requise : revenue.write. Votre profil ne peut que consulter les recettes.";
+
+    private const string RevenueValidatePermissionHint =
+        "Permission requise : revenue.validate. Votre profil ne peut pas valider ni rejeter une recette.";
+
+    // Info-bulles d'origine des boutons d'ecriture, capturees avant toute
+    // substitution : le message "permission requise" pose pour un profil restreint
+    // doit disparaitre a la reconnexion d'un profil qui a le droit (meme motif
+    // ApplyPermissionHint que TreasuryView).
+    private readonly Dictionary<Button, object?> originalToolTips = [];
+
+    // Appel API en vol : combine avec les permissions dans ApplyWriteActionStates,
+    // pour que la fin d'un appel ne reactive jamais un bouton sans droit.
+    private bool isBusy;
+
     private readonly RaqmiApiClient apiClient = new(new HttpClient());
     private IReadOnlyCollection<HotelUnitResponse> hotelUnits = Array.Empty<HotelUnitResponse>();
     private string? editingUnitCode;
@@ -60,6 +83,12 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        // Aligne les StringFormat du XAML (montants N2, dates) sur la culture du
+        // poste : sans cela WPF formate en en-US pendant que le code-behind formate
+        // en culture courante, et deux formats coexistent sur le meme ecran.
+        Language = XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag);
+
         ApiBaseUrlTextBox.Text = DesktopSettings.Load();
         PrefillRememberedCredentials();
         InitializeDefaults();
@@ -197,6 +226,45 @@ public partial class MainWindow : Window
         ApplyModuleAccess(PermissionCatalog.AccountingRead, ShowAccountingButton, AccountingTabItem);
         ApplyModuleAccess(PermissionCatalog.BudgetRead, ShowBudgetButton, BudgetTabItem);
         ApplyModuleAccess(PermissionCatalog.ReceivablesRead, ShowReceivablesButton, ReceivablesTabItem);
+
+        ApplyWriteActionStates();
+    }
+
+    // Source unique de verite de l'etat des boutons d'ecriture des onglets Unites
+    // et Recettes : croise le droit du profil avec l'appel API en vol. Appelee a
+    // chaque changement de session (ApplyModulePermissions) ET a chaque bascule de
+    // SetBusy, pour qu'un retour de SetBusy(false) ne reactive jamais un bouton
+    // sans droit.
+    private void ApplyWriteActionStates()
+    {
+        var canWriteUnits = HasModulePermission(PermissionCatalog.UnitsWrite);
+        var canWriteRevenue = HasModulePermission(PermissionCatalog.RevenueWrite);
+        var canValidateRevenue = HasModulePermission(PermissionCatalog.RevenueValidate);
+
+        SetActionState(SaveUnitButton, canWriteUnits, UnitsWritePermissionHint);
+        SetActionState(ActivateUnitButton, canWriteUnits, UnitsWritePermissionHint);
+        SetActionState(DeactivateUnitButton, canWriteUnits, UnitsWritePermissionHint);
+        SetActionState(CreateRevenueButton, canWriteRevenue, RevenueWritePermissionHint);
+        SetActionState(CreateAndSubmitRevenueButton, canWriteRevenue, RevenueWritePermissionHint);
+        SetActionState(ValidateRevenueButton, canValidateRevenue, RevenueValidatePermissionHint);
+        SetActionState(RejectRevenueButton, canValidateRevenue, RevenueValidatePermissionHint);
+    }
+
+    // Grise le bouton quand le droit manque (ou pendant un appel en vol) et pose
+    // l'info-bulle explicative, RESTAUREE quand le droit est present : l'affectation
+    // doit etre symetrique, sinon un message pose pour un profil restreint survit a
+    // la reconnexion d'un profil qui, lui, a le droit (motif ApplyPermissionHint,
+    // TreasuryView.xaml.cs).
+    private void SetActionState(Button button, bool allowed, string hint)
+    {
+        button.IsEnabled = allowed && !isBusy;
+
+        if (!originalToolTips.ContainsKey(button))
+        {
+            originalToolTips[button] = button.ToolTip;
+        }
+
+        button.ToolTip = allowed ? originalToolTips[button] : hint;
     }
 
     private void ApplyModuleAccess(string permission, Button navButton, TabItem tabItem)
@@ -585,15 +653,12 @@ public partial class MainWindow : Window
         DesktopSettings.ClearCredentials();
         RememberMeCheckBox.IsChecked = false;
 
-        // Le compte a le droit de savoir combien de sessions le changement a fermees :
-        // c'est la confirmation visible qu'un acces indesirable a bien ete ejecte.
-        SetStatus(dialog.RevokedSessionCount switch
-        {
-            0 => "Mot de passe changé. Aucune autre session n'était ouverte.",
-            1 => "Mot de passe changé. 1 autre session a été fermée.",
-            var count =>
-                $"Mot de passe changé. {count.ToString(CultureInfo.CurrentCulture)} sessions ont été fermées."
-        });
+        // Le serveur revoque TOUTES les sessions du compte, y compris le jeton de la
+        // session courante (reemis dans la foulee) : RevokedSessionCount ne compte
+        // donc pas que les "autres" appareils. Plutot que d'afficher un chiffre qui
+        // mentirait d'une unite, le message dit honnetement la consequence utile.
+        SetStatus(
+            "Mot de passe changé. Vos autres appareils éventuellement connectés devront se reconnecter avec le nouveau mot de passe.");
     }
 
     // Un seul contexte partage par les vues de module : le client API de la
@@ -904,16 +969,17 @@ public partial class MainWindow : Window
     // explicit "Non saisi" label in the "A saisi" column rather than an ambiguous empty cell.
     private static UnitDashboardRowView ToDashboardRowView(UnitDashboardRow row)
     {
+        // Les libelles de statut viennent de DailyRevenueStatusDisplay, source
+        // unique de la traduction (grille des recettes, impression et CSV rendent
+        // le meme mot, accords au feminin compris). Seule la mention "en attente
+        // de validation" est un complement propre au tableau de bord.
         var entryStatusText = !row.HasEntry
             ? "Non saisi"
-            : row.Status switch
-            {
-                DailyRevenueStatus.Draft => "Brouillon",
-                DailyRevenueStatus.Submitted => "Soumis - en attente de validation",
-                DailyRevenueStatus.Validated => "Validé",
-                DailyRevenueStatus.Rejected => "Rejeté",
-                _ => "Saisi"
-            };
+            : row.Status is not { } status
+                ? "Saisi"
+                : status == DailyRevenueStatus.Submitted
+                    ? $"{DailyRevenueStatusDisplay.ToFrench(status)} — en attente de validation"
+                    : DailyRevenueStatusDisplay.ToFrench(status);
 
         return new UnitDashboardRowView(
             row.HotelUnitCode,
@@ -959,9 +1025,14 @@ public partial class MainWindow : Window
 
         AuditDataGrid.ItemsSource = result.Items;
 
+        // Accord du pluriel selon le compte, comme ClosingView : jamais de "(s)".
+        var totalCountText = result.TotalCount.ToString(CultureInfo.CurrentCulture);
+
         AuditResultCountTextBlock.Text = result.TotalCount > result.Items.Count
-            ? $"Affichage de {result.Items.Count} sur {result.TotalCount} entrées. Affinez les filtres pour voir les entrées plus anciennes."
-            : $"{result.TotalCount} entrée(s).";
+            ? $"Affichage de {result.Items.Count.ToString(CultureInfo.CurrentCulture)} sur {totalCountText} entrées. Affinez les filtres pour voir les entrées plus anciennes."
+            : result.TotalCount > 1
+                ? $"{totalCountText} entrées."
+                : $"{totalCountText} entrée.";
     }
 
     private async void ValidateRevenueButton_Click(object sender, RoutedEventArgs e)
@@ -1054,7 +1125,7 @@ public partial class MainWindow : Window
             IReadOnlyCollection<DailyRevenueResponse> rows = DailyRevenueDataGrid.Items.Cast<DailyRevenueResponse>().ToArray();
             var document = BuildDailyRevenuePrintDocument(rows);
 
-            printDialog.PrintDocument(((IDocumentPaginatorSource)document).DocumentPaginator, "Raqmi System - Recettes journalieres");
+            printDialog.PrintDocument(((IDocumentPaginatorSource)document).DocumentPaginator, "Raqmi System — Recettes journalières");
             SetStatus("Document envoyé à l'imprimante.");
         }
         catch (Exception ex)
@@ -1068,21 +1139,24 @@ public partial class MainWindow : Window
         var document = new FlowDocument
         {
             PagePadding = new Thickness(40),
-            FontFamily = new FontFamily("Segoe UI")
+            // Police de marque du theme (Manrope, Noto Kufi Arabic, repli Segoe UI) :
+            // le document imprime porte la meme identite que l'ecran.
+            FontFamily = (FontFamily)FindResource("AppFontFamily")
         };
 
-        document.Blocks.Add(new Paragraph(new Run("Raqmi System - Recettes journalieres"))
+        document.Blocks.Add(new Paragraph(new Run("Raqmi System — Recettes journalières"))
         {
             FontSize = 20,
             FontWeight = FontWeights.SemiBold
         });
 
-        document.Blocks.Add(new Paragraph(new Run($"Date d'exploitation : {GetSelectedBusinessDate():yyyy-MM-dd}")));
+        document.Blocks.Add(new Paragraph(new Run(
+            $"Date d'exploitation : {GetSelectedBusinessDate().ToString("dd/MM/yyyy", CultureInfo.CurrentCulture)}")));
 
         document.Blocks.Add(new Paragraph(new Run(
-            $"Total: {SummaryTotalTextBlock.Text}  |  Brouillons: {SummaryDraftTextBlock.Text}  |  " +
-            $"Soumises: {SummarySubmittedTextBlock.Text}  |  Validées: {SummaryValidatedTextBlock.Text}  |  " +
-            $"Rejetées: {SummaryRejectedTextBlock.Text}"))
+            $"Total : {SummaryTotalTextBlock.Text}  |  Brouillons : {SummaryDraftTextBlock.Text}  |  " +
+            $"Soumises : {SummarySubmittedTextBlock.Text}  |  Validées : {SummaryValidatedTextBlock.Text}  |  " +
+            $"Rejetées : {SummaryRejectedTextBlock.Text}"))
         {
             Margin = new Thickness(0, 4, 0, 16)
         });
@@ -1112,7 +1186,7 @@ public partial class MainWindow : Window
 
             foreach (var value in new[]
             {
-                row.BusinessDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                row.BusinessDate.ToString("dd/MM/yyyy", CultureInfo.CurrentCulture),
                 row.HotelUnitCode,
                 row.Accommodation.ToString("N2", CultureInfo.CurrentCulture),
                 row.Food.ToString("N2", CultureInfo.CurrentCulture),
@@ -1260,14 +1334,35 @@ public partial class MainWindow : Window
 
     private async Task SetUnitActiveAsync(bool isActive)
     {
-        await RunApiActionAsync(async () =>
+        if (UnitsDataGrid.SelectedItem is not HotelUnitResponse selected)
         {
-            if (UnitsDataGrid.SelectedItem is not HotelUnitResponse selected)
+            SetStatus("Sélectionnez une unité.", isError: true);
+            return;
+        }
+
+        // Acte engageant sur le referentiel : la desactivation est confirmee avec
+        // le gabarit de la charte (fenetre proprietaire, icone Warning, defaut Non),
+        // comme la desactivation d'un client ou d'un compte bancaire. L'activation,
+        // elle, reste sans confirmation (meme choix que CustomersView).
+        if (!isActive)
+        {
+            var confirmation = MessageBox.Show(
+                this,
+                $"Désactiver l'unité {selected.Code} — {selected.Name} ?\n\n" +
+                "Elle ne sera plus proposée à la saisie des recettes journalières tant qu'elle n'aura pas été réactivée.",
+                "Désactivation d'une unité",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No);
+
+            if (confirmation != MessageBoxResult.Yes)
             {
-                SetStatus("Sélectionnez une unité.", isError: true);
                 return;
             }
+        }
 
+        await RunApiActionAsync(async () =>
+        {
             await apiClient.SetHotelUnitActiveAsync(ApiBaseUrlTextBox.Text, selected.Code, isActive);
             await LoadHotelUnitsAsync();
             SetStatus(isActive ? "Unité activée." : "Unité désactivée.");
@@ -1363,6 +1458,8 @@ public partial class MainWindow : Window
 
     private void SetBusy(bool isBusy)
     {
+        this.isBusy = isBusy;
+
         Mouse.OverrideCursor = isBusy ? Cursors.Wait : null;
         BusyProgressBar.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
         LoginBusyProgressBar.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
@@ -1372,14 +1469,12 @@ public partial class MainWindow : Window
         RefreshRevenueButton.IsEnabled = !isBusy;
         RefreshDashboardButton.IsEnabled = !isBusy;
         RefreshAuditButton.IsEnabled = !isBusy;
-        CreateRevenueButton.IsEnabled = !isBusy;
-        CreateAndSubmitRevenueButton.IsEnabled = !isBusy;
         NewUnitButton.IsEnabled = !isBusy;
-        SaveUnitButton.IsEnabled = !isBusy;
-        ActivateUnitButton.IsEnabled = !isBusy;
-        DeactivateUnitButton.IsEnabled = !isBusy;
-        ValidateRevenueButton.IsEnabled = !isBusy;
-        RejectRevenueButton.IsEnabled = !isBusy;
+
+        // Les actions d'ecriture (unites et recettes) croisent l'etat busy avec les
+        // permissions du profil : une seule methode porte cette verite, pour que le
+        // retour de SetBusy(false) ne reactive pas un bouton sans droit.
+        ApplyWriteActionStates();
 
         // Les vues de module (Cloture, Tresorerie, Clients, Facturation,
         // Parametrage global, Administration et utilisateurs, Comptabilite, Budget,

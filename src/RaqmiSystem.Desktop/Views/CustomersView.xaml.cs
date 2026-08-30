@@ -29,6 +29,11 @@ public partial class CustomersView : UserControl
 
     private ModuleViewContext? context;
 
+    // Info-bulles d'origine des boutons d'ecriture, capturees avant toute
+    // substitution par le message de permission : l'affectation doit rester
+    // symetrique (voir ApplyPermissionHint).
+    private readonly Dictionary<Button, object?> originalToolTips = [];
+
     // Null en mode creation, code du client edite en mode modification.
     private string? editingCustomerCode;
 
@@ -376,17 +381,12 @@ public partial class CustomersView : UserControl
 
         // Action engageante sur le referentiel : confirmation explicite avant l'appel.
         var question = isActive
-            ? $"Réactiver le client {selected.Code} ({selected.Name}) ?"
+            ? $"Réactiver le client {selected.Code} ({selected.Name}) ?\nIl sera de nouveau proposé à la facturation."
             : $"Désactiver le client {selected.Code} ({selected.Name}) ?\nIl ne sera plus proposé à la facturation.";
 
-        var confirmation = MessageBox.Show(
-            question,
-            isActive ? "Activer le client" : "Désactiver le client",
-            MessageBoxButton.YesNo,
-            isActive ? MessageBoxImage.Question : MessageBoxImage.Warning,
-            MessageBoxResult.No);
+        var confirmed = Confirm(question, isActive ? "Activer le client" : "Désactiver le client");
 
-        if (confirmation != MessageBoxResult.Yes)
+        if (!confirmed)
         {
             return;
         }
@@ -419,12 +419,37 @@ public partial class CustomersView : UserControl
         ActivateCustomerButton.IsEnabled = canWriteCustomers && selected is { IsActive: false };
         DeactivateCustomerButton.IsEnabled = canWriteCustomers && selected is { IsActive: true };
 
-        if (!canWriteCustomers)
+        ApplyPermissionHint(SaveCustomerButton, canWriteCustomers, WritePermissionHint);
+        ApplyPermissionHint(ActivateCustomerButton, canWriteCustomers, WritePermissionHint);
+        ApplyPermissionHint(DeactivateCustomerButton, canWriteCustomers, WritePermissionHint);
+    }
+
+    // Pose le message d'explication quand le droit manque, et RESTAURE l'info-bulle
+    // d'origine du bouton quand il est present : l'affectation doit etre symetrique,
+    // sinon un message pose pour un profil restreint survit a la reconnexion d'un
+    // profil qui, lui, a le droit (les vues survivent a la deconnexion).
+    private void ApplyPermissionHint(Button button, bool allowed, string hint)
+    {
+        if (!originalToolTips.ContainsKey(button))
         {
-            SaveCustomerButton.ToolTip = WritePermissionHint;
-            ActivateCustomerButton.ToolTip = WritePermissionHint;
-            DeactivateCustomerButton.ToolTip = WritePermissionHint;
+            originalToolTips[button] = button.ToolTip;
         }
+
+        button.ToolTip = allowed ? originalToolTips[button] : hint;
+    }
+
+    // Gabarit de confirmation des actes engageants : fenetre proprietaire, icone
+    // d'avertissement, defaut sur Non - la touche Entree ne suffit jamais a
+    // engager l'action.
+    private bool Confirm(string message, string caption)
+    {
+        var owner = Window.GetWindow(this);
+
+        var result = owner is null
+            ? MessageBox.Show(message, caption, MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No)
+            : MessageBox.Show(owner, message, caption, MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+
+        return result == MessageBoxResult.Yes;
     }
 
     private bool TryReadNif(out string? nif)

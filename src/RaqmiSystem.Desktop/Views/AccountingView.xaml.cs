@@ -54,6 +54,9 @@ public partial class AccountingView : UserControl
         new(AccountKind.Expense, "Charge")
     ];
 
+    private static readonly AccountKind[] AllKinds =
+        KindOptions.Select(option => option.Value).ToArray();
+
     private static readonly EntryStatusOption[] StatusFilterOptions =
     [
         new(null, AllStatusesLabel),
@@ -144,9 +147,13 @@ public partial class AccountingView : UserControl
             await ReloadAccountClassesAsync(active);
             await ReloadJournalsAsync(active);
             await ReloadAccountsAsync(active);
-            await ReloadEntriesAsync(active);
 
-            active.SetStatus("Comptabilité actualisée.");
+            // Un rechargement des ecritures abandonne (plage de dates invalide) a
+            // deja affiche son erreur : conclure "actualisee" la contredirait.
+            if (await ReloadEntriesAsync(active))
+            {
+                active.SetStatus("Comptabilité actualisée.");
+            }
         });
     }
 
@@ -168,12 +175,21 @@ public partial class AccountingView : UserControl
         EntriesCountTextBlock.Text = "Écritures non chargées.";
         BalanceCountTextBlock.Text = "Balance non chargée.";
         BalancePeriodTextBlock.Text = "Aucune période chargée.";
+
+        // Le libelle de perimetre est reecrit a chaque chargement d'apres ce que le
+        // serveur annonce : sans cette remise a zero, la formulation vue par le
+        // profil precedent survivrait a la deconnexion.
+        BalanceScopeTextBlock.Text = "Écritures comptabilisées uniquement.";
+        BalanceDifferenceTextBlock.Foreground = (Brush)FindResource("TextPrimaryBrush");
+
         BalanceTotalDebitTextBlock.Text = "—";
         BalanceTotalCreditTextBlock.Text = "—";
         BalanceDifferenceTextBlock.Text = "—";
 
         AccountSearchTextBox.Text = string.Empty;
         IncludeInactiveAccountsCheckBox.IsChecked = false;
+        JournalCodeTextBox.Text = string.Empty;
+        JournalLabelTextBox.Text = string.Empty;
         EntryAccountTextBox.Text = string.Empty;
         EntryStatusComboBox.SelectedIndex = 0;
         CancelEntryReasonTextBox.Text = string.Empty;
@@ -327,6 +343,60 @@ public partial class AccountingView : UserControl
         UpdateActionState();
     }
 
+    private void AccountCodeTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        // La liste des natures est declaree apres le champ de code dans le XAML :
+        // l'evenement peut se declencher avant qu'elle ne soit construite.
+        if (AccountKindComboBox is null)
+        {
+            return;
+        }
+
+        ApplyKindOptionsForCode();
+    }
+
+    /// <summary>
+    /// Restreint les natures proposees a celles qu'admet la classe du code en cours
+    /// de saisie : le serveur applique la table classe/nature du domaine
+    /// (AccountClassCatalog), et proposer une nature qu'il refusera reviendrait a
+    /// promettre une regle differente de la sienne. La table est REFERENCEE depuis
+    /// le domaine, jamais recopiee ici. Tant que le code ne designe aucune classe
+    /// lisible, les cinq natures restent proposees.
+    /// </summary>
+    private void ApplyKindOptionsForCode()
+    {
+        var allowed = AllowedKindsForCode(AccountCodeTextBox.Text);
+
+        var options = KindOptions
+            .Where(option => allowed.Contains(option.Value))
+            .ToArray();
+
+        if (options.Length == 0)
+        {
+            options = KindOptions;
+        }
+
+        var previous = (AccountKindComboBox.SelectedItem as AccountKindOption)?.Value;
+
+        AccountKindComboBox.ItemsSource = options;
+        AccountKindComboBox.SelectedItem =
+            options.FirstOrDefault(option => option.Value == previous) ?? options[0];
+    }
+
+    private static IReadOnlyCollection<AccountKind> AllowedKindsForCode(string codeText)
+    {
+        var trimmed = codeText.Trim();
+
+        if (trimmed.Length == 0 || !char.IsAsciiDigit(trimmed[0]))
+        {
+            return AllKinds;
+        }
+
+        // La classe SCF est le premier chiffre du code - la meme derivation que
+        // ChartAccount.ExtractAccountClass.
+        return AccountClassCatalog.Find(trimmed[0] - '0')?.AllowedKinds ?? AllKinds;
+    }
+
     private void ResetAccountForm()
     {
         editingAccountCode = null;
@@ -425,6 +495,51 @@ public partial class AccountingView : UserControl
         });
     }
 
+    // ================================== Journaux ==================================
+
+    private async void CreateJournalButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (context is not { } active || !active.ApiClient.IsAuthenticated)
+        {
+            return;
+        }
+
+        var code = JournalCodeTextBox.Text.Trim();
+
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            active.SetStatus("Le code du journal est obligatoire.", isError: true);
+            JournalCodeTextBox.Focus();
+            return;
+        }
+
+        var label = JournalLabelTextBox.Text.Trim();
+
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            active.SetStatus("Le libellé du journal est obligatoire.", isError: true);
+            JournalLabelTextBox.Focus();
+            return;
+        }
+
+        await active.RunAsync(async () =>
+        {
+            var created = await active.ApiClient.CreateAccountingJournalAsync(
+                active.ApiBaseUrl,
+                new CreateAccountingJournalRequest(code, label));
+
+            JournalCodeTextBox.Text = string.Empty;
+            JournalLabelTextBox.Text = string.Empty;
+
+            // Les listes du sous-onglet Ecritures proposent aussitot le nouveau
+            // journal : sans ce rechargement, il faudrait "Tout actualiser" pour
+            // pouvoir y saisir la premiere ecriture.
+            await ReloadJournalsAsync(active);
+
+            active.SetStatus($"Journal {created.Code} — {created.Label} créé. Il est proposé à la saisie des écritures.");
+        });
+    }
+
     // ================================= Ecritures =================================
 
     private void ResetJournalOptions()
@@ -488,12 +603,20 @@ public partial class AccountingView : UserControl
 
         await active.RunAsync(async () =>
         {
-            await ReloadEntriesAsync(active);
-            active.SetStatus("Écritures actualisées.");
+            if (await ReloadEntriesAsync(active))
+            {
+                active.SetStatus("Écritures actualisées.");
+            }
         });
     }
 
-    private async Task ReloadEntriesAsync(ModuleViewContext active)
+    /// <summary>
+    /// Recharge la liste des ecritures. Renvoie false quand le rechargement est
+    /// ABANDONNE (plage de dates invalide, message d'erreur deja affiche) : chaque
+    /// appelant doit le savoir pour ne pas conclure par un message de succes qui
+    /// contredirait l'ecran.
+    /// </summary>
+    private async Task<bool> ReloadEntriesAsync(ModuleViewContext active)
     {
         var from = SelectedDate(EntryFromDatePicker);
         var to = SelectedDate(EntryToDatePicker);
@@ -501,7 +624,7 @@ public partial class AccountingView : UserControl
         if (from is { } start && to is { } end && start > end)
         {
             active.SetStatus("La date de début est postérieure à la date de fin.", isError: true);
-            return;
+            return false;
         }
 
         var entries = await active.ApiClient.GetJournalEntriesAsync(
@@ -529,6 +652,8 @@ public partial class AccountingView : UserControl
 
         ShowEntryDetail(null);
         UpdateActionState();
+
+        return true;
     }
 
     private void EntriesDataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -589,9 +714,9 @@ public partial class AccountingView : UserControl
         await active.RunAsync(async () =>
         {
             await active.ApiClient.PostJournalEntryAsync(active.ApiBaseUrl, entry.Id);
-            await ReloadEntriesAsync(active);
+            var reloaded = await ReloadEntriesAsync(active);
 
-            active.SetStatus("Écriture comptabilisée : elle est désormais immuable.");
+            active.SetStatus(WithReloadNote("Écriture comptabilisée : elle est désormais immuable.", reloaded));
         });
     }
 
@@ -617,10 +742,11 @@ public partial class AccountingView : UserControl
                 entry.Id,
                 new ReverseJournalEntryRequest(null, null));
 
-            await ReloadEntriesAsync(active);
+            var reloaded = await ReloadEntriesAsync(active);
 
-            active.SetStatus(
-                $"Extourne créée le {FormatDate(reversal.EntryDate)}. L'écriture d'origine reste comptabilisée.");
+            active.SetStatus(WithReloadNote(
+                $"Extourne créée le {FormatDate(reversal.EntryDate)}. L'écriture d'origine reste comptabilisée.",
+                reloaded));
         });
     }
 
@@ -653,9 +779,9 @@ public partial class AccountingView : UserControl
                 new CancelJournalEntryRequest(reason));
 
             CancelEntryReasonTextBox.Text = string.Empty;
-            await ReloadEntriesAsync(active);
+            var reloaded = await ReloadEntriesAsync(active);
 
-            active.SetStatus("Brouillon abandonné.");
+            active.SetStatus(WithReloadNote("Brouillon abandonné.", reloaded));
         });
     }
 
@@ -860,11 +986,13 @@ public partial class AccountingView : UserControl
                     lines));
 
             ResetNewEntryForm();
-            await ReloadEntriesAsync(active);
+            var reloaded = await ReloadEntriesAsync(active);
 
-            active.SetStatus(created.IsBalanced
-                ? "Brouillon créé et équilibré : il peut être comptabilisé."
-                : "Brouillon créé. Il devra être équilibré avant d'être comptabilisé.");
+            active.SetStatus(WithReloadNote(
+                created.IsBalanced
+                    ? "Brouillon créé et équilibré : il peut être comptabilisé."
+                    : "Brouillon créé. Il devra être équilibré avant d'être comptabilisé.",
+                reloaded));
         });
     }
 
@@ -958,6 +1086,8 @@ public partial class AccountingView : UserControl
             canWrite && selectedAccount is { IsActive: true },
             canWrite ? "Sélectionnez un compte actif." : WritePermissionHint);
 
+        ApplyButtonState(CreateJournalButton, canWrite, WritePermissionHint);
+
         var isDraft = selectedEntry?.Status == EntryStatus.Draft;
         var isPosted = selectedEntry?.Status == EntryStatus.Posted;
         var isReversed = selectedEntry?.ReversedByEntryId is not null;
@@ -999,6 +1129,16 @@ public partial class AccountingView : UserControl
 
     private static DateOnly? SelectedDate(DatePicker picker) =>
         picker.SelectedDate is { } date ? DateOnly.FromDateTime(date) : null;
+
+    /// <summary>
+    /// Complete un message de succes d'action quand le rechargement de la liste qui
+    /// a suivi a ete abandonne : l'action a bien eu lieu, mais l'ecran ne la montre
+    /// pas encore, et le message final doit dire les deux.
+    /// </summary>
+    private static string WithReloadNote(string message, bool reloaded) =>
+        reloaded
+            ? message
+            : message + " La liste des écritures n'a pas pu être actualisée : corrigez la période du filtre, puis actualisez.";
 
     private static string FormatAmount(decimal value) => value.ToString("N2", CultureInfo.CurrentCulture);
 

@@ -10,6 +10,7 @@ using System.Windows.Media;
 using RaqmiSystem.Application.Billing;
 using RaqmiSystem.Application.Organization;
 using RaqmiSystem.Domain.Billing;
+using RaqmiSystem.Domain.Identity;
 
 namespace RaqmiSystem.Desktop.Views;
 
@@ -43,7 +44,26 @@ public partial class InvoicesView : UserControl
 
     private const decimal MaxMoney = 9_999_999_999_999_999.99m;
 
+    private const string WritePermissionHint =
+        "Permission invoices.write requise : votre profil ne peut que consulter les factures.";
+
+    private const string IssuePermissionHint =
+        "Permission invoices.issue requise : votre profil ne peut pas émettre de facture.";
+
     private readonly ObservableCollection<InvoiceLineEditorRow> editorLines = new();
+
+    // Info-bulles d'origine des boutons d'ecriture, capturees avant toute
+    // substitution par un message de permission : l'affectation doit rester
+    // symetrique (voir ApplyPermissionHint).
+    private readonly Dictionary<Button, object?> originalToolTips = [];
+
+    // Droits du profil connecte, releves a l'ouverture de session : les actions
+    // sont grisees plutot que de laisser decouvrir un 403 apres la saisie. Le
+    // serveur reste la seule autorite en matiere de droits. Attention :
+    // invoices.issue est un droit DISTINCT d'invoices.write (l'emission alloue
+    // le numero legal definitif).
+    private bool canWrite = true;
+    private bool canIssue = true;
 
     private ModuleViewContext? context;
     private IReadOnlyList<InvoiceResponse> invoices = Array.Empty<InvoiceResponse>();
@@ -80,10 +100,18 @@ public partial class InvoicesView : UserControl
         UpdateActionAvailability();
     }
 
-    /// <summary>Memorise le contexte prete par la fenetre. Aucun appel reseau ici.</summary>
+    /// <summary>
+    /// Memorise le contexte prete par la fenetre et releve les permissions du
+    /// profil. Aucun appel reseau ici.
+    /// </summary>
     public void Initialize(ModuleViewContext moduleViewContext)
     {
         context = moduleViewContext;
+
+        canWrite = moduleViewContext.HasPermission(PermissionCatalog.InvoicesWrite);
+        canIssue = moduleViewContext.HasPermission(PermissionCatalog.InvoicesIssue);
+
+        UpdateActionAvailability();
     }
 
     /// <summary>
@@ -103,9 +131,14 @@ public partial class InvoicesView : UserControl
             await LoadReferenceDataAsync(active);
             await LoadInvoicesAsync(active);
 
-            active.SetStatus(invoices.Count == 0
-                ? "Aucune facture pour ces critères."
-                : $"{invoices.Count} facture(s) chargée(s).");
+            // Accord du pluriel selon le nombre, comme les autres compteurs du
+            // produit : jamais de "(s)".
+            active.SetStatus(invoices.Count switch
+            {
+                0 => "Aucune facture pour ces critères.",
+                1 => "1 facture chargée.",
+                _ => $"{invoices.Count.ToString(CultureInfo.CurrentCulture)} factures chargées."
+            });
         });
     }
 
@@ -344,9 +377,11 @@ public partial class InvoicesView : UserControl
 
     private void ApplyDetailStatusBadge(InvoiceStatus? status)
     {
+        // Les pastilles de statut restent dans la famille Status* du theme :
+        // Emise = en attente d'encaissement, teinte Submitted.
         var (background, foreground, label) = status switch
         {
-            InvoiceStatus.Issued => ("AccentSoftBrush", "ModuleStatusApiForegroundBrush", "Émise"),
+            InvoiceStatus.Issued => ("StatusSubmittedBackgroundBrush", "StatusSubmittedForegroundBrush", "Émise"),
             InvoiceStatus.Paid => ("StatusValidatedBackgroundBrush", "StatusValidatedForegroundBrush", "Payée"),
             InvoiceStatus.Cancelled => ("StatusRejectedBackgroundBrush", "StatusRejectedForegroundBrush", "Annulée"),
             InvoiceStatus.Draft => ("StatusDraftBackgroundBrush", "StatusDraftForegroundBrush", "Brouillon"),
@@ -371,18 +406,40 @@ public partial class InvoicesView : UserControl
     private void UpdateActionAvailability()
     {
         var status = (InvoicesDataGrid.SelectedItem as InvoiceResponse)?.Status;
-        var canCancel = status is InvoiceStatus.Draft or InvoiceStatus.Issued;
+        var canCancel = canWrite && status is InvoiceStatus.Draft or InvoiceStatus.Issued;
 
         // Plutot que de laisser l'utilisateur declencher une erreur API previsible,
-        // chaque bouton n'est actif que pour les statuts qui l'admettent.
-        EditLinesButton.IsEnabled = status == InvoiceStatus.Draft;
-        IssueInvoiceButton.IsEnabled = status == InvoiceStatus.Draft;
-        MarkPaidButton.IsEnabled = status == InvoiceStatus.Issued;
+        // chaque bouton n'est actif que pour les statuts qui l'admettent, croises
+        // avec les droits invoices.write / invoices.issue du profil connecte.
+        SaveInvoiceButton.IsEnabled = canWrite;
+        EditLinesButton.IsEnabled = canWrite && status == InvoiceStatus.Draft;
+        IssueInvoiceButton.IsEnabled = canIssue && status == InvoiceStatus.Draft;
+        MarkPaidButton.IsEnabled = canWrite && status == InvoiceStatus.Issued;
 
         // L'annulation exige un motif : le bouton ne s'active qu'une fois ce motif
         // saisi, plutot que d'ouvrir une confirmation vouee a un refus.
         CancelInvoiceButton.IsEnabled = canCancel && !string.IsNullOrWhiteSpace(CancelReasonTextBox.Text);
         CancelReasonTextBox.IsEnabled = canCancel;
+
+        ApplyPermissionHint(SaveInvoiceButton, canWrite, WritePermissionHint);
+        ApplyPermissionHint(EditLinesButton, canWrite, WritePermissionHint);
+        ApplyPermissionHint(IssueInvoiceButton, canIssue, IssuePermissionHint);
+        ApplyPermissionHint(MarkPaidButton, canWrite, WritePermissionHint);
+        ApplyPermissionHint(CancelInvoiceButton, canWrite, WritePermissionHint);
+    }
+
+    // Pose le message d'explication quand le droit manque, et RESTAURE l'info-bulle
+    // d'origine du bouton quand il est present : l'affectation doit etre symetrique,
+    // sinon un message pose pour un profil restreint survit a la reconnexion d'un
+    // profil qui, lui, a le droit (les vues survivent a la deconnexion).
+    private void ApplyPermissionHint(Button button, bool allowed, string hint)
+    {
+        if (!originalToolTips.ContainsKey(button))
+        {
+            originalToolTips[button] = button.ToolTip;
+        }
+
+        button.ToolTip = allowed ? originalToolTips[button] : hint;
     }
 
     private void CancelReasonTextBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -414,7 +471,7 @@ public partial class InvoicesView : UserControl
             var invoice = await active.ApiClient.GetInvoiceAsync(active.ApiBaseUrl, selected.Id);
 
             LoadInvoiceIntoEditor(invoice);
-            active.SetStatus($"Modification des lignes du brouillon du {invoice.InvoiceDate:yyyy-MM-dd} ({invoice.CustomerCode}).");
+            active.SetStatus($"Modification des lignes du brouillon du {invoice.InvoiceDate:dd/MM/yyyy} ({invoice.CustomerCode}).");
         });
     }
 
@@ -526,7 +583,7 @@ public partial class InvoicesView : UserControl
             return;
         }
 
-        var label = selected.Number ?? $"brouillon du {selected.InvoiceDate:yyyy-MM-dd}";
+        var label = selected.Number ?? $"brouillon du {selected.InvoiceDate:dd/MM/yyyy}";
 
         var confirmed = Confirm(
             $"Annuler la facture {label} ?"
@@ -601,7 +658,9 @@ public partial class InvoicesView : UserControl
                     invoiceId,
                     new UpdateInvoiceLinesRequest(lines));
 
-                active.SetStatus($"Lignes du brouillon mises à jour ({lines.Count} ligne(s)).");
+                active.SetStatus(lines.Count == 1
+                    ? "Lignes du brouillon mises à jour (1 ligne)."
+                    : $"Lignes du brouillon mises à jour ({lines.Count.ToString(CultureInfo.CurrentCulture)} lignes).");
             }
             else
             {
@@ -774,7 +833,7 @@ public partial class InvoicesView : UserControl
         InvoiceDatePicker.IsEnabled = false;
 
         EditorTitleTextBlock.Text = "Modification des lignes d'un brouillon";
-        EditorHintTextBlock.Text = $"Brouillon du {invoice.InvoiceDate:yyyy-MM-dd} — client {invoice.CustomerCode}, unité {invoice.HotelUnitCode}. Seules les lignes sont modifiables.";
+        EditorHintTextBlock.Text = $"Brouillon du {invoice.InvoiceDate:dd/MM/yyyy} — client {invoice.CustomerCode}, unité {invoice.HotelUnitCode}. Seules les lignes sont modifiables.";
         SaveInvoiceButton.Content = "Enregistrer les lignes";
 
         UpdateEditorTotals();

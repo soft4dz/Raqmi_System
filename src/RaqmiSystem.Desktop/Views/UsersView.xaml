@@ -419,10 +419,12 @@
                                                 <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusDraftForegroundBrush}" />
                                                 <Setter TargetName="StatusBadgeText" Property="Text" Value="Désactivé" />
                                             </DataTrigger>
+                                            <!-- Casse de phrase et teinte Rejected, conformement a la
+                                                 table des badges de la charte (Verrouille = refus). -->
                                             <DataTrigger Binding="{Binding StatusKind}" Value="Locked">
-                                                <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusSubmittedBackgroundBrush}" />
-                                                <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusSubmittedForegroundBrush}" />
-                                                <Setter TargetName="StatusBadgeText" Property="Text" Value="VERROUILLÉ" />
+                                                <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusRejectedBackgroundBrush}" />
+                                                <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                <Setter TargetName="StatusBadgeText" Property="Text" Value="Verrouillé" />
                                             </DataTrigger>
                                         </DataTemplate.Triggers>
                                     </DataTemplate>
