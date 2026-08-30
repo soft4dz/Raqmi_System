@@ -43,9 +43,9 @@ public static class ModuleCatalog
 {
     // Totaux attendus - garde de coherence verifiee au chargement du type.
     public const int ExpectedTotal = 49;
-    public const int ExpectedAvailable = 10;
+    public const int ExpectedAvailable = 11;
     public const int ExpectedApiReady = 0;
-    public const int ExpectedPartial = 4;
+    public const int ExpectedPartial = 3;
     public const int ExpectedPlanned = 35;
 
     // Libelles affiches des groupes fonctionnels (ordre d'apparition).
@@ -86,7 +86,7 @@ public static class ModuleCatalog
     static ModuleCatalog()
     {
         // Garde de coherence : le tableau de verite du depot compte 49 modules,
-        // repartis en 10 Disponible / 0 API prete / 4 Partiel / 35 Planifie.
+        // repartis en 11 Disponible / 0 API prete / 3 Partiel / 35 Planifie.
         // Toute edition qui casse ces totaux doit etre volontaire et reportee ici.
         EnsureCount("total", Entries.Count, ExpectedTotal);
         EnsureCount("Disponible", CountOf(ModuleStatus.Disponible), ExpectedAvailable);
@@ -100,8 +100,7 @@ public static class ModuleCatalog
         // ---------------------------------------------------------------- Socle
         new ModuleCatalogEntry("1", Groups.Socle, "Administration & utilisateurs",
             "Comptes, rôles, permissions et périmètres",
-            "P0", ModuleStatus.Partiel, PermissionCatalog.UsersRead, null,
-            "API livrée (utilisateurs, permissions, réinitialisation de mot de passe) - écran d'administration à venir"),
+            "P0", ModuleStatus.Disponible, PermissionCatalog.UsersRead, 10),
         new ModuleCatalogEntry("2", Groups.Socle, "Paramétrage global",
             "Identité de l'établissement, réglages du poste et santé du système",
             "P0", ModuleStatus.Disponible, PermissionCatalog.SettingsRead, 9),

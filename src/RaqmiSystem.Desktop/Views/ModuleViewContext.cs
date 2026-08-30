@@ -15,12 +15,22 @@ public sealed class ModuleViewContext(
     Func<string> apiBaseUrlProvider,
     Action<string, bool> setStatus,
     Func<Func<Task>, Task> runApiActionAsync,
-    Func<string, bool> hasPermission)
+    Func<string, bool> hasPermission,
+    Func<Guid?> currentUserIdProvider)
 {
     public RaqmiApiClient ApiClient { get; } = apiClient;
 
     /// <summary>URL du serveur telle que saisie sur l'ecran de connexion.</summary>
     public string ApiBaseUrl => apiBaseUrlProvider();
+
+    /// <summary>
+    /// Identifiant du compte connecte, ou null tant qu'aucune session n'est ouverte.
+    /// Il permet a une vue de reconnaitre l'utilisateur courant dans ses propres
+    /// donnees - ce dont l'administration des utilisateurs a besoin pour ne pas
+    /// proposer a quelqu'un de desactiver son propre compte. Comme HasPermission,
+    /// ce n'est qu'un confort d'interface : le refus fait autorite cote serveur.
+    /// </summary>
+    public Guid? CurrentUserId => currentUserIdProvider();
 
     /// <summary>
     /// Le profil connecte detient-il cette permission (cle de PermissionCatalog) ?

@@ -1,12 +1,15 @@
 using System.Security.Cryptography;
 
-namespace RaqmiSystem.Api.Endpoints;
+namespace RaqmiSystem.Infrastructure.Security;
 
 /// <summary>
-/// Generates a random temporary password for the admin-triggered password reset endpoint.
+/// Generates a random temporary password for the two administrator-triggered hand-off paths:
+/// creating an account (UserAdministrationService.CreateAsync) and resetting a password
+/// (POST /security/users/{id}/reset-password). It lives in the infrastructure security namespace
+/// next to <see cref="Pbkdf2PasswordHasher"/> so both callers share a single implementation.
 /// Uses RandomNumberGenerator (CSPRNG) exclusively, never System.Random.
 /// </summary>
-internal static class TemporaryPasswordGenerator
+public static class TemporaryPasswordGenerator
 {
     private const int Length = 20;
     private const string UpperCase = "ABCDEFGHJKLMNPQRSTUVWXYZ";

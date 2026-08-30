@@ -475,11 +475,30 @@
                                 </StackPanel>
                             </Button>
 
-                            <!-- Parametrage global : place en dernier, apres les modules
-                                 d'exploitation quotidienne. C'est de l'administration -
-                                 identite de l'etablissement, reglages du poste, sante du
-                                 systeme - qu'on ouvre rarement et jamais dans le flux de
-                                 travail de la journee. -->
+                            <!-- Les deux derniers boutons forment le bloc d'administration :
+                                 les comptes puis le parametrage. On les ouvre rarement, et
+                                 jamais dans le flux de travail de la journee, d'ou leur
+                                 place apres les modules d'exploitation quotidienne. -->
+                            <Button x:Name="ShowUsersButton"
+                                    Style="{StaticResource ModuleNavButton}"
+                                    ToolTip="Comptes de connexion, rôles et permissions"
+                                    Click="ShowUsersButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16"
+                                          Height="16"
+                                          Stretch="None"
+                                          StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Data="M8,1.6 L13.6,3.6 V7.8 C13.6,11 11.2,13.4 8,14.4 C4.8,13.4 2.4,11 2.4,7.8 V3.6 Z M8,5.8 A1.7,1.7 0 1 1 7.99,5.8 M5.4,11.2 C5.4,9.6 6.6,8.8 8,8.8 C9.4,8.8 10.6,9.6 10.6,11.2"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0" />
+                                    <TextBlock Text="Utilisateurs" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
                             <Button x:Name="ShowSettingsButton"
                                     Style="{StaticResource ModuleNavButton}"
                                     ToolTip="Identité de l'établissement, réglages de ce poste et santé du système"
@@ -1585,6 +1604,11 @@
                     <!-- ====================== Paramétrage global ==================== -->
                     <TabItem x:Name="SettingsTabItem" Header="Paramétrage global">
                         <views:SettingsView x:Name="SettingsView" />
+                    </TabItem>
+
+                    <!-- ================ Administration & utilisateurs =============== -->
+                    <TabItem x:Name="UsersTabItem" Header="Administration &amp; utilisateurs">
+                        <views:UsersView x:Name="UsersView" />
                     </TabItem>
                 </TabControl>
             </Grid>

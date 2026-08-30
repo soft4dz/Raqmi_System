@@ -68,6 +68,46 @@ public sealed class User : AuditableEntity
         Roles.Add(new UserRole(Id, role.Id, utcNow));
     }
 
+    /// <summary>
+    /// Replaces the whole role set in one call. Administration screens edit a user's roles as a
+    /// set, not as a stream of add/remove operations, so the entity exposes the same shape: what
+    /// is not in <paramref name="roles"/> is revoked, what is new is assigned, and what was
+    /// already there keeps its original <see cref="UserRole.AssignedAt"/> instead of being
+    /// removed and re-added (which would rewrite history for an unchanged assignment).
+    /// </summary>
+    public void SetRoles(IReadOnlyCollection<Role> roles, DateTimeOffset utcNow)
+    {
+        var targetRoleIds = roles.Select(role => role.Id).ToHashSet();
+
+        var revoked = Roles
+            .Where(userRole => !targetRoleIds.Contains(userRole.RoleId))
+            .ToArray();
+
+        foreach (var userRole in revoked)
+        {
+            Roles.Remove(userRole);
+        }
+
+        foreach (var role in roles)
+        {
+            AssignRole(role, utcNow);
+        }
+    }
+
+    /// <summary>
+    /// Updates the mutable part of the identity. <see cref="UserName"/> is deliberately absent:
+    /// it is the sign-in identifier (normalized into <see cref="NormalizedUserName"/>, quoted in
+    /// every audit entry and carried in every issued token as the name claim), so renaming it
+    /// would silently break existing sessions and make the audit trail ambiguous about who acted.
+    /// A user who needs a different login gets a new account.
+    /// </summary>
+    public void UpdateProfile(string email, string displayName)
+    {
+        Email = RequireValue(email, nameof(email));
+        NormalizedEmail = Normalize(Email);
+        DisplayName = RequireValue(displayName, nameof(displayName));
+    }
+
     public void MarkLogin(DateTimeOffset utcNow)
     {
         LastLoginAt = utcNow;
@@ -111,6 +151,26 @@ public sealed class User : AuditableEntity
     {
         PasswordHash = RequireValue(passwordHash, nameof(passwordHash));
         MustChangePassword = mustChangePassword;
+    }
+
+    /// <summary>
+    /// Administrative lift of an ongoing lockout. A successful sign-in already clears the lockout
+    /// (see <see cref="RegisterSuccessfulLogin"/>), but a locked-out account cannot sign in at
+    /// all - so without this the owner has to wait out the full lockout duration. Clearing
+    /// <see cref="LockedOutUntil"/> alone would not be enough: the failure counter and its sliding
+    /// window survive the lockout, so the very next wrong password would immediately re-lock the
+    /// account. All three fields are therefore reset together, exactly as on a successful login.
+    /// </summary>
+    public void Unlock()
+    {
+        FailedLoginAttempts = 0;
+        FailedLoginWindowStartedAt = null;
+        LockedOutUntil = null;
+    }
+
+    public void Activate()
+    {
+        IsActive = true;
     }
 
     public void Deactivate()

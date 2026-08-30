@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
+        services.AddScoped<IUserAdministrationService, UserAdministrationService>();
         services.AddScoped<IAuditLogWriter, AuditLogWriter>();
         services.AddScoped<IAuditQueryService, AuditQueryService>();
         services.AddScoped<ISecuritySeeder, SecuritySeeder>();
