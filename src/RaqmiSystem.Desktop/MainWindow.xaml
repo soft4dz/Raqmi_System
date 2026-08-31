@@ -588,10 +588,70 @@
                                 </StackPanel>
                             </Button>
 
-                            <!-- Les deux derniers boutons forment le bloc d'administration :
-                                 les comptes puis le parametrage. On les ouvre rarement, et
-                                 jamais dans le flux de travail de la journee, d'ou leur
-                                 place apres les modules d'exploitation quotidienne. -->
+                            <Button x:Name="ShowApprovalsButton"
+                                    Style="{StaticResource ModuleNavButton}"
+                                    ToolTip="Circuits de validation et demandes d'approbation à décider"
+                                    Click="ShowApprovalsButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16"
+                                          Height="16"
+                                          Stretch="None"
+                                          StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Data="M5.6,2.2 H10.4 V4.4 H5.6 Z M5.6,3.3 H3.4 A1.2,1.2 0 0 0 2.2,4.5 V13 A1.2,1.2 0 0 0 3.4,14.2 H12.6 A1.2,1.2 0 0 0 13.8,13 V4.5 A1.2,1.2 0 0 0 12.6,3.3 H10.4 M5.4,9 L7.2,10.8 L10.8,7.2"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0" />
+                                    <TextBlock Text="Validations" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="ShowReportsButton"
+                                    Style="{StaticResource ModuleNavButton}"
+                                    ToolTip="Rapports automatiques du catalogue et journal des exécutions"
+                                    Click="ShowReportsButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16"
+                                          Height="16"
+                                          Stretch="None"
+                                          StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Data="M3.2,14.2 V1.8 H9.4 L12.8,5.2 V14.2 Z M9.4,1.8 V5.2 H12.8 M5.8,11.8 V9 M8,11.8 V7.2 M10.2,11.8 V10.2"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0" />
+                                    <TextBlock Text="Rapports" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Les trois derniers boutons forment le bloc d'administration :
+                                 les sauvegardes, les comptes puis le parametrage. On les ouvre
+                                 rarement, et jamais dans le flux de travail de la journee, d'ou
+                                 leur place apres les modules d'exploitation quotidienne. -->
+                            <Button x:Name="ShowBackupButton"
+                                    Style="{StaticResource ModuleNavButton}"
+                                    ToolTip="État des sauvegardes de la base et déclenchement manuel"
+                                    Click="ShowBackupButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16"
+                                          Height="16"
+                                          Stretch="None"
+                                          StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Data="M2.4,4.4 C2.4,3.1 4.9,2.2 8,2.2 C11.1,2.2 13.6,3.1 13.6,4.4 C13.6,5.7 11.1,6.6 8,6.6 C4.9,6.6 2.4,5.7 2.4,4.4 Z M2.4,4.4 V11.6 C2.4,12.9 4.9,13.8 8,13.8 C11.1,13.8 13.6,12.9 13.6,11.6 V4.4 M2.4,8 C2.4,9.3 4.9,10.2 8,10.2 C11.1,10.2 13.6,9.3 13.6,8"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0" />
+                                    <TextBlock Text="Sauvegarde" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
                             <Button x:Name="ShowUsersButton"
                                     Style="{StaticResource ModuleNavButton}"
                                     ToolTip="Comptes de connexion, rôles et permissions"
@@ -1765,6 +1825,21 @@
                     <!-- ================= Hébergement &amp; occupation ==================== -->
                     <TabItem x:Name="LodgingTabItem" Header="Hébergement &amp; occupation">
                         <views:LodgingView x:Name="LodgingView" />
+                    </TabItem>
+
+                    <!-- ==================== Workflows &amp; validations ================== -->
+                    <TabItem x:Name="ApprovalsTabItem" Header="Validations">
+                        <views:ApprovalsView x:Name="ApprovalsView" />
+                    </TabItem>
+
+                    <!-- ===================== Rapports automatiques =================== -->
+                    <TabItem x:Name="ReportsTabItem" Header="Rapports">
+                        <views:ReportsView x:Name="ReportsView" />
+                    </TabItem>
+
+                    <!-- ==================== Sauvegarde &amp; restauration =============== -->
+                    <TabItem x:Name="BackupTabItem" Header="Sauvegarde">
+                        <views:BackupView x:Name="BackupView" />
                     </TabItem>
                 </TabControl>
             </Grid>

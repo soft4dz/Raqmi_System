@@ -3,7 +3,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
+using RaqmiSystem.Application.Approvals;
 using RaqmiSystem.Application.Treasury;
+using RaqmiSystem.Domain.Approvals;
 using RaqmiSystem.Domain.Identity;
 using RaqmiSystem.Domain.Treasury;
 
@@ -24,6 +26,9 @@ public partial class TreasuryView : UserControl
 
     private const string ApprovePermissionHint =
         "Permission requise : treasury.approve. Votre profil ne peut pas approuver un ordre de paiement.";
+
+    private const string OpenApprovalPermissionHint =
+        "Permission requise : approvals.write. Votre profil ne peut pas ouvrir une demande de validation.";
 
     private ModuleViewContext? context;
 
@@ -57,6 +62,11 @@ public partial class TreasuryView : UserControl
     // write-sans-approve voit "Approuver" grise et le reste actif.
     private bool canApprove = true;
 
+    // Ouvrir la demande de validation d'un ordre de paiement appartient au module
+    // Workflows & validations : c'est son droit approvals.write qui l'autorise
+    // (POST /api/v1/approvals/instances), pas les droits de la tresorerie.
+    private bool canOpenApproval = true;
+
     // Vrai le temps de ResetState : la remise a zero des filtres declenche leurs
     // gestionnaires, qui ne doivent en aucun cas relancer un chargement. Rend le
     // contrat "ResetState vide et ne recharge rien" vrai quel que soit l'ordre
@@ -75,6 +85,7 @@ public partial class TreasuryView : UserControl
         context = moduleViewContext;
         canWrite = moduleViewContext.HasPermission(PermissionCatalog.TreasuryWrite);
         canApprove = moduleViewContext.HasPermission(PermissionCatalog.TreasuryApprove);
+        canOpenApproval = moduleViewContext.HasPermission(PermissionCatalog.ApprovalsWrite);
 
         // Recalcule l'etat des trois familles d'actions : les boutons independants
         // d'une selection (enregistrer un encaissement, creer un ordre, enregistrer
@@ -871,6 +882,51 @@ public partial class TreasuryView : UserControl
         });
     }
 
+    /// <summary>
+    /// Ouvre la demande de validation de l'ordre selectionne dans le module Workflows &amp;
+    /// validations. La reference du sujet est l'identifiant de l'ordre, ecrit exactement
+    /// comme la tresorerie l'interroge ensuite (Guid en minuscules, format "D") : c'est la
+    /// meme clef des deux cotes, sinon la demande approuvee n'ouvrirait jamais la barriere.
+    ///
+    /// Sans circuit actif sur les ordres de paiement, le serveur refuse l'ouverture - et il a
+    /// raison : dans ce cas l'approbation n'est bloquee par rien et la demande n'a pas d'objet.
+    /// </summary>
+    private async void OpenOrderApprovalButton_Click(object sender, RoutedEventArgs e)
+    {
+        var moduleContext = RequireContext();
+
+        if (moduleContext is null || PaymentOrdersDataGrid.SelectedItem is not PaymentOrderResponse selected)
+        {
+            return;
+        }
+
+        var question = string.Format(
+            CultureInfo.CurrentCulture,
+            "Ouvrir une demande de validation pour l'ordre de {0} au profit de {1} ?{2}{2}" +
+            "Elle suivra le circuit actif des ordres de paiement, étape par étape, avant que l'ordre puisse être approuvé.",
+            selected.Amount.ToString("N2", CultureInfo.CurrentCulture),
+            selected.Beneficiary,
+            Environment.NewLine);
+
+        if (!Confirm(question, "Demande de validation d'un ordre de paiement"))
+        {
+            return;
+        }
+
+        await moduleContext.RunAsync(async () =>
+        {
+            var instance = await moduleContext.ApiClient.OpenApprovalInstanceAsync(
+                moduleContext.ApiBaseUrl,
+                new OpenApprovalInstanceRequest(ApprovalSubjectType.PaymentOrder, selected.Id.ToString()));
+
+            SetStatus(string.Format(
+                CultureInfo.CurrentCulture,
+                "Demande de validation ouverte sur le circuit « {0} ». Étape courante : {1}.",
+                instance.CircuitLabel,
+                instance.CurrentStepLabel ?? "—"));
+        });
+    }
+
     private async void ApprovePaymentOrderButton_Click(object sender, RoutedEventArgs e)
     {
         var moduleContext = RequireContext();
@@ -1040,6 +1096,10 @@ public partial class TreasuryView : UserControl
         var selected = PaymentOrdersDataGrid.SelectedItem as PaymentOrderResponse;
 
         CreatePaymentOrderButton.IsEnabled = canWrite;
+
+        // Une demande de validation ne se conçoit que sur un ordre encore approuvable :
+        // le meme etat metier que "Approuver", avec le droit du module des validations.
+        OpenOrderApprovalButton.IsEnabled = canOpenApproval && selected is { Status: PaymentOrderStatus.Draft };
         ApprovePaymentOrderButton.IsEnabled = canApprove && selected is { Status: PaymentOrderStatus.Draft };
         PayPaymentOrderButton.IsEnabled = canWrite && selected is { Status: PaymentOrderStatus.Approved };
         CancelPaymentOrderButton.IsEnabled = canWrite
@@ -1051,6 +1111,7 @@ public partial class TreasuryView : UserControl
         ApplyPermissionHint(PayPaymentOrderButton, canWrite, WritePermissionHint);
         ApplyPermissionHint(CancelPaymentOrderButton, canWrite, WritePermissionHint);
         ApplyPermissionHint(ApprovePaymentOrderButton, canApprove, ApprovePermissionHint);
+        ApplyPermissionHint(OpenOrderApprovalButton, canOpenApproval, OpenApprovalPermissionHint);
     }
 
     // ======================= Gestionnaires - comptes bancaires ====================

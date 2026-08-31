@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.IO;
 using System.Text;
+using RaqmiSystem.Application.Reporting;
 using RaqmiSystem.Application.Revenue;
 using RaqmiSystem.Application.Security;
 
@@ -56,6 +57,32 @@ public static class CsvExportHelper
                 row.EntityName,
                 row.EntityId ?? string.Empty,
                 row.IpAddress ?? string.Empty);
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// Generic export for the reporting module: the header row comes from the report's column
+    /// labels and every cell keeps the RAW invariant value returned by the server (dates
+    /// yyyy-MM-dd, amounts with a dot and no thousands separator) - machine format, distinct
+    /// from the localized display formatting the grid applies, exactly like the other exports
+    /// of this helper. The total row, when present, is exported last.
+    /// </summary>
+    public static string BuildReportCsv(ReportResultResponse result)
+    {
+        var builder = new StringBuilder();
+
+        AppendRow(builder, result.Columns.Select(column => column.Label).ToArray());
+
+        foreach (var row in result.Rows)
+        {
+            AppendRow(builder, row.Select(cell => cell ?? string.Empty).ToArray());
+        }
+
+        if (result.TotalRow is not null)
+        {
+            AppendRow(builder, result.TotalRow.Select(cell => cell ?? string.Empty).ToArray());
         }
 
         return builder.ToString();

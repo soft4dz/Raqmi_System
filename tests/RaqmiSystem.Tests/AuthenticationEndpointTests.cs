@@ -61,7 +61,10 @@ public sealed class AuthenticationEndpointTests : IClassFixture<RaqmiApiFactory>
             PermissionCatalog.TreasuryWrite,
             PermissionCatalog.SettingsRead,
             PermissionCatalog.LodgingRead,
-            PermissionCatalog.LodgingCheckin
+            PermissionCatalog.LodgingCheckin,
+            // Wave C: a cashier consults the validation circuits their documents go through,
+            // but never configures one (approvals.write) and never decides (approvals.decide).
+            PermissionCatalog.ApprovalsRead
         };
 
         Assert.Equal(expectedPermissions.Order(), body.User.Permissions.Order());
@@ -170,7 +173,15 @@ public sealed class AuthenticationEndpointTests : IClassFixture<RaqmiApiFactory>
             PermissionCatalog.BudgetApprove,
             PermissionCatalog.ReceivablesRead,
             PermissionCatalog.TariffsRead,
-            PermissionCatalog.LodgingRead
+            PermissionCatalog.LodgingRead,
+            // Wave C. Direction reads and DECIDES validations (it is a decider role) but does not
+            // configure circuits - approvals.write belongs to exploitation.control. It reads the
+            // reports and the backup state; maintenance.backup is deliberately absent, since only
+            // system.administrator holds it through the catch-all grant of PermissionCatalog.All.
+            PermissionCatalog.ApprovalsRead,
+            PermissionCatalog.ApprovalsDecide,
+            PermissionCatalog.ReportsRead,
+            PermissionCatalog.MaintenanceRead
         };
 
         Assert.Equal(expectedPermissions.Order(), body.Permissions.Order());

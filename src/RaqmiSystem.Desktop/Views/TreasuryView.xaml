@@ -738,6 +738,8 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="8" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel>
@@ -748,30 +750,47 @@
                                              Tag="Obligatoire pour annuler" />
                                 </StackPanel>
 
-                                <Button x:Name="ApprovePaymentOrderButton"
+                                <!-- Passerelle vers le module Workflows & validations : quand un circuit
+                                     est actif sur les ordres de paiement, "Approuver" exige une demande
+                                     de validation approuvee. C'est ici qu'on l'ouvre, sur l'ordre
+                                     selectionne, car c'est ici que sa reference est connue. -->
+                                <Button x:Name="OpenOrderApprovalButton"
                                         Grid.Column="2"
+                                        Content="Ouvrir une demande de validation"
+                                        Style="{StaticResource GhostButton}"
+                                        IsEnabled="False"
+                                        ToolTip="Ouvrir la demande de validation de l'ordre sélectionné dans le module Workflows &amp; validations (brouillon uniquement)"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        VerticalAlignment="Bottom"
+                                        Click="OpenOrderApprovalButton_Click" />
+
+                                <Button x:Name="ApprovePaymentOrderButton"
+                                        Grid.Column="4"
                                         Content="Approuver"
                                         Style="{StaticResource PrimaryButton}"
                                         IsEnabled="False"
                                         ToolTip="Approuver l'ordre sélectionné (brouillon uniquement)"
+                                        ToolTipService.ShowOnDisabled="True"
                                         VerticalAlignment="Bottom"
                                         Click="ApprovePaymentOrderButton_Click" />
 
                                 <Button x:Name="PayPaymentOrderButton"
-                                        Grid.Column="4"
+                                        Grid.Column="6"
                                         Content="Marquer payé"
                                         Style="{StaticResource SecondaryButton}"
                                         IsEnabled="False"
                                         ToolTip="Marquer l'ordre sélectionné comme payé (ordre approuvé uniquement)"
+                                        ToolTipService.ShowOnDisabled="True"
                                         VerticalAlignment="Bottom"
                                         Click="PayPaymentOrderButton_Click" />
 
                                 <Button x:Name="CancelPaymentOrderButton"
-                                        Grid.Column="6"
+                                        Grid.Column="8"
                                         Content="Annuler"
                                         Style="{StaticResource DangerButton}"
                                         IsEnabled="False"
                                         ToolTip="Annuler l'ordre sélectionné (motif requis, impossible sur un ordre payé)"
+                                        ToolTipService.ShowOnDisabled="True"
                                         VerticalAlignment="Bottom"
                                         Click="CancelPaymentOrderButton_Click" />
                             </Grid>

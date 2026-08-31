@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using RaqmiSystem.Domain.Accounting;
+using RaqmiSystem.Domain.Approvals;
 using RaqmiSystem.Domain.Audit;
 using RaqmiSystem.Domain.Billing;
 using RaqmiSystem.Domain.Budgeting;
@@ -8,6 +9,7 @@ using RaqmiSystem.Domain.Identity;
 using RaqmiSystem.Domain.Lodging;
 using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Domain.Receivables;
+using RaqmiSystem.Domain.Reporting;
 using RaqmiSystem.Domain.Revenue;
 using RaqmiSystem.Domain.Settings;
 using RaqmiSystem.Domain.Tariffs;
@@ -74,6 +76,18 @@ public sealed class RaqmiDbContext(DbContextOptions<RaqmiDbContext> options) : D
     public DbSet<Folio> Folios => Set<Folio>();
 
     public DbSet<FolioCharge> FolioCharges => Set<FolioCharge>();
+
+    public DbSet<ApprovalCircuit> ApprovalCircuits => Set<ApprovalCircuit>();
+
+    public DbSet<ApprovalStep> ApprovalSteps => Set<ApprovalStep>();
+
+    public DbSet<ApprovalInstance> ApprovalInstances => Set<ApprovalInstance>();
+
+    public DbSet<ApprovalInstanceStep> ApprovalInstanceSteps => Set<ApprovalInstanceStep>();
+
+    public DbSet<ApprovalDecision> ApprovalDecisions => Set<ApprovalDecision>();
+
+    public DbSet<ReportExecution> ReportExecutions => Set<ReportExecution>();
 
     /// <summary>
     /// Singleton row holding the global configuration (see

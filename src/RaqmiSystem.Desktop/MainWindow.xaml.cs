@@ -171,7 +171,8 @@ public partial class MainWindow : Window
                      ShowClosingButton, ShowTreasuryButton, ShowCustomersButton, ShowInvoicesButton,
                      ShowAccountingButton, ShowBudgetButton, ShowReceivablesButton,
                      ShowTariffsButton, ShowLodgingButton,
-                     ShowSettingsButton, ShowUsersButton
+                     ShowApprovalsButton, ShowReportsButton,
+                     ShowBackupButton, ShowSettingsButton, ShowUsersButton
                  })
         {
             button.Tag = ReferenceEquals(button, active) ? "Active" : null;
@@ -230,6 +231,9 @@ public partial class MainWindow : Window
         ApplyModuleAccess(PermissionCatalog.ReceivablesRead, ShowReceivablesButton, ReceivablesTabItem);
         ApplyModuleAccess(PermissionCatalog.TariffsRead, ShowTariffsButton, TariffsTabItem);
         ApplyModuleAccess(PermissionCatalog.LodgingRead, ShowLodgingButton, LodgingTabItem);
+        ApplyModuleAccess(PermissionCatalog.ApprovalsRead, ShowApprovalsButton, ApprovalsTabItem);
+        ApplyModuleAccess(PermissionCatalog.ReportsRead, ShowReportsButton, ReportsTabItem);
+        ApplyModuleAccess(PermissionCatalog.MaintenanceRead, ShowBackupButton, BackupTabItem);
 
         ApplyWriteActionStates();
     }
@@ -412,7 +416,8 @@ public partial class MainWindow : Window
     // 5=Clôture journalière, 6=Trésorerie, 7=Clients, 8=Facturation,
     // 9=Paramétrage global, 10=Administration & utilisateurs,
     // 11=Comptabilité SCF, 12=Budget & prévisions, 13=Créances & recouvrement,
-    // 14=Tarifs & conventions, 15=Hébergement & occupation.
+    // 14=Tarifs & conventions, 15=Hébergement & occupation,
+    // 16=Validations, 17=Rapports, 18=Sauvegarde.
     //
     // Cet ordre est celui des TabItem, pas celui de la barre latérale : l'index d'un
     // onglet est l'identité d'un module dans tout le code (ModuleCatalog.TabIndex y
@@ -436,6 +441,9 @@ public partial class MainWindow : Window
         13 => ShowReceivablesButton,
         14 => ShowTariffsButton,
         15 => ShowLodgingButton,
+        16 => ShowApprovalsButton,
+        17 => ShowReportsButton,
+        18 => ShowBackupButton,
         _ => null
     };
 
@@ -522,6 +530,15 @@ public partial class MainWindow : Window
                 break;
             case 15:
                 await LodgingView.LoadAsync();
+                break;
+            case 16:
+                await ApprovalsView.LoadAsync();
+                break;
+            case 17:
+                await ReportsView.LoadAsync();
+                break;
+            case 18:
+                await BackupView.LoadAsync();
                 break;
             default:
                 // Les onglets 0 a 4 vivent dans MainWindow et sont charges a la
@@ -698,6 +715,9 @@ public partial class MainWindow : Window
         ReceivablesView.Initialize(context);
         TariffsView.Initialize(context);
         LodgingView.Initialize(context);
+        ApprovalsView.Initialize(context);
+        ReportsView.Initialize(context);
+        BackupView.Initialize(context);
 
         // Nouvelle session : aucune vue n'a encore charge ses donnees.
         loadedModuleTabs.Clear();
@@ -757,6 +777,9 @@ public partial class MainWindow : Window
         ReceivablesView.ResetState();
         TariffsView.ResetState();
         LodgingView.ResetState();
+        ApprovalsView.ResetState();
+        ReportsView.ResetState();
+        BackupView.ResetState();
         loadedModuleTabs.Clear();
 
         ResetUnitForm();
@@ -877,6 +900,21 @@ public partial class MainWindow : Window
     private void ShowTariffsButton_Click(object sender, RoutedEventArgs e)
     {
         NavigateToModule(14, ShowTariffsButton);
+    }
+
+    private void ShowApprovalsButton_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(16, ShowApprovalsButton);
+    }
+
+    private void ShowReportsButton_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(17, ShowReportsButton);
+    }
+
+    private void ShowBackupButton_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(18, ShowBackupButton);
     }
 
     private void ShowLodgingButton_Click(object sender, RoutedEventArgs e)

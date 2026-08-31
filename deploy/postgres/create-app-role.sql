@@ -18,7 +18,8 @@
 --
 -- Run this AFTER the schema exists (i.e. after `dotnet ef database update` has
 -- created the security/audit/organization/exploitation/finance/settings/
--- accounting/budgeting/tariffs/lodging schemas and tables - see
+-- accounting/budgeting/tariffs/lodging/approvals/reporting schemas and
+-- tables - see
 -- docs/deployment.md), and before
 -- the API's first startup. While
 -- connected to the target application database (not "postgres"):
@@ -69,6 +70,8 @@ GRANT USAGE ON SCHEMA accounting TO raqmi_app;
 GRANT USAGE ON SCHEMA budgeting TO raqmi_app;
 GRANT USAGE ON SCHEMA tariffs TO raqmi_app;
 GRANT USAGE ON SCHEMA lodging TO raqmi_app;
+GRANT USAGE ON SCHEMA approvals TO raqmi_app;
+GRANT USAGE ON SCHEMA reporting TO raqmi_app;
 
 -- Row-level CRUD on every table that exists today in each schema.
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA security TO raqmi_app;
@@ -81,6 +84,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA accounting TO raqmi
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA budgeting TO raqmi_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA tariffs TO raqmi_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA lodging TO raqmi_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA approvals TO raqmi_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA reporting TO raqmi_app;
 
 -- EF Core's migrations history table lives at public."__EFMigrationsHistory"
 -- (HasDefaultSchema("raqmi") does not move it). raqmi_app never writes it, but
@@ -105,6 +110,8 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA accounting TO raqmi_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA budgeting TO raqmi_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA tariffs TO raqmi_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA lodging TO raqmi_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA approvals TO raqmi_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA reporting TO raqmi_app;
 
 -- Default privileges: apply the same grants automatically to tables/sequences
 -- created AFTER this point, so future `dotnet ef database update` runs do not
@@ -136,6 +143,10 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA tariffs
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO raqmi_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA lodging
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO raqmi_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA approvals
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO raqmi_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA reporting
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO raqmi_app;
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA security
     GRANT USAGE, SELECT ON SEQUENCES TO raqmi_app;
@@ -156,6 +167,10 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA budgeting
 ALTER DEFAULT PRIVILEGES IN SCHEMA tariffs
     GRANT USAGE, SELECT ON SEQUENCES TO raqmi_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA lodging
+    GRANT USAGE, SELECT ON SEQUENCES TO raqmi_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA approvals
+    GRANT USAGE, SELECT ON SEQUENCES TO raqmi_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA reporting
     GRANT USAGE, SELECT ON SEQUENCES TO raqmi_app;
 
 -- Deliberately NOT granted, by design:

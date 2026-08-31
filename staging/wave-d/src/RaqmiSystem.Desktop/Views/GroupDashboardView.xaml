@@ -1,0 +1,496 @@
+<UserControl x:Class="RaqmiSystem.Desktop.Views.GroupDashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontFamily="{StaticResource AppFontFamily}">
+
+    <!-- Dashboard PDG (module 24.2) : vision groupe en lecture pure. Toutes les unites
+         d'un coup, sur une periode, avec comparaison N-1. Aucune action d'ecriture sur
+         cet ecran ; tous les chiffres viennent du serveur (GET /pilotage/group-dashboard),
+         rien n'est recalcule localement. -->
+
+    <UserControl.Resources>
+        <!-- Fleches de tendance des tuiles KPI : chevrons au trait dans une boite 14x14,
+             meme langage vectoriel que les icones de la sidebar. Le Stroke est pose par le
+             code-behind avec les teintes semantiques du theme (jamais de couleur en dur). -->
+        <PathGeometry x:Key="TrendUpGeometry" Figures="M2,9.5 L7,4.5 L12,9.5" />
+        <PathGeometry x:Key="TrendDownGeometry" Figures="M2,4.5 L7,9.5 L12,4.5" />
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="12" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ==================== En-tete et selecteur de periode ==================== -->
+        <Border Style="{StaticResource CardBorder}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="16" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel>
+                    <TextBlock Text="Tableau de bord PDG"
+                               Style="{StaticResource PageTitleText}" />
+                    <TextBlock Text="Vision groupe : toutes les unités d'un coup, sur la période choisie, comparées à la période équivalente un an plus tôt."
+                               Style="{StaticResource SubtitleText}"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="170" />
+                        <ColumnDefinition Width="18" />
+                        <ColumnDefinition Width="170" />
+                        <ColumnDefinition Width="18" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="Du" Style="{StaticResource LabelText}" />
+                        <DatePicker x:Name="FromDatePicker"
+                                    ToolTip="Début de la période analysée (le mois courant par défaut)" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Au" Style="{StaticResource LabelText}" />
+                        <DatePicker x:Name="ToDatePicker"
+                                    ToolTip="Fin de la période analysée" />
+                    </StackPanel>
+
+                    <TextBlock x:Name="PeriodSummaryTextBlock"
+                               Grid.Column="4"
+                               Style="{StaticResource CaptionText}"
+                               VerticalAlignment="Bottom"
+                               Margin="0,0,12,6"
+                               TextWrapping="Wrap" />
+
+                    <Button x:Name="RefreshButton"
+                            Grid.Column="5"
+                            Content="Actualiser"
+                            Style="{StaticResource SecondaryButton}"
+                            ToolTip="Recharger le tableau de bord groupe sur la période sélectionnée"
+                            VerticalAlignment="Bottom"
+                            Click="RefreshButton_Click" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- ======================== Tuiles KPI groupe ======================== -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Style="{StaticResource SubtleCardBorder}">
+                <StackPanel>
+                    <TextBlock Text="Chiffre d'affaires validé"
+                               Style="{StaticResource MetricLabelText}"
+                               ToolTip="Somme des recettes journalières au statut « Validée » sur la période — les brouillons, recettes soumises ou rejetées ne comptent pas." />
+                    <TextBlock x:Name="RevenueValueText"
+                               Text="—"
+                               Style="{StaticResource MetricValueText}"
+                               Margin="0,4,0,0" />
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <Path x:Name="RevenueTrendPath"
+                              Data="{StaticResource TrendUpGeometry}"
+                              StrokeThickness="1.5"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round"
+                              Width="10"
+                              Height="8"
+                              Stretch="Uniform"
+                              VerticalAlignment="Center"
+                              Margin="0,0,5,0"
+                              Visibility="Collapsed" />
+                        <TextBlock x:Name="RevenueTrendText"
+                                   Text=""
+                                   Style="{StaticResource CaptionText}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2" Style="{StaticResource SubtleCardBorder}">
+                <StackPanel>
+                    <TextBlock Text="Encaissements confirmés"
+                               Style="{StaticResource MetricLabelText}"
+                               ToolTip="Somme des encaissements au statut « Confirmé » sur la période — les brouillons et encaissements annulés ne comptent pas." />
+                    <TextBlock x:Name="ReceiptsValueText"
+                               Text="—"
+                               Style="{StaticResource MetricValueText}"
+                               Margin="0,4,0,0" />
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <Path x:Name="ReceiptsTrendPath"
+                              Data="{StaticResource TrendUpGeometry}"
+                              StrokeThickness="1.5"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round"
+                              Width="10"
+                              Height="8"
+                              Stretch="Uniform"
+                              VerticalAlignment="Center"
+                              Margin="0,0,5,0"
+                              Visibility="Collapsed" />
+                        <TextBlock x:Name="ReceiptsTrendText"
+                                   Text=""
+                                   Style="{StaticResource CaptionText}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="4" Style="{StaticResource SubtleCardBorder}">
+                <StackPanel>
+                    <TextBlock Text="Encours clients"
+                               Style="{StaticResource MetricLabelText}"
+                               ToolTip="Factures émises et non payées à la fin de la période, pour leur total TTC — l'ancienneté part de la date de facture (aucune échéance n'existe dans le système)." />
+                    <TextBlock x:Name="ReceivablesValueText"
+                               Text="—"
+                               Style="{StaticResource MetricValueText}"
+                               Margin="0,4,0,0" />
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <Path x:Name="ReceivablesTrendPath"
+                              Data="{StaticResource TrendUpGeometry}"
+                              StrokeThickness="1.5"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round"
+                              Width="10"
+                              Height="8"
+                              Stretch="Uniform"
+                              VerticalAlignment="Center"
+                              Margin="0,0,5,0"
+                              Visibility="Collapsed" />
+                        <TextBlock x:Name="ReceivablesTrendText"
+                                   Text=""
+                                   Style="{StaticResource CaptionText}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="6" Style="{StaticResource SubtleCardBorder}">
+                <StackPanel>
+                    <TextBlock Text="Taux d'occupation groupe"
+                               Style="{StaticResource MetricLabelText}"
+                               ToolTip="Nuits occupées / nuits disponibles sur les chambres actives — tout séjour non annulé et non no-show occupe ses nuits (réservé, arrivé ou parti compris)." />
+                    <TextBlock x:Name="OccupancyValueText"
+                               Text="—"
+                               Style="{StaticResource MetricValueText}"
+                               Margin="0,4,0,0" />
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <Path x:Name="OccupancyTrendPath"
+                              Data="{StaticResource TrendUpGeometry}"
+                              StrokeThickness="1.5"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round"
+                              Width="10"
+                              Height="8"
+                              Stretch="Uniform"
+                              VerticalAlignment="Center"
+                              Margin="0,0,5,0"
+                              Visibility="Collapsed" />
+                        <TextBlock x:Name="OccupancyTrendText"
+                                   Text=""
+                                   Style="{StaticResource CaptionText}" />
+                    </StackPanel>
+                    <TextBlock x:Name="OccupancyNightsText"
+                               Text=""
+                               Style="{StaticResource CaptionText}"
+                               Margin="0,2,0,0" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="8" Style="{StaticResource SubtleCardBorder}">
+                <StackPanel>
+                    <TextBlock Text="Unités actives"
+                               Style="{StaticResource MetricLabelText}"
+                               ToolTip="Nombre d'unités hôtelières actuellement actives dans le groupe." />
+                    <TextBlock x:Name="UnitsValueText"
+                               Text="—"
+                               Style="{StaticResource MetricValueText}"
+                               Margin="0,4,0,0" />
+                    <TextBlock x:Name="UnitsTrendText"
+                               Text=""
+                               Style="{StaticResource CaptionText}"
+                               Margin="0,4,0,0"
+                               ToolTip="Aucune comparaison N-1 possible : le système ne conserve pas l'historique d'activation des unités." />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ================= Ce que ces chiffres comptent ================= -->
+        <Border x:Name="BasisCardBorder"
+                Grid.Row="4"
+                Style="{StaticResource SubtleCardBorder}">
+            <StackPanel>
+                <TextBlock Text="Ce que ces chiffres comptent"
+                           Style="{StaticResource MetricLabelText}" />
+                <!-- Lecture francaise des regles que le serveur joint au payload
+                     (GroupDashboardBasis) ; le texte exact du serveur est repris dans
+                     l'info-bulle de cette carte par le code-behind. Miroir des regles
+                     des modules, jamais leur remplacement. -->
+                <TextBlock Style="{StaticResource CaptionText}"
+                           Margin="0,6,0,0"
+                           TextWrapping="Wrap"
+                           Text="CA : recettes validées uniquement · Encaissements : confirmés uniquement · Encours : factures émises impayées à la fin de période (ancienneté depuis la date de facture) · Occupation : séjours non annulés / non no-show sur les chambres actives · Budget : objectif des mois couverts par la période (plans approuvés uniquement) · N-1 : période équivalente un an plus tôt ; « — » quand la référence est nulle." />
+            </StackPanel>
+        </Border>
+
+        <!-- ============ Tableau des unites + panneau des alertes ============ -->
+        <Grid Grid.Row="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="400" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Unites classees par CA decroissant (classement renvoye par le serveur). -->
+            <Border Style="{StaticResource CardBorder}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="Unités classées par chiffre d'affaires"
+                                   Style="{StaticResource SectionTitleText}" />
+                        <TextBlock Text="CA validé, part du groupe, encaissements, occupation, jours non clôturés et écart budget de chaque unité sur la période."
+                                   Style="{StaticResource CaptionText}"
+                                   Margin="0,3,0,0" />
+                    </StackPanel>
+
+                    <Grid Grid.Row="2">
+                        <DataGrid x:Name="UnitsDataGrid">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Unité"
+                                                    Binding="{Binding HotelUnitCode}"
+                                                    Width="80" />
+                                <DataGridTextColumn Header="Désignation"
+                                                    Binding="{Binding HotelUnitName}"
+                                                    Width="150"
+                                                    ElementStyle="{StaticResource MutedCellText}" />
+                                <DataGridTextColumn Header="CA validé"
+                                                    Binding="{Binding ValidatedRevenue, StringFormat={}{0:N2}}"
+                                                    Width="110"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTemplateColumn Header="Part du groupe"
+                                                        Width="150"
+                                                        SortMemberPath="GroupSharePercent">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <!-- Barre de proportion : largeur proportionnelle a la
+                                                 part renvoyee par le serveur (70 px = 100 %), teinte
+                                                 accent du theme sur piste translucide. -->
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Grid Width="70" Height="8" VerticalAlignment="Center">
+                                                    <Border Background="{StaticResource AccentSelectionBrush}"
+                                                            CornerRadius="4" />
+                                                    <Border Background="{StaticResource AccentBrush}"
+                                                            CornerRadius="4"
+                                                            HorizontalAlignment="Left"
+                                                            Width="{Binding GroupShareBarWidth}" />
+                                                </Grid>
+                                                <TextBlock Text="{Binding GroupShareText}"
+                                                           Style="{StaticResource BodyText}"
+                                                           VerticalAlignment="Center"
+                                                           Margin="8,0,0,0" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Encaissements"
+                                                    Binding="{Binding ConfirmedReceipts, StringFormat={}{0:N2}}"
+                                                    Width="115"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTemplateColumn Header="Occupation"
+                                                        Width="95"
+                                                        SortMemberPath="OccupancySortValue"
+                                                        HeaderStyle="{StaticResource RightAlignedColumnHeader}">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding OccupancyText}"
+                                                       Style="{StaticResource AmountCellText}"
+                                                       ToolTip="{Binding OccupancyTooltip}" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Jours non clôturés"
+                                                    Binding="{Binding UnclosedDayCount}"
+                                                    Width="130"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTemplateColumn Header="Écart budget"
+                                                        Width="*"
+                                                        SortMemberPath="BudgetVarianceSortValue"
+                                                        HeaderStyle="{StaticResource RightAlignedColumnHeader}">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding BudgetVarianceText}"
+                                                       Style="{StaticResource AmountCellText}"
+                                                       ToolTip="{Binding BudgetTooltip}" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <StackPanel HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    IsHitTestVisible="False">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Items.Count, ElementName=UnitsDataGrid}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <Path Data="M3,13.5 V8 M8,13.5 V4 M13,13.5 V10 M1.5,13.5 H14.5"
+                                  Stroke="{StaticResource BorderStrongBrush}"
+                                  StrokeThickness="2"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  Width="44"
+                                  Height="42"
+                                  Stretch="Uniform"
+                                  HorizontalAlignment="Center"
+                                  Margin="0,0,0,10" />
+                            <TextBlock Text="Aucune donnée sur cette période"
+                                       Style="{StaticResource EmptyStateTitleText}" />
+                            <TextBlock Text="Choisissez une période puis cliquez sur « Actualiser » pour charger la vision groupe."
+                                       Style="{StaticResource EmptyStateHintText}" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- Alertes de direction : constats factuels issus des regles des modules. -->
+            <Border Grid.Column="2" Style="{StaticResource CardBorder}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="Alertes de direction"
+                                   Style="{StaticResource SectionTitleText}" />
+                        <TextBlock Text="Constats factuels issus des règles des modules — aucun seuil local. La règle exacte est rappelée dans l'info-bulle de chaque alerte."
+                                   Style="{StaticResource CaptionText}"
+                                   Margin="0,3,0,0"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <Grid Grid.Row="2">
+                        <DataGrid x:Name="AlertsDataGrid">
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="Gravité"
+                                                        Width="95"
+                                                        SortMemberPath="Severity">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border x:Name="SeverityBadge"
+                                                    CornerRadius="10"
+                                                    Padding="10,3"
+                                                    HorizontalAlignment="Left"
+                                                    VerticalAlignment="Center"
+                                                    Background="{StaticResource StatusSubmittedBackgroundBrush}">
+                                                <TextBlock x:Name="SeverityBadgeText"
+                                                           Text="{Binding SeverityLabel}"
+                                                           FontSize="11.5"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{StaticResource StatusSubmittedForegroundBrush}" />
+                                            </Border>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding Severity}" Value="Info">
+                                                    <Setter TargetName="SeverityBadge" Property="Background" Value="{StaticResource StatusDraftBackgroundBrush}" />
+                                                    <Setter TargetName="SeverityBadgeText" Property="Foreground" Value="{StaticResource StatusDraftForegroundBrush}" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Alerte"
+                                                        Width="*"
+                                                        SortMemberPath="TypeLabel">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding TypeLabel}"
+                                                       Style="{StaticResource BodyText}"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding RuleTooltip}" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Unité"
+                                                    Binding="{Binding HotelUnitCode}"
+                                                    Width="75" />
+                                <DataGridTextColumn Header="Nombre"
+                                                    Binding="{Binding Count}"
+                                                    Width="70"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <StackPanel HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    IsHitTestVisible="False">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Items.Count, ElementName=AlertsDataGrid}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <Path Data="M8,2.5 A4,4 0 0 1 12,6.5 V9.5 L13.5,12 H2.5 L4,9.5 V6.5 A4,4 0 0 1 8,2.5 Z M6.5,13.5 A1.5,1.5 0 0 0 9.5,13.5"
+                                  Stroke="{StaticResource BorderStrongBrush}"
+                                  StrokeThickness="1.5"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round"
+                                  Width="40"
+                                  Height="42"
+                                  Stretch="Uniform"
+                                  HorizontalAlignment="Center"
+                                  Margin="0,0,0,10" />
+                            <TextBlock Text="Aucune alerte sur cette période"
+                                       Style="{StaticResource EmptyStateTitleText}" />
+                            <TextBlock Text="Les journées sont clôturées, les recettes validées et aucune facture émise ne dépasse 60 jours."
+                                       Style="{StaticResource EmptyStateHintText}" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

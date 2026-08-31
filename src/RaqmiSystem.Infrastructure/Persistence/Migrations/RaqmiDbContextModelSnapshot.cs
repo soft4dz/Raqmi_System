@@ -318,6 +318,287 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("RaqmiSystem.Domain.Approvals.ApprovalCircuit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("label");
+
+                    b.Property<string>("SubjectType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("subject_type");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("ux_approval_circuits_code");
+
+                    b.HasIndex("SubjectType")
+                        .HasDatabaseName("ix_approval_circuits_subject_type");
+
+                    b.ToTable("approval_circuits", "approvals", t =>
+                        {
+                            t.HasCheckConstraint("ck_approval_circuits_subject_type", "subject_type IN ('PaymentOrder')");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Approvals.ApprovalDecision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Approved")
+                        .HasColumnType("boolean")
+                        .HasColumnName("approved");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("comment");
+
+                    b.Property<DateTimeOffset>("DecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at");
+
+                    b.Property<string>("DecidedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("decided_by");
+
+                    b.Property<Guid>("InstanceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("instance_id");
+
+                    b.Property<int>("Rank")
+                        .HasColumnType("integer")
+                        .HasColumnName("rank");
+
+                    b.Property<string>("StepLabel")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("step_label");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InstanceId")
+                        .HasDatabaseName("ix_approval_decisions_instance_id");
+
+                    b.HasIndex("InstanceId", "Rank")
+                        .IsUnique()
+                        .HasDatabaseName("ux_approval_decisions_instance_rank");
+
+                    b.ToTable("approval_decisions", "approvals", t =>
+                        {
+                            t.HasCheckConstraint("ck_approval_decisions_rank_positive", "rank >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Approvals.ApprovalInstance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CircuitCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("circuit_code");
+
+                    b.Property<string>("CircuitLabel")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("circuit_label");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<string>("ClosedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("closed_by");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("SubjectReference")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("subject_reference");
+
+                    b.Property<string>("SubjectType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("subject_type");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_approval_instances_status");
+
+                    b.HasIndex(new[] { "SubjectType", "SubjectReference" }, "ix_approval_instances_subject")
+                        .HasDatabaseName("ix_approval_instances_subject");
+
+                    b.HasIndex(new[] { "SubjectType", "SubjectReference" }, "ux_approval_instances_open_subject")
+                        .IsUnique()
+                        .HasDatabaseName("ux_approval_instances_open_subject")
+                        .HasFilter("status = 'InProgress'");
+
+                    b.ToTable("approval_instances", "approvals", t =>
+                        {
+                            t.HasCheckConstraint("ck_approval_instances_status", "status IN ('InProgress', 'Approved', 'Rejected')");
+
+                            t.HasCheckConstraint("ck_approval_instances_subject_type", "subject_type IN ('PaymentOrder')");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Approvals.ApprovalInstanceStep", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("InstanceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("instance_id");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("label");
+
+                    b.Property<int>("Rank")
+                        .HasColumnType("integer")
+                        .HasColumnName("rank");
+
+                    b.Property<string>("RequiredRole")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("required_role");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InstanceId")
+                        .HasDatabaseName("ix_approval_instance_steps_instance_id");
+
+                    b.HasIndex("InstanceId", "Rank")
+                        .IsUnique()
+                        .HasDatabaseName("ux_approval_instance_steps_instance_rank");
+
+                    b.ToTable("approval_instance_steps", "approvals", t =>
+                        {
+                            t.HasCheckConstraint("ck_approval_instance_steps_rank_positive", "rank >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Approvals.ApprovalStep", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CircuitId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("circuit_id");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("label");
+
+                    b.Property<int>("Rank")
+                        .HasColumnType("integer")
+                        .HasColumnName("rank");
+
+                    b.Property<string>("RequiredRole")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("required_role");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CircuitId")
+                        .HasDatabaseName("ix_approval_steps_circuit_id");
+
+                    b.ToTable("approval_steps", "approvals", t =>
+                        {
+                            t.HasCheckConstraint("ck_approval_steps_rank_positive", "rank >= 1");
+                        });
+                });
+
             modelBuilder.Entity("RaqmiSystem.Domain.Audit.AuditLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1759,6 +2040,68 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("RaqmiSystem.Domain.Reporting.ReportExecution", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<long>("DurationMilliseconds")
+                        .HasColumnType("bigint")
+                        .HasColumnName("duration_milliseconds");
+
+                    b.Property<string>("ParametersJson")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("parameters_json");
+
+                    b.Property<string>("ReportCode")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("report_code");
+
+                    b.Property<int>("RowCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("row_count");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_report_executions_created_at");
+
+                    b.HasIndex("ReportCode")
+                        .HasDatabaseName("ix_report_executions_report_code");
+
+                    b.ToTable("report_executions", "reporting", t =>
+                        {
+                            t.HasCheckConstraint("ck_report_executions_duration", "duration_milliseconds >= 0");
+
+                            t.HasCheckConstraint("ck_report_executions_row_count", "row_count >= 0");
+                        });
+                });
+
             modelBuilder.Entity("RaqmiSystem.Domain.Revenue.DailyRevenue", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2494,6 +2837,33 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("RaqmiSystem.Domain.Approvals.ApprovalDecision", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Approvals.ApprovalInstance", null)
+                        .WithMany("Decisions")
+                        .HasForeignKey("InstanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Approvals.ApprovalInstanceStep", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Approvals.ApprovalInstance", null)
+                        .WithMany("Steps")
+                        .HasForeignKey("InstanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Approvals.ApprovalStep", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Approvals.ApprovalCircuit", null)
+                        .WithMany("Steps")
+                        .HasForeignKey("CircuitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("RaqmiSystem.Domain.Billing.Invoice", b =>
                 {
                     b.HasOne("RaqmiSystem.Domain.Billing.Customer", null)
@@ -2749,6 +3119,18 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("RaqmiSystem.Domain.Accounting.JournalEntry", b =>
                 {
                     b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Approvals.ApprovalCircuit", b =>
+                {
+                    b.Navigation("Steps");
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Approvals.ApprovalInstance", b =>
+                {
+                    b.Navigation("Decisions");
+
+                    b.Navigation("Steps");
                 });
 
             modelBuilder.Entity("RaqmiSystem.Domain.Billing.Invoice", b =>

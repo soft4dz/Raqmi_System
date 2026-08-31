@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using RaqmiSystem.Application.Approvals;
 using RaqmiSystem.Application.Common;
 using RaqmiSystem.Application.Security;
 using RaqmiSystem.Application.Treasury;
+using RaqmiSystem.Domain.Approvals;
 using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Domain.Treasury;
 using RaqmiSystem.Infrastructure.Persistence;
@@ -11,7 +13,8 @@ namespace RaqmiSystem.Infrastructure.Treasury;
 
 public sealed class TreasuryService(
     RaqmiDbContext dbContext,
-    IAuditLogWriter auditLogWriter) : ITreasuryService
+    IAuditLogWriter auditLogWriter,
+    IApprovalGate approvalGate) : ITreasuryService
 {
     private const string BankAccountEntityName = "finance.bank_accounts";
     private const string CashReceiptEntityName = "finance.cash_receipts";
@@ -538,6 +541,16 @@ public sealed class TreasuryService(
         return ApplicationResult<PaymentOrderResponse>.Success(Map(order));
     }
 
+    /// <summary>
+    /// Approving a payment order is subject to the approvals module's gate. The gate is
+    /// backward-compatible: with NO active circuit for payment orders it always clears, so an
+    /// installation that never configured a circuit approves exactly as before. Once a circuit is
+    /// activated, only an order carrying an APPROVED approval instance may be approved here - an
+    /// order with no instance, one still in progress or a rejected one is refused.
+    ///
+    /// The gate runs as a guard INSIDE the status change, i.e. after the order was loaded: an
+    /// unknown id keeps answering NotFound rather than being masked by a gate refusal.
+    /// </summary>
     public async Task<ApplicationResult<PaymentOrderResponse>> ApprovePaymentOrderAsync(
         Guid id,
         OperationContext context,
@@ -548,7 +561,38 @@ public sealed class TreasuryService(
             context,
             "finance.payment_order.approved",
             order => order.Approve(context.UserName, DateTimeOffset.UtcNow),
+            cancellationToken,
+            guard: CheckApprovalCircuitAsync);
+    }
+
+    /// <summary>
+    /// Asks the approvals gate whether this payment order may proceed. A refusal from the gate
+    /// itself (a malformed reference, for instance) is propagated rather than reinterpreted.
+    /// </summary>
+    private async Task<ApplicationResult<PaymentOrderResponse>?> CheckApprovalCircuitAsync(
+        PaymentOrder order,
+        CancellationToken cancellationToken)
+    {
+        var gateResult = await approvalGate.IsApprovedAsync(
+            ApprovalSubjectType.PaymentOrder,
+            order.Id.ToString(),
             cancellationToken);
+
+        if (!gateResult.Succeeded)
+        {
+            return ApplicationResult<PaymentOrderResponse>.Validation(
+                gateResult.Error ?? "The approvals module refused to evaluate this payment order.");
+        }
+
+        if (!gateResult.Value)
+        {
+            return ApplicationResult<PaymentOrderResponse>.Validation(
+                "This payment order must first clear its validation circuit: an approval request " +
+                "has to be opened and approved in the Validations module before the order can be " +
+                "approved here.");
+        }
+
+        return null;
     }
 
     public async Task<ApplicationResult<PaymentOrderResponse>> PayPaymentOrderAsync(
@@ -623,7 +667,8 @@ public sealed class TreasuryService(
         OperationContext context,
         string auditAction,
         Action<PaymentOrder> change,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<PaymentOrder, CancellationToken, Task<ApplicationResult<PaymentOrderResponse>?>>? guard = null)
     {
         var order = await dbContext.Set<PaymentOrder>()
             .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
@@ -631,6 +676,18 @@ public sealed class TreasuryService(
         if (order is null)
         {
             return ApplicationResult<PaymentOrderResponse>.NotFound("Payment order was not found.");
+        }
+
+        // An optional cross-module precondition, evaluated once the order exists and before any
+        // mutation: it returns a refusal to propagate, or null to let the change proceed.
+        if (guard is not null)
+        {
+            var refusal = await guard(order, cancellationToken);
+
+            if (refusal is not null)
+            {
+                return refusal;
+            }
         }
 
         try

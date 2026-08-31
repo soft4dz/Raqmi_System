@@ -43,10 +43,10 @@ public static class ModuleCatalog
 {
     // Totaux attendus - garde de coherence verifiee au chargement du type.
     public const int ExpectedTotal = 49;
-    public const int ExpectedAvailable = 16;
+    public const int ExpectedAvailable = 19;
     public const int ExpectedApiReady = 0;
-    public const int ExpectedPartial = 3;
-    public const int ExpectedPlanned = 30;
+    public const int ExpectedPartial = 2;
+    public const int ExpectedPlanned = 28;
 
     // Libelles affiches des groupes fonctionnels (ordre d'apparition).
     public static class Groups
@@ -199,8 +199,8 @@ public static class ModuleCatalog
             "Consultation des traces et piste d'audit",
             "P0", ModuleStatus.Disponible, PermissionCatalog.AuditRead, 4),
         new ModuleCatalogEntry("22.2", Groups.Controle, "Workflows & validations",
-            "Circuits d'approbation et décisions",
-            "P1", ModuleStatus.Planifie),
+            "Circuits d'approbation par type de sujet et décisions étape par étape",
+            "P1", ModuleStatus.Disponible, PermissionCatalog.ApprovalsRead, 16),
         new ModuleCatalogEntry("22.4", Groups.Controle, "Checklists de contrôle",
             "Modèles, exécution et suivi des écarts",
             "P2", ModuleStatus.Planifie),
@@ -241,8 +241,8 @@ public static class ModuleCatalog
             "P0", ModuleStatus.Partiel, PermissionCatalog.DashboardRead, null,
             "Couvert par le tableau de bord unifié - cockpit dédié à affiner"),
         new ModuleCatalogEntry("25", Groups.Pilotage, "Rapports automatiques",
-            "Rapports configurables, exports PDF et Excel",
-            "P1", ModuleStatus.Planifie),
+            "Catalogue de rapports paramétrables, export CSV et journal des exécutions",
+            "P1", ModuleStatus.Disponible, PermissionCatalog.ReportsRead, 17),
         new ModuleCatalogEntry("25.2", Groups.Pilotage, "Alertes & notifications",
             "Règles d'alerte et préférences de diffusion",
             "P2", ModuleStatus.Planifie),
@@ -261,10 +261,12 @@ public static class ModuleCatalog
             "P2", ModuleStatus.Planifie),
 
         // -------------------------------------------------------------- Système
+        // La RESTAURATION reste volontairement hors ecran (voir IBackupService) : restaurer
+        // la base de production est un acte d'administration serveur, execute selon la
+        // procedure documentee. La description dit donc exactement ce que l'ecran fait.
         new ModuleCatalogEntry("28", Groups.Systeme, "Sauvegarde & restauration",
-            "Sauvegardes, restauration et rétention",
-            "P1", ModuleStatus.Partiel, null, null,
-            "Sauvegarde quotidienne automatisée (script + minuteur) et procédure de restauration documentée - écran applicatif à venir"),
+            "État des sauvegardes, déclenchement à la demande et paliers de rétention",
+            "P1", ModuleStatus.Disponible, PermissionCatalog.MaintenanceRead, 18),
         new ModuleCatalogEntry("29", Groups.Systeme, "Synchronisation multi-postes",
             "File de synchronisation et état des postes",
             "P1", ModuleStatus.Planifie),

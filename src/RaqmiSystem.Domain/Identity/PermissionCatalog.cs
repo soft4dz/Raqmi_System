@@ -41,6 +41,12 @@ public static class PermissionCatalog
     public const string LodgingRead = "lodging.read";
     public const string LodgingWrite = "lodging.write";
     public const string LodgingCheckin = "lodging.checkin";
+    public const string ApprovalsRead = "approvals.read";
+    public const string ApprovalsWrite = "approvals.write";
+    public const string ApprovalsDecide = "approvals.decide";
+    public const string ReportsRead = "reports.read";
+    public const string MaintenanceRead = "maintenance.read";
+    public const string MaintenanceBackup = "maintenance.backup";
 
     public static IReadOnlyCollection<PermissionDefinition> All { get; } = new[]
     {
@@ -82,6 +88,12 @@ public static class PermissionCatalog
         new PermissionDefinition(TariffsWrite, "Gerer les tarifs", "exploitation", "Creer et modifier les plans tarifaires, definir le plan par defaut, gerer les periodes de tarif et les conventions clients."),
         new PermissionDefinition(LodgingRead, "Lire l'hebergement", "exploitation", "Consulter les types de chambre, les chambres, les reservations, les folios et l'occupation."),
         new PermissionDefinition(LodgingWrite, "Gerer l'hebergement", "exploitation", "Gerer les types de chambre et les chambres, creer, annuler et constater le no-show des reservations."),
-        new PermissionDefinition(LodgingCheckin, "Operer le comptoir", "exploitation", "Effectuer les operations du comptoir : check-in, check-out et ajout de lignes de folio.")
+        new PermissionDefinition(LodgingCheckin, "Operer le comptoir", "exploitation", "Effectuer les operations du comptoir : check-in, check-out et ajout de lignes de folio."),
+        new PermissionDefinition(ApprovalsRead, "Lire les validations", "exploitation", "Consulter les circuits de validation et les demandes d'approbation."),
+        new PermissionDefinition(ApprovalsWrite, "Gerer les circuits de validation", "exploitation", "Creer et modifier les circuits de validation, les activer ou les desactiver, et ouvrir une demande."),
+        new PermissionDefinition(ApprovalsDecide, "Decider des validations", "exploitation", "Approuver ou rejeter une etape de validation qui vous est assignee."),
+        new PermissionDefinition(ReportsRead, "Executer les rapports", "reporting", "Consulter le catalogue des rapports, les executer et consulter le journal d'execution."),
+        new PermissionDefinition(MaintenanceRead, "Lire la maintenance", "security", "Consulter l'etat des sauvegardes et la politique de retention."),
+        new PermissionDefinition(MaintenanceBackup, "Declencher une sauvegarde", "security", "Declencher manuellement une sauvegarde de la base de donnees.")
     };
 }

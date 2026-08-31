@@ -167,6 +167,9 @@ api.MapAccountEndpoints();
 api.MapAccountingEndpoints();
 api.MapBudgetEndpoints();
 api.MapReceivablesEndpoints();
+api.MapApprovalsEndpoints();
+api.MapReportingEndpoints();
+api.MapMaintenanceEndpoints();
 
 app.Run();
 

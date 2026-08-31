@@ -40,7 +40,14 @@ public sealed class SecuritySeeder(
             PermissionCatalog.BudgetApprove,
             PermissionCatalog.ReceivablesRead,
             PermissionCatalog.TariffsRead,
-            PermissionCatalog.LodgingRead
+            PermissionCatalog.LodgingRead,
+            PermissionCatalog.ApprovalsRead,
+            PermissionCatalog.ApprovalsDecide,
+            PermissionCatalog.ReportsRead,
+            // maintenance.read lets direction verify backups actually run; maintenance.backup
+            // appears in NO list below, so only system.administrator triggers one, through the
+            // catch-all grant of PermissionCatalog.All on that role.
+            PermissionCatalog.MaintenanceRead
         ],
         [RoleCatalog.ExploitationControl] =
         [
@@ -75,7 +82,11 @@ public sealed class SecuritySeeder(
             PermissionCatalog.TariffsWrite,
             PermissionCatalog.LodgingRead,
             PermissionCatalog.LodgingWrite,
-            PermissionCatalog.LodgingCheckin
+            PermissionCatalog.LodgingCheckin,
+            PermissionCatalog.ApprovalsRead,
+            PermissionCatalog.ApprovalsWrite,
+            PermissionCatalog.ApprovalsDecide,
+            PermissionCatalog.ReportsRead
         ],
         [RoleCatalog.UnitManager] =
         [
@@ -97,7 +108,10 @@ public sealed class SecuritySeeder(
             PermissionCatalog.TariffsWrite,
             PermissionCatalog.LodgingRead,
             PermissionCatalog.LodgingWrite,
-            PermissionCatalog.LodgingCheckin
+            PermissionCatalog.LodgingCheckin,
+            PermissionCatalog.ApprovalsRead,
+            PermissionCatalog.ApprovalsDecide,
+            PermissionCatalog.ReportsRead
         ],
         [RoleCatalog.Cashier] =
         [
@@ -107,7 +121,8 @@ public sealed class SecuritySeeder(
             PermissionCatalog.TreasuryWrite,
             PermissionCatalog.SettingsRead,
             PermissionCatalog.LodgingRead,
-            PermissionCatalog.LodgingCheckin
+            PermissionCatalog.LodgingCheckin,
+            PermissionCatalog.ApprovalsRead
         ],
         [RoleCatalog.Reader] =
         [
@@ -122,7 +137,8 @@ public sealed class SecuritySeeder(
             PermissionCatalog.BudgetRead,
             PermissionCatalog.ReceivablesRead,
             PermissionCatalog.TariffsRead,
-            PermissionCatalog.LodgingRead
+            PermissionCatalog.LodgingRead,
+            PermissionCatalog.ApprovalsRead
         ]
     };
 
