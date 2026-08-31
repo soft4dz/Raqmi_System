@@ -17,11 +17,14 @@ namespace RaqmiSystem.Desktop;
 // cas tant que la barre laterale suivait la numerotation du catalogue.
 //
 // Deux regles d'edition :
-//   - une section porte au moins deux modules ; une famille a un seul element coute
-//     un en-tete, un chevron et un clic pour rien ;
+//   - une section porte un domaine du metier, pas un module isole. « Sauvegarde »
+//     n'est pas un domaine, c'est du parametrage : elle rejoint l'administration au
+//     lieu de s'offrir un en-tete a elle seule. Les ressources humaines, elles, en
+//     sont un, et gardent leur section meme avec un seul ecran livre ;
 //   - un ecran absent de cette table n'est jamais perdu : ModuleNavigationGroup.Build
-//     lui rend sa famille de catalogue, ajoutee avant la section epinglee. La table
-//     reste donc un choix editorial, pas une obligation de maintenance.
+//     lui rend sa famille de catalogue - dans la section de meme nom si elle existe,
+//     sinon dans une section creee avant celle epinglee. La table reste donc un choix
+//     editorial, pas une obligation de maintenance.
 public static class SidebarLayout
 {
     // Une section de la barre laterale.
@@ -40,14 +43,23 @@ public static class SidebarLayout
         // rapports ferment la section, on les tire d'une question deja posee.
         new Section("Pilotage", "Pilotage", false, [3, 19, 20, 17]),
 
-        // La journee, dans son ordre reel : saisie de la recette du jour, cloture,
-        // puis la reception et les chambres. Les tarifs ferment la section : on les
+        // Le sejour, dans l'ordre de la journee : saisie de la recette, cloture,
+        // reception, chambres, client. Les tarifs ferment la section : on les
         // consulte souvent, on les modifie rarement.
-        new Section("Exploitation", "Exploitation", false, [2, 5, 15, 21, 14]),
+        new Section("Exploitation", "Exploitation", false, [2, 5, 15, 21, 23, 14]),
+
+        // L'arriere-cuisine au sens large : ce qu'on a en magasin, ce qu'on commande,
+        // ce qu'on produit. Separee de l'exploitation parce que ce n'est ni les memes
+        // ecrans ni les memes mains.
+        new Section("Achats & stocks", "Achats", false, [24, 25, 26]),
 
         // L'argent, de l'encaissement au grand livre : ce qui entre, ce qui est
         // facture, a qui, ce qui reste du, puis le back-office comptable.
         new Section("Finance", "Finance", false, [6, 8, 7, 13, 11, 12]),
+
+        // Un domaine a part entiere, meme avec un seul ecran livre : la paie et les
+        // temps ne se rangent ni dans l'exploitation ni dans la finance.
+        new Section("Ressources humaines", "RessourcesHumaines", false, [22]),
 
         // Les validations avant l'audit : on decide tous les jours, on remonte la
         // piste d'audit ponctuellement.

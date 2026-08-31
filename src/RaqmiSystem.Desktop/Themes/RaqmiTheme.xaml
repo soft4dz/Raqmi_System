@@ -1151,6 +1151,11 @@
                   Figures="M8,2.2 A1.4,1.4 0 1 0 8.01,2.2 M8,3.6 V13.8 M5,6.2 H11 M3.6,10 V11.6 L8,13.9 L12.4,11.6 V10" />
     <PathGeometry x:Key="ModuleGroupIcon.Documentaire"
                   Figures="M1.8,13.2 V3.8 H6 L7.4,5.8 H14.2 V13.2 Z" />
+    <!-- Section « Achats & stocks » de la barre laterale : le catalogue range ces
+         modules dans Exploitation, la navigation leur donne leur propre section, donc
+         sa propre icone (un carton de magasin). Cle citee par SidebarLayout. -->
+    <PathGeometry x:Key="ModuleGroupIcon.Achats"
+                  Figures="M2.4,5.4 L8,2.6 L13.6,5.4 V10.6 L8,13.4 L2.4,10.6 Z M2.4,5.4 L8,8.2 L13.6,5.4 M8,8.2 V13.4" />
     <PathGeometry x:Key="ModuleGroupIcon.Systeme"
                   Figures="M8,5.5 A2.5,2.5 0 1 0 8.01,5.5 M8,1.4 V3 M8,13 V14.6 M1.4,8 H3 M13,8 H14.6 M3.6,3.6 L4.7,4.7 M11.3,11.3 L12.4,12.4 M12.4,3.6 L11.3,4.7 M4.7,11.3 L3.6,12.4" />
 

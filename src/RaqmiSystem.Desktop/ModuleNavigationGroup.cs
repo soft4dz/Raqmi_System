@@ -20,6 +20,11 @@ public sealed class ModuleNavigationGroup : INotifyPropertyChanged
     // la recherche compare sans accent ni casse, a chaque frappe.
     private sealed record NavigableModule(ModuleTile Tile, string SearchText);
 
+    // Section en cours de composition : le plan pose les sections, le rattrapage du
+    // catalogue y ajoute ses ecrans, et seules celles qui portent au moins un module
+    // deviennent des ModuleNavigationGroup.
+    private sealed record Draft(string Name, string IconKey, bool IsPinned, List<NavigableModule> Modules);
+
     private readonly IReadOnlyList<NavigableModule> modules;
     private bool isExpanded;
 
@@ -97,45 +102,13 @@ public sealed class ModuleNavigationGroup : INotifyPropertyChanged
             }
         }
 
-        // Tous les onglets cites par le plan, section epinglee comprise. Le rattrapage
-        // ci-dessous se fie a cet ensemble et non aux sections deja construites :
-        // sinon le parametrage, construit en dernier, ressortirait une premiere fois
-        // en reste de catalogue.
-        var planned = SidebarLayout.Sections.SelectMany(section => section.Tabs).ToHashSet();
-
         var placed = new HashSet<int>();
-        var groups = new List<ModuleNavigationGroup>();
+        var drafts = new List<Draft>();
 
-        foreach (var section in SidebarLayout.Sections.Where(section => !section.IsPinned))
+        foreach (var section in SidebarLayout.Sections)
         {
-            Append(section);
-        }
-
-        // Ecrans livres depuis la derniere revision du plan : ils reprennent leur
-        // famille de catalogue, juste avant la section epinglee. Rien ne disparait de
-        // la navigation parce qu'une table n'a pas suivi.
-        foreach (var family in byTab
-                     .Where(entry => !planned.Contains(entry.Key))
-                     .OrderBy(entry => entry.Key)
-                     .GroupBy(entry => entry.Value.Group))
-        {
-            groups.Add(new ModuleNavigationGroup(
-                family.Key,
-                ModuleCatalog.GroupIconKey(family.Key),
-                isPinned: false,
-                family.Select(entry => Describe(entry.Value)).ToList()));
-        }
-
-        foreach (var section in SidebarLayout.Sections.Where(section => section.IsPinned))
-        {
-            Append(section);
-        }
-
-        return groups;
-
-        void Append(SidebarLayout.Section section)
-        {
-            var sectionModules = new List<NavigableModule>();
+            var draft = new Draft(section.Name, section.IconKey, section.IsPinned, []);
+            drafts.Add(draft);
 
             foreach (var tabIndex in section.Tabs)
             {
@@ -144,19 +117,41 @@ public sealed class ModuleNavigationGroup : INotifyPropertyChanged
                 // contre un onglet cite par deux sections : un ecran, une ligne.
                 if (byTab.TryGetValue(tabIndex, out var tile) && placed.Add(tabIndex))
                 {
-                    sectionModules.Add(Describe(tile));
+                    draft.Modules.Add(Describe(tile));
                 }
             }
-
-            if (sectionModules.Count > 0)
-            {
-                groups.Add(new ModuleNavigationGroup(
-                    section.Name,
-                    section.IconKey,
-                    section.IsPinned,
-                    sectionModules));
-            }
         }
+
+        // Ecrans livres depuis la derniere revision du plan : ils reprennent leur
+        // famille de catalogue. Si une section porte deja ce nom ils la rejoignent -
+        // sans quoi la barre laterale afficherait deux en-tetes « Exploitation ».
+        // Sinon une section nait juste avant celle epinglee en pied : rien ne
+        // disparait de la navigation parce qu'une table n'a pas suivi.
+        foreach (var family in byTab
+                     .Where(entry => !placed.Contains(entry.Key))
+                     .OrderBy(entry => entry.Key)
+                     .GroupBy(entry => entry.Value.Group))
+        {
+            var draft = drafts.Find(candidate => candidate.Name == family.Key);
+
+            if (draft is null)
+            {
+                draft = new Draft(family.Key, ModuleCatalog.GroupIconKey(family.Key), IsPinned: false, []);
+                var pinned = drafts.FindIndex(candidate => candidate.IsPinned);
+                drafts.Insert(pinned < 0 ? drafts.Count : pinned, draft);
+            }
+
+            draft.Modules.AddRange(family.Select(entry => Describe(entry.Value)));
+        }
+
+        return drafts
+            .Where(draft => draft.Modules.Count > 0)
+            .Select(draft => new ModuleNavigationGroup(
+                draft.Name,
+                draft.IconKey,
+                draft.IsPinned,
+                draft.Modules))
+            .ToList();
     }
 
     /// <summary>
