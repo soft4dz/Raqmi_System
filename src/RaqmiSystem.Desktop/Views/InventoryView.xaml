@@ -1,0 +1,1292 @@
+<UserControl x:Class="RaqmiSystem.Desktop.Views.InventoryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:RaqmiSystem.Desktop.Views"
+             FontFamily="{StaticResource AppFontFamily}">
+
+    <UserControl.Resources>
+        <!-- Libelles francais des enumerations du domaine, a source unique : la grille,
+             les listes deroulantes et les messages rendent le meme mot. -->
+        <views:StockItemCategoryLabelConverter x:Key="StockItemCategoryLabelConverter" />
+        <views:StockMovementKindLabelConverter x:Key="StockMovementKindLabelConverter" />
+
+        <!-- Tout horodatage renvoye par l'API est en UTC : converti en heure du poste
+             avant affichage, comme dans ClosingView et DecCockpitView. -->
+        <views:UtcToLocalTimeConverter x:Key="UtcToLocalTimeConverter" />
+
+        <!-- Onglets internes du module : le style implicite du theme supprime les
+             en-tetes (le panneau lateral est l'unique navigation de l'application),
+             ce module a donc besoin de son propre gabarit d'onglets visibles.
+             Gabarit repris de TreasuryView, la reference de la charte. -->
+        <Style x:Key="SectionTabItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Grid SnapsToDevicePixels="True">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Border x:Name="tabBackground"
+                                    Background="Transparent"
+                                    CornerRadius="6,6,0,0"
+                                    Padding="18,9">
+                                <ContentPresenter ContentSource="Header"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
+                            </Border>
+
+                            <Rectangle x:Name="tabIndicator"
+                                       Grid.Row="1"
+                                       Height="2.5"
+                                       Fill="{StaticResource AccentBrush}"
+                                       Opacity="0" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="tabBackground" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="tabBackground" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="tabIndicator" Property="Opacity" Value="1" />
+                                <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SectionTabControl" TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource SectionTabItem}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border BorderBrush="{StaticResource PanelBorderBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <TabPanel IsItemsHost="True" HorizontalAlignment="Left" />
+                            </Border>
+
+                            <ContentPresenter Grid.Row="1"
+                                              Margin="0,16,0,0"
+                                              ContentSource="SelectedContent" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Rappel de regle metier affiche a l'ecran (miroir de la regle du serveur,
+             jamais son remplacement). -->
+        <Style x:Key="BusinessRuleText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- Bandeau d'avertissement contextuel : signale a l'ecran qu'un chiffre
+             affiche ne repond pas au filtre visible juste au-dessus de lui. -->
+        <Style x:Key="WarningBanner" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource StatusSubmittedBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14,9" />
+        </Style>
+
+        <Style x:Key="WarningBannerText" TargetType="TextBlock" BasedOn="{StaticResource BodyText}">
+            <Setter Property="Foreground" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============================== En-tete du module ============================== -->
+        <DockPanel>
+            <Button x:Name="RefreshAllButton"
+                    DockPanel.Dock="Right"
+                    Content="Tout actualiser"
+                    Style="{StaticResource SecondaryButton}"
+                    ToolTip="Recharger les magasins, les articles, les mouvements et les inventaires"
+                    VerticalAlignment="Center"
+                    Click="RefreshAllButton_Click" />
+
+            <StackPanel>
+                <TextBlock Text="Stocks &amp; consommations"
+                           Style="{StaticResource PageTitleText}" />
+                <TextBlock Text="Magasins par unité, mouvements de stock, valorisation au coût moyen pondéré et inventaires physiques."
+                           Style="{StaticResource SubtitleText}"
+                           Margin="0,4,0,0" />
+            </StackPanel>
+        </DockPanel>
+
+        <TabControl x:Name="InventoryTabs"
+                    Grid.Row="2"
+                    Style="{StaticResource SectionTabControl}">
+
+            <!-- ================================ Stock courant ================================ -->
+            <TabItem Header="Stock courant">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Stock d'un magasin" Style="{StaticResource SectionTitleText}" />
+                                <TextBlock Text="Le stock affiché est la somme du registre des mouvements : il n'est stocké nulle part et ne peut donc jamais contredire son propre historique."
+                                           Style="{StaticResource SubtitleText}"
+                                           Margin="0,4,0,0" />
+                            </StackPanel>
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="260" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="28" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Magasin *" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="StockWarehouseComboBox"
+                                              DisplayMemberPath="Label"
+                                              SelectedValuePath="Code"
+                                              ToolTip="Choisir le magasin dont on affiche le stock"
+                                              SelectionChanged="StockWarehouseComboBox_SelectionChanged" />
+                                </StackPanel>
+
+                                <Button x:Name="RefreshStockButton"
+                                        Grid.Column="2"
+                                        Content="Actualiser"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Recharger le stock du magasin sélectionné"
+                                        VerticalAlignment="Bottom"
+                                        Click="RefreshStockButton_Click" />
+
+                                <StackPanel Grid.Column="4" VerticalAlignment="Bottom" HorizontalAlignment="Right">
+                                    <TextBlock Text="ARTICLES SOUS SEUIL" Style="{StaticResource MetricLabelText}" />
+                                    <TextBlock x:Name="StockBelowMinimumTextBlock"
+                                               Text="—"
+                                               Style="{StaticResource MetricValueText}"
+                                               HorizontalAlignment="Right" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6" VerticalAlignment="Bottom" HorizontalAlignment="Right">
+                                    <TextBlock Text="VALORISATION TOTALE" Style="{StaticResource MetricLabelText}" />
+                                    <TextBlock x:Name="StockTotalValueTextBlock"
+                                               Text="—"
+                                               Style="{StaticResource MetricValueText}"
+                                               HorizontalAlignment="Right"
+                                               ToolTip="Total renvoyé par le serveur : somme des valeurs de stock des articles du magasin" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Border x:Name="LowStockBanner"
+                                Style="{StaticResource WarningBanner}"
+                                Visibility="Collapsed"
+                                Margin="0,0,0,12">
+                            <TextBlock x:Name="LowStockBannerText"
+                                       Style="{StaticResource WarningBannerText}" />
+                        </Border>
+
+                        <Border Grid.Row="1" Style="{StaticResource CardBorder}">
+                            <Grid>
+                                <DataGrid x:Name="StockDataGrid" MinHeight="200">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Article" Binding="{Binding ItemCode}" Width="120" />
+                                        <DataGridTextColumn Header="Désignation" Binding="{Binding Designation}" Width="*" />
+                                        <DataGridTextColumn Header="Unité" Binding="{Binding UnitOfMeasure}" Width="80" />
+                                        <DataGridTextColumn Header="Catégorie"
+                                                            Binding="{Binding Category, Converter={StaticResource StockItemCategoryLabelConverter}}"
+                                                            Width="115" />
+                                        <DataGridTextColumn Header="Quantité"
+                                                            Binding="{Binding Quantity, StringFormat={}{0:N3}}"
+                                                            Width="105"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Seuil"
+                                                            Binding="{Binding MinimumQuantity, StringFormat={}{0:N3}}"
+                                                            Width="95"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="PMP"
+                                                            Binding="{Binding AverageUnitCost, StringFormat={}{0:N2}}"
+                                                            Width="110"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Valeur"
+                                                            Binding="{Binding StockValue, StringFormat={}{0:N2}}"
+                                                            Width="125"
+                                                            ElementStyle="{StaticResource TotalCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTemplateColumn Header="Alerte" Width="120" SortMemberPath="IsBelowMinimum">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border x:Name="StockBadge"
+                                                            CornerRadius="10"
+                                                            Padding="10,3"
+                                                            HorizontalAlignment="Left"
+                                                            VerticalAlignment="Center"
+                                                            Background="{StaticResource StatusValidatedBackgroundBrush}">
+                                                        <TextBlock x:Name="StockBadgeText"
+                                                                   Text="Suffisant"
+                                                                   FontSize="11.5"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource StatusValidatedForegroundBrush}" />
+                                                    </Border>
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding IsBelowMinimum}" Value="True">
+                                                            <Setter TargetName="StockBadge" Property="Background" Value="{StaticResource StatusRejectedBackgroundBrush}" />
+                                                            <Setter TargetName="StockBadgeText" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                            <Setter TargetName="StockBadgeText" Property="Text" Value="Sous seuil" />
+                                                        </DataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=StockDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <!-- Pictogramme au trait (caisse de magasin). -->
+                                    <Path Data="M2,5.5 L8,2.5 L14,5.5 L14,11.5 L8,14.5 L2,11.5 Z M2,5.5 L8,8.5 L14,5.5 M8,8.5 L8,14.5"
+                                          Stroke="{StaticResource BorderStrongBrush}"
+                                          StrokeThickness="1.5"
+                                          StrokeLineJoin="Round"
+                                          Width="46"
+                                          Height="40"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,10" />
+                                    <TextBlock Text="Aucun stock dans ce magasin"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Choisissez un magasin, ou enregistrez une première entrée dans l'onglet « Mouvements »."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- ================================= Mouvements ================================== -->
+            <TabItem Header="Mouvements">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Carte de saisie -->
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="14" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Saisie d'un mouvement" Style="{StaticResource SectionTitleText}" />
+                                <TextBlock x:Name="MovementRuleTextBlock"
+                                           Style="{StaticResource BusinessRuleText}"
+                                           Margin="0,6,0,0" />
+                            </StackPanel>
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="210" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="210" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="230" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Nature *" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="MovementKindComboBox"
+                                              DisplayMemberPath="Label"
+                                              ToolTip="Nature du mouvement à enregistrer"
+                                              SelectionChanged="MovementKindComboBox_SelectionChanged" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock x:Name="MovementWarehouseLabel" Text="Magasin *" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="MovementWarehouseComboBox"
+                                              DisplayMemberPath="Label"
+                                              SelectedValuePath="Code" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4" x:Name="MovementDestinationPanel" Visibility="Collapsed">
+                                    <TextBlock Text="Magasin destinataire *" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="MovementDestinationComboBox"
+                                              DisplayMemberPath="Label"
+                                              SelectedValuePath="Code" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6">
+                                    <TextBlock Text="Article *" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="MovementItemComboBox"
+                                              DisplayMemberPath="Label"
+                                              SelectedValuePath="Code"
+                                              IsEditable="False" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="8">
+                                    <TextBlock Text="Date du mouvement *" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="MovementDatePicker" />
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Grid.Row="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="200" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="220" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="170" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Quantité *" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="MovementQuantityTextBox"
+                                             Style="{StaticResource AmountTextBox}"
+                                             MaxLength="20"
+                                             ToolTip="Quantité strictement positive, 3 décimales au maximum" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2" x:Name="MovementUnitCostPanel">
+                                    <TextBlock x:Name="MovementUnitCostLabel" Text="Coût unitaire" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="MovementUnitCostTextBox"
+                                             Style="{StaticResource AmountTextBox}"
+                                             MaxLength="20"
+                                             ToolTip="Coût unitaire hors taxes, 2 décimales au maximum" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4" x:Name="MovementDirectionPanel" Visibility="Collapsed">
+                                    <TextBlock Text="Sens de l'ajustement *" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="MovementDirectionComboBox" DisplayMemberPath="Label" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6">
+                                    <TextBlock Text="Référence *" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="MovementReferenceTextBox"
+                                             MaxLength="80"
+                                             ToolTip="Pièce justificative : bon de livraison, bon de sortie, numéro de commande" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="8" x:Name="MovementLotPanel">
+                                    <TextBlock Text="N° de lot" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="MovementLotTextBox" MaxLength="60" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="10" x:Name="MovementExpiryPanel">
+                                    <TextBlock Text="Péremption" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="MovementExpiryDatePicker" />
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Grid.Row="6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Observations" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="MovementNotesTextBox" MaxLength="500" />
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Grid.Row="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <Button x:Name="ClearMovementButton"
+                                        Grid.Column="1"
+                                        Content="Vider le formulaire"
+                                        Style="{StaticResource GhostButton}"
+                                        ToolTip="Effacer les champs de saisie"
+                                        Click="ClearMovementButton_Click" />
+
+                                <Button x:Name="SaveMovementButton"
+                                        Grid.Column="3"
+                                        Content="Enregistrer le mouvement"
+                                        Style="{StaticResource PrimaryButton}"
+                                        ToolTip="Enregistrer le mouvement dans le registre"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        Click="SaveMovementButton_Click" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- Filtres + registre -->
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="14" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border Style="{StaticResource SubtleCardBorder}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="150" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="150" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="200" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="200" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="190" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel>
+                                        <TextBlock Text="Du" Style="{StaticResource LabelText}" />
+                                        <DatePicker x:Name="MovementFilterFromDatePicker" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Au" Style="{StaticResource LabelText}" />
+                                        <DatePicker x:Name="MovementFilterToDatePicker" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Text="Magasin" Style="{StaticResource LabelText}" />
+                                        <ComboBox x:Name="MovementFilterWarehouseComboBox"
+                                                  DisplayMemberPath="Label"
+                                                  SelectedValuePath="Code" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="6">
+                                        <TextBlock Text="Article" Style="{StaticResource LabelText}" />
+                                        <ComboBox x:Name="MovementFilterItemComboBox"
+                                                  DisplayMemberPath="Label"
+                                                  SelectedValuePath="Code" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="8">
+                                        <TextBlock Text="Nature" Style="{StaticResource LabelText}" />
+                                        <ComboBox x:Name="MovementFilterKindComboBox" DisplayMemberPath="Label" />
+                                    </StackPanel>
+
+                                    <Button x:Name="ApplyMovementFilterButton"
+                                            Grid.Column="10"
+                                            Content="Filtrer"
+                                            Style="{StaticResource SecondaryButton}"
+                                            ToolTip="Recharger le registre avec ces filtres"
+                                            VerticalAlignment="Bottom"
+                                            Click="ApplyMovementFilterButton_Click" />
+                                </Grid>
+                            </Border>
+
+                            <Grid Grid.Row="2">
+                                <DataGrid x:Name="MovementsDataGrid" MinHeight="180">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Date"
+                                                            Binding="{Binding MovementDate, StringFormat={}{0:dd/MM/yyyy}}"
+                                                            Width="100" />
+                                        <DataGridTextColumn Header="Magasin" Binding="{Binding WarehouseCode}" Width="110" />
+                                        <DataGridTextColumn Header="Article" Binding="{Binding ItemCode}" Width="110" />
+                                        <DataGridTextColumn Header="Désignation" Binding="{Binding ItemDesignation}" Width="*" />
+                                        <DataGridTextColumn Header="Nature"
+                                                            Binding="{Binding Kind, Converter={StaticResource StockMovementKindLabelConverter}}"
+                                                            Width="150" />
+                                        <DataGridTextColumn Header="Mouvement"
+                                                            Binding="{Binding SignedQuantity, StringFormat={}{0:N3}}"
+                                                            Width="115"
+                                                            ElementStyle="{StaticResource TotalCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Coût unit."
+                                                            Binding="{Binding UnitCost, StringFormat={}{0:N2}}"
+                                                            Width="105"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Référence" Binding="{Binding Reference}" Width="150" />
+                                        <DataGridTextColumn Header="Lot" Binding="{Binding LotNumber}" Width="100" />
+                                        <DataGridTextColumn Header="Saisi par"
+                                                            Binding="{Binding CreatedBy}"
+                                                            Width="130"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=MovementsDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <!-- Pictogramme au trait (deux fleches opposees : entrees et sorties). -->
+                                    <Path Data="M2,5.5 H11 M8.5,3 L11.5,5.5 L8.5,8 M14,10.5 H5 M7.5,8 L4.5,10.5 L7.5,13"
+                                          Stroke="{StaticResource BorderStrongBrush}"
+                                          StrokeThickness="1.5"
+                                          StrokeLineJoin="Round"
+                                          Width="46"
+                                          Height="40"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,10" />
+                                    <TextBlock Text="Aucun mouvement pour ces filtres"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Élargissez la période, retirez un filtre ou enregistrez un premier mouvement ci-dessus."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ============================= Articles & magasins ============================= -->
+            <TabItem Header="Articles &amp; magasins">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="430" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- =============================== Articles =============================== -->
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="14" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="14" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <TextBlock x:Name="ItemFormModeTextBlock"
+                                           DockPanel.Dock="Right"
+                                           Text="Nouvel article"
+                                           Style="{StaticResource CaptionText}"
+                                           VerticalAlignment="Center" />
+
+                                <StackPanel>
+                                    <TextBlock Text="Articles" Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock Text="Un article ne porte aucune quantité : seulement son identification et son seuil d'alerte. Un seuil à 0 signifie « pas d'alerte »."
+                                               Style="{StaticResource SubtitleText}"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="160" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="130" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Code *" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="ItemCodeTextBox" MaxLength="40" ToolTip="Code unique de l'article (40 caractères au maximum)" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Désignation *" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="ItemDesignationTextBox" MaxLength="200" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Unité *" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="ItemUnitTextBox" MaxLength="20" ToolTip="kg, L, pièce…" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6">
+                                    <TextBlock Text="Catégorie *" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="ItemCategoryComboBox" DisplayMemberPath="Label" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="8">
+                                    <TextBlock Text="Seuil d'alerte" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="ItemMinimumTextBox"
+                                             Style="{StaticResource AmountTextBox}"
+                                             MaxLength="20"
+                                             ToolTip="Quantité en dessous de laquelle l'article est signalé (3 décimales au maximum)" />
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Grid.Row="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="240" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Rechercher" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="ItemSearchTextBox" MaxLength="80" ToolTip="Filtrer sur le code ou la désignation" />
+                                </StackPanel>
+
+                                <CheckBox x:Name="ItemIncludeInactiveCheckBox"
+                                          Grid.Column="2"
+                                          Content="Inclure les désactivés"
+                                          VerticalAlignment="Bottom"
+                                          Margin="0,0,0,7" />
+
+                                <Button x:Name="SearchItemsButton"
+                                        Grid.Column="4"
+                                        Content="Filtrer"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Recharger la liste des articles"
+                                        VerticalAlignment="Bottom"
+                                        Click="SearchItemsButton_Click" />
+
+                                <Button x:Name="ToggleItemActiveButton"
+                                        Grid.Column="6"
+                                        Content="Désactiver"
+                                        Style="{StaticResource DangerButton}"
+                                        IsEnabled="False"
+                                        ToolTip="Désactiver l'article sélectionné"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        VerticalAlignment="Bottom"
+                                        Click="ToggleItemActiveButton_Click" />
+
+                                <Button x:Name="NewItemButton"
+                                        Grid.Column="8"
+                                        Content="Nouveau"
+                                        Style="{StaticResource GhostButton}"
+                                        ToolTip="Repartir sur un article vierge"
+                                        VerticalAlignment="Bottom"
+                                        Click="NewItemButton_Click" />
+
+                                <Button x:Name="SaveItemButton"
+                                        Grid.Column="10"
+                                        Content="Créer l'article"
+                                        Style="{StaticResource PrimaryButton}"
+                                        ToolTip="Enregistrer l'article"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        VerticalAlignment="Bottom"
+                                        Click="SaveItemButton_Click" />
+                            </Grid>
+
+                            <Grid Grid.Row="6">
+                                <DataGrid x:Name="ItemsDataGrid"
+                                          MinHeight="160"
+                                          SelectionChanged="ItemsDataGrid_SelectionChanged">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="120" />
+                                        <DataGridTextColumn Header="Désignation" Binding="{Binding Designation}" Width="*" />
+                                        <DataGridTextColumn Header="Unité" Binding="{Binding UnitOfMeasure}" Width="80" />
+                                        <DataGridTextColumn Header="Catégorie"
+                                                            Binding="{Binding Category, Converter={StaticResource StockItemCategoryLabelConverter}}"
+                                                            Width="120" />
+                                        <DataGridTextColumn Header="Seuil"
+                                                            Binding="{Binding MinimumQuantity, StringFormat={}{0:N3}}"
+                                                            Width="100"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTemplateColumn Header="État" Width="110" SortMemberPath="IsActive">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border x:Name="ItemBadge"
+                                                            CornerRadius="10"
+                                                            Padding="10,3"
+                                                            HorizontalAlignment="Left"
+                                                            VerticalAlignment="Center"
+                                                            Background="{StaticResource StatusValidatedBackgroundBrush}">
+                                                        <TextBlock x:Name="ItemBadgeText"
+                                                                   Text="Actif"
+                                                                   FontSize="11.5"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource StatusValidatedForegroundBrush}" />
+                                                    </Border>
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                            <Setter TargetName="ItemBadge" Property="Background" Value="{StaticResource StatusRejectedBackgroundBrush}" />
+                                                            <Setter TargetName="ItemBadgeText" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                            <Setter TargetName="ItemBadgeText" Property="Text" Value="Désactivé" />
+                                                        </DataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=ItemsDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <!-- Pictogramme au trait (etiquette d'article). -->
+                                    <Path Data="M2.5,2.5 H8.5 L13.5,7.5 L8,13 L3,8 Z M5,5 A0.9,0.9 0 1 0 5.1,5"
+                                          Stroke="{StaticResource BorderStrongBrush}"
+                                          StrokeThickness="1.5"
+                                          StrokeLineJoin="Round"
+                                          Width="44"
+                                          Height="38"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,10" />
+                                    <TextBlock Text="Aucun article"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Créez un premier article à l'aide du formulaire ci-dessus."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+
+                        </Grid>
+                    </Border>
+
+                    <!-- =============================== Magasins =============================== -->
+                    <Border Grid.Column="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="14" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="14" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <TextBlock x:Name="WarehouseFormModeTextBlock"
+                                           DockPanel.Dock="Right"
+                                           Text="Nouveau magasin"
+                                           Style="{StaticResource CaptionText}"
+                                           VerticalAlignment="Center" />
+
+                                <StackPanel>
+                                    <TextBlock Text="Magasins" Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock Text="Un magasin est rattaché à une unité hôtelière."
+                                               Style="{StaticResource SubtitleText}"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <StackPanel Grid.Row="2">
+                                <TextBlock Text="Code *" Style="{StaticResource LabelText}" />
+                                <TextBox x:Name="WarehouseCodeTextBox" MaxLength="40" />
+
+                                <TextBlock Text="Libellé *" Style="{StaticResource LabelText}" Margin="0,12,0,6" />
+                                <TextBox x:Name="WarehouseLabelTextBox" MaxLength="160" />
+
+                                <TextBlock Text="Unité hôtelière *" Style="{StaticResource LabelText}" Margin="0,12,0,6" />
+                                <ComboBox x:Name="WarehouseUnitComboBox"
+                                          DisplayMemberPath="Label"
+                                          SelectedValuePath="Code" />
+                            </StackPanel>
+
+                            <Grid Grid.Row="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <Button x:Name="ToggleWarehouseActiveButton"
+                                        Content="Désactiver"
+                                        Style="{StaticResource DangerButton}"
+                                        IsEnabled="False"
+                                        ToolTip="Désactiver le magasin sélectionné"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        Click="ToggleWarehouseActiveButton_Click" />
+
+                                <Button x:Name="NewWarehouseButton"
+                                        Grid.Column="2"
+                                        Content="Nouveau"
+                                        Style="{StaticResource GhostButton}"
+                                        ToolTip="Repartir sur un magasin vierge"
+                                        Click="NewWarehouseButton_Click" />
+
+                                <Button x:Name="SaveWarehouseButton"
+                                        Grid.Column="4"
+                                        Content="Créer le magasin"
+                                        Style="{StaticResource PrimaryButton}"
+                                        ToolTip="Enregistrer le magasin"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        Click="SaveWarehouseButton_Click" />
+                            </Grid>
+
+                            <Grid Grid.Row="6">
+                                <DataGrid x:Name="WarehousesDataGrid"
+                                          MinHeight="160"
+                                          SelectionChanged="WarehousesDataGrid_SelectionChanged">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="110" />
+                                        <DataGridTextColumn Header="Libellé" Binding="{Binding Label}" Width="*" />
+                                        <DataGridTextColumn Header="Unité" Binding="{Binding HotelUnitCode}" Width="100" />
+                                        <DataGridTemplateColumn Header="État" Width="110" SortMemberPath="IsActive">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border x:Name="WarehouseBadge"
+                                                            CornerRadius="10"
+                                                            Padding="10,3"
+                                                            HorizontalAlignment="Left"
+                                                            VerticalAlignment="Center"
+                                                            Background="{StaticResource StatusValidatedBackgroundBrush}">
+                                                        <TextBlock x:Name="WarehouseBadgeText"
+                                                                   Text="Actif"
+                                                                   FontSize="11.5"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource StatusValidatedForegroundBrush}" />
+                                                    </Border>
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                            <Setter TargetName="WarehouseBadge" Property="Background" Value="{StaticResource StatusRejectedBackgroundBrush}" />
+                                                            <Setter TargetName="WarehouseBadgeText" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                            <Setter TargetName="WarehouseBadgeText" Property="Text" Value="Désactivé" />
+                                                        </DataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=WarehousesDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <!-- Pictogramme au trait (magasin). -->
+                                    <Path Data="M2,7 L8,2.5 L14,7 M3.5,7 V13.5 H12.5 V7 M6.5,13.5 V9.5 H9.5 V13.5"
+                                          Stroke="{StaticResource BorderStrongBrush}"
+                                          StrokeThickness="1.5"
+                                          StrokeLineJoin="Round"
+                                          Width="44"
+                                          Height="38"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,10" />
+                                    <TextBlock Text="Aucun magasin"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Créez un premier magasin à l'aide du formulaire ci-dessus."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ================================= Inventaires ================================= -->
+            <TabItem Header="Inventaires">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="470" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="14" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="14" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Inventaires physiques" Style="{StaticResource SectionTitleText}" />
+                                <TextBlock Text="Un inventaire se compte en brouillon ; sa validation génère les mouvements d'ajustement (écart entre le comptage et le stock théorique) puis le fige définitivement."
+                                           Style="{StaticResource SubtitleText}"
+                                           Margin="0,4,0,0"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <Border Grid.Row="2" Style="{StaticResource SubtleCardBorder}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="220" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="160" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="190" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel>
+                                        <TextBlock Text="Magasin *" Style="{StaticResource LabelText}" />
+                                        <ComboBox x:Name="CountWarehouseComboBox"
+                                                  DisplayMemberPath="Label"
+                                                  SelectedValuePath="Code" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Date de comptage *" Style="{StaticResource LabelText}" />
+                                        <DatePicker x:Name="CountDatePicker" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Text="Statut (filtre)" Style="{StaticResource LabelText}" />
+                                        <ComboBox x:Name="CountFilterStatusComboBox" DisplayMemberPath="Label" />
+                                    </StackPanel>
+
+                                    <Button x:Name="RefreshCountsButton"
+                                            Grid.Column="6"
+                                            Content="Filtrer"
+                                            Style="{StaticResource SecondaryButton}"
+                                            ToolTip="Recharger la liste des inventaires"
+                                            VerticalAlignment="Bottom"
+                                            Click="RefreshCountsButton_Click" />
+
+                                    <Button x:Name="CreateCountButton"
+                                            Grid.Column="8"
+                                            Content="Ouvrir un inventaire"
+                                            Style="{StaticResource PrimaryButton}"
+                                            ToolTip="Ouvrir un inventaire en brouillon pour ce magasin"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            VerticalAlignment="Bottom"
+                                            Click="CreateCountButton_Click" />
+                                </Grid>
+                            </Border>
+
+                            <Grid Grid.Row="4">
+                                <DataGrid x:Name="CountsDataGrid"
+                                          MinHeight="200"
+                                          SelectionChanged="CountsDataGrid_SelectionChanged">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Date"
+                                                            Binding="{Binding CountDate, StringFormat={}{0:dd/MM/yyyy}}"
+                                                            Width="105" />
+                                        <DataGridTextColumn Header="Magasin" Binding="{Binding WarehouseCode}" Width="120" />
+                                        <DataGridTextColumn Header="Lignes"
+                                                            Binding="{Binding Lines.Count}"
+                                                            Width="80"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTemplateColumn Header="Statut" Width="120" SortMemberPath="Status">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border x:Name="CountBadge"
+                                                            CornerRadius="10"
+                                                            Padding="10,3"
+                                                            HorizontalAlignment="Left"
+                                                            VerticalAlignment="Center"
+                                                            Background="{StaticResource StatusDraftBackgroundBrush}">
+                                                        <TextBlock x:Name="CountBadgeText"
+                                                                   Text="Brouillon"
+                                                                   FontSize="11.5"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource StatusDraftForegroundBrush}" />
+                                                    </Border>
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Validated">
+                                                            <Setter TargetName="CountBadge" Property="Background" Value="{StaticResource StatusValidatedBackgroundBrush}" />
+                                                            <Setter TargetName="CountBadgeText" Property="Foreground" Value="{StaticResource StatusValidatedForegroundBrush}" />
+                                                            <Setter TargetName="CountBadgeText" Property="Text" Value="Validé" />
+                                                        </DataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Validé le"
+                                                            Binding="{Binding ValidatedAt, Converter={StaticResource UtcToLocalTimeConverter}, StringFormat={}{0:dd/MM/yyyy HH:mm}}"
+                                                            Width="140"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                        <DataGridTextColumn Header="Validé par"
+                                                            Binding="{Binding ValidatedBy}"
+                                                            Width="*"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=CountsDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <!-- Pictogramme au trait (presse-papiers de comptage). -->
+                                    <Path Data="M5.5,2.5 H10.5 V4.5 H5.5 Z M5,3.5 H3.5 V13.5 H12.5 V3.5 H11 M6,7.5 H10 M6,10 H10"
+                                          Stroke="{StaticResource BorderStrongBrush}"
+                                          StrokeThickness="1.5"
+                                          StrokeLineJoin="Round"
+                                          Width="44"
+                                          Height="40"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,10" />
+                                    <TextBlock Text="Aucun inventaire"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Ouvrez un inventaire pour un magasin à l'aide du formulaire ci-dessus."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- ============================ Comptages du brouillon ============================ -->
+                    <Border Grid.Column="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="14" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel>
+                                <TextBlock x:Name="CountDetailTitleTextBlock"
+                                           Text="Comptages"
+                                           Style="{StaticResource SectionTitleText}" />
+                                <TextBlock x:Name="CountDetailHintTextBlock"
+                                           Text="Sélectionnez un inventaire pour saisir ses comptages."
+                                           Style="{StaticResource SubtitleText}"
+                                           Margin="0,4,0,0"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Article" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="CountLineItemComboBox"
+                                              DisplayMemberPath="Label"
+                                              SelectedValuePath="Code" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Quantité comptée" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="CountLineQuantityTextBox"
+                                             Style="{StaticResource AmountTextBox}"
+                                             MaxLength="20"
+                                             ToolTip="Quantité trouvée en rayon : 0 est un comptage valide (« il ne reste rien »)" />
+                                </StackPanel>
+
+                                <Button x:Name="AddCountLineButton"
+                                        Grid.Column="4"
+                                        Content="Ajouter"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Ajouter cette ligne au comptage"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        VerticalAlignment="Bottom"
+                                        Click="AddCountLineButton_Click" />
+                            </Grid>
+
+                            <Grid Grid.Row="4">
+                                <DataGrid x:Name="CountLinesDataGrid"
+                                          MinHeight="160"
+                                          SelectionChanged="CountLinesDataGrid_SelectionChanged">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Article" Binding="{Binding ItemCode}" Width="120" />
+                                        <DataGridTextColumn Header="Désignation" Binding="{Binding Designation}" Width="*" />
+                                        <DataGridTextColumn Header="Comptée"
+                                                            Binding="{Binding CountedQuantity, StringFormat={}{0:N3}}"
+                                                            Width="110"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=CountLinesDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <!-- Pictogramme au trait (liste de comptage). -->
+                                    <Path Data="M3,4 H4.5 M6.5,4 H13 M3,8 H4.5 M6.5,8 H13 M3,12 H4.5 M6.5,12 H13"
+                                          Stroke="{StaticResource BorderStrongBrush}"
+                                          StrokeThickness="1.5"
+                                          StrokeLineJoin="Round"
+                                          Width="42"
+                                          Height="36"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,10" />
+                                    <TextBlock Text="Aucune ligne comptée"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Ajoutez les articles comptés en rayon, puis enregistrez le comptage."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Grid.Row="6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <Button x:Name="RemoveCountLineButton"
+                                        Content="Retirer la ligne"
+                                        Style="{StaticResource GhostButton}"
+                                        IsEnabled="False"
+                                        ToolTip="Retirer du comptage la ligne sélectionnée"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        Click="RemoveCountLineButton_Click" />
+
+                                <Button x:Name="SaveCountLinesButton"
+                                        Grid.Column="2"
+                                        Content="Enregistrer le comptage"
+                                        Style="{StaticResource SecondaryButton}"
+                                        IsEnabled="False"
+                                        ToolTip="Remplacer les comptages de l'inventaire par ceux affichés"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        Click="SaveCountLinesButton_Click" />
+
+                                <Button x:Name="ValidateCountButton"
+                                        Grid.Column="4"
+                                        Content="Valider l'inventaire"
+                                        Style="{StaticResource PrimaryButton}"
+                                        IsEnabled="False"
+                                        ToolTip="Générer les mouvements d'ajustement et figer l'inventaire"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        Click="ValidateCountButton_Click" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

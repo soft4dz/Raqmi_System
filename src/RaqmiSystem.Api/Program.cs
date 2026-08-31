@@ -162,6 +162,8 @@ api.MapTreasuryEndpoints();
 api.MapBillingEndpoints();
 api.MapTariffsEndpoints();
 api.MapLodgingEndpoints();
+api.MapHousekeepingEndpoints();
+api.MapCrmEndpoints();
 api.MapSettingsEndpoints();
 api.MapAccountEndpoints();
 api.MapAccountingEndpoints();
@@ -171,6 +173,10 @@ api.MapApprovalsEndpoints();
 api.MapReportingEndpoints();
 api.MapMaintenanceEndpoints();
 api.MapPilotageEndpoints();
+api.MapHumanResourcesEndpoints();
+api.MapInventoryEndpoints();
+api.MapPurchasingEndpoints();
+api.MapKitchenEndpoints();
 
 app.Run();
 

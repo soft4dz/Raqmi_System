@@ -13,3 +13,6 @@ deploy/installer/output/
 *.db-shm
 *.db-wal
 .env
+
+# Brouillons de vagues : miroirs non compiles, integres ensuite dans src/
+staging/

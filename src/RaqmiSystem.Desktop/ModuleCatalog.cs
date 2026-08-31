@@ -43,10 +43,10 @@ public static class ModuleCatalog
 {
     // Totaux attendus - garde de coherence verifiee au chargement du type.
     public const int ExpectedTotal = 49;
-    public const int ExpectedAvailable = 21;
+    public const int ExpectedAvailable = 27;
     public const int ExpectedApiReady = 0;
     public const int ExpectedPartial = 0;
-    public const int ExpectedPlanned = 28;
+    public const int ExpectedPlanned = 22;
 
     // Libelles affiches des groupes fonctionnels (ordre d'apparition).
     public static class Groups
@@ -86,9 +86,11 @@ public static class ModuleCatalog
     static ModuleCatalog()
     {
         // Garde de coherence : le tableau de verite du depot compte 49 modules,
-        // repartis en 21 Disponible / 0 API prete / 0 Partiel / 28 Planifie.
+        // repartis en 27 Disponible / 0 API prete / 0 Partiel / 22 Planifie.
         // Plus AUCUN module partiel : les deux derniers (Dashboard PDG 24.2 et
         // Cockpit DEC 24.4) ont recu leur ecran dedie et sont passes Disponible.
+        // La vague E1 fait passer trois modules d'exploitation de Planifie a
+        // Disponible : Stocks (11), Cuisine (11.5) et Achats (12).
         // Toute edition qui casse ces totaux doit etre volontaire et reportee ici.
         EnsureCount("total", Entries.Count, ExpectedTotal);
         EnsureCount("Disponible", CountOf(ModuleStatus.Disponible), ExpectedAvailable);
@@ -145,25 +147,33 @@ public static class ModuleCatalog
             "P1", ModuleStatus.Disponible, PermissionCatalog.LodgingRead, 15),
         new ModuleCatalogEntry("10.2", Groups.Exploitation, "Housekeeping & chambres",
             "Planning des équipes, inspection, minibar",
-            "P2", ModuleStatus.Planifie),
+            "P2", ModuleStatus.Disponible, PermissionCatalog.HousekeepingRead, 21),
         new ModuleCatalogEntry("10.4", Groups.Exploitation, "CRM & expérience client",
-            "Vue client 360°, fidélité, campagnes, NPS",
-            "P2", ModuleStatus.Planifie),
+            "Vue client 360°, segmentation, fidélité, campagnes et NPS",
+            "P2", ModuleStatus.Disponible, PermissionCatalog.CrmRead, 23),
         new ModuleCatalogEntry("10.6", Groups.Exploitation, "Groupes & MICE",
             "Rooming lists, allotements, salles et BEO",
             "P2", ModuleStatus.Planifie),
         new ModuleCatalogEntry("11", Groups.Exploitation, "Stocks & consommations",
-            "Magasins, lots et péremption, inventaires",
-            "P2", ModuleStatus.Planifie),
+            "Magasins, articles, mouvements valorisés au PMP et inventaires physiques",
+            "P2", ModuleStatus.Disponible, PermissionCatalog.InventoryRead, 24),
+        // Perimetre livre, dit tel quel : fiches techniques avec cout matiere lu du stock,
+        // points de controle HACCP et releves de temperature. Le menu engineering et la
+        // tracabilite complete des lots ne sont PAS developpes - la description ne les
+        // annonce donc pas.
         new ModuleCatalogEntry("11.5", Groups.Exploitation, "Cuisine, production & qualité",
-            "Fiches techniques, HACCP et allergènes",
-            "P2", ModuleStatus.Planifie),
+            "Fiches techniques, coût matière et relevés de température HACCP",
+            "P2", ModuleStatus.Disponible, PermissionCatalog.KitchenRead, 26),
         new ModuleCatalogEntry("11.6", Groups.Exploitation, "Points de vente (POS)",
             "Plan de salle, tickets et transfert au folio",
             "P2", ModuleStatus.Planifie),
+        // Perimetre livre, dit tel quel : fournisseurs, bons de commande numerotes a
+        // l'approbation et receptions qui alimentent le stock. Les demandes d'achat, les
+        // demandes de prix et les factures fournisseurs sont HORS perimetre - la
+        // description ne les annonce donc pas.
         new ModuleCatalogEntry("12", Groups.Exploitation, "Achats & approvisionnements",
-            "Fournisseurs, commandes et réceptions",
-            "P2", ModuleStatus.Planifie),
+            "Fournisseurs, bons de commande et réceptions entrées en stock",
+            "P2", ModuleStatus.Disponible, PermissionCatalog.PurchasingRead, 25),
         new ModuleCatalogEntry("12.5", Groups.Exploitation, "Appels d'offres",
             "Lots, ouverture des plis et attribution",
             "P2", ModuleStatus.Planifie),
@@ -189,9 +199,12 @@ public static class ModuleCatalog
             "P2", ModuleStatus.Planifie),
 
         // -------------------------------------------------- Ressources humaines
-        new ModuleCatalogEntry("21", Groups.RessourcesHumaines, "RH & productivité",
-            "Collaborateurs, temps de présence, formation",
-            "P2", ModuleStatus.Planifie),
+        new ModuleCatalogEntry("21", Groups.RessourcesHumaines, "RH & paie",
+            "Collaborateurs, contrats, temps et absences, paie algérienne",
+            "P2", ModuleStatus.Disponible, PermissionCatalog.HrRead, 22),
+        // Reste planifie en toute rigueur : le module RH consomme des pointages, mais la
+        // synchronisation des badgeuses (import ZKTeco, logs bruts, rapprochement des badges)
+        // n'est pas developpee. Annoncer "Disponible" ici serait faux sur la carte du module.
         new ModuleCatalogEntry("21.2", Groups.RessourcesHumaines, "Pointeuses & badgeuses",
             "Import des pointages et réconciliation",
             "P2", ModuleStatus.Planifie),

@@ -1,0 +1,1339 @@
+<UserControl x:Class="RaqmiSystem.Desktop.Views.KitchenView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:views="clr-namespace:RaqmiSystem.Desktop.Views"
+             mc:Ignorable="d"
+             d:DesignWidth="1280"
+             d:DesignHeight="820"
+             FontFamily="{StaticResource AppFontFamily}">
+
+    <!-- =========================================================================
+         Module Cuisine, production & qualite (11.5). Trois sections internes :
+         fiches techniques (avec cout matiere par portion), releves HACCP et
+         administration des points de controle. Le gabarit d'onglets internes est
+         celui de TreasuryView, seule reference du depot pour un module a
+         plusieurs sections independantes.
+
+         Perimetre assume : ni menu engineering, ni suivi du gaspillage, ni
+         tracabilite des lots - l'ecran ne promet rien de tout cela.
+         ========================================================================= -->
+
+    <UserControl.Resources>
+        <views:KitchenMomentConverter x:Key="KitchenMomentConverter" />
+        <views:RecipeCategoryLabelConverter x:Key="RecipeCategoryLabelConverter" />
+
+        <!-- Onglets internes du module : le style implicite du theme supprime les
+             en-tetes (le panneau lateral est l'unique navigation de l'application),
+             ce module a donc besoin de son propre gabarit d'onglets visibles. -->
+        <Style x:Key="SectionTabItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Grid SnapsToDevicePixels="True">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Border x:Name="tabBackground"
+                                    Background="Transparent"
+                                    CornerRadius="6,6,0,0"
+                                    Padding="18,9">
+                                <ContentPresenter ContentSource="Header"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
+                            </Border>
+
+                            <Rectangle x:Name="tabIndicator"
+                                       Grid.Row="1"
+                                       Height="2.5"
+                                       Fill="{StaticResource AccentBrush}"
+                                       Opacity="0" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="tabBackground" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="tabBackground" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="tabIndicator" Property="Opacity" Value="1" />
+                                <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SectionTabControl" TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource SectionTabItem}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border BorderBrush="{StaticResource PanelBorderBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <TabPanel IsItemsHost="True" HorizontalAlignment="Left" />
+                            </Border>
+
+                            <ContentPresenter Grid.Row="1"
+                                              Margin="0,16,0,0"
+                                              ContentSource="SelectedContent" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Rappel d'une regle metier du serveur, affiche sous le bloc concerne. -->
+        <Style x:Key="BusinessRuleText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style x:Key="FieldHintText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+            <Setter Property="Margin" Value="0,4,0,0" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- Bandeau d'avertissement : signale a l'ecran qu'un chiffre affiche ne
+             couvre pas tout ce que son libelle laisse croire. -->
+        <Style x:Key="WarningBanner" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource StatusSubmittedBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14,9" />
+        </Style>
+
+        <Style x:Key="WarningBannerText" TargetType="TextBlock" BasedOn="{StaticResource BodyText}">
+            <Setter Property="Foreground" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- Champs de saisie a l'interieur de la grille des ingredients : plus
+             compacts que les champs de formulaire, memes bordures et memes etats
+             (gabarit d'InvoicesView). -->
+        <Style x:Key="LineEditorTextBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Margin" Value="0,6" />
+            <Setter Property="FontSize" Value="12.5" />
+        </Style>
+
+        <Style x:Key="LineEditorAmountTextBox" TargetType="TextBox" BasedOn="{StaticResource LineEditorTextBox}">
+            <Setter Property="TextAlignment" Value="Right" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============================== En-tete du module ============================== -->
+        <DockPanel>
+            <Button x:Name="RefreshAllButton"
+                    DockPanel.Dock="Right"
+                    Content="Tout actualiser"
+                    Style="{StaticResource SecondaryButton}"
+                    ToolTip="Recharger les fiches techniques, les points de contrôle et les relevés"
+                    VerticalAlignment="Center"
+                    Click="RefreshAllButton_Click" />
+
+            <StackPanel>
+                <TextBlock Text="Cuisine, production &amp; qualité"
+                           Style="{StaticResource PageTitleText}" />
+                <TextBlock Text="Fiches techniques et coût matière, relevés de température HACCP et points de contrôle."
+                           Style="{StaticResource SubtitleText}"
+                           Margin="0,4,0,0" />
+            </StackPanel>
+        </DockPanel>
+
+        <TabControl x:Name="KitchenTabs"
+                    Grid.Row="2"
+                    Style="{StaticResource SectionTabControl}">
+
+            <!-- ============================== Fiches techniques ============================== -->
+            <TabItem Header="Fiches techniques">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Recherche et liste par categorie -->
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <StackPanel Orientation="Horizontal"
+                                            DockPanel.Dock="Right"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center">
+                                    <TextBox x:Name="RecipeSearchTextBox"
+                                             Width="220"
+                                             MaxLength="200"
+                                             Tag="Rechercher par code ou nom"
+                                             ToolTip="Filtrer les fiches par code ou par nom, puis appuyer sur Entrée"
+                                             Margin="0,0,12,0"
+                                             KeyDown="RecipeSearchTextBox_KeyDown" />
+
+                                    <ComboBox x:Name="RecipeCategoryFilterComboBox"
+                                              Width="180"
+                                              DisplayMemberPath="Label"
+                                              ToolTip="Restreindre la liste à une catégorie"
+                                              Margin="0,0,12,0"
+                                              SelectionChanged="RecipeCategoryFilterComboBox_SelectionChanged" />
+
+                                    <CheckBox x:Name="IncludeInactiveRecipesCheckBox"
+                                              Content="Inclure les fiches inactives"
+                                              ToolTip="Afficher aussi les fiches désactivées"
+                                              VerticalAlignment="Center"
+                                              Margin="0,0,14,0"
+                                              Click="IncludeInactiveRecipesCheckBox_Click" />
+
+                                    <Button x:Name="RefreshRecipesButton"
+                                            Content="Actualiser"
+                                            Style="{StaticResource SecondaryButton}"
+                                            ToolTip="Recharger la liste des fiches techniques"
+                                            Click="RefreshRecipesButton_Click" />
+                                </StackPanel>
+
+                                <StackPanel>
+                                    <TextBlock Text="Fiches techniques"
+                                               Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock x:Name="RecipeCountTextBlock"
+                                               Text="Aucune fiche chargée."
+                                               Style="{StaticResource SubtitleText}"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <Grid Grid.Row="2">
+                                <DataGrid x:Name="RecipesDataGrid"
+                                          MinHeight="140"
+                                          MaxHeight="220"
+                                          SelectionChanged="RecipesDataGrid_SelectionChanged">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="130" />
+                                        <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="*" />
+                                        <DataGridTextColumn Header="Catégorie"
+                                                            Binding="{Binding Category, Converter={StaticResource RecipeCategoryLabelConverter}}"
+                                                            Width="150" />
+                                        <DataGridTextColumn Header="Portions"
+                                                            Binding="{Binding YieldPortions}"
+                                                            Width="90"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Ingrédients"
+                                                            Binding="{Binding Ingredients.Count}"
+                                                            Width="100"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Allergènes"
+                                                            Binding="{Binding Allergens}"
+                                                            Width="220"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                        <DataGridTemplateColumn Header="État" Width="110" SortMemberPath="IsActive">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border x:Name="RecipeStatusBadge"
+                                                            CornerRadius="10"
+                                                            Padding="10,3"
+                                                            HorizontalAlignment="Left"
+                                                            VerticalAlignment="Center"
+                                                            Background="{StaticResource StatusValidatedBackgroundBrush}">
+                                                        <TextBlock x:Name="RecipeStatusBadgeText"
+                                                                   Text="Actif"
+                                                                   FontSize="11.5"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource StatusValidatedForegroundBrush}" />
+                                                    </Border>
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                            <Setter TargetName="RecipeStatusBadge" Property="Background" Value="{StaticResource StatusRejectedBackgroundBrush}" />
+                                                            <Setter TargetName="RecipeStatusBadgeText" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                            <Setter TargetName="RecipeStatusBadgeText" Property="Text" Value="Inactif" />
+                                                        </DataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=RecipesDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <!-- Pictogramme au trait (toque) : meme langage que les
+                                         autres etats vides, jamais d'emoji ni de bitmap. -->
+                                    <Path Data="M4,14 H12 M4,14 V9 A2.6,2.6 0 0 1 5.4,4.2 A2.6,2.6 0 0 1 10.6,4.2 A2.6,2.6 0 0 1 12,9 V14"
+                                          Stroke="{StaticResource BorderStrongBrush}"
+                                          StrokeThickness="1.5"
+                                          StrokeLineJoin="Round"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          Width="44"
+                                          Height="38"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,10" />
+                                    <TextBlock Text="Aucune fiche technique"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Élargissez la recherche, retirez le filtre de catégorie ou créez une première fiche ci-dessous."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- Fiche selectionnee : entete, ingredients, cout matiere -->
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="14" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="12" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="12" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="16" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="10" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="16" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="14" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <DockPanel>
+                                    <TextBlock x:Name="RecipeFormModeTextBlock"
+                                               DockPanel.Dock="Right"
+                                               Text="Nouvelle fiche"
+                                               Style="{StaticResource CaptionText}"
+                                               VerticalAlignment="Center" />
+
+                                    <StackPanel>
+                                        <TextBlock x:Name="RecipeFormTitleTextBlock"
+                                                   Text="Nouvelle fiche technique"
+                                                   Style="{StaticResource SectionTitleText}" />
+                                        <TextBlock Text="Une fiche comporte au moins un ingrédient et rend un nombre de portions strictement positif ; chaque ingrédient référence un article du stock."
+                                                   Style="{StaticResource SubtitleText}"
+                                                   Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </DockPanel>
+
+                                <!-- Identite de la fiche -->
+                                <Grid Grid.Row="2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="170" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="190" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="130" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel>
+                                        <TextBlock Text="Code *" Style="{StaticResource LabelText}" />
+                                        <!-- Bornes du domaine (RecipeSheet.Code : 40 caracteres). -->
+                                        <TextBox x:Name="RecipeCodeTextBox"
+                                                 MaxLength="40"
+                                                 Tag="ex. FT-0001" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Nom *" Style="{StaticResource LabelText}" />
+                                        <!-- Bornes du domaine (RecipeSheet.Name : 200 caracteres). -->
+                                        <TextBox x:Name="RecipeNameTextBox"
+                                                 MaxLength="200"
+                                                 Tag="Intitulé de la préparation" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Text="Catégorie *" Style="{StaticResource LabelText}" />
+                                        <ComboBox x:Name="RecipeCategoryComboBox"
+                                                  DisplayMemberPath="Label"
+                                                  SelectedValuePath="Value" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="6">
+                                        <TextBlock Text="Portions *" Style="{StaticResource LabelText}" />
+                                        <TextBox x:Name="RecipeYieldPortionsTextBox"
+                                                 Style="{StaticResource AmountTextBox}"
+                                                 MaxLength="6"
+                                                 ToolTip="Nombre de portions rendues par la recette complète : au moins 1"
+                                                 Tag="1"
+                                                 TextChanged="RecipeYieldPortionsTextBox_TextChanged" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Allergenes : saisie libre assumee -->
+                                <StackPanel Grid.Row="4">
+                                    <TextBlock Text="Allergènes" Style="{StaticResource LabelText}" />
+                                    <!-- Bornes du domaine (RecipeSheet.Allergens : 300 caracteres). -->
+                                    <TextBox x:Name="RecipeAllergensTextBox"
+                                             MaxLength="300"
+                                             Tag="ex. gluten, lait, fruits à coque" />
+                                    <TextBlock Text="Saisie libre : aucune nomenclature réglementaire n'est imposée par l'application. Les mentions écrites ici sont celles dont la cuisine est responsable."
+                                               Style="{StaticResource FieldHintText}" />
+                                </StackPanel>
+
+                                <!-- Instructions -->
+                                <StackPanel Grid.Row="6">
+                                    <TextBlock Text="Instructions de préparation" Style="{StaticResource LabelText}" />
+                                    <!-- Bornes du domaine (RecipeSheet.Instructions : 4000 caracteres). -->
+                                    <TextBox x:Name="RecipeInstructionsTextBox"
+                                             MaxLength="4000"
+                                             MinHeight="72"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             VerticalScrollBarVisibility="Auto"
+                                             Tag="Déroulé de la préparation" />
+                                </StackPanel>
+
+                                <!-- Ingredients -->
+                                <DockPanel Grid.Row="8">
+                                    <Button x:Name="AddIngredientButton"
+                                            DockPanel.Dock="Right"
+                                            Content="Ajouter un ingrédient"
+                                            Style="{StaticResource GhostButton}"
+                                            ToolTip="Ajouter une ligne d'ingrédient à la fiche"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            VerticalAlignment="Center"
+                                            Click="AddIngredientButton_Click" />
+
+                                    <StackPanel>
+                                        <TextBlock Text="Ingrédients" Style="{StaticResource SectionTitleText}" FontSize="14" />
+                                        <TextBlock Text="Chaque ligne référence un article du stock par son code ; un même article n'apparaît qu'une seule fois. Quantités pour la recette complète, 3 décimales au maximum."
+                                                   Style="{StaticResource BusinessRuleText}"
+                                                   Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </DockPanel>
+
+                                <Grid Grid.Row="10">
+                                    <DataGrid x:Name="IngredientsDataGrid"
+                                              MinHeight="110"
+                                              MaxHeight="200"
+                                              CanUserSortColumns="False"
+                                              VerticalScrollBarVisibility="Auto">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="N°"
+                                                                Binding="{Binding LineNumber, Mode=OneWay}"
+                                                                Width="52"
+                                                                ElementStyle="{StaticResource MutedCellText}" />
+
+                                            <DataGridTemplateColumn Header="Code article" Width="200">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <!-- Bornes du domaine (RecipeIngredient.ItemCode : 40). -->
+                                                        <TextBox Text="{Binding ItemCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Style="{StaticResource LineEditorTextBox}"
+                                                                 MaxLength="40"
+                                                                 Tag="Code de l'article de stock" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+
+                                            <DataGridTemplateColumn Header="Quantité" Width="130" HeaderStyle="{StaticResource RightAlignedColumnHeader}">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBox Text="{Binding QuantityText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Style="{StaticResource LineEditorAmountTextBox}"
+                                                                 ToolTip="Strictement positive, 3 décimales au maximum" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+
+                                            <DataGridTemplateColumn Header="Note" Width="*">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <!-- Bornes du domaine (RecipeIngredient.Notes : 300). -->
+                                                        <TextBox Text="{Binding Notes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Style="{StaticResource LineEditorTextBox}"
+                                                                 MaxLength="300"
+                                                                 Tag="Précision facultative (parage, cuisson...)" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+
+                                            <DataGridTemplateColumn Header="" Width="52">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <!-- Croix dessinee au trait : le trait suit la couleur du
+                                                             texte du bouton, donc ses etats survol / desactive. -->
+                                                        <Button Style="{StaticResource GhostButton}"
+                                                                Foreground="{StaticResource DangerBrush}"
+                                                                MinHeight="26"
+                                                                Padding="8,2"
+                                                                ToolTip="Retirer cet ingrédient"
+                                                                Click="RemoveIngredientButton_Click">
+                                                            <Path Data="M4.5,4.5 L11.5,11.5 M11.5,4.5 L4.5,11.5"
+                                                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                                  StrokeThickness="1.5"
+                                                                  StrokeStartLineCap="Round"
+                                                                  StrokeEndLineCap="Round"
+                                                                  StrokeLineJoin="Round"
+                                                                  Width="10"
+                                                                  Height="10"
+                                                                  Stretch="Uniform" />
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+
+                                    <StackPanel HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                IsHitTestVisible="False">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Items.Count, ElementName=IngredientsDataGrid}" Value="0">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <!-- Lignes de document au trait, gabarit des autres etats vides. -->
+                                        <Path Data="M2,4 H14 M2,8 H14 M2,12 H10"
+                                              Stroke="{StaticResource BorderStrongBrush}"
+                                              StrokeThickness="1.5"
+                                              StrokeLineJoin="Round"
+                                              Width="42"
+                                              Height="30"
+                                              Stretch="Uniform"
+                                              HorizontalAlignment="Center"
+                                              Margin="0,0,0,10" />
+                                        <TextBlock Text="Aucun ingrédient dans cette fiche"
+                                                   Style="{StaticResource EmptyStateTitleText}" />
+                                        <TextBlock Text="Une fiche technique doit comporter au moins un ingrédient pour être enregistrée."
+                                                   Style="{StaticResource EmptyStateHintText}" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Cout matiere : chiffres du serveur, jamais recalcules ici -->
+                                <Border Grid.Row="12" Style="{StaticResource SubtleCardBorder}">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="12" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="10" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="10" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <DockPanel>
+                                            <Button x:Name="RefreshRecipeCostButton"
+                                                    DockPanel.Dock="Right"
+                                                    Content="Recalculer le coût"
+                                                    Style="{StaticResource SecondaryButton}"
+                                                    ToolTip="Recalculer le coût matière sur les PMP courants du stock"
+                                                    VerticalAlignment="Center"
+                                                    Click="RefreshRecipeCostButton_Click" />
+
+                                            <TextBlock Text="Coût matière"
+                                                       Style="{StaticResource SectionTitleText}"
+                                                       FontSize="14"
+                                                       VerticalAlignment="Center" />
+                                        </DockPanel>
+
+                                        <StackPanel Grid.Row="2" Orientation="Horizontal">
+                                            <StackPanel Margin="0,0,34,0">
+                                                <TextBlock Text="Coût matière par portion" Style="{StaticResource MetricLabelText}" />
+                                                <TextBlock x:Name="CostPerPortionTextBlock"
+                                                           Text="—"
+                                                           Style="{StaticResource MetricValueText}"
+                                                           FontSize="22"
+                                                           Foreground="{StaticResource AccentBrush}" />
+                                            </StackPanel>
+                                            <StackPanel Margin="0,0,30,0">
+                                                <TextBlock Text="Coût matière total" Style="{StaticResource MetricLabelText}" />
+                                                <TextBlock x:Name="CostTotalTextBlock"
+                                                           Text="—"
+                                                           Style="{StaticResource MetricValueText}" />
+                                            </StackPanel>
+                                            <StackPanel Margin="0,0,30,0">
+                                                <TextBlock Text="Portions rendues" Style="{StaticResource MetricLabelText}" />
+                                                <TextBlock x:Name="CostYieldPortionsTextBlock"
+                                                           Text="—"
+                                                           Style="{StaticResource MetricValueText}" />
+                                            </StackPanel>
+                                            <StackPanel>
+                                                <TextBlock Text="Calculé le" Style="{StaticResource MetricLabelText}" />
+                                                <TextBlock x:Name="CostComputedAtTextBlock"
+                                                           Text="—"
+                                                           Style="{StaticResource MetricValueText}" />
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <!-- Mention de base de calcul : le texte vient du serveur,
+                                             il n'est pas reecrit ici. -->
+                                        <TextBlock x:Name="CostBasisTextBlock"
+                                                   Grid.Row="3"
+                                                   Text="Les coûts affichés sont les coûts moyens pondérés (PMP) courants du stock."
+                                                   Style="{StaticResource BusinessRuleText}"
+                                                   Margin="0,8,0,0" />
+
+                                        <Border x:Name="CostWarningBorder"
+                                                Grid.Row="5"
+                                                Style="{StaticResource WarningBanner}"
+                                                Visibility="Collapsed">
+                                            <TextBlock x:Name="CostWarningTextBlock"
+                                                       Style="{StaticResource WarningBannerText}" />
+                                        </Border>
+
+                                        <Grid Grid.Row="7">
+                                            <DataGrid x:Name="IngredientCostsDataGrid"
+                                                      MinHeight="110"
+                                                      MaxHeight="190"
+                                                      CanUserSortColumns="False">
+                                                <DataGrid.Columns>
+                                                    <DataGridTextColumn Header="N°" Binding="{Binding LineNumber}" Width="52" ElementStyle="{StaticResource MutedCellText}" />
+                                                    <DataGridTextColumn Header="Article" Binding="{Binding ItemCode}" Width="180" />
+                                                    <DataGridTextColumn Header="Quantité"
+                                                                        Binding="{Binding Quantity, StringFormat={}{0:N3}}"
+                                                                        Width="120"
+                                                                        ElementStyle="{StaticResource AmountCellText}"
+                                                                        HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                                    <DataGridTextColumn Header="Unité" Binding="{Binding UnitOfMeasure}" Width="90" ElementStyle="{StaticResource MutedCellText}" />
+                                                    <DataGridTextColumn Header="PMP unitaire"
+                                                                        Binding="{Binding AverageUnitCost, StringFormat={}{0:N2}}"
+                                                                        Width="130"
+                                                                        ElementStyle="{StaticResource AmountCellText}"
+                                                                        HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                                    <DataGridTextColumn Header="Coût de la ligne"
+                                                                        Binding="{Binding LineCost, StringFormat={}{0:N2}}"
+                                                                        Width="150"
+                                                                        ElementStyle="{StaticResource TotalCellText}"
+                                                                        HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                                    <DataGridTemplateColumn Header="Coût connu" Width="*" SortMemberPath="HasCost">
+                                                        <DataGridTemplateColumn.CellTemplate>
+                                                            <DataTemplate>
+                                                                <Border x:Name="CostBadge"
+                                                                        CornerRadius="10"
+                                                                        Padding="10,3"
+                                                                        HorizontalAlignment="Left"
+                                                                        VerticalAlignment="Center"
+                                                                        Background="{StaticResource StatusValidatedBackgroundBrush}">
+                                                                    <TextBlock x:Name="CostBadgeText"
+                                                                               Text="Coût connu"
+                                                                               FontSize="11.5"
+                                                                               FontWeight="SemiBold"
+                                                                               Foreground="{StaticResource StatusValidatedForegroundBrush}" />
+                                                                </Border>
+                                                                <DataTemplate.Triggers>
+                                                                    <DataTrigger Binding="{Binding HasCost}" Value="False">
+                                                                        <Setter TargetName="CostBadge" Property="Background" Value="{StaticResource StatusRejectedBackgroundBrush}" />
+                                                                        <Setter TargetName="CostBadgeText" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                                        <Setter TargetName="CostBadgeText" Property="Text" Value="Sans coût — exclu du total" />
+                                                                    </DataTrigger>
+                                                                </DataTemplate.Triggers>
+                                                            </DataTemplate>
+                                                        </DataGridTemplateColumn.CellTemplate>
+                                                    </DataGridTemplateColumn>
+                                                </DataGrid.Columns>
+                                            </DataGrid>
+
+                                            <StackPanel HorizontalAlignment="Center"
+                                                        VerticalAlignment="Center"
+                                                        IsHitTestVisible="False">
+                                                <StackPanel.Style>
+                                                    <Style TargetType="StackPanel">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Items.Count, ElementName=IngredientCostsDataGrid}" Value="0">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </StackPanel.Style>
+                                                <!-- Etiquette de prix au trait. -->
+                                                <Path Data="M2.5,8.5 L8,3 H13 V8 L7.5,13.5 Z M10.6,5.4 A0.6,0.6 0 1 0 11.8,5.4 A0.6,0.6 0 1 0 10.6,5.4"
+                                                      Stroke="{StaticResource BorderStrongBrush}"
+                                                      StrokeThickness="1.5"
+                                                      StrokeLineJoin="Round"
+                                                      Width="42"
+                                                      Height="34"
+                                                      Stretch="Uniform"
+                                                      HorizontalAlignment="Center"
+                                                      Margin="0,0,0,10" />
+                                                <TextBlock Text="Aucun coût calculé"
+                                                           Style="{StaticResource EmptyStateTitleText}" />
+                                                <TextBlock Text="Sélectionnez une fiche enregistrée : son coût matière est calculé par le serveur sur les PMP courants."
+                                                           Style="{StaticResource EmptyStateHintText}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Actions de la fiche -->
+                                <StackPanel Grid.Row="14" Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button x:Name="SaveRecipeButton"
+                                            Content="Créer la fiche"
+                                            Style="{StaticResource PrimaryButton}"
+                                            ToolTip="Enregistrer la fiche technique et ses ingrédients"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            Margin="0,0,10,0"
+                                            Click="SaveRecipeButton_Click" />
+
+                                    <Button x:Name="ResetRecipeFormButton"
+                                            Content="Nouvelle fiche"
+                                            Style="{StaticResource GhostButton}"
+                                            ToolTip="Abandonner la saisie en cours et repartir sur une fiche vierge"
+                                            Margin="0,0,10,0"
+                                            Click="ResetRecipeFormButton_Click" />
+
+                                    <Button x:Name="ActivateRecipeButton"
+                                            Content="Activer"
+                                            Style="{StaticResource SecondaryButton}"
+                                            IsEnabled="False"
+                                            ToolTip="Réactiver la fiche sélectionnée"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            Margin="0,0,10,0"
+                                            Click="ActivateRecipeButton_Click" />
+
+                                    <Button x:Name="DeactivateRecipeButton"
+                                            Content="Désactiver"
+                                            Style="{StaticResource DangerButton}"
+                                            IsEnabled="False"
+                                            ToolTip="Désactiver la fiche sélectionnée"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            Click="DeactivateRecipeButton_Click" />
+                                </StackPanel>
+                            </Grid>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ============================== Relevés HACCP ============================== -->
+            <TabItem Header="Relevés HACCP">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Saisie rapide -->
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Saisie rapide d'un relevé"
+                                           Style="{StaticResource SectionTitleText}" />
+                                <TextBlock Text="La conformité est jugée sur les seuils du point de contrôle au moment de la mesure, puis figée : modifier une plage plus tard ne réécrit jamais l'historique."
+                                           Style="{StaticResource SubtitleText}"
+                                           Margin="0,4,0,0" />
+                            </StackPanel>
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="300" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="160" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Point de contrôle *" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="ReadingCheckpointComboBox"
+                                              DisplayMemberPath="Label"
+                                              SelectedValuePath="Code"
+                                              ToolTip="Équipement ou zone dont la température est relevée"
+                                              SelectionChanged="ReadingCheckpointComboBox_SelectionChanged" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Température (°C) *" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="ReadingValueTextBox"
+                                             Style="{StaticResource AmountTextBox}"
+                                             MaxLength="8"
+                                             ToolTip="Valeur mesurée en degrés Celsius, 1 décimale au maximum"
+                                             Tag="0,0"
+                                             TextChanged="ReadingValueTextBox_TextChanged" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4" VerticalAlignment="Bottom">
+                                    <TextBlock Text="Conformité" Style="{StaticResource LabelText}" />
+                                    <Border x:Name="ReadingVerdictBorder"
+                                            CornerRadius="10"
+                                            Padding="14,7"
+                                            HorizontalAlignment="Left"
+                                            Background="{StaticResource StatusDraftBackgroundBrush}">
+                                        <TextBlock x:Name="ReadingVerdictTextBlock"
+                                                   Text="En attente d'une valeur"
+                                                   FontSize="12.5"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource StatusDraftForegroundBrush}" />
+                                    </Border>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6" VerticalAlignment="Bottom">
+                                    <TextBlock x:Name="ReadingRangeTextBlock"
+                                               Text="Sélectionnez un point de contrôle pour connaître sa plage de conformité."
+                                               Style="{StaticResource BusinessRuleText}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Grid.Row="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock x:Name="ReadingCorrectiveActionLabel"
+                                               Text="Action corrective"
+                                               Style="{StaticResource LabelText}" />
+                                    <!-- Bornes du domaine (TemperatureReading.CorrectiveAction : 500). -->
+                                    <TextBox x:Name="ReadingCorrectiveActionTextBox"
+                                             MaxLength="500"
+                                             Tag="Ce qui a été fait à la suite du relevé"
+                                             TextChanged="ReadingCorrectiveActionTextBox_TextChanged" />
+                                    <TextBlock x:Name="ReadingCorrectiveActionHintTextBlock"
+                                               Text="Obligatoire dès que la valeur sort de la plage : la traçabilité HACCP est précisément le récit de ce qui a été fait quand un contrôle a échoué."
+                                               Style="{StaticResource FieldHintText}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Bottom">
+                                    <Button x:Name="SaveReadingButton"
+                                            Content="Enregistrer le relevé"
+                                            Style="{StaticResource PrimaryButton}"
+                                            ToolTip="Enregistrer le relevé de température (un relevé n'est jamais modifiable ensuite)"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            Margin="0,0,10,0"
+                                            Click="SaveReadingButton_Click" />
+
+                                    <Button x:Name="ResetReadingFormButton"
+                                            Content="Vider le formulaire"
+                                            Style="{StaticResource SecondaryButton}"
+                                            ToolTip="Abandonner la saisie en cours"
+                                            Click="ResetReadingFormButton_Click" />
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Grid.Row="6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <CheckBox x:Name="BackdateReadingCheckBox"
+                                          Content="Relevé transcrit d'un registre papier"
+                                          ToolTip="Dater le relevé du moment réel de la mesure plutôt que de maintenant"
+                                          VerticalAlignment="Bottom"
+                                          Margin="0,0,0,6"
+                                          Click="BackdateReadingCheckBox_Click" />
+
+                                <StackPanel x:Name="BackdateDatePanel" Grid.Column="2" Visibility="Collapsed">
+                                    <TextBlock Text="Date de la mesure" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="ReadingMeasuredOnDatePicker" />
+                                </StackPanel>
+
+                                <StackPanel x:Name="BackdateTimePanel" Grid.Column="4" Visibility="Collapsed">
+                                    <TextBlock Text="Heure (hh:mm)" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="ReadingMeasuredAtTimeTextBox"
+                                             MaxLength="5"
+                                             ToolTip="Heure locale de la mesure, au format hh:mm"
+                                             Tag="08:00" />
+                                </StackPanel>
+
+                                <TextBlock Grid.Column="6"
+                                           Text="Sans transcription, le relevé est daté par le serveur au moment de l'enregistrement. Une mesure ne peut pas être datée dans le futur."
+                                           Style="{StaticResource BusinessRuleText}"
+                                           VerticalAlignment="Bottom"
+                                           Margin="0,0,0,6" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- Historique filtrable -->
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="10" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Historique des relevés"
+                                               Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock x:Name="ReadingCountTextBlock"
+                                               Text="Aucun relevé chargé."
+                                               Style="{StaticResource SubtitleText}"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Du" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="ReadingFromDatePicker" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Au" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="ReadingToDatePicker" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Point de contrôle" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="ReadingFilterCheckpointComboBox"
+                                              DisplayMemberPath="Label"
+                                              SelectedValuePath="Code" />
+                                </StackPanel>
+
+                                <CheckBox x:Name="NonCompliantOnlyCheckBox"
+                                          Grid.Column="6"
+                                          Content="Non-conformités uniquement"
+                                          ToolTip="N'afficher que les relevés jugés non conformes sur la période"
+                                          VerticalAlignment="Bottom"
+                                          Margin="0,0,0,6"
+                                          Click="NonCompliantOnlyCheckBox_Click" />
+
+                                <Button x:Name="RefreshReadingsButton"
+                                        Grid.Column="8"
+                                        Content="Actualiser"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Recharger les relevés de la période filtrée"
+                                        VerticalAlignment="Bottom"
+                                        Click="RefreshReadingsButton_Click" />
+                            </Grid>
+
+                            <TextBlock Grid.Row="4"
+                                       Text="Les seuils affichés sur chaque ligne sont ceux figés au moment de la mesure, pas la plage courante du point de contrôle."
+                                       Style="{StaticResource BusinessRuleText}" />
+
+                            <Grid Grid.Row="6">
+                                <DataGrid x:Name="ReadingsDataGrid" MinHeight="150">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Mesuré le"
+                                                            Binding="{Binding MeasuredAt, Converter={StaticResource KitchenMomentConverter}}"
+                                                            Width="140" />
+                                        <DataGridTextColumn Header="Point de contrôle" Binding="{Binding CheckpointCode}" Width="130" />
+                                        <DataGridTextColumn Header="Libellé" Binding="{Binding CheckpointLabel}" Width="200" ElementStyle="{StaticResource MutedCellText}" />
+                                        <DataGridTextColumn Header="Valeur (°C)"
+                                                            Binding="{Binding ValueCelsius, StringFormat={}{0:N1}}"
+                                                            Width="110"
+                                                            ElementStyle="{StaticResource TotalCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Seuil min. figé"
+                                                            Binding="{Binding MinTempSnapshot, StringFormat={}{0:N1}}"
+                                                            Width="120"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Seuil max. figé"
+                                                            Binding="{Binding MaxTempSnapshot, StringFormat={}{0:N1}}"
+                                                            Width="120"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTemplateColumn Header="Verdict" Width="130" SortMemberPath="IsCompliant">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border x:Name="ComplianceBadge"
+                                                            CornerRadius="10"
+                                                            Padding="10,3"
+                                                            HorizontalAlignment="Left"
+                                                            VerticalAlignment="Center"
+                                                            Background="{StaticResource StatusValidatedBackgroundBrush}">
+                                                        <TextBlock x:Name="ComplianceBadgeText"
+                                                                   Text="Conforme"
+                                                                   FontSize="11.5"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource StatusValidatedForegroundBrush}" />
+                                                    </Border>
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding IsCompliant}" Value="False">
+                                                            <Setter TargetName="ComplianceBadge" Property="Background" Value="{StaticResource StatusRejectedBackgroundBrush}" />
+                                                            <Setter TargetName="ComplianceBadgeText" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                            <Setter TargetName="ComplianceBadgeText" Property="Text" Value="Non conforme" />
+                                                        </DataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Action corrective" Binding="{Binding CorrectiveAction}" Width="*" />
+                                        <DataGridTextColumn Header="Relevé par"
+                                                            Binding="{Binding RecordedBy}"
+                                                            Width="140"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=ReadingsDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <!-- Thermometre au trait. -->
+                                    <Path Data="M8,2.5 A1.8,1.8 0 0 1 9.8,4.3 V9.4 A3,3 0 1 1 6.2,9.4 V4.3 A1.8,1.8 0 0 1 8,2.5 Z M8,6.5 V11"
+                                          Stroke="{StaticResource BorderStrongBrush}"
+                                          StrokeThickness="1.5"
+                                          StrokeLineJoin="Round"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          Width="40"
+                                          Height="40"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,10" />
+                                    <TextBlock Text="Aucun relevé sur cette période"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Élargissez la période, retirez un filtre ou saisissez un premier relevé ci-dessus."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ============================== Points de contrôle ============================== -->
+            <TabItem Header="Points de contrôle">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="10" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <TextBlock x:Name="CheckpointFormModeTextBlock"
+                                           DockPanel.Dock="Right"
+                                           Text="Nouveau point de contrôle"
+                                           Style="{StaticResource CaptionText}"
+                                           VerticalAlignment="Center" />
+
+                                <StackPanel>
+                                    <TextBlock Text="Équipements et seuils"
+                                               Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock Text="Chambre froide, congélateur, maintien en chaud, rinçage du lave-vaisselle… avec la plage de température que leurs relevés doivent respecter."
+                                               Style="{StaticResource SubtitleText}"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="180" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="10" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Code *" Style="{StaticResource LabelText}" />
+                                    <!-- Bornes du domaine (TemperatureCheckpoint.Code : 40). -->
+                                    <TextBox x:Name="CheckpointCodeTextBox"
+                                             MaxLength="40"
+                                             Tag="ex. CF-01" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Libellé *" Style="{StaticResource LabelText}" />
+                                    <!-- Bornes du domaine (TemperatureCheckpoint.Label : 200). -->
+                                    <TextBox x:Name="CheckpointLabelTextBox"
+                                             MaxLength="200"
+                                             Tag="Chambre froide viandes" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Seuil minimum (°C) *" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="CheckpointMinTempTextBox"
+                                             Style="{StaticResource AmountTextBox}"
+                                             MaxLength="8"
+                                             ToolTip="Borne basse incluse, 1 décimale au maximum"
+                                             Tag="0,0" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6">
+                                    <TextBlock Text="Seuil maximum (°C) *" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="CheckpointMaxTempTextBox"
+                                             Style="{StaticResource AmountTextBox}"
+                                             MaxLength="8"
+                                             ToolTip="Borne haute incluse, strictement au-dessus du seuil minimum"
+                                             Tag="4,0" />
+                                </StackPanel>
+
+                                <Button x:Name="SaveCheckpointButton"
+                                        Grid.Column="8"
+                                        Content="Créer le point"
+                                        Style="{StaticResource PrimaryButton}"
+                                        ToolTip="Enregistrer le point de contrôle et sa plage de conformité"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        VerticalAlignment="Bottom"
+                                        Click="SaveCheckpointButton_Click" />
+
+                                <Button x:Name="ResetCheckpointFormButton"
+                                        Grid.Column="10"
+                                        Content="Vider le formulaire"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Abandonner la saisie ou la modification en cours"
+                                        VerticalAlignment="Bottom"
+                                        Click="ResetCheckpointFormButton_Click" />
+                            </Grid>
+
+                            <TextBlock Grid.Row="4"
+                                       Text="Modifier une plage n'affecte que les relevés à venir : chaque relevé conserve les seuils figés au moment de sa mesure, et l'historique de conformité n'est jamais réécrit."
+                                       Style="{StaticResource BusinessRuleText}" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <StackPanel Orientation="Horizontal"
+                                            DockPanel.Dock="Right"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center">
+                                    <CheckBox x:Name="IncludeInactiveCheckpointsCheckBox"
+                                              Content="Inclure les points inactifs"
+                                              ToolTip="Afficher aussi les points de contrôle désactivés"
+                                              VerticalAlignment="Center"
+                                              Margin="0,0,14,0"
+                                              Click="IncludeInactiveCheckpointsCheckBox_Click" />
+
+                                    <Button x:Name="EditCheckpointButton"
+                                            Content="Modifier"
+                                            Style="{StaticResource SecondaryButton}"
+                                            IsEnabled="False"
+                                            ToolTip="Reprendre le point de contrôle sélectionné dans le formulaire"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            Margin="0,0,10,0"
+                                            Click="EditCheckpointButton_Click" />
+
+                                    <Button x:Name="ActivateCheckpointButton"
+                                            Content="Activer"
+                                            Style="{StaticResource SecondaryButton}"
+                                            IsEnabled="False"
+                                            ToolTip="Réactiver le point de contrôle sélectionné"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            Margin="0,0,10,0"
+                                            Click="ActivateCheckpointButton_Click" />
+
+                                    <Button x:Name="DeactivateCheckpointButton"
+                                            Content="Désactiver"
+                                            Style="{StaticResource DangerButton}"
+                                            IsEnabled="False"
+                                            ToolTip="Désactiver le point de contrôle sélectionné"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            Margin="0,0,10,0"
+                                            Click="DeactivateCheckpointButton_Click" />
+
+                                    <Button x:Name="RefreshCheckpointsButton"
+                                            Content="Actualiser"
+                                            Style="{StaticResource SecondaryButton}"
+                                            ToolTip="Recharger les points de contrôle"
+                                            Click="RefreshCheckpointsButton_Click" />
+                                </StackPanel>
+
+                                <StackPanel>
+                                    <TextBlock Text="Points de contrôle"
+                                               Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock x:Name="CheckpointCountTextBlock"
+                                               Text="Aucun point de contrôle chargé."
+                                               Style="{StaticResource SubtitleText}"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <Grid Grid.Row="2">
+                                <DataGrid x:Name="CheckpointsDataGrid"
+                                          MinHeight="150"
+                                          SelectionChanged="CheckpointsDataGrid_SelectionChanged">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="150" />
+                                        <DataGridTextColumn Header="Libellé" Binding="{Binding Label}" Width="*" />
+                                        <DataGridTextColumn Header="Seuil min. (°C)"
+                                                            Binding="{Binding MinTemp, StringFormat={}{0:N1}}"
+                                                            Width="130"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Seuil max. (°C)"
+                                                            Binding="{Binding MaxTemp, StringFormat={}{0:N1}}"
+                                                            Width="130"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTemplateColumn Header="État" Width="110" SortMemberPath="IsActive">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border x:Name="CheckpointStatusBadge"
+                                                            CornerRadius="10"
+                                                            Padding="10,3"
+                                                            HorizontalAlignment="Left"
+                                                            VerticalAlignment="Center"
+                                                            Background="{StaticResource StatusValidatedBackgroundBrush}">
+                                                        <TextBlock x:Name="CheckpointStatusBadgeText"
+                                                                   Text="Actif"
+                                                                   FontSize="11.5"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource StatusValidatedForegroundBrush}" />
+                                                    </Border>
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                            <Setter TargetName="CheckpointStatusBadge" Property="Background" Value="{StaticResource StatusRejectedBackgroundBrush}" />
+                                                            <Setter TargetName="CheckpointStatusBadgeText" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                            <Setter TargetName="CheckpointStatusBadgeText" Property="Text" Value="Inactif" />
+                                                        </DataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Modifié le"
+                                                            Binding="{Binding UpdatedAt, Converter={StaticResource KitchenMomentConverter}}"
+                                                            Width="150"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=CheckpointsDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <!-- Jauge au trait. -->
+                                    <Path Data="M2.5,11.5 A6,6 0 1 1 13.5,11.5 M8,11.5 L11,6.5"
+                                          Stroke="{StaticResource BorderStrongBrush}"
+                                          StrokeThickness="1.5"
+                                          StrokeLineJoin="Round"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          Width="46"
+                                          Height="36"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,10" />
+                                    <TextBlock Text="Aucun point de contrôle"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Déclarez un premier équipement et sa plage de conformité ci-dessus pour pouvoir saisir des relevés."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

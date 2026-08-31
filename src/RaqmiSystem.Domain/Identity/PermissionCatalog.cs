@@ -41,12 +41,31 @@ public static class PermissionCatalog
     public const string LodgingRead = "lodging.read";
     public const string LodgingWrite = "lodging.write";
     public const string LodgingCheckin = "lodging.checkin";
+    public const string HousekeepingRead = "housekeeping.read";
+    public const string HousekeepingWrite = "housekeeping.write";
+    public const string HousekeepingInspect = "housekeeping.inspect";
+    public const string CrmRead = "crm.read";
+    public const string CrmWrite = "crm.write";
+    public const string CrmLoyalty = "crm.loyalty";
     public const string ApprovalsRead = "approvals.read";
     public const string ApprovalsWrite = "approvals.write";
     public const string ApprovalsDecide = "approvals.decide";
     public const string ReportsRead = "reports.read";
     public const string MaintenanceRead = "maintenance.read";
     public const string MaintenanceBackup = "maintenance.backup";
+    public const string HrRead = "hr.read";
+    public const string HrWrite = "hr.write";
+    public const string HrPayroll = "hr.payroll";
+    public const string HrPayrollClose = "hr.payroll.close";
+    public const string InventoryRead = "inventory.read";
+    public const string InventoryWrite = "inventory.write";
+    public const string InventoryValidate = "inventory.validate";
+    public const string PurchasingRead = "purchasing.read";
+    public const string PurchasingWrite = "purchasing.write";
+    public const string PurchasingApprove = "purchasing.approve";
+    public const string PurchasingReceive = "purchasing.receive";
+    public const string KitchenRead = "kitchen.read";
+    public const string KitchenWrite = "kitchen.write";
 
     public static IReadOnlyCollection<PermissionDefinition> All { get; } = new[]
     {
@@ -89,11 +108,30 @@ public static class PermissionCatalog
         new PermissionDefinition(LodgingRead, "Lire l'hebergement", "exploitation", "Consulter les types de chambre, les chambres, les reservations, les folios et l'occupation."),
         new PermissionDefinition(LodgingWrite, "Gerer l'hebergement", "exploitation", "Gerer les types de chambre et les chambres, creer, annuler et constater le no-show des reservations."),
         new PermissionDefinition(LodgingCheckin, "Operer le comptoir", "exploitation", "Effectuer les operations du comptoir : check-in, check-out et ajout de lignes de folio."),
+        new PermissionDefinition(HousekeepingRead, "Lire le housekeeping", "exploitation", "Consulter le tableau des chambres, les taches de nettoyage, le planning des equipes, la carte minibar et les consommations."),
+        new PermissionDefinition(HousekeepingWrite, "Gerer le housekeeping", "exploitation", "Planifier et affecter les taches de nettoyage, declarer l'etat des chambres, gerer la carte minibar et enregistrer les consommations."),
+        new PermissionDefinition(HousekeepingInspect, "Controler les chambres", "exploitation", "Rendre le verdict de controle sur une chambre nettoyee : accepter la chambre ou la refuser avec motif."),
+        new PermissionDefinition(CrmRead, "Lire le CRM", "exploitation", "Consulter la vue client 360, les segments, le programme de fidelite, les campagnes, la satisfaction (NPS) et le journal des contacts."),
+        new PermissionDefinition(CrmWrite, "Gerer la relation client", "exploitation", "Qualifier les clients (segment, preferences, consentement marketing), gerer les segments, les paliers de fidelite et les campagnes, enregistrer les enquetes de satisfaction et les contacts."),
+        new PermissionDefinition(CrmLoyalty, "Mouvementer les points de fidelite", "exploitation", "Crediter, debiter, corriger ou faire expirer les points de fidelite d'un client."),
         new PermissionDefinition(ApprovalsRead, "Lire les validations", "exploitation", "Consulter les circuits de validation et les demandes d'approbation."),
         new PermissionDefinition(ApprovalsWrite, "Gerer les circuits de validation", "exploitation", "Creer et modifier les circuits de validation, les activer ou les desactiver, et ouvrir une demande."),
         new PermissionDefinition(ApprovalsDecide, "Decider des validations", "exploitation", "Approuver ou rejeter une etape de validation qui vous est assignee."),
         new PermissionDefinition(ReportsRead, "Executer les rapports", "reporting", "Consulter le catalogue des rapports, les executer et consulter le journal d'execution."),
         new PermissionDefinition(MaintenanceRead, "Lire la maintenance", "security", "Consulter l'etat des sauvegardes et la politique de retention."),
-        new PermissionDefinition(MaintenanceBackup, "Declencher une sauvegarde", "security", "Declencher manuellement une sauvegarde de la base de donnees.")
+        new PermissionDefinition(MaintenanceBackup, "Declencher une sauvegarde", "security", "Declencher manuellement une sauvegarde de la base de donnees."),
+        new PermissionDefinition(HrRead, "Lire les ressources humaines", "rh", "Consulter le referentiel des postes, les dossiers collaborateurs, les contrats, les pointages et les absences."),
+        new PermissionDefinition(HrWrite, "Gerer les collaborateurs", "rh", "Creer et modifier les departements, les postes, les dossiers collaborateurs, les contrats, les pointages et les absences."),
+        new PermissionDefinition(HrPayroll, "Preparer la paie", "rh", "Parametrer les baremes legaux, saisir les primes, generer la pre-paie et valider les bulletins."),
+        new PermissionDefinition(HrPayrollClose, "Cloturer la paie", "rh", "Valider une periode de paie puis la cloturer definitivement, ce qui verrouille le mois."),
+        new PermissionDefinition(InventoryRead, "Lire les stocks", "exploitation", "Consulter les magasins, les articles, le registre des mouvements, le stock valorise et les inventaires physiques."),
+        new PermissionDefinition(InventoryWrite, "Gerer les stocks", "exploitation", "Creer et modifier magasins et articles, enregistrer entrees, sorties, transferts et ajustements, ouvrir et saisir les inventaires."),
+        new PermissionDefinition(InventoryValidate, "Valider les inventaires", "exploitation", "Valider un inventaire physique : generer les mouvements d'ajustement et figer definitivement l'inventaire."),
+        new PermissionDefinition(PurchasingRead, "Lire les achats", "exploitation", "Consulter le referentiel fournisseurs, les bons de commande et l'avancement des receptions."),
+        new PermissionDefinition(PurchasingWrite, "Gerer les achats", "exploitation", "Creer et modifier les fournisseurs, saisir les bons de commande en brouillon, modifier leurs lignes et annuler une commande avec motif."),
+        new PermissionDefinition(PurchasingApprove, "Approuver les bons de commande", "exploitation", "Approuver un bon de commande : allouer son numero definitif et figer ses lignes - l'acte qui engage la depense."),
+        new PermissionDefinition(PurchasingReceive, "Receptionner les marchandises", "exploitation", "Enregistrer une reception (totale ou partielle) contre un bon de commande approuve et generer l'entree en stock correspondante."),
+        new PermissionDefinition(KitchenRead, "Lire la cuisine", "exploitation", "Consulter les fiches techniques, leur cout matiere, les points de controle HACCP et les releves de temperature."),
+        new PermissionDefinition(KitchenWrite, "Gerer la cuisine", "exploitation", "Creer et modifier les fiches techniques et leurs ingredients, administrer les points de controle et leurs seuils, enregistrer les releves de temperature HACCP.")
     };
 }

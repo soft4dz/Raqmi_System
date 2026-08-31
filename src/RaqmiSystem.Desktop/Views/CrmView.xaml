@@ -1,0 +1,1348 @@
+<UserControl x:Class="RaqmiSystem.Desktop.Views.CrmView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontFamily="{StaticResource AppFontFamily}">
+
+    <!-- CRM & experience client : le poste de travail de la relation client, en cinq
+         sous-onglets :
+           1. Vue 360      - tout ce que l'ERP sait d'un client sur un seul ecran :
+                             sa fiche CRM, sa fidelite, ses sejours, sa facturation,
+                             sa satisfaction, ses derniers contacts et les campagnes
+                             qui le concernent aujourd'hui. Rien n'y est stocke par
+                             le CRM : la vue rassemble ce que les autres modules
+                             possedent deja ;
+           2. Segments     - les familles commerciales qui servent a cibler ;
+           3. Fidelite     - les paliers du programme, et le compte de points d'un
+                             client avec ses mouvements ;
+           4. Campagnes    - le cycle de vie d'une campagne et son audience reelle,
+                             consentement marketing compris ;
+           5. Satisfaction - le NPS de la periode, unite par unite, et les reponses ;
+           6. Contacts     - le journal des echanges avec les clients.
+         Comme les autres ecrans du module hotelier, la vue ne manipule que des dates
+         metier (DateOnly) cote filtres ; les horodatages venus du serveur sont
+         convertis en heure locale par le code-behind. -->
+
+    <UserControl.Resources>
+        <!-- Onglets internes du module : le style implicite du theme supprime les
+             en-tetes (le panneau lateral est l'unique navigation de l'application),
+             ce module a donc besoin de son propre gabarit d'onglets visibles -
+             meme gabarit SectionTabControl que LodgingView et HousekeepingView. -->
+        <Style x:Key="SectionTabItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Grid SnapsToDevicePixels="True">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Border x:Name="tabBackground"
+                                    Background="Transparent"
+                                    CornerRadius="6,6,0,0"
+                                    Padding="18,9">
+                                <ContentPresenter ContentSource="Header"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
+                            </Border>
+
+                            <Rectangle x:Name="tabIndicator"
+                                       Grid.Row="1"
+                                       Height="2.5"
+                                       Fill="{StaticResource AccentBrush}"
+                                       Opacity="0" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="tabBackground" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="tabBackground" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="tabIndicator" Property="Opacity" Value="1" />
+                                <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SectionTabControl" TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource SectionTabItem}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border BorderBrush="{StaticResource PanelBorderBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <TabPanel IsItemsHost="True" HorizontalAlignment="Left" />
+                            </Border>
+
+                            <ContentPresenter Grid.Row="1"
+                                              Margin="0,16,0,0"
+                                              ContentSource="SelectedContent" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Compteur du bandeau de synthese : une valeur, un libelle. -->
+        <Style x:Key="CounterValueText" TargetType="TextBlock" BasedOn="{StaticResource MetricValueText}">
+            <Setter Property="FontSize" Value="21" />
+        </Style>
+
+        <Style x:Key="CounterLabelText" TargetType="TextBlock" BasedOn="{StaticResource MetricLabelText}" />
+
+        <Style x:Key="CounterPanel" TargetType="StackPanel">
+            <Setter Property="Margin" Value="0,0,34,0" />
+        </Style>
+
+        <Style x:Key="FormFieldLabel" TargetType="TextBlock" BasedOn="{StaticResource LabelText}">
+            <Setter Property="Margin" Value="0,0,0,3" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============================== En-tete du module ============================== -->
+        <StackPanel>
+            <TextBlock Text="CRM &amp; expérience client"
+                       Style="{StaticResource PageTitleText}" />
+            <TextBlock Text="Vue client 360°, segmentation, programme de fidélité, campagnes, satisfaction (NPS) et journal des contacts."
+                       Style="{StaticResource SubtitleText}"
+                       Margin="0,4,0,0" />
+        </StackPanel>
+
+        <TabControl x:Name="CrmTabs"
+                    Grid.Row="2"
+                    Style="{StaticResource SectionTabControl}"
+                    SelectionChanged="CrmTabs_SelectionChanged">
+
+            <!-- ================================= VUE 360 ================================= -->
+            <TabItem Header="Vue 360">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="430" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Colonne gauche : recherche dans les clients qualifies. Un client
+                         sans fiche CRM n'apparait pas ici - la zone « code client »
+                         permet quand meme d'ouvrir sa vue 360, qui reste utile. -->
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Border Style="{StaticResource SubtleCardBorder}" Padding="16,12">
+                            <StackPanel>
+                                <TextBlock Text="Rechercher un client"
+                                           Style="{StaticResource SectionTitleText}"
+                                           FontSize="14" />
+
+                                <TextBox x:Name="GuestSearchTextBox"
+                                         Margin="0,10,0,0"
+                                         Tag="Code ou nom du client"
+                                         MaxLength="200"
+                                         ToolTip="Filtrer les clients qualifiés par code ou par nom, puis appuyer sur Entrée"
+                                         KeyDown="GuestSearchTextBox_KeyDown" />
+
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                    <ComboBox x:Name="GuestSegmentFilterComboBox"
+                                              Width="180"
+                                              DisplayMemberPath="Label"
+                                              ToolTip="Ne montrer que les clients d'un segment"
+                                              SelectionChanged="GuestFilters_Changed" />
+
+                                    <CheckBox x:Name="GuestVipOnlyCheckBox"
+                                              Content="VIP uniquement"
+                                              VerticalAlignment="Center"
+                                              Margin="14,0,0,0"
+                                              ToolTip="Ne montrer que les clients marqués VIP"
+                                              Click="GuestFilters_Changed" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                    <TextBox x:Name="Customer360CodeTextBox"
+                                             Width="200"
+                                             Tag="Code client à ouvrir"
+                                             MaxLength="40"
+                                             ToolTip="Ouvrir la vue 360 d'un client, qualifié ou non"
+                                             KeyDown="Customer360CodeTextBox_KeyDown" />
+                                    <Button x:Name="OpenCustomer360Button"
+                                            Content="Ouvrir la fiche"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="10,0,0,0"
+                                            Click="OpenCustomer360Button_Click" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Grid Grid.Row="2">
+                            <DataGrid x:Name="GuestsDataGrid"
+                                      SelectionChanged="GuestsDataGrid_SelectionChanged">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Code" Binding="{Binding CustomerCode}" Width="100" />
+                                    <DataGridTextColumn Header="Client" Binding="{Binding CustomerName}" Width="*" />
+                                    <DataGridTextColumn Header="Segment" Binding="{Binding SegmentLabel}" Width="120"
+                                                        ElementStyle="{StaticResource MutedCellText}" />
+                                    <DataGridTextColumn Header="Points" Binding="{Binding LoyaltyPoints}" Width="80"
+                                                        ElementStyle="{StaticResource AmountCellText}"
+                                                        HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                    <DataGridTextColumn Header="Palier" Binding="{Binding TierLabel}" Width="110"
+                                                        ElementStyle="{StaticResource MutedCellText}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        IsHitTestVisible="False">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Items.Count, ElementName=GuestsDataGrid}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <TextBlock Text="Aucun client qualifié"
+                                           Style="{StaticResource EmptyStateTitleText}" />
+                                <TextBlock Text="Un client apparaît ici dès qu'une fiche CRM lui est enregistrée."
+                                           Style="{StaticResource EmptyStateHintText}" />
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+
+                    <!-- Colonne droite : la vue 360 proprement dite. -->
+                    <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Padding="0,0,6,0">
+                        <StackPanel x:Name="Customer360Panel" Visibility="Collapsed">
+
+                            <!-- Identite + fiche CRM -->
+                            <Border Style="{StaticResource CardBorder}">
+                                <StackPanel>
+                                    <DockPanel>
+                                        <StackPanel>
+                                            <TextBlock x:Name="Customer360NameTextBlock"
+                                                       Text="—"
+                                                       Style="{StaticResource SectionTitleText}" />
+                                            <TextBlock x:Name="Customer360IdentityTextBlock"
+                                                       Text=""
+                                                       Style="{StaticResource CaptionText}"
+                                                       Margin="0,4,0,0" />
+                                        </StackPanel>
+
+                                        <StackPanel Orientation="Horizontal"
+                                                    DockPanel.Dock="Right"
+                                                    HorizontalAlignment="Right"
+                                                    VerticalAlignment="Center">
+                                            <Button x:Name="GrantConsentButton"
+                                                    Content="Consentement accordé"
+                                                    Style="{StaticResource SecondaryButton}"
+                                                    ToolTipService.ShowOnDisabled="True"
+                                                    ToolTip="Enregistrer l'accord du client pour les campagnes e-mail et SMS, daté du jour"
+                                                    Click="GrantConsentButton_Click" />
+                                            <Button x:Name="WithdrawConsentButton"
+                                                    Content="Consentement retiré"
+                                                    Style="{StaticResource DangerButton}"
+                                                    Margin="10,0,0,0"
+                                                    ToolTipService.ShowOnDisabled="True"
+                                                    ToolTip="Enregistrer le refus du client, daté du jour"
+                                                    Click="WithdrawConsentButton_Click" />
+                                        </StackPanel>
+                                    </DockPanel>
+
+                                    <TextBlock x:Name="Customer360ConsentTextBlock"
+                                               Text=""
+                                               Style="{StaticResource CaptionText}"
+                                               Margin="0,10,0,0"
+                                               TextWrapping="Wrap" />
+
+                                    <Grid Margin="0,14,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="14" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="14" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="12" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <StackPanel>
+                                            <TextBlock Text="Segment" Style="{StaticResource FormFieldLabel}" />
+                                            <ComboBox x:Name="ProfileSegmentComboBox"
+                                                      DisplayMemberPath="Label"
+                                                      ToolTip="Famille commerciale du client : c'est elle que les campagnes ciblent" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Langue" Style="{StaticResource FormFieldLabel}" />
+                                            <TextBox x:Name="ProfileLanguageTextBox"
+                                                     MaxLength="10"
+                                                     Tag="fr, ar, en" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Text="Date de naissance" Style="{StaticResource FormFieldLabel}" />
+                                            <DatePicker x:Name="ProfileBirthDatePicker" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Row="2" Grid.ColumnSpan="3">
+                                            <TextBlock Text="Préférences de séjour" Style="{StaticResource FormFieldLabel}" />
+                                            <TextBox x:Name="ProfilePreferencesTextBox"
+                                                     MaxLength="600"
+                                                     Height="58"
+                                                     TextWrapping="Wrap"
+                                                     AcceptsReturn="True"
+                                                     VerticalScrollBarVisibility="Auto"
+                                                     Tag="Étage, literie, chambre calme, allergies…" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Row="2" Grid.Column="4">
+                                            <TextBlock Text="Notes relation" Style="{StaticResource FormFieldLabel}" />
+                                            <TextBox x:Name="ProfileNotesTextBox"
+                                                     MaxLength="1000"
+                                                     Height="58"
+                                                     TextWrapping="Wrap"
+                                                     AcceptsReturn="True"
+                                                     VerticalScrollBarVisibility="Auto" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                        <CheckBox x:Name="ProfileVipCheckBox"
+                                                  Content="Client VIP"
+                                                  VerticalAlignment="Center"
+                                                  ToolTip="Signale un client que l'établissement traite en VIP. Purement déclaratif : cela ne change rien à ce qui lui est facturé." />
+                                        <Button x:Name="SaveProfileButton"
+                                                Content="Enregistrer la fiche"
+                                                Style="{StaticResource PrimaryButton}"
+                                                Margin="18,0,0,0"
+                                                ToolTipService.ShowOnDisabled="True"
+                                                ToolTip="Créer ou mettre à jour la fiche CRM de ce client"
+                                                Click="SaveProfileButton_Click" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Compteurs -->
+                            <Border Style="{StaticResource CardBorder}" Margin="0,14,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Ce que le client représente"
+                                               Style="{StaticResource SectionTitleText}"
+                                               FontSize="14" />
+
+                                    <WrapPanel Margin="0,14,0,0">
+                                        <StackPanel Style="{StaticResource CounterPanel}">
+                                            <TextBlock x:Name="StayCountTextBlock" Text="—" Style="{StaticResource CounterValueText}" />
+                                            <TextBlock Text="Séjours" Style="{StaticResource CounterLabelText}" />
+                                        </StackPanel>
+                                        <StackPanel Style="{StaticResource CounterPanel}">
+                                            <TextBlock x:Name="NightCountTextBlock" Text="—" Style="{StaticResource CounterValueText}" />
+                                            <TextBlock Text="Nuitées" Style="{StaticResource CounterLabelText}" />
+                                        </StackPanel>
+                                        <StackPanel Style="{StaticResource CounterPanel}">
+                                            <TextBlock x:Name="StayRevenueTextBlock" Text="—" Style="{StaticResource CounterValueText}" />
+                                            <TextBlock Text="Hébergement (DA)" Style="{StaticResource CounterLabelText}" />
+                                        </StackPanel>
+                                        <StackPanel Style="{StaticResource CounterPanel}">
+                                            <TextBlock x:Name="InvoicedTextBlock" Text="—" Style="{StaticResource CounterValueText}" />
+                                            <TextBlock Text="Facturé TTC (DA)" Style="{StaticResource CounterLabelText}" />
+                                        </StackPanel>
+                                        <StackPanel Style="{StaticResource CounterPanel}">
+                                            <TextBlock x:Name="OutstandingTextBlock" Text="—" Style="{StaticResource CounterValueText}" />
+                                            <TextBlock Text="Restant dû (DA)" Style="{StaticResource CounterLabelText}" />
+                                        </StackPanel>
+                                        <StackPanel Style="{StaticResource CounterPanel}">
+                                            <TextBlock x:Name="LoyaltyPointsTextBlock" Text="—" Style="{StaticResource CounterValueText}" />
+                                            <TextBlock Text="Points fidélité" Style="{StaticResource CounterLabelText}" />
+                                        </StackPanel>
+                                        <StackPanel Style="{StaticResource CounterPanel}">
+                                            <TextBlock x:Name="SatisfactionTextBlock" Text="—" Style="{StaticResource CounterValueText}" />
+                                            <TextBlock Text="Dernière note /10" Style="{StaticResource CounterLabelText}" />
+                                        </StackPanel>
+                                    </WrapPanel>
+
+                                    <TextBlock x:Name="LoyaltySummaryTextBlock"
+                                               Text=""
+                                               Style="{StaticResource CaptionText}"
+                                               Margin="0,12,0,0"
+                                               TextWrapping="Wrap" />
+
+                                    <TextBlock x:Name="StaySummaryTextBlock"
+                                               Text=""
+                                               Style="{StaticResource CaptionText}"
+                                               Margin="0,6,0,0"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Contacts recents + campagnes en cours -->
+                            <Grid Margin="0,14,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <Border Style="{StaticResource CardBorder}">
+                                    <StackPanel>
+                                        <TextBlock Text="Derniers contacts"
+                                                   Style="{StaticResource SectionTitleText}"
+                                                   FontSize="14" />
+                                        <DataGrid x:Name="Customer360InteractionsDataGrid"
+                                                  Margin="0,12,0,0"
+                                                  MaxHeight="220"
+                                                  IsReadOnly="True">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Date" Binding="{Binding OccurredAtLabel}" Width="140" />
+                                                <DataGridTextColumn Header="Canal" Binding="{Binding ChannelLabel}" Width="100" />
+                                                <DataGridTextColumn Header="Objet" Binding="{Binding Subject}" Width="*" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Grid.Column="2" Style="{StaticResource CardBorder}">
+                                    <StackPanel>
+                                        <TextBlock Text="Campagnes en cours pour ce client"
+                                                   Style="{StaticResource SectionTitleText}"
+                                                   FontSize="14" />
+                                        <TextBlock Text="Une campagne e-mail ou SMS n'apparaît ici que si le client a donné son consentement."
+                                                   Style="{StaticResource CaptionText}"
+                                                   Margin="0,4,0,0"
+                                                   TextWrapping="Wrap" />
+                                        <DataGrid x:Name="Customer360CampaignsDataGrid"
+                                                  Margin="0,12,0,0"
+                                                  MaxHeight="220"
+                                                  IsReadOnly="True">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="120" />
+                                                <DataGridTextColumn Header="Campagne" Binding="{Binding Label}" Width="*" />
+                                                <DataGridTextColumn Header="Canal" Binding="{Binding ChannelLabel}" Width="100" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <!-- Reponses de satisfaction -->
+                            <Border Style="{StaticResource CardBorder}" Margin="0,14,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Ce que le client a dit"
+                                               Style="{StaticResource SectionTitleText}"
+                                               FontSize="14" />
+                                    <DataGrid x:Name="Customer360SurveysDataGrid"
+                                              Margin="0,12,0,0"
+                                              MaxHeight="200"
+                                              IsReadOnly="True">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Date" Binding="{Binding SurveyDate, StringFormat=d}" Width="110" />
+                                            <DataGridTextColumn Header="Unité" Binding="{Binding HotelUnitCode}" Width="90" />
+                                            <DataGridTextColumn Header="Note" Binding="{Binding Score}" Width="70"
+                                                                ElementStyle="{StaticResource AmountCellText}"
+                                                                HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                            <DataGridTextColumn Header="Famille" Binding="{Binding CategoryLabel}" Width="110" />
+                                            <DataGridTextColumn Header="Commentaire" Binding="{Binding Comment}" Width="*"
+                                                                ElementStyle="{StaticResource MutedCellText}" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+
+            <!-- ================================= SEGMENTS ================================= -->
+            <TabItem Header="Segments">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="380" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}" VerticalAlignment="Top">
+                        <StackPanel>
+                            <TextBlock x:Name="SegmentFormTitleTextBlock"
+                                       Text="Nouveau segment"
+                                       Style="{StaticResource SectionTitleText}"
+                                       FontSize="14" />
+
+                            <TextBlock Text="Code" Style="{StaticResource FormFieldLabel}" Margin="0,12,0,3" />
+                            <TextBox x:Name="SegmentCodeTextBox" MaxLength="40" Tag="ex. AFFAIRES" />
+
+                            <TextBlock Text="Libellé" Style="{StaticResource FormFieldLabel}" Margin="0,10,0,3" />
+                            <TextBox x:Name="SegmentLabelTextBox" MaxLength="160" Tag="ex. Clientèle affaires" />
+
+                            <TextBlock Text="Description" Style="{StaticResource FormFieldLabel}" Margin="0,10,0,3" />
+                            <TextBox x:Name="SegmentDescriptionTextBox"
+                                     MaxLength="400"
+                                     Height="66"
+                                     TextWrapping="Wrap"
+                                     AcceptsReturn="True"
+                                     VerticalScrollBarVisibility="Auto" />
+
+                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                <Button x:Name="SaveSegmentButton"
+                                        Content="Créer le segment"
+                                        Style="{StaticResource PrimaryButton}"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        ToolTip="Enregistrer le segment"
+                                        Click="SaveSegmentButton_Click" />
+                                <Button x:Name="NewSegmentButton"
+                                        Content="Nouveau"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Margin="10,0,0,0"
+                                        ToolTip="Vider le formulaire pour créer un nouveau segment"
+                                        Click="NewSegmentButton_Click" />
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <Button x:Name="ActivateSegmentButton"
+                                        Content="Activer"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        ToolTip="Rendre le segment de nouveau assignable"
+                                        Click="ActivateSegmentButton_Click" />
+                                <Button x:Name="DeactivateSegmentButton"
+                                        Content="Désactiver"
+                                        Style="{StaticResource DangerButton}"
+                                        Margin="10,0,0,0"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        ToolTip="Retirer le segment des choix : les clients et campagnes existants le conservent"
+                                        Click="DeactivateSegmentButton_Click" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Border Style="{StaticResource SubtleCardBorder}" Padding="16,12">
+                            <StackPanel Orientation="Horizontal">
+                                <CheckBox x:Name="IncludeInactiveSegmentsCheckBox"
+                                          Content="Inclure les segments désactivés"
+                                          VerticalAlignment="Center"
+                                          Click="SegmentFilters_Changed" />
+                                <Button x:Name="RefreshSegmentsButton"
+                                        Content="Actualiser"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Margin="20,0,0,0"
+                                        Click="RefreshSegmentsButton_Click" />
+                            </StackPanel>
+                        </Border>
+
+                        <DataGrid x:Name="SegmentsDataGrid"
+                                  Grid.Row="2"
+                                  SelectionChanged="SegmentsDataGrid_SelectionChanged">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="140" />
+                                <DataGridTextColumn Header="Libellé" Binding="{Binding Label}" Width="220" />
+                                <DataGridTextColumn Header="Clients" Binding="{Binding GuestCount}" Width="90"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridCheckBoxColumn Header="Actif" Binding="{Binding IsActive}" Width="70" />
+                                <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"
+                                                    ElementStyle="{StaticResource MutedCellText}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- ================================= FIDELITE ================================= -->
+            <TabItem Header="Fidélité">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="380" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Paliers du programme -->
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Border Style="{StaticResource CardBorder}">
+                            <StackPanel>
+                                <TextBlock x:Name="TierFormTitleTextBlock"
+                                           Text="Nouveau palier"
+                                           Style="{StaticResource SectionTitleText}"
+                                           FontSize="14" />
+                                <TextBlock Text="Le palier d'un client est déduit de son solde : c'est le palier actif le plus haut que son solde atteint."
+                                           Style="{StaticResource CaptionText}"
+                                           Margin="0,4,0,0"
+                                           TextWrapping="Wrap" />
+
+                                <TextBlock Text="Code" Style="{StaticResource FormFieldLabel}" Margin="0,12,0,3" />
+                                <TextBox x:Name="TierCodeTextBox" MaxLength="40" Tag="ex. OR" />
+
+                                <TextBlock Text="Libellé" Style="{StaticResource FormFieldLabel}" Margin="0,10,0,3" />
+                                <TextBox x:Name="TierLabelTextBox" MaxLength="160" Tag="ex. Or" />
+
+                                <TextBlock Text="Seuil de points" Style="{StaticResource FormFieldLabel}" Margin="0,10,0,3" />
+                                <TextBox x:Name="TierThresholdTextBox" MaxLength="9" Tag="ex. 5000" />
+
+                                <TextBlock Text="Avantages" Style="{StaticResource FormFieldLabel}" Margin="0,10,0,3" />
+                                <TextBox x:Name="TierBenefitsTextBox"
+                                         MaxLength="600"
+                                         Height="58"
+                                         TextWrapping="Wrap"
+                                         AcceptsReturn="True"
+                                         VerticalScrollBarVisibility="Auto" />
+
+                                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                    <Button x:Name="SaveTierButton"
+                                            Content="Créer le palier"
+                                            Style="{StaticResource PrimaryButton}"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            Click="SaveTierButton_Click" />
+                                    <Button x:Name="NewTierButton"
+                                            Content="Nouveau"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="10,0,0,0"
+                                            Click="NewTierButton_Click" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                    <Button x:Name="ActivateTierButton"
+                                            Content="Activer"
+                                            Style="{StaticResource SecondaryButton}"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            Click="ActivateTierButton_Click" />
+                                    <Button x:Name="DeactivateTierButton"
+                                            Content="Désactiver"
+                                            Style="{StaticResource DangerButton}"
+                                            Margin="10,0,0,0"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            Click="DeactivateTierButton_Click" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <DataGrid x:Name="TiersDataGrid"
+                                  Grid.Row="2"
+                                  SelectionChanged="TiersDataGrid_SelectionChanged">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="90" />
+                                <DataGridTextColumn Header="Palier" Binding="{Binding Label}" Width="*" />
+                                <DataGridTextColumn Header="Seuil" Binding="{Binding PointsThreshold}" Width="80"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridCheckBoxColumn Header="Actif" Binding="{Binding IsActive}" Width="60" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+
+                    <!-- Compte de fidelite d'un client -->
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Border Style="{StaticResource SubtleCardBorder}" Padding="16,12">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Client"
+                                           Style="{StaticResource FilterRowLabelText}"
+                                           VerticalAlignment="Center" />
+                                <TextBox x:Name="LoyaltyCustomerCodeTextBox"
+                                         Width="200"
+                                         Margin="8,0,14,0"
+                                         MaxLength="40"
+                                         Tag="Code client"
+                                         KeyDown="LoyaltyCustomerCodeTextBox_KeyDown" />
+                                <Button x:Name="LoadLoyaltyButton"
+                                        Content="Charger le compte"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Click="LoadLoyaltyButton_Click" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                            <StackPanel>
+                                <TextBlock x:Name="LoyaltyAccountTitleTextBlock"
+                                           Text="Aucun compte chargé"
+                                           Style="{StaticResource SectionTitleText}"
+                                           FontSize="14" />
+                                <TextBlock x:Name="LoyaltyAccountDetailTextBlock"
+                                           Text="Saisissez un code client pour voir son solde, son palier et ses mouvements."
+                                           Style="{StaticResource CaptionText}"
+                                           Margin="0,4,0,0"
+                                           TextWrapping="Wrap" />
+
+                                <Grid Margin="0,14,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="170" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="130" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel>
+                                        <TextBlock Text="Mouvement" Style="{StaticResource FormFieldLabel}" />
+                                        <ComboBox x:Name="MovementKindComboBox"
+                                                  DisplayMemberPath="Label"
+                                                  ToolTip="Le sens du mouvement vient de son type : la quantité saisie reste toujours positive, sauf pour une correction" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Points" Style="{StaticResource FormFieldLabel}" />
+                                        <TextBox x:Name="MovementPointsTextBox" MaxLength="9" Tag="ex. 250" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Text="Date" Style="{StaticResource FormFieldLabel}" />
+                                        <DatePicker x:Name="MovementDatePicker" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="6">
+                                        <TextBlock Text="Motif" Style="{StaticResource FormFieldLabel}" />
+                                        <TextBox x:Name="MovementReasonTextBox"
+                                                 MaxLength="300"
+                                                 Tag="Pourquoi ce mouvement (obligatoire)" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                    <TextBlock Text="Référence"
+                                               Style="{StaticResource FilterRowLabelText}"
+                                               VerticalAlignment="Center" />
+                                    <TextBox x:Name="MovementReferenceTextBox"
+                                             Width="220"
+                                             Margin="8,0,16,0"
+                                             MaxLength="80"
+                                             Tag="Séjour, facture… (facultatif)" />
+                                    <Button x:Name="RecordMovementButton"
+                                            Content="Enregistrer le mouvement"
+                                            Style="{StaticResource PrimaryButton}"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            ToolTip="Passer le mouvement sur le compte du client"
+                                            Click="RecordMovementButton_Click" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <DataGrid x:Name="MovementsDataGrid" Grid.Row="4" IsReadOnly="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Date" Binding="{Binding OccurredOn, StringFormat=d}" Width="110" />
+                                <DataGridTextColumn Header="Type" Binding="{Binding KindLabel}" Width="120" />
+                                <DataGridTextColumn Header="Points" Binding="{Binding Points}" Width="90"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="Motif" Binding="{Binding Reason}" Width="*" />
+                                <DataGridTextColumn Header="Référence" Binding="{Binding Reference}" Width="150"
+                                                    ElementStyle="{StaticResource MutedCellText}" />
+                                <DataGridTextColumn Header="Saisi par" Binding="{Binding CreatedBy}" Width="130"
+                                                    ElementStyle="{StaticResource MutedCellText}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- ================================= CAMPAGNES ================================= -->
+            <TabItem Header="Campagnes">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="390" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,6,0">
+                        <Border Style="{StaticResource CardBorder}" VerticalAlignment="Top">
+                            <StackPanel>
+                                <TextBlock x:Name="CampaignFormTitleTextBlock"
+                                           Text="Nouvelle campagne"
+                                           Style="{StaticResource SectionTitleText}"
+                                           FontSize="14" />
+                                <TextBlock Text="Une campagne n'est modifiable qu'en brouillon : une fois planifiée, ce qu'elle dit est ce que les clients ont reçu."
+                                           Style="{StaticResource CaptionText}"
+                                           Margin="0,4,0,0"
+                                           TextWrapping="Wrap" />
+
+                                <TextBlock Text="Code" Style="{StaticResource FormFieldLabel}" Margin="0,12,0,3" />
+                                <TextBox x:Name="CampaignCodeTextBox" MaxLength="60" Tag="ex. ETE-2026" />
+
+                                <TextBlock Text="Libellé" Style="{StaticResource FormFieldLabel}" Margin="0,10,0,3" />
+                                <TextBox x:Name="CampaignLabelTextBox" MaxLength="200" />
+
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel>
+                                        <TextBlock Text="Canal" Style="{StaticResource FormFieldLabel}" />
+                                        <ComboBox x:Name="CampaignChannelComboBox"
+                                                  DisplayMemberPath="Label"
+                                                  ToolTip="E-mail et SMS exigent le consentement marketing du client ; téléphone et sur place, non"
+                                                  SelectionChanged="CampaignChannelComboBox_SelectionChanged" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Segment ciblé" Style="{StaticResource FormFieldLabel}" />
+                                        <ComboBox x:Name="CampaignSegmentComboBox"
+                                                  DisplayMemberPath="Label"
+                                                  ToolTip="Laisser vide pour adresser tout le fichier clients" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel>
+                                        <TextBlock Text="Du" Style="{StaticResource FormFieldLabel}" />
+                                        <DatePicker x:Name="CampaignStartDatePicker" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Au" Style="{StaticResource FormFieldLabel}" />
+                                        <DatePicker x:Name="CampaignEndDatePicker" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <TextBlock Text="Objectif" Style="{StaticResource FormFieldLabel}" Margin="0,10,0,3" />
+                                <TextBox x:Name="CampaignObjectiveTextBox" MaxLength="400" />
+
+                                <TextBlock Text="Message" Style="{StaticResource FormFieldLabel}" Margin="0,10,0,3" />
+                                <TextBox x:Name="CampaignMessageTextBox"
+                                         MaxLength="2000"
+                                         Height="80"
+                                         TextWrapping="Wrap"
+                                         AcceptsReturn="True"
+                                         VerticalScrollBarVisibility="Auto" />
+
+                                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                    <Button x:Name="SaveCampaignButton"
+                                            Content="Créer la campagne"
+                                            Style="{StaticResource PrimaryButton}"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            Click="SaveCampaignButton_Click" />
+                                    <Button x:Name="NewCampaignButton"
+                                            Content="Nouvelle"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="10,0,0,0"
+                                            Click="NewCampaignButton_Click" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                    <Button x:Name="ScheduleCampaignButton"
+                                            Content="Planifier"
+                                            Style="{StaticResource SecondaryButton}"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            ToolTip="Figer la campagne : elle attend sa date de début"
+                                            Click="ScheduleCampaignButton_Click" />
+                                    <Button x:Name="LaunchCampaignButton"
+                                            Content="Lancer"
+                                            Style="{StaticResource PrimaryButton}"
+                                            Margin="10,0,0,0"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            ToolTip="Mettre la campagne en cours"
+                                            Click="LaunchCampaignButton_Click" />
+                                    <Button x:Name="CompleteCampaignButton"
+                                            Content="Terminer"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="10,0,0,0"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            Click="CompleteCampaignButton_Click" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                    <Button x:Name="CancelCampaignButton"
+                                            Content="Annuler"
+                                            Style="{StaticResource DangerButton}"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            ToolTip="Abandonner la campagne : motif obligatoire"
+                                            Click="CancelCampaignButton_Click" />
+                                    <TextBox x:Name="CampaignCancelReasonTextBox"
+                                             Width="230"
+                                             Margin="10,0,0,0"
+                                             MaxLength="500"
+                                             Tag="Motif de l'annulation" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </ScrollViewer>
+
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Border Style="{StaticResource SubtleCardBorder}" Padding="16,12">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Statut"
+                                           Style="{StaticResource FilterRowLabelText}"
+                                           VerticalAlignment="Center" />
+                                <ComboBox x:Name="CampaignStatusFilterComboBox"
+                                          Width="150"
+                                          Margin="8,0,20,0"
+                                          DisplayMemberPath="Label"
+                                          SelectionChanged="CampaignFilters_Changed" />
+
+                                <TextBlock Text="Du"
+                                           Style="{StaticResource FilterRowLabelText}"
+                                           VerticalAlignment="Center" />
+                                <DatePicker x:Name="CampaignFromDatePicker"
+                                            Width="140"
+                                            Margin="8,0,14,0"
+                                            SelectedDateChanged="CampaignFilters_Changed" />
+
+                                <TextBlock Text="Au"
+                                           Style="{StaticResource FilterRowLabelText}"
+                                           VerticalAlignment="Center" />
+                                <DatePicker x:Name="CampaignToDatePicker"
+                                            Width="140"
+                                            Margin="8,0,20,0"
+                                            SelectedDateChanged="CampaignFilters_Changed" />
+
+                                <Button x:Name="RefreshCampaignsButton"
+                                        Content="Actualiser"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Click="RefreshCampaignsButton_Click" />
+                            </StackPanel>
+                        </Border>
+
+                        <DataGrid x:Name="CampaignsDataGrid"
+                                  Grid.Row="2"
+                                  SelectionChanged="CampaignsDataGrid_SelectionChanged">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="130" />
+                                <DataGridTextColumn Header="Campagne" Binding="{Binding Label}" Width="*" />
+                                <DataGridTextColumn Header="Canal" Binding="{Binding ChannelLabel}" Width="100" />
+                                <DataGridTextColumn Header="Segment" Binding="{Binding SegmentLabel}" Width="140"
+                                                    ElementStyle="{StaticResource MutedCellText}" />
+                                <DataGridTextColumn Header="Période" Binding="{Binding PeriodLabel}" Width="180"
+                                                    ElementStyle="{StaticResource MutedCellText}" />
+                                <DataGridTextColumn Header="Statut" Binding="{Binding StatusLabel}" Width="110" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <Border Grid.Row="4" Style="{StaticResource CardBorder}">
+                            <StackPanel>
+                                <DockPanel>
+                                    <TextBlock Text="Audience de la campagne"
+                                               Style="{StaticResource SectionTitleText}"
+                                               FontSize="14"
+                                               VerticalAlignment="Center" />
+                                    <Button x:Name="LoadAudienceButton"
+                                            Content="Calculer l'audience"
+                                            Style="{StaticResource SecondaryButton}"
+                                            DockPanel.Dock="Right"
+                                            HorizontalAlignment="Right"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            ToolTip="Lister les clients que la campagne sélectionnée atteint réellement"
+                                            Click="LoadAudienceButton_Click" />
+                                </DockPanel>
+
+                                <TextBlock x:Name="AudienceSummaryTextBlock"
+                                           Text="Sélectionnez une campagne puis calculez son audience."
+                                           Style="{StaticResource CaptionText}"
+                                           Margin="0,8,0,0"
+                                           TextWrapping="Wrap" />
+
+                                <DataGrid x:Name="AudienceDataGrid"
+                                          Margin="0,12,0,0"
+                                          MaxHeight="200"
+                                          IsReadOnly="True">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Code" Binding="{Binding CustomerCode}" Width="120" />
+                                        <DataGridTextColumn Header="Client" Binding="{Binding CustomerName}" Width="*" />
+                                        <DataGridTextColumn Header="Courriel" Binding="{Binding Email}" Width="200"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                        <DataGridTextColumn Header="Téléphone" Binding="{Binding Phone}" Width="140"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                        <DataGridTextColumn Header="Points" Binding="{Binding LoyaltyPoints}" Width="80"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- =============================== SATISFACTION =============================== -->
+            <TabItem Header="Satisfaction">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource SubtleCardBorder}" Padding="16,12">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Du"
+                                       Style="{StaticResource FilterRowLabelText}"
+                                       VerticalAlignment="Center" />
+                            <DatePicker x:Name="NpsFromDatePicker"
+                                        Width="140"
+                                        Margin="8,0,14,0"
+                                        SelectedDateChanged="NpsFilters_Changed" />
+
+                            <TextBlock Text="Au"
+                                       Style="{StaticResource FilterRowLabelText}"
+                                       VerticalAlignment="Center" />
+                            <DatePicker x:Name="NpsToDatePicker"
+                                        Width="140"
+                                        Margin="8,0,20,0"
+                                        SelectedDateChanged="NpsFilters_Changed" />
+
+                            <TextBlock Text="Unité"
+                                       Style="{StaticResource FilterRowLabelText}"
+                                       VerticalAlignment="Center" />
+                            <ComboBox x:Name="NpsUnitComboBox"
+                                      Width="220"
+                                      Margin="8,0,20,0"
+                                      DisplayMemberPath="Label"
+                                      SelectionChanged="NpsFilters_Changed" />
+
+                            <Button x:Name="RefreshNpsButton"
+                                    Content="Actualiser"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Click="RefreshNpsButton_Click" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <StackPanel>
+                            <TextBlock Text="Net Promoter Score de la période"
+                                       Style="{StaticResource SectionTitleText}"
+                                       FontSize="14" />
+                            <TextBlock Text="Promoteurs (9-10) moins détracteurs (0-6), en pourcentage des réponses. Les passifs (7-8) comptent dans le total et dans rien d'autre."
+                                       Style="{StaticResource CaptionText}"
+                                       Margin="0,4,0,0"
+                                       TextWrapping="Wrap" />
+
+                            <WrapPanel Margin="0,14,0,0">
+                                <StackPanel Style="{StaticResource CounterPanel}">
+                                    <TextBlock x:Name="NpsScoreTextBlock" Text="—" Style="{StaticResource CounterValueText}" />
+                                    <TextBlock Text="NPS" Style="{StaticResource CounterLabelText}" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource CounterPanel}">
+                                    <TextBlock x:Name="NpsAnswersTextBlock" Text="—" Style="{StaticResource CounterValueText}" />
+                                    <TextBlock Text="Réponses" Style="{StaticResource CounterLabelText}" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource CounterPanel}">
+                                    <TextBlock x:Name="NpsPromotersTextBlock" Text="—" Style="{StaticResource CounterValueText}" />
+                                    <TextBlock Text="Promoteurs" Style="{StaticResource CounterLabelText}" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource CounterPanel}">
+                                    <TextBlock x:Name="NpsPassivesTextBlock" Text="—" Style="{StaticResource CounterValueText}" />
+                                    <TextBlock Text="Passifs" Style="{StaticResource CounterLabelText}" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource CounterPanel}">
+                                    <TextBlock x:Name="NpsDetractorsTextBlock" Text="—" Style="{StaticResource CounterValueText}" />
+                                    <TextBlock Text="Détracteurs" Style="{StaticResource CounterLabelText}" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource CounterPanel}">
+                                    <TextBlock x:Name="NpsAverageTextBlock" Text="—" Style="{StaticResource CounterValueText}" />
+                                    <TextBlock Text="Note moyenne /10" Style="{StaticResource CounterLabelText}" />
+                                </StackPanel>
+                            </WrapPanel>
+
+                            <DataGrid x:Name="NpsUnitsDataGrid"
+                                      Margin="0,14,0,0"
+                                      MaxHeight="170"
+                                      IsReadOnly="True">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Unité" Binding="{Binding HotelUnitCode}" Width="100" />
+                                    <DataGridTextColumn Header="Établissement" Binding="{Binding HotelUnitName}" Width="*" />
+                                    <DataGridTextColumn Header="Réponses" Binding="{Binding AnswerCount}" Width="100"
+                                                        ElementStyle="{StaticResource AmountCellText}"
+                                                        HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                    <DataGridTextColumn Header="Promoteurs" Binding="{Binding Promoters}" Width="110"
+                                                        ElementStyle="{StaticResource AmountCellText}"
+                                                        HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                    <DataGridTextColumn Header="Détracteurs" Binding="{Binding Detractors}" Width="110"
+                                                        ElementStyle="{StaticResource AmountCellText}"
+                                                        HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                    <DataGridTextColumn Header="NPS" Binding="{Binding NpsLabel}" Width="90"
+                                                        ElementStyle="{StaticResource AmountCellText}"
+                                                        HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+                    </Border>
+
+                    <Grid Grid.Row="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="360" />
+                        </Grid.ColumnDefinitions>
+
+                        <DataGrid x:Name="SurveysDataGrid" IsReadOnly="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Date" Binding="{Binding SurveyDate, StringFormat=d}" Width="110" />
+                                <DataGridTextColumn Header="Client" Binding="{Binding CustomerName}" Width="200" />
+                                <DataGridTextColumn Header="Unité" Binding="{Binding HotelUnitCode}" Width="90" />
+                                <DataGridTextColumn Header="Note" Binding="{Binding Score}" Width="70"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="Famille" Binding="{Binding CategoryLabel}" Width="110" />
+                                <DataGridTextColumn Header="Source" Binding="{Binding SourceLabel}" Width="120"
+                                                    ElementStyle="{StaticResource MutedCellText}" />
+                                <DataGridTextColumn Header="Commentaire" Binding="{Binding Comment}" Width="*"
+                                                    ElementStyle="{StaticResource MutedCellText}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <Border Grid.Column="2" Style="{StaticResource CardBorder}" VerticalAlignment="Top">
+                            <StackPanel>
+                                <TextBlock Text="Enregistrer une réponse"
+                                           Style="{StaticResource SectionTitleText}"
+                                           FontSize="14" />
+
+                                <TextBlock Text="Client" Style="{StaticResource FormFieldLabel}" Margin="0,12,0,3" />
+                                <TextBox x:Name="SurveyCustomerCodeTextBox" MaxLength="40" Tag="Code client" />
+
+                                <TextBlock Text="Unité" Style="{StaticResource FormFieldLabel}" Margin="0,10,0,3" />
+                                <ComboBox x:Name="SurveyUnitComboBox" DisplayMemberPath="Label" />
+
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel>
+                                        <TextBlock Text="Date" Style="{StaticResource FormFieldLabel}" />
+                                        <DatePicker x:Name="SurveyDatePicker" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Note (0 à 10)" Style="{StaticResource FormFieldLabel}" />
+                                        <TextBox x:Name="SurveyScoreTextBox" MaxLength="2" Tag="0-10" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <TextBlock Text="Source" Style="{StaticResource FormFieldLabel}" Margin="0,10,0,3" />
+                                <ComboBox x:Name="SurveySourceComboBox" DisplayMemberPath="Label" />
+
+                                <TextBlock Text="Commentaire" Style="{StaticResource FormFieldLabel}" Margin="0,10,0,3" />
+                                <TextBox x:Name="SurveyCommentTextBox"
+                                         MaxLength="2000"
+                                         Height="72"
+                                         TextWrapping="Wrap"
+                                         AcceptsReturn="True"
+                                         VerticalScrollBarVisibility="Auto" />
+
+                                <Button x:Name="RecordSurveyButton"
+                                        Content="Enregistrer la réponse"
+                                        Style="{StaticResource PrimaryButton}"
+                                        Margin="0,14,0,0"
+                                        HorizontalAlignment="Left"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        Click="RecordSurveyButton_Click" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- ================================= CONTACTS ================================= -->
+            <TabItem Header="Contacts">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="380" />
+                    </Grid.ColumnDefinitions>
+
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Border Style="{StaticResource SubtleCardBorder}" Padding="16,12">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Du"
+                                           Style="{StaticResource FilterRowLabelText}"
+                                           VerticalAlignment="Center" />
+                                <DatePicker x:Name="InteractionFromDatePicker"
+                                            Width="140"
+                                            Margin="8,0,14,0"
+                                            SelectedDateChanged="InteractionFilters_Changed" />
+
+                                <TextBlock Text="Au"
+                                           Style="{StaticResource FilterRowLabelText}"
+                                           VerticalAlignment="Center" />
+                                <DatePicker x:Name="InteractionToDatePicker"
+                                            Width="140"
+                                            Margin="8,0,20,0"
+                                            SelectedDateChanged="InteractionFilters_Changed" />
+
+                                <TextBlock Text="Client"
+                                           Style="{StaticResource FilterRowLabelText}"
+                                           VerticalAlignment="Center" />
+                                <TextBox x:Name="InteractionFilterCustomerTextBox"
+                                         Width="160"
+                                         Margin="8,0,20,0"
+                                         MaxLength="40"
+                                         Tag="Code client"
+                                         KeyDown="InteractionFilterCustomerTextBox_KeyDown" />
+
+                                <Button x:Name="RefreshInteractionsButton"
+                                        Content="Actualiser"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Click="RefreshInteractionsButton_Click" />
+                            </StackPanel>
+                        </Border>
+
+                        <DataGrid x:Name="InteractionsDataGrid" Grid.Row="2" IsReadOnly="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Date" Binding="{Binding OccurredAtLabel}" Width="150" />
+                                <DataGridTextColumn Header="Client" Binding="{Binding CustomerName}" Width="200" />
+                                <DataGridTextColumn Header="Canal" Binding="{Binding ChannelLabel}" Width="110" />
+                                <DataGridTextColumn Header="Sens" Binding="{Binding DirectionLabel}" Width="100" />
+                                <DataGridTextColumn Header="Objet" Binding="{Binding Subject}" Width="*" />
+                                <DataGridTextColumn Header="Traité par" Binding="{Binding HandledBy}" Width="150"
+                                                    ElementStyle="{StaticResource MutedCellText}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+
+                    <Border Grid.Column="2" Style="{StaticResource CardBorder}" VerticalAlignment="Top">
+                        <StackPanel>
+                            <TextBlock Text="Consigner un contact"
+                                       Style="{StaticResource SectionTitleText}"
+                                       FontSize="14" />
+                            <TextBlock Text="Un contact consigné n'est plus modifiable : le journal dit ce qui s'est passé."
+                                       Style="{StaticResource CaptionText}"
+                                       Margin="0,4,0,0"
+                                       TextWrapping="Wrap" />
+
+                            <TextBlock Text="Client" Style="{StaticResource FormFieldLabel}" Margin="0,12,0,3" />
+                            <TextBox x:Name="InteractionCustomerCodeTextBox" MaxLength="40" Tag="Code client" />
+
+                            <Grid Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Canal" Style="{StaticResource FormFieldLabel}" />
+                                    <ComboBox x:Name="InteractionChannelComboBox" DisplayMemberPath="Label" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Sens" Style="{StaticResource FormFieldLabel}" />
+                                    <ComboBox x:Name="InteractionDirectionComboBox" DisplayMemberPath="Label" />
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Date" Style="{StaticResource FormFieldLabel}" />
+                                    <DatePicker x:Name="InteractionDatePicker" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Unité" Style="{StaticResource FormFieldLabel}" />
+                                    <ComboBox x:Name="InteractionUnitComboBox" DisplayMemberPath="Label" />
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Text="Objet" Style="{StaticResource FormFieldLabel}" Margin="0,10,0,3" />
+                            <TextBox x:Name="InteractionSubjectTextBox" MaxLength="200" />
+
+                            <TextBlock Text="Traité par" Style="{StaticResource FormFieldLabel}" Margin="0,10,0,3" />
+                            <TextBox x:Name="InteractionHandledByTextBox"
+                                     MaxLength="160"
+                                     Tag="Nom de la personne qui a traité le contact" />
+
+                            <TextBlock Text="Notes" Style="{StaticResource FormFieldLabel}" Margin="0,10,0,3" />
+                            <TextBox x:Name="InteractionNotesTextBox"
+                                     MaxLength="2000"
+                                     Height="80"
+                                     TextWrapping="Wrap"
+                                     AcceptsReturn="True"
+                                     VerticalScrollBarVisibility="Auto" />
+
+                            <Button x:Name="LogInteractionButton"
+                                    Content="Consigner le contact"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Margin="0,14,0,0"
+                                    HorizontalAlignment="Left"
+                                    ToolTipService.ShowOnDisabled="True"
+                                    Click="LogInteractionButton_Click" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

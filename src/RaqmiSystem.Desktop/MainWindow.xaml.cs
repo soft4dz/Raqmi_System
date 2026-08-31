@@ -60,6 +60,22 @@ public partial class MainWindow : Window
     private ModuleStatus? moduleStatusFilter;
     private string? modulePriorityFilter;
 
+    // Barre laterale : les ecrans livres, ranges en sections deroulables dans l'ordre
+    // de travail defini par SidebarLayout. Memes instances de ModuleTile que l'accueil -
+    // une permission qui change (IsLocked) ou un module qui s'ouvre (IsActive) se voit
+    // des deux cotes sans rien resynchroniser.
+    private readonly IReadOnlyList<ModuleNavigationGroup> sidebarGroups;
+
+    // Onglet de MainTabs -> module qui le porte : le garde de permission de la
+    // navigation (CanOpenModule), quel que soit le chemin emprunte.
+    private readonly IReadOnlyDictionary<int, ModuleTile> tilesByTab;
+
+    // Sections ouvertes avant le debut d'une recherche : une recherche ouvre celles
+    // qui ont un resultat, et l'effacer doit rendre la barre laterale telle que
+    // l'utilisateur l'avait laissee, pas la replier arbitrairement.
+    private readonly HashSet<ModuleNavigationGroup> groupsExpandedBeforeSearch = [];
+    private bool isSidebarSearchActive;
+
     // Permissions de l'utilisateur connecte (cles "units.read", "revenue.read", ...).
     // Null tant que personne n'est connecte : l'ecran d'accueil est alors dans son
     // etat par defaut (tout accessible), retabli a chaque deconnexion.
@@ -81,6 +97,16 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        // Construits AVANT InitializeComponent : le TabControl choisit son premier
+        // onglet pendant l'analyse du XAML, ce qui declenche MainTabs_SelectionChanged,
+        // qui lit deja ces deux collections.
+        sidebarGroups = ModuleNavigationGroup.Build(moduleTiles);
+
+        // Build ne garde qu'un module par onglet : la cle est donc unique.
+        tilesByTab = sidebarGroups
+            .SelectMany(group => group.Modules)
+            .ToDictionary(tile => tile.TabIndex!.Value);
+
         InitializeComponent();
 
         // Aligne les StringFormat du XAML (montants N2, dates) sur la culture du
@@ -137,11 +163,15 @@ public partial class MainWindow : Window
         ResetUnitForm();
         RefreshHomeDate();
         InitializeModuleCatalog();
+        // Deux zones de lecture : les sections de travail defilent, le parametrage
+        // reste epingle en pied de panneau (voir SidebarLayout).
+        SidebarGroupsItemsControl.ItemsSource = sidebarGroups.Where(group => !group.IsPinned).ToList();
+        SidebarPinnedGroupsItemsControl.ItemsSource = sidebarGroups.Where(group => group.IsPinned).ToList();
         ApplyModulePermissions();
 
         // L'application demarre sur l'accueil, meme avant la premiere connexion :
         // le TabControl n'a pas d'en-tetes, sa selection doit donc etre explicite.
-        NavigateToModule(0, ShowHomeButton);
+        NavigateToModule(HomeTabIndex);
         SetStatus("Connectez-vous pour charger les données de l'API.");
     }
 
@@ -157,34 +187,123 @@ public partial class MainWindow : Window
         HeaderSessionPanel.Visibility = isAuthenticated ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    // Highlights the sidebar button for the module currently shown in MainTabs, so the
-    // "Modules" panel - now the only navigation surface - always shows where you are.
-    private void SetActiveModuleButton(Button active)
-    {
-        // Le style ModuleNavButton (Themes/RaqmiTheme.xaml) reagit a Tag="Active" :
-        // barre laterale accent de 3px, teinte douce et texte en semi-gras.
-        foreach (var button in new[]
-                 {
-                     ShowHomeButton, ShowUnitsButton, ShowRevenueButton, ShowDashboardButton, ShowAuditButton,
-                     ShowClosingButton, ShowTreasuryButton, ShowCustomersButton, ShowInvoicesButton,
-                     ShowAccountingButton, ShowBudgetButton, ShowReceivablesButton,
-                     ShowTariffsButton, ShowLodgingButton,
-                     ShowApprovalsButton, ShowReportsButton,
-                     ShowBackupButton, ShowSettingsButton, ShowUsersButton,
-                     ShowGroupDashboardButton, ShowDecCockpitButton
-                 })
-        {
-            button.Tag = ReferenceEquals(button, active) ? "Active" : null;
-        }
-    }
-
-    // Unique chemin de navigation entre modules : selection de l'onglet + mise en
-    // surbrillance du bouton de la sidebar. Utilise par la sidebar ET par les
-    // cartes de l'ecran d'accueil, pour ne jamais desynchroniser les deux.
-    private void NavigateToModule(int tabIndex, Button moduleButton)
+    // Unique chemin de navigation entre modules : selection de l'onglet + remise en
+    // phase de la barre laterale. Utilise par la barre laterale ET par les cartes de
+    // l'ecran d'accueil, pour ne jamais desynchroniser les deux.
+    private void NavigateToModule(int tabIndex)
     {
         MainTabs.SelectedIndex = tabIndex;
-        SetActiveModuleButton(moduleButton);
+        SyncSidebarToTab(tabIndex);
+    }
+
+    // Aligne la barre laterale sur l'onglet affiche : surbrillance du module courant
+    // (le style ModuleNavButton reagit a Tag="Active" : filet accent de 3px, teinte
+    // douce, texte en semi-gras), ouverture de sa famille, et repli complet du
+    // panneau sur l'accueil.
+    //
+    // L'accueil ne montre PAS la barre laterale : cet ecran est deja le sommaire des
+    // 49 modules, un second sommaire a cote ferait doublon et volerait aux cartes la
+    // largeur dont elles ont besoin. Partout ailleurs elle est la, avec son bouton
+    // « Accueil » comme chemin de retour.
+    private void SyncSidebarToTab(int tabIndex)
+    {
+        var isHome = tabIndex == HomeTabIndex;
+
+        ShowHomeButton.Tag = isHome ? "Active" : null;
+
+        foreach (var group in sidebarGroups)
+        {
+            // Ouvrir la section du module courant sans replier les autres : la barre
+            // laterale suit la navigation, elle ne defait pas ce que l'utilisateur a
+            // ouvert lui-meme.
+            if (group.SetActiveTab(tabIndex))
+            {
+                group.IsExpanded = true;
+            }
+        }
+
+        SidebarBorder.Visibility = isHome ? Visibility.Collapsed : Visibility.Visible;
+        SidebarColumn.Width = isHome ? new GridLength(0) : new GridLength(SidebarWidth);
+        SidebarGapColumn.Width = isHome ? new GridLength(0) : new GridLength(SidebarGapWidth);
+    }
+
+    // Un module ne s'ouvre que s'il a un ecran connu du catalogue ET que le profil a
+    // le droit de le lire. L'accueil n'est garde par aucune permission : c'est le
+    // point de repli de toute navigation refusee.
+    private bool CanOpenModule(int tabIndex) =>
+        tabIndex == HomeTabIndex
+        || (tilesByTab.TryGetValue(tabIndex, out var tile) && tile.IsClickable);
+
+    // ==================== Barre laterale : recherche de module ====================
+
+    private void ModuleSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        ApplySidebarSearch();
+    }
+
+    // Echap efface la recherche sans quitter le champ : le raccourci attendu d'un
+    // champ de recherche, et le seul moyen au clavier de retrouver la liste complete.
+    private void ModuleSearchTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape || ModuleSearchTextBox.Text.Length == 0)
+        {
+            return;
+        }
+
+        ModuleSearchTextBox.Clear();
+        e.Handled = true;
+    }
+
+    private void ClearModuleSearchButton_Click(object sender, RoutedEventArgs e)
+    {
+        ModuleSearchTextBox.Clear();
+        ModuleSearchTextBox.Focus();
+    }
+
+    // Filtre la barre laterale sur la saisie : les sections qui ont un resultat
+    // s'ouvrent, les autres disparaissent. Effacer la recherche rend les sections a
+    // l'etat ou l'utilisateur les avait laissees, plus celle du module affiche.
+    private void ApplySidebarSearch()
+    {
+        var query = ModuleSearchTextBox.Text;
+        var isSearching = !string.IsNullOrWhiteSpace(query);
+
+        if (isSearching && !isSidebarSearchActive)
+        {
+            groupsExpandedBeforeSearch.Clear();
+
+            foreach (var group in sidebarGroups.Where(group => group.IsExpanded))
+            {
+                groupsExpandedBeforeSearch.Add(group);
+            }
+        }
+
+        var matches = 0;
+
+        foreach (var group in sidebarGroups)
+        {
+            matches += group.ApplySearch(query);
+            group.IsExpanded = isSearching ? group.HasMatches : groupsExpandedBeforeSearch.Contains(group);
+        }
+
+        if (!isSearching)
+        {
+            groupsExpandedBeforeSearch.Clear();
+            SyncSidebarToTab(MainTabs.SelectedIndex);
+        }
+
+        isSidebarSearchActive = isSearching;
+
+        // Le filet de separation du pied ne doit pas rester seul quand la recherche ne
+        // retient rien dans le parametrage.
+        SidebarPinnedPanel.Visibility = sidebarGroups.Any(group => group.IsPinned && group.HasMatches)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        ClearModuleSearchButton.Visibility = query.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        SidebarSearchEmptyTextBlock.Visibility = isSearching && matches == 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     // Date du jour en toutes lettres ("vendredi 29 août 2026") sur l'accueil.
@@ -215,29 +334,38 @@ public partial class MainWindow : Window
             tile.IsLocked = tile.PermissionKey is { } permission && !HasModulePermission(permission);
         }
 
-        ApplyModuleAccess(PermissionCatalog.UnitsRead, ShowUnitsButton, UnitsTabItem);
-        ApplyModuleAccess(PermissionCatalog.RevenueRead, ShowRevenueButton, RevenueTabItem);
-        ApplyModuleAccess(PermissionCatalog.DashboardRead, ShowDashboardButton, DashboardTabItem);
-        ApplyModuleAccess(PermissionCatalog.AuditRead, ShowAuditButton, AuditTabItem);
-        ApplyModuleAccess(PermissionCatalog.ClosingRead, ShowClosingButton, ClosingTabItem);
-        ApplyModuleAccess(PermissionCatalog.TreasuryRead, ShowTreasuryButton, TreasuryTabItem);
-        ApplyModuleAccess(PermissionCatalog.CustomersRead, ShowCustomersButton, CustomersTabItem);
-        ApplyModuleAccess(PermissionCatalog.InvoicesRead, ShowInvoicesButton, InvoicesTabItem);
-        ApplyModuleAccess(PermissionCatalog.SettingsRead, ShowSettingsButton, SettingsTabItem);
-        ApplyModuleAccess(PermissionCatalog.UsersRead, ShowUsersButton, UsersTabItem);
-        ApplyModuleAccess(PermissionCatalog.AccountingRead, ShowAccountingButton, AccountingTabItem);
-        ApplyModuleAccess(PermissionCatalog.BudgetRead, ShowBudgetButton, BudgetTabItem);
-        ApplyModuleAccess(PermissionCatalog.ReceivablesRead, ShowReceivablesButton, ReceivablesTabItem);
-        ApplyModuleAccess(PermissionCatalog.TariffsRead, ShowTariffsButton, TariffsTabItem);
-        ApplyModuleAccess(PermissionCatalog.LodgingRead, ShowLodgingButton, LodgingTabItem);
-        ApplyModuleAccess(PermissionCatalog.ApprovalsRead, ShowApprovalsButton, ApprovalsTabItem);
-        ApplyModuleAccess(PermissionCatalog.ReportsRead, ShowReportsButton, ReportsTabItem);
-        ApplyModuleAccess(PermissionCatalog.MaintenanceRead, ShowBackupButton, BackupTabItem);
+        ApplyModuleAccess(PermissionCatalog.UnitsRead, UnitsTabItem);
+        ApplyModuleAccess(PermissionCatalog.RevenueRead, RevenueTabItem);
+        ApplyModuleAccess(PermissionCatalog.DashboardRead, DashboardTabItem);
+        ApplyModuleAccess(PermissionCatalog.AuditRead, AuditTabItem);
+        ApplyModuleAccess(PermissionCatalog.ClosingRead, ClosingTabItem);
+        ApplyModuleAccess(PermissionCatalog.TreasuryRead, TreasuryTabItem);
+        ApplyModuleAccess(PermissionCatalog.CustomersRead, CustomersTabItem);
+        ApplyModuleAccess(PermissionCatalog.InvoicesRead, InvoicesTabItem);
+        ApplyModuleAccess(PermissionCatalog.SettingsRead, SettingsTabItem);
+        ApplyModuleAccess(PermissionCatalog.UsersRead, UsersTabItem);
+        ApplyModuleAccess(PermissionCatalog.AccountingRead, AccountingTabItem);
+        ApplyModuleAccess(PermissionCatalog.BudgetRead, BudgetTabItem);
+        ApplyModuleAccess(PermissionCatalog.ReceivablesRead, ReceivablesTabItem);
+        ApplyModuleAccess(PermissionCatalog.TariffsRead, TariffsTabItem);
+        ApplyModuleAccess(PermissionCatalog.LodgingRead, LodgingTabItem);
+        ApplyModuleAccess(PermissionCatalog.ApprovalsRead, ApprovalsTabItem);
+        ApplyModuleAccess(PermissionCatalog.ReportsRead, ReportsTabItem);
+        ApplyModuleAccess(PermissionCatalog.MaintenanceRead, BackupTabItem);
 
         // Les deux ecrans de pilotage sont de l'agregation pure des modules existants : ils
         // reutilisent la cle dashboard.read deja semee, sans creer de permission a eux.
-        ApplyModuleAccess(PermissionCatalog.DashboardRead, ShowGroupDashboardButton, GroupDashboardTabItem);
-        ApplyModuleAccess(PermissionCatalog.DashboardRead, ShowDecCockpitButton, DecCockpitTabItem);
+        ApplyModuleAccess(PermissionCatalog.DashboardRead, GroupDashboardTabItem);
+        ApplyModuleAccess(PermissionCatalog.DashboardRead, DecCockpitTabItem);
+        ApplyModuleAccess(PermissionCatalog.HousekeepingRead, HousekeepingTabItem);
+        ApplyModuleAccess(PermissionCatalog.InventoryRead, InventoryTabItem);
+        ApplyModuleAccess(PermissionCatalog.PurchasingRead, PurchasingTabItem);
+        ApplyModuleAccess(PermissionCatalog.KitchenRead, KitchenTabItem);
+        ApplyModuleAccess(PermissionCatalog.CrmRead, CrmTabItem);
+        // Sans cette ligne l'onglet RH restait le SEUL module ouvert a tout profil
+        // connecte, y compris par le cycle clavier Ctrl+Tab : les donnees de paie
+        // sont parmi les plus sensibles du produit.
+        ApplyModuleAccess(PermissionCatalog.HrRead, HumanResourcesTabItem);
 
         ApplyWriteActionStates();
     }
@@ -279,16 +407,14 @@ public partial class MainWindow : Window
         button.ToolTip = allowed ? originalToolTips[button] : hint;
     }
 
-    private void ApplyModuleAccess(string permission, Button navButton, TabItem tabItem)
+    // Le bouton de la barre laterale suit deja le verrouillage de sa tuile
+    // (IsClickable, pose juste au-dessus) : il ne reste ici que l'onglet, dont la
+    // desactivation ferme le chemin clavier Ctrl+Tab / Ctrl+Shift+Tab, qui cycle les
+    // onglets meme quand leurs en-tetes ne sont pas affiches - un onglet desactive
+    // est saute par ce cycle.
+    private void ApplyModuleAccess(string permission, TabItem tabItem)
     {
-        var allowed = HasModulePermission(permission);
-
-        navButton.IsEnabled = allowed;
-
-        // Desactiver aussi le TabItem ferme le chemin clavier Ctrl+Tab / Ctrl+Shift+Tab,
-        // qui cycle les onglets meme quand leurs en-tetes ne sont pas affiches - un
-        // onglet desactive est saute par ce cycle.
-        tabItem.IsEnabled = allowed;
+        tabItem.IsEnabled = HasModulePermission(permission);
     }
 
     // ==================== Accueil : carte d'avancement des modules ====================
@@ -395,24 +521,26 @@ public partial class MainWindow : Window
         ModuleCatalogEmptyTextBlock.Visibility = isEmpty ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    // Carte de l'accueil : meme chemin de navigation que la barre laterale. Une
-    // carte sans ecran ou sans permission est desactivee (IsClickable=False) et
-    // ne peut donc pas declencher ce handler ; le test du bouton reste une
-    // securite si un chemin futur y arrivait autrement.
-    private void ModuleCatalogCard_Click(object sender, RoutedEventArgs e)
+    // Cartes de l'accueil ET boutons de la barre laterale : un seul handler, donc un
+    // seul comportement. Une carte ou un bouton sans ecran ou sans permission est
+    // desactive (IsClickable=False) et ne peut donc pas declencher ce handler ; le
+    // test reste une securite si un chemin futur y arrivait autrement.
+    private void ModuleTileNavigate_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement { DataContext: ModuleTile tile } || tile.TabIndex is not { } tabIndex)
         {
             return;
         }
 
-        var moduleButton = SidebarButtonForTab(tabIndex);
-        if (moduleButton is null || !moduleButton.IsEnabled)
+        if (!CanOpenModule(tabIndex))
         {
             return;
         }
 
-        NavigateToModule(tabIndex, moduleButton);
+        // La recherche a rempli son office : la barre laterale revient a son etat
+        // normal, ou le module qui vient de s'ouvrir se voit dans sa famille.
+        ModuleSearchTextBox.Clear();
+        NavigateToModule(tabIndex);
     }
 
     // Ordre des onglets de MainTabs : 0=Accueil, 1=Unités hôtelières,
@@ -422,37 +550,19 @@ public partial class MainWindow : Window
     // 11=Comptabilité SCF, 12=Budget & prévisions, 13=Créances & recouvrement,
     // 14=Tarifs & conventions, 15=Hébergement & occupation,
     // 16=Validations, 17=Rapports, 18=Sauvegarde,
-    // 19=Tableau de bord PDG, 20=Cockpit DEC.
+    // 19=Tableau de bord PDG, 20=Cockpit DEC, 21=Housekeeping & chambres,
+    // 22=RH & paie, 23=CRM & expérience client.
     //
     // Cet ordre est celui des TabItem, pas celui de la barre latérale : l'index d'un
     // onglet est l'identité d'un module dans tout le code (ModuleCatalog.TabIndex y
     // compris), donc les nouveaux modules s'ajoutent à la fin. La barre latérale, elle,
-    // les présente à leur place métier, parmi les modules d'exploitation.
-    private Button? SidebarButtonForTab(int tabIndex) => tabIndex switch
-    {
-        0 => ShowHomeButton,
-        1 => ShowUnitsButton,
-        2 => ShowRevenueButton,
-        3 => ShowDashboardButton,
-        4 => ShowAuditButton,
-        5 => ShowClosingButton,
-        6 => ShowTreasuryButton,
-        7 => ShowCustomersButton,
-        8 => ShowInvoicesButton,
-        9 => ShowSettingsButton,
-        10 => ShowUsersButton,
-        11 => ShowAccountingButton,
-        12 => ShowBudgetButton,
-        13 => ShowReceivablesButton,
-        14 => ShowTariffsButton,
-        15 => ShowLodgingButton,
-        16 => ShowApprovalsButton,
-        17 => ShowReportsButton,
-        18 => ShowBackupButton,
-        19 => ShowGroupDashboardButton,
-        20 => ShowDecCockpitButton,
-        _ => null
-    };
+    // les présente à leur place métier, dans la famille fonctionnelle du catalogue.
+    private const int HomeTabIndex = 0;
+
+    // Largeurs du panneau lateral et de sa gouttiere quand il est affiche - reprises
+    // telles quelles des ColumnDefinition de MainWindow.xaml.
+    private const double SidebarWidth = 248;
+    private const double SidebarGapWidth = 20;
 
     // Fondu discret (150 ms) du contenu a chaque changement de module, et
     // resynchronisation de la surbrillance de la sidebar : quel que soit le chemin
@@ -466,20 +576,16 @@ public partial class MainWindow : Window
             return;
         }
 
-        var moduleButton = SidebarButtonForTab(MainTabs.SelectedIndex);
-
-        if (moduleButton is not null)
+        // Ceinture et bretelles en plus des TabItem desactives : si un chemin de
+        // navigation futur atteint un module non autorise, retour a l'accueil - la
+        // nouvelle selection repasse aussitot par ce meme handler.
+        if (!CanOpenModule(MainTabs.SelectedIndex))
         {
-            // Ceinture et bretelles en plus des TabItem desactives : si un chemin
-            // de navigation futur atteint un module non autorise, retour a l'accueil.
-            if (!moduleButton.IsEnabled)
-            {
-                MainTabs.SelectedIndex = 0;
-                moduleButton = ShowHomeButton;
-            }
-
-            SetActiveModuleButton(moduleButton);
+            MainTabs.SelectedIndex = HomeTabIndex;
+            return;
         }
+
+        SyncSidebarToTab(MainTabs.SelectedIndex);
 
         var fade = new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(150))
         {
@@ -553,6 +659,24 @@ public partial class MainWindow : Window
             case 20:
                 await DecCockpitView.LoadAsync();
                 break;
+            case 21:
+                await HousekeepingView.LoadAsync();
+                break;
+            case 22:
+                await HumanResourcesView.LoadAsync();
+                break;
+            case 23:
+                await CrmView.LoadAsync();
+                break;
+            case 24:
+                await InventoryView.LoadAsync();
+                break;
+            case 25:
+                await PurchasingView.LoadAsync();
+                break;
+            case 26:
+                await KitchenView.LoadAsync();
+                break;
             default:
                 // Les onglets 0 a 4 vivent dans MainWindow et sont charges a la
                 // connexion : rien a faire, et rien a retenir non plus.
@@ -615,7 +739,7 @@ public partial class MainWindow : Window
             InitializeModuleViews();
 
             // La session s'ouvre toujours sur l'ecran d'accueil.
-            NavigateToModule(0, ShowHomeButton);
+            NavigateToModule(HomeTabIndex);
 
             SetStatus("Connexion réussie. Chargement des données...");
 
@@ -733,6 +857,12 @@ public partial class MainWindow : Window
         BackupView.Initialize(context);
         GroupDashboardView.Initialize(context);
         DecCockpitView.Initialize(context);
+        HousekeepingView.Initialize(context);
+        HumanResourcesView.Initialize(context);
+        InventoryView.Initialize(context);
+        PurchasingView.Initialize(context);
+        KitchenView.Initialize(context);
+        CrmView.Initialize(context);
 
         // Le cockpit DEC ne connait pas MainWindow : ses files de travail DEMANDENT
         // l'ouverture du module concerne via NavigateRequested, et c'est la fenetre - seule a
@@ -753,14 +883,12 @@ public partial class MainWindow : Window
     // renvoyer l'utilisateur sur l'accueil sans explication.
     private void DecCockpitView_NavigateRequested(int tabIndex)
     {
-        var moduleButton = SidebarButtonForTab(tabIndex);
-
-        if (moduleButton is null || !moduleButton.IsEnabled)
+        if (!CanOpenModule(tabIndex))
         {
             return;
         }
 
-        NavigateToModule(tabIndex, moduleButton);
+        NavigateToModule(tabIndex);
     }
 
     private void LogoutButton_Click(object sender, RoutedEventArgs e)
@@ -822,6 +950,12 @@ public partial class MainWindow : Window
         BackupView.ResetState();
         GroupDashboardView.ResetState();
         DecCockpitView.ResetState();
+        HousekeepingView.ResetState();
+        HumanResourcesView.ResetState();
+        InventoryView.ResetState();
+        PurchasingView.ResetState();
+        KitchenView.ResetState();
+        CrmView.ResetState();
         loadedModuleTabs.Clear();
 
         ResetUnitForm();
@@ -836,7 +970,7 @@ public partial class MainWindow : Window
         ApplyModulePermissions();
 
         // A la reconnexion, la session reprendra sur l'ecran d'accueil.
-        NavigateToModule(0, ShowHomeButton);
+        NavigateToModule(HomeTabIndex);
 
         RefreshAuthState();
         SetStatus("Déconnecté. Reconnectez-vous pour continuer.");
@@ -871,108 +1005,10 @@ public partial class MainWindow : Window
 
     private void ShowHomeButton_Click(object sender, RoutedEventArgs e)
     {
-        NavigateToModule(0, ShowHomeButton);
+        ModuleSearchTextBox.Clear();
+        NavigateToModule(HomeTabIndex);
     }
 
-    private void ShowUnitsButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(1, ShowUnitsButton);
-    }
-
-    private void ShowRevenueButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(2, ShowRevenueButton);
-    }
-
-    private void ShowDashboardButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(3, ShowDashboardButton);
-    }
-
-    private void ShowAuditButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(4, ShowAuditButton);
-    }
-
-    private void ShowClosingButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(5, ShowClosingButton);
-    }
-
-    private void ShowTreasuryButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(6, ShowTreasuryButton);
-    }
-
-    private void ShowCustomersButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(7, ShowCustomersButton);
-    }
-
-    private void ShowInvoicesButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(8, ShowInvoicesButton);
-    }
-
-    private void ShowSettingsButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(9, ShowSettingsButton);
-    }
-
-    private void ShowUsersButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(10, ShowUsersButton);
-    }
-
-    private void ShowAccountingButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(11, ShowAccountingButton);
-    }
-
-    private void ShowBudgetButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(12, ShowBudgetButton);
-    }
-
-    private void ShowReceivablesButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(13, ShowReceivablesButton);
-    }
-
-    private void ShowTariffsButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(14, ShowTariffsButton);
-    }
-
-    private void ShowApprovalsButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(16, ShowApprovalsButton);
-    }
-
-    private void ShowReportsButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(17, ShowReportsButton);
-    }
-
-    private void ShowBackupButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(18, ShowBackupButton);
-    }
-
-    private void ShowLodgingButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(15, ShowLodgingButton);
-    }
-
-    private void ShowGroupDashboardButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(19, ShowGroupDashboardButton);
-    }
-
-    private void ShowDecCockpitButton_Click(object sender, RoutedEventArgs e)
-    {
-        NavigateToModule(20, ShowDecCockpitButton);
-    }
 
     private async void CreateRevenueButton_Click(object sender, RoutedEventArgs e)
     {
@@ -1600,14 +1636,15 @@ public partial class MainWindow : Window
         // Neutraliser tout le conteneur d'onglets pendant un appel en vol empeche
         // la double soumission (double clic = deux factures, deux encaissements,
         // deux cloctures) sans avoir a maintenir une liste de boutons par vue.
-        // La barre laterale reste active : changer d'onglet pendant un appel est
+        // La barre laterale reste active : changer de module pendant un appel est
         // sans danger, les vues rechargent leurs donnees a l'ouverture.
         MainTabs.IsEnabled = !isBusy;
     }
 
-    // Mirrors the message onto both status surfaces: the sidebar's (visible once signed in)
-    // and the login card's (visible while signed out, e.g. for a wrong-password message) -
-    // exactly one of the two is ever on screen at a time, so this never reads as duplicated.
+    // Mirrors the message onto both status surfaces: the session strip at the foot of the
+    // module area (visible once signed in, on every screen including the home one) and the
+    // login card's (visible while signed out, e.g. for a wrong-password message) - exactly
+    // one of the two is ever on screen at a time, so this never reads as duplicated.
     private void SetStatus(string message, bool isError = false)
     {
         StatusTextBlock.Text = message;

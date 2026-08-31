@@ -1154,6 +1154,206 @@
     <PathGeometry x:Key="ModuleGroupIcon.Systeme"
                   Figures="M8,5.5 A2.5,2.5 0 1 0 8.01,5.5 M8,1.4 V3 M8,13 V14.6 M1.4,8 H3 M13,8 H14.6 M3.6,3.6 L4.7,4.7 M11.3,11.3 L12.4,12.4 M12.4,3.6 L11.3,4.7 M4.7,11.3 L3.6,12.4" />
 
+    <!-- ===================== Barre laterale : familles deroulantes ===================== -->
+    <!-- Suite de ModuleNavButton, declaree ICI et pas la-bas : ces gabarits lisent
+         ModuleGroupIconConverter et les geometries ci-dessus, qu'un StaticResource
+         doit trouver deja declarees. L'ERP compte une cinquantaine de modules : la
+         barre laterale les presente par famille, repliees, avec une recherche - une
+         liste plate de vingt boutons ne tient ni a l'ecran ni dans la tete. -->
+
+    <!-- Module a l'interieur d'une famille : meme comportement que ModuleNavButton
+         (surbrillance Tag="Active", etat desactive), en retrait et un cran plus
+         discret pour marquer la subordination a l'en-tete de famille. -->
+    <Style x:Key="ModuleNavSubButton" TargetType="Button" BasedOn="{StaticResource ModuleNavButton}">
+        <Setter Property="Height" Value="34" />
+        <Setter Property="Margin" Value="8,0,0,2" />
+        <Setter Property="FontSize" Value="12.5" />
+        <!-- Un module verrouille est desactive : sans cela, l'info-bulle qui dit
+             POURQUOI (permission manquante) ne s'afficherait jamais. -->
+        <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+        <Setter Property="ToolTipService.InitialShowDelay" Value="350" />
+    </Style>
+
+    <!-- En-tete d'une famille : icone, libelle, compteur et chevron. C'est un
+         ToggleButton pour que la ligne entiere ouvre et ferme la famille, a la
+         souris comme au clavier (barre d'espace). -->
+    <Style x:Key="ModuleNavGroupHeader" TargetType="ToggleButton">
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="bg"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="6"
+                            Padding="10,0"
+                            SnapsToDevicePixels="True">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <ContentPresenter VerticalAlignment="Center" />
+
+                            <!-- Chevron ferme = pointe a droite (rotation -90), ouvert =
+                                 pointe en bas : l'etat de la famille se lit sans avoir a
+                                 la comparer avec ses voisines. -->
+                            <Path x:Name="chevron"
+                                  Grid.Column="1"
+                                  Width="9"
+                                  Height="7"
+                                  Stretch="None"
+                                  Data="M0.6,1.6 L4.5,5.5 L8.4,1.6"
+                                  Stroke="{StaticResource TextMutedBrush}"
+                                  StrokeThickness="1.6"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round"
+                                  VerticalAlignment="Center"
+                                  Margin="8,0,0,0"
+                                  RenderTransformOrigin="0.5,0.5">
+                                <Path.RenderTransform>
+                                    <RotateTransform Angle="-90" />
+                                </Path.RenderTransform>
+                            </Path>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bg" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="bg" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="chevron" Property="RenderTransform">
+                                <Setter.Value>
+                                    <RotateTransform Angle="0" />
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Contenu de l'en-tete : le DataContext est un ModuleNavigationGroup. -->
+    <DataTemplate x:Key="ModuleNavGroupHeaderTemplate">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Path Width="16"
+                  Height="16"
+                  Stretch="None"
+                  Data="{Binding IconKey, Converter={StaticResource ModuleGroupIconConverter}}"
+                  Stroke="{StaticResource TextMutedBrush}"
+                  StrokeThickness="1.4"
+                  StrokeStartLineCap="Round"
+                  StrokeEndLineCap="Round"
+                  StrokeLineJoin="Round"
+                  VerticalAlignment="Center"
+                  Margin="0,0,10,0" />
+
+            <TextBlock Grid.Column="1"
+                       Text="{Binding Name}"
+                       TextTrimming="CharacterEllipsis"
+                       VerticalAlignment="Center" />
+
+            <!-- Nombre de modules affiches : pendant une recherche, il devient le
+                 nombre de resultats de la famille. -->
+            <Border Grid.Column="2"
+                    Background="{StaticResource SurfaceSubtleBrush}"
+                    CornerRadius="8"
+                    Padding="7,1"
+                    Margin="8,0,0,0"
+                    VerticalAlignment="Center">
+                <TextBlock Text="{Binding VisibleModules.Count}"
+                           FontSize="10.5"
+                           FontWeight="Normal"
+                           Foreground="{StaticResource TextSecondaryBrush}" />
+            </Border>
+        </Grid>
+    </DataTemplate>
+
+    <!-- Famille deroulante. Le gabarit d'origine de l'Expander (fleche ronde,
+         bordure) est entierement remplace : seule la ligne d'en-tete ouvre et ferme
+         la famille, et IsExpanded reste lie au groupe, donc la fenetre peut ouvrir
+         la famille du module qu'elle affiche. -->
+    <Style x:Key="ModuleNavGroup" TargetType="Expander">
+        <Setter Property="Margin" Value="0,0,0,2" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Expander">
+                    <StackPanel>
+                        <ToggleButton Style="{StaticResource ModuleNavGroupHeader}"
+                                      IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                      Content="{TemplateBinding Header}"
+                                      ContentTemplate="{TemplateBinding HeaderTemplate}" />
+                        <ContentPresenter x:Name="content"
+                                          Visibility="Collapsed"
+                                          Margin="0,2,0,8" />
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsExpanded" Value="True">
+                            <Setter TargetName="content" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Croix d'effacement du champ de recherche, posee par-dessus le TextBox. -->
+    <Style x:Key="SearchClearButton" TargetType="Button">
+        <Setter Property="Width" Value="22" />
+        <Setter Property="Height" Value="22" />
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,7,0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bg"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="11"
+                            SnapsToDevicePixels="True">
+                        <Path x:Name="glyph"
+                              Width="9"
+                              Height="9"
+                              Stretch="None"
+                              Data="M0.8,0.8 L8.2,8.2 M8.2,0.8 L0.8,8.2"
+                              Stroke="{StaticResource TextMutedBrush}"
+                              StrokeThickness="1.5"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bg" Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                            <Setter TargetName="glyph" Property="Stroke" Value="{StaticResource TextPrimaryBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="ModuleCardIcon" TargetType="Path">
         <Setter Property="Width" Value="16" />
         <Setter Property="Height" Value="16" />

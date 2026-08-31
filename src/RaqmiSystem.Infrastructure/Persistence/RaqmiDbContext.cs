@@ -5,9 +5,15 @@ using RaqmiSystem.Domain.Audit;
 using RaqmiSystem.Domain.Billing;
 using RaqmiSystem.Domain.Budgeting;
 using RaqmiSystem.Domain.Closing;
+using RaqmiSystem.Domain.Crm;
+using RaqmiSystem.Domain.Housekeeping;
+using RaqmiSystem.Domain.HumanResources;
 using RaqmiSystem.Domain.Identity;
+using RaqmiSystem.Domain.Inventory;
+using RaqmiSystem.Domain.Kitchen;
 using RaqmiSystem.Domain.Lodging;
 using RaqmiSystem.Domain.Organization;
+using RaqmiSystem.Domain.Purchasing;
 using RaqmiSystem.Domain.Receivables;
 using RaqmiSystem.Domain.Reporting;
 using RaqmiSystem.Domain.Revenue;
@@ -77,6 +83,14 @@ public sealed class RaqmiDbContext(DbContextOptions<RaqmiDbContext> options) : D
 
     public DbSet<FolioCharge> FolioCharges => Set<FolioCharge>();
 
+    public DbSet<RoomCondition> RoomConditions => Set<RoomCondition>();
+
+    public DbSet<HousekeepingTask> HousekeepingTasks => Set<HousekeepingTask>();
+
+    public DbSet<MinibarItem> MinibarItems => Set<MinibarItem>();
+
+    public DbSet<MinibarConsumption> MinibarConsumptions => Set<MinibarConsumption>();
+
     public DbSet<ApprovalCircuit> ApprovalCircuits => Set<ApprovalCircuit>();
 
     public DbSet<ApprovalStep> ApprovalSteps => Set<ApprovalStep>();
@@ -88,6 +102,67 @@ public sealed class RaqmiDbContext(DbContextOptions<RaqmiDbContext> options) : D
     public DbSet<ApprovalDecision> ApprovalDecisions => Set<ApprovalDecision>();
 
     public DbSet<ReportExecution> ReportExecutions => Set<ReportExecution>();
+
+    public DbSet<CustomerSegment> CustomerSegments => Set<CustomerSegment>();
+
+    public DbSet<GuestProfile> GuestProfiles => Set<GuestProfile>();
+
+    public DbSet<LoyaltyTier> LoyaltyTiers => Set<LoyaltyTier>();
+
+    public DbSet<LoyaltyTransaction> LoyaltyTransactions => Set<LoyaltyTransaction>();
+
+    public DbSet<Campaign> Campaigns => Set<Campaign>();
+
+    public DbSet<SatisfactionEntry> SatisfactionEntries => Set<SatisfactionEntry>();
+
+    public DbSet<GuestInteraction> GuestInteractions => Set<GuestInteraction>();
+
+    public DbSet<Department> Departments => Set<Department>();
+
+    public DbSet<Position> Positions => Set<Position>();
+
+    public DbSet<Employee> Employees => Set<Employee>();
+
+    public DbSet<EmploymentContract> EmploymentContracts => Set<EmploymentContract>();
+
+    public DbSet<TimeEntry> TimeEntries => Set<TimeEntry>();
+
+    public DbSet<AbsenceRequest> Absences => Set<AbsenceRequest>();
+
+    public DbSet<PayrollBonus> PayrollBonuses => Set<PayrollBonus>();
+
+    public DbSet<Payslip> Payslips => Set<Payslip>();
+
+    public DbSet<PayrollPeriod> PayrollPeriods => Set<PayrollPeriod>();
+
+    public DbSet<PayrollParameterSet> PayrollParameterSets => Set<PayrollParameterSet>();
+
+    // ------------------------------- Vague E1 : stocks -------------------------------
+    public DbSet<Warehouse> Warehouses => Set<Warehouse>();
+
+    public DbSet<StockItem> StockItems => Set<StockItem>();
+
+    public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+
+    public DbSet<InventoryCount> InventoryCounts => Set<InventoryCount>();
+
+    public DbSet<InventoryCountLine> InventoryCountLines => Set<InventoryCountLine>();
+
+    // ------------------------------- Vague E1 : achats -------------------------------
+    public DbSet<Supplier> Suppliers => Set<Supplier>();
+
+    public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
+
+    public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();
+
+    // ------------------------------ Vague E1 : cuisine -------------------------------
+    public DbSet<RecipeSheet> RecipeSheets => Set<RecipeSheet>();
+
+    public DbSet<RecipeIngredient> RecipeIngredients => Set<RecipeIngredient>();
+
+    public DbSet<TemperatureCheckpoint> TemperatureCheckpoints => Set<TemperatureCheckpoint>();
+
+    public DbSet<TemperatureReading> TemperatureReadings => Set<TemperatureReading>();
 
     /// <summary>
     /// Singleton row holding the global configuration (see

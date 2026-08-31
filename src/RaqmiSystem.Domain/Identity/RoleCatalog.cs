@@ -10,6 +10,15 @@ public static class RoleCatalog
     public const string Reader = "reader";
 
     /// <summary>
+    /// The HR role. It is separate from every operating role on purpose: the HR module holds the
+    /// personal data protected by law 18-07 (national identity and social security numbers, bank
+    /// accounts, dependants) and the payroll figures, and those must not come bundled with a
+    /// front-desk or accounting profile. It is deliberately absent from
+    /// <see cref="ApprovalDeciderRoles"/> - it never receives approvals.decide.
+    /// </summary>
+    public const string HrManager = "hr.manager";
+
+    /// <summary>
     /// The roles that carry <see cref="PermissionCatalog.ApprovalsDecide"/> - i.e. the ONLY
     /// roles an approval step may ever require.
     ///

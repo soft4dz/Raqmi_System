@@ -62,9 +62,21 @@ public sealed class AuthenticationEndpointTests : IClassFixture<RaqmiApiFactory>
             PermissionCatalog.SettingsRead,
             PermissionCatalog.LodgingRead,
             PermissionCatalog.LodgingCheckin,
+            // Module 10.2: the front desk posts minibar consumption onto a folio at check-out,
+            // which is a housekeeping write. It never gets housekeeping.inspect - signing a room
+            // off is the floor supervisor act.
+            PermissionCatalog.HousekeepingRead,
+            PermissionCatalog.HousekeepingWrite,
+            // Module 10.4: the front desk is where the relationship is actually recorded - the
+            // opt-in collected at check-in, a room preference, the call taken this morning. It
+            // never gets crm.loyalty: moving points is redeemable value.
+            PermissionCatalog.CrmRead,
+            PermissionCatalog.CrmWrite,
             // Wave C: a cashier consults the validation circuits their documents go through,
             // but never configures one (approvals.write) and never decides (approvals.decide).
             PermissionCatalog.ApprovalsRead
+            // Wave E1 (stocks, achats, cuisine) grants the front desk NOTHING: the store, the
+            // ordering and the kitchen are not front-office acts.
         };
 
         Assert.Equal(expectedPermissions.Order(), body.User.Permissions.Order());
@@ -174,14 +186,33 @@ public sealed class AuthenticationEndpointTests : IClassFixture<RaqmiApiFactory>
             PermissionCatalog.ReceivablesRead,
             PermissionCatalog.TariffsRead,
             PermissionCatalog.LodgingRead,
+            // Module 10.2: direction reads the housekeeping board but never runs it - planning a
+            // sheet and signing off a room are unit-level acts.
+            PermissionCatalog.HousekeepingRead,
             // Wave C. Direction reads and DECIDES validations (it is a decider role) but does not
             // configure circuits - approvals.write belongs to exploitation.control. It reads the
             // reports and the backup state; maintenance.backup is deliberately absent, since only
             // system.administrator holds it through the catch-all grant of PermissionCatalog.All.
+            // Module 10.4: direction reads the CRM and writes none of it - qualifying a guest
+            // and moving their points are unit-level acts.
+            PermissionCatalog.CrmRead,
             PermissionCatalog.ApprovalsRead,
             PermissionCatalog.ApprovalsDecide,
             PermissionCatalog.ReportsRead,
-            PermissionCatalog.MaintenanceRead
+            PermissionCatalog.MaintenanceRead,
+            // Module 21: direction reads the HR module - headcount, contracts, payroll totals -
+            // and writes none of it; hr.write and the payroll keys stay with the HR profile.
+            PermissionCatalog.HrRead,
+            // Wave E1: direction reads the three operating modules and holds exactly the two
+            // acts that engage the establishment rather than run it - closing a physical count
+            // (it writes the adjustment movements) and approving a purchase order (it commits
+            // the spend). inventory.write, purchasing.write, purchasing.receive and
+            // kitchen.write are deliberately absent.
+            PermissionCatalog.InventoryRead,
+            PermissionCatalog.InventoryValidate,
+            PermissionCatalog.PurchasingRead,
+            PermissionCatalog.PurchasingApprove,
+            PermissionCatalog.KitchenRead
         };
 
         Assert.Equal(expectedPermissions.Order(), body.Permissions.Order());

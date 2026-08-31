@@ -22,7 +22,7 @@ namespace RaqmiSystem.Desktop.Views;
 public partial class DecCockpitView : UserControl
 {
     // Index des onglets cibles dans MainTabs (voir MainWindow.xaml.cs :
-    // NavigateToModule / SidebarButtonForTab). La vue ne navigue pas elle-meme :
+    // NavigateToModule / CanOpenModule). La vue ne navigue pas elle-meme :
     // elle transmet cet index via NavigateRequested.
     private const int RevenueTabIndex = 2;
     private const int ClosingTabIndex = 5;
@@ -34,7 +34,7 @@ public partial class DecCockpitView : UserControl
     /// Demande de navigation vers l'onglet de module donne (index de MainTabs).
     /// Cablage attendu cote fenetre, dans InitializeModuleViews :
     /// DecCockpitView.NavigateRequested += tabIndex =&gt;
-    ///     NavigateToModule(tabIndex, SidebarButtonForTab(tabIndex) ?? ShowHomeButton);
+    ///     { if (CanOpenModule(tabIndex)) NavigateToModule(tabIndex); };
     /// </summary>
     public event Action<int>? NavigateRequested;
 

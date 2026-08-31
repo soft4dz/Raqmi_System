@@ -7,10 +7,16 @@ using RaqmiSystem.Application.Approvals;
 using RaqmiSystem.Application.Billing;
 using RaqmiSystem.Application.Budgeting;
 using RaqmiSystem.Application.Closing;
+using RaqmiSystem.Application.Crm;
+using RaqmiSystem.Application.Housekeeping;
+using RaqmiSystem.Application.HumanResources;
 using RaqmiSystem.Application.Identity;
+using RaqmiSystem.Application.Inventory;
+using RaqmiSystem.Application.Kitchen;
 using RaqmiSystem.Application.Lodging;
 using RaqmiSystem.Application.Maintenance;
 using RaqmiSystem.Application.Organization;
+using RaqmiSystem.Application.Purchasing;
 using RaqmiSystem.Application.Pilotage;
 using RaqmiSystem.Application.Receivables;
 using RaqmiSystem.Application.Reporting;
@@ -25,11 +31,17 @@ using RaqmiSystem.Infrastructure.Audit;
 using RaqmiSystem.Infrastructure.Billing;
 using RaqmiSystem.Infrastructure.Budgeting;
 using RaqmiSystem.Infrastructure.Closing;
+using RaqmiSystem.Infrastructure.Crm;
+using RaqmiSystem.Infrastructure.Housekeeping;
 using RaqmiSystem.Infrastructure.Identity;
+using RaqmiSystem.Infrastructure.Inventory;
+using RaqmiSystem.Infrastructure.Kitchen;
+using RaqmiSystem.Infrastructure.HumanResources;
 using RaqmiSystem.Infrastructure.Lodging;
 using RaqmiSystem.Infrastructure.Maintenance;
 using RaqmiSystem.Infrastructure.Organization;
 using RaqmiSystem.Infrastructure.Persistence;
+using RaqmiSystem.Infrastructure.Purchasing;
 using RaqmiSystem.Infrastructure.Pilotage;
 using RaqmiSystem.Infrastructure.Receivables;
 using RaqmiSystem.Infrastructure.Reporting;
@@ -79,14 +91,39 @@ public static class DependencyInjection
         services.AddScoped<ITariffService, TariffService>();
         services.AddScoped<ITariffResolutionService, TariffResolutionService>();
         services.AddScoped<ILodgingService, LodgingService>();
+
+        // Housekeeping depends on ILodgingService so a minibar consumption and the folio
+        // line it bills are written by the SAME folio code path, inside its transaction -
+        // rather than re-implementing the checked-in guard here where it could drift.
+        services.AddScoped<IHousekeepingService, HousekeepingService>();
+        // The CRM reads the customer file through the module that owns it (IBillingService)
+        // rather than re-projecting the customers table: the 360 view must show exactly
+        // what the customer screen shows.
+        services.AddScoped<ICrmService, CrmService>();
         services.AddScoped<IApprovalService, ApprovalService>();
         services.AddScoped<IApprovalGate, ApprovalService>();
+        services.AddScoped<IHumanResourcesService, HumanResourcesService>();
+        services.AddScoped<IPayrollService, PayrollService>();
         services.AddScoped<IReportingService, ReportingService>();
         services.AddScoped<IBackupService, BackupService>();
 
         // Module Pilotage : deux lecteurs d'agregation pure (aucune table, aucune ecriture).
         services.AddScoped<IGroupDashboardService, GroupDashboardService>();
         services.AddScoped<IDecCockpitService, DecCockpitService>();
+
+        // Vague E1 : la chaine stocks -> achats -> cuisine.
+        // InventoryService porte TROIS contrats : son propre IInventoryService et les deux
+        // contrats publies vers les autres modules (IStockOperationService, consomme par les
+        // receptions d'achat ; IStockCostProvider, consomme par le cout matiere des fiches
+        // techniques et par le controle d'existence d'un article commande). Les trois
+        // enregistrements donnent trois instances par scope, ce qui est sans effet ici :
+        // tout l'etat vit dans le RaqmiDbContext scoped partage. Meme precedent que
+        // IDailyClosingService / IDailyClosingReadService plus haut.
+        services.AddScoped<IInventoryService, InventoryService>();
+        services.AddScoped<IStockOperationService, InventoryService>();
+        services.AddScoped<IStockCostProvider, InventoryService>();
+        services.AddScoped<IPurchasingService, PurchasingService>();
+        services.AddScoped<IKitchenService, KitchenService>();
 
         return services;
     }

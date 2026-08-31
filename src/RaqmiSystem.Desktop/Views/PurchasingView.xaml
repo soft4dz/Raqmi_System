@@ -1,0 +1,1191 @@
+<UserControl x:Class="RaqmiSystem.Desktop.Views.PurchasingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignWidth="1280"
+             d:DesignHeight="820"
+             FontFamily="{StaticResource AppFontFamily}"
+             Background="Transparent">
+
+    <!-- =========================================================================
+         Achats & approvisionnements (module 12).
+         Trois sections independantes, donc des sous-onglets visibles selon le
+         gabarit SectionTabControl de TreasuryView : bons de commande, reception,
+         fournisseurs. Aucune ressource du theme n'est modifiee : les styles
+         propres a cet ecran sont declares ci-dessous.
+         ========================================================================= -->
+    <UserControl.Resources>
+
+        <!-- Onglets internes du module : le style implicite du theme supprime les
+             en-tetes de TabControl (le panneau lateral est l'unique navigation de
+             l'application), ce module a donc besoin de son propre gabarit
+             d'onglets visibles. Gabarit repris de TreasuryView. -->
+        <Style x:Key="SectionTabItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Grid SnapsToDevicePixels="True">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Border x:Name="tabBackground"
+                                    Background="Transparent"
+                                    CornerRadius="6,6,0,0"
+                                    Padding="18,9">
+                                <ContentPresenter ContentSource="Header"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
+                            </Border>
+
+                            <Rectangle x:Name="tabIndicator"
+                                       Grid.Row="1"
+                                       Height="2.5"
+                                       Fill="{StaticResource AccentBrush}"
+                                       Opacity="0" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="tabBackground" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="tabBackground" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="tabIndicator" Property="Opacity" Value="1" />
+                                <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SectionTabControl" TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource SectionTabItem}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border BorderBrush="{StaticResource PanelBorderBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <TabPanel IsItemsHost="True" HorizontalAlignment="Left" />
+                            </Border>
+
+                            <ContentPresenter Grid.Row="1"
+                                              Margin="0,16,0,0"
+                                              ContentSource="SelectedContent" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Champs de saisie a l'interieur d'une grille de lignes : plus compacts
+             que les champs de formulaire, memes bordures et memes etats. -->
+        <Style x:Key="LineEditorTextBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Margin" Value="0,6" />
+            <Setter Property="FontSize" Value="12.5" />
+        </Style>
+
+        <Style x:Key="LineEditorAmountTextBox" TargetType="TextBox" BasedOn="{StaticResource LineEditorTextBox}">
+            <Setter Property="TextAlignment" Value="Right" />
+        </Style>
+
+        <!-- Precision affichee sous un champ dont la saisie obeit a une regle metier. -->
+        <Style x:Key="FieldHintText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+            <Setter Property="Margin" Value="0,4,0,0" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style x:Key="BusinessRuleText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- Detail : libelle / valeur -->
+        <Style x:Key="DetailTotalLabelText" TargetType="TextBlock" BasedOn="{StaticResource MetricLabelText}">
+            <Setter Property="Margin" Value="0,0,0,2" />
+        </Style>
+
+        <Style x:Key="DetailTotalValueText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextAlignment" Value="Right" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============================== En-tete du module ============================== -->
+        <DockPanel>
+            <Button x:Name="RefreshAllButton"
+                    DockPanel.Dock="Right"
+                    Content="Tout actualiser"
+                    Style="{StaticResource SecondaryButton}"
+                    ToolTip="Recharger les fournisseurs et les bons de commande"
+                    VerticalAlignment="Center"
+                    Click="RefreshAllButton_Click" />
+
+            <StackPanel>
+                <TextBlock Text="Achats &amp; approvisionnements"
+                           Style="{StaticResource PageTitleText}" />
+                <TextBlock Text="Fournisseurs, bons de commande numérotés à l'approbation et réceptions qui alimentent le stock. Les demandes d'achat, les consultations et les factures fournisseurs ne sont pas couvertes par ce module."
+                           Style="{StaticResource SubtitleText}"
+                           TextWrapping="Wrap"
+                           Margin="0,4,0,0" />
+            </StackPanel>
+        </DockPanel>
+
+        <TabControl x:Name="PurchasingTabs"
+                    Grid.Row="2"
+                    Style="{StaticResource SectionTabControl}">
+
+            <!-- ============================= Bons de commande ============================= -->
+            <TabItem Header="Bons de commande">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- ============================== Filtres ============================== -->
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="14" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Text="Bons de commande"
+                                       Style="{StaticResource SectionTitleText}" />
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="140" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="140" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="180" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Du" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="OrdersFromDatePicker"
+                                                ToolTip="Début de la période de commande" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Au" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="OrdersToDatePicker"
+                                                ToolTip="Fin de la période de commande" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Fournisseur" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="OrdersSupplierComboBox"
+                                              DisplayMemberPath="Label"
+                                              ToolTip="Filtrer sur un fournisseur" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="6">
+                                    <TextBlock Text="Dépôt" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="OrdersWarehouseTextBox"
+                                             Tag="ex. DEP-CENTRAL"
+                                             ToolTip="Code du dépôt de livraison (référentiel du module Stocks)"
+                                             MaxLength="40" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="8">
+                                    <TextBlock Text="Statut" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="OrdersStatusComboBox"
+                                              DisplayMemberPath="Label"
+                                              ToolTip="Filtrer sur l'état d'avancement du bon de commande" />
+                                </StackPanel>
+
+                                <Button x:Name="RefreshOrdersButton"
+                                        Grid.Column="10"
+                                        Content="Actualiser"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Recharger les bons de commande correspondant aux filtres"
+                                        VerticalAlignment="Bottom"
+                                        Click="RefreshOrdersButton_Click" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- =============================== Liste =============================== -->
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <TextBlock x:Name="OrderCountTextBlock"
+                                           DockPanel.Dock="Right"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center"
+                                           Style="{StaticResource CaptionText}" />
+                                <TextBlock Text="Commandes"
+                                           Style="{StaticResource SectionTitleText}" />
+                            </DockPanel>
+
+                            <Grid Grid.Row="2">
+                                <DataGrid x:Name="OrdersDataGrid"
+                                          SelectionChanged="OrdersDataGrid_SelectionChanged">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="N°"
+                                                            Binding="{Binding Number}"
+                                                            Width="150" />
+                                        <DataGridTextColumn Header="Date"
+                                                            Binding="{Binding OrderDate, StringFormat={}{0:dd/MM/yyyy}}"
+                                                            Width="105" />
+                                        <DataGridTextColumn Header="Fournisseur"
+                                                            Binding="{Binding SupplierLabel}"
+                                                            Width="*"
+                                                            MinWidth="140" />
+                                        <DataGridTextColumn Header="Dépôt"
+                                                            Binding="{Binding WarehouseCode}"
+                                                            Width="130"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                        <DataGridTemplateColumn Header="Statut" Width="150" SortMemberPath="StatusLabel">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border x:Name="StatusBadge"
+                                                            CornerRadius="10"
+                                                            Padding="10,3"
+                                                            HorizontalAlignment="Left"
+                                                            VerticalAlignment="Center"
+                                                            Background="{StaticResource StatusDraftBackgroundBrush}">
+                                                        <TextBlock x:Name="StatusBadgeText"
+                                                                   Text="{Binding StatusLabel}"
+                                                                   FontSize="11.5"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource StatusDraftForegroundBrush}" />
+                                                    </Border>
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Approved">
+                                                            <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusSubmittedBackgroundBrush}" />
+                                                            <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Status}" Value="PartiallyReceived">
+                                                            <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusSubmittedBackgroundBrush}" />
+                                                            <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusSubmittedForegroundBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Received">
+                                                            <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusValidatedBackgroundBrush}" />
+                                                            <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusValidatedForegroundBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Cancelled">
+                                                            <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusRejectedBackgroundBrush}" />
+                                                            <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                        </DataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Avancement"
+                                                            Binding="{Binding ProgressLabel}"
+                                                            Width="150"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                        <DataGridTextColumn Header="Total HT"
+                                                            Binding="{Binding TotalExclVat, StringFormat={}{0:N2}}"
+                                                            Width="130"
+                                                            ElementStyle="{StaticResource TotalCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <!-- Etat vide : superpose a la grille tant qu'elle est vide. -->
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=OrdersDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <!-- Document au trait : gabarit des autres etats vides. -->
+                                    <Path Data="M3,2 H11 L13,4 V14 H3 Z M5,7 H11 M5,10 H9"
+                                          Stroke="{StaticResource BorderStrongBrush}"
+                                          StrokeThickness="1.5"
+                                          StrokeLineJoin="Round"
+                                          Width="44"
+                                          Height="40"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,10" />
+                                    <TextBlock Text="Aucun bon de commande à afficher"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Élargissez les filtres ou créez une commande dans le formulaire ci-dessous."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Actions de cycle de vie du bon selectionne -->
+                            <Grid Grid.Row="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Motif d'annulation" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="CancelReasonTextBox"
+                                             Tag="Motif obligatoire pour annuler la commande"
+                                             ToolTip="Le motif est obligatoire : il est tracé côté serveur"
+                                             MaxLength="500" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Bottom">
+                                    <Button x:Name="ApproveOrderButton"
+                                            Content="Approuver"
+                                            Style="{StaticResource PrimaryButton}"
+                                            ToolTip="Approuver la commande : le numéro définitif est alloué et les lignes sont figées"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            Margin="0,0,10,0"
+                                            Click="ApproveOrderButton_Click" />
+
+                                    <Button x:Name="CancelOrderButton"
+                                            Content="Annuler la commande"
+                                            Style="{StaticResource DangerButton}"
+                                            ToolTip="Annuler la commande avec motif : impossible dès qu'une réception a eu lieu"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            Click="CancelOrderButton_Click" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- ========================= Saisie d'un brouillon ========================= -->
+                    <Border Grid.Row="4" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="14" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <TextBlock x:Name="EditorModeTextBlock"
+                                           DockPanel.Dock="Right"
+                                           Text="Nouveau bon de commande"
+                                           Style="{StaticResource CaptionText}"
+                                           VerticalAlignment="Center" />
+
+                                <StackPanel>
+                                    <TextBlock x:Name="EditorTitleTextBlock"
+                                               Text="Nouveau bon de commande (brouillon)"
+                                               Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock x:Name="EditorHintTextBlock"
+                                               Text="Un brouillon ne porte pas de numéro : le numéro définitif n'est alloué qu'à l'approbation, qui fige aussi les lignes."
+                                               Style="{StaticResource SubtitleText}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="220" />
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="160" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Fournisseur *" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="EditorSupplierComboBox"
+                                              DisplayMemberPath="Label"
+                                              ToolTip="Fournisseur destinataire du bon de commande" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Dépôt de livraison *" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="EditorWarehouseTextBox"
+                                             Tag="ex. DEP-CENTRAL"
+                                             ToolTip="Code du dépôt où les marchandises entreront en stock"
+                                             MaxLength="40" />
+                                    <TextBlock Text="Toute réception de cette commande entre en stock dans ce dépôt."
+                                               Style="{StaticResource FieldHintText}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Date de commande *" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="EditorOrderDatePicker" />
+                                </StackPanel>
+                            </Grid>
+
+                            <DockPanel Grid.Row="4">
+                                <Button x:Name="AddLineButton"
+                                        DockPanel.Dock="Right"
+                                        Content="Ajouter une ligne"
+                                        Style="{StaticResource GhostButton}"
+                                        ToolTip="Ajouter une ligne d'article à la commande"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        Click="AddLineButton_Click" />
+                                <TextBlock Text="Lignes de la commande"
+                                           Style="{StaticResource LabelText}"
+                                           VerticalAlignment="Center" />
+                            </DockPanel>
+
+                            <Grid Grid.Row="6">
+                                <DataGrid x:Name="EditorLinesDataGrid"
+                                          MaxHeight="180"
+                                          MinHeight="96"
+                                          CanUserSortColumns="False"
+                                          VerticalScrollBarVisibility="Auto">
+                                    <DataGrid.Columns>
+                                        <DataGridTemplateColumn Header="Article" Width="160">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding ItemCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             Style="{StaticResource LineEditorTextBox}"
+                                                             MaxLength="40"
+                                                             Tag="Code article"
+                                                             ToolTip="Code de l'article dans le référentiel du module Stocks" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
+                                        <DataGridTemplateColumn Header="Désignation" Width="*">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding Designation, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             Style="{StaticResource LineEditorTextBox}"
+                                                             MaxLength="300"
+                                                             Tag="Article commandé"
+                                                             ToolTip="Figée à la commande : un renommage ultérieur de l'article ne réécrit pas un bon déjà envoyé" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
+                                        <DataGridTemplateColumn Header="Quantité" Width="110" HeaderStyle="{StaticResource RightAlignedColumnHeader}">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding QuantityText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             Style="{StaticResource LineEditorAmountTextBox}"
+                                                             ToolTip="Strictement positive, 3 décimales au maximum" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
+                                        <DataGridTemplateColumn Header="Prix unitaire" Width="130" HeaderStyle="{StaticResource RightAlignedColumnHeader}">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding UnitPriceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             Style="{StaticResource LineEditorAmountTextBox}"
+                                                             ToolTip="Positif ou nul, 2 décimales au maximum" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
+                                        <DataGridTextColumn Header="Total HT"
+                                                            Binding="{Binding LineTotalExclVatText, Mode=OneWay}"
+                                                            Width="120"
+                                                            ElementStyle="{StaticResource TotalCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+
+                                        <DataGridTemplateColumn Header="" Width="52">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <!-- Croix dessinee au trait (jamais un caractere en guise
+                                                         d'icone) : le trait suit la couleur du texte du bouton. -->
+                                                    <Button Style="{StaticResource GhostButton}"
+                                                            Foreground="{StaticResource DangerBrush}"
+                                                            MinHeight="26"
+                                                            Padding="8,2"
+                                                            ToolTip="Retirer cette ligne"
+                                                            Click="RemoveLineButton_Click">
+                                                        <Path Data="M4.5,4.5 L11.5,11.5 M11.5,4.5 L4.5,11.5"
+                                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                              StrokeThickness="1.5"
+                                                              StrokeStartLineCap="Round"
+                                                              StrokeEndLineCap="Round"
+                                                              StrokeLineJoin="Round"
+                                                              Width="10"
+                                                              Height="10"
+                                                              Stretch="Uniform" />
+                                                    </Button>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=EditorLinesDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <Path Data="M2,4 H14 M2,8 H14 M2,12 H10"
+                                          Stroke="{StaticResource BorderStrongBrush}"
+                                          StrokeThickness="1.5"
+                                          StrokeLineJoin="Round"
+                                          Width="42"
+                                          Height="30"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,10" />
+                                    <TextBlock Text="Aucune ligne dans ce brouillon"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Un bon de commande doit comporter au moins une ligne pour être approuvé."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Apercu local du total pendant la saisie + actions -->
+                            <Grid Grid.Row="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="20" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="20" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Text="Aperçu calculé sur ce poste pendant la saisie ; le total définitif est celui renvoyé par le serveur à l'enregistrement."
+                                           Style="{StaticResource CaptionText}"
+                                           TextWrapping="Wrap"
+                                           VerticalAlignment="Center" />
+
+                                <StackPanel Grid.Column="2" MinWidth="120" VerticalAlignment="Center">
+                                    <TextBlock Text="Total HT" Style="{StaticResource DetailTotalLabelText}" />
+                                    <TextBlock x:Name="EditorTotalExclVatTextBlock"
+                                               Text="0,00"
+                                               Style="{StaticResource DetailTotalValueText}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center">
+                                    <Button x:Name="NewOrderButton"
+                                            Content="Nouveau"
+                                            Style="{StaticResource GhostButton}"
+                                            ToolTip="Vider le formulaire pour saisir un nouveau bon de commande"
+                                            Margin="0,0,10,0"
+                                            Click="NewOrderButton_Click" />
+
+                                    <Button x:Name="SaveOrderButton"
+                                            Content="Créer le brouillon"
+                                            Style="{StaticResource PrimaryButton}"
+                                            ToolTip="Enregistrer le bon de commande"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            Click="SaveOrderButton_Click" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ================================ Réception ================================ -->
+            <TabItem Header="Réception">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <Button x:Name="RefreshReceivableButton"
+                                        DockPanel.Dock="Right"
+                                        Content="Actualiser"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Recharger les commandes en attente de livraison"
+                                        VerticalAlignment="Center"
+                                        Click="RefreshReceivableButton_Click" />
+
+                                <StackPanel>
+                                    <TextBlock Text="Réception des marchandises"
+                                               Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock Text="Sélectionnez une commande approuvée, saisissez les quantités livrées : chaque réception génère une entrée en stock dans le dépôt de la commande, au prix unitaire commandé."
+                                               Style="{StaticResource SubtitleText}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <TextBlock Grid.Row="2"
+                                       Text="Les livraisons partielles sont la règle : la même commande accepte autant de réceptions qu'il en faut. Le statut passe seul à « Partiellement reçue » puis « Reçue ». Recevoir plus que le restant est refusé par le serveur."
+                                       Style="{StaticResource BusinessRuleText}" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="420" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Text="Commandes à recevoir"
+                                       Style="{StaticResource SectionTitleText}" />
+
+                            <TextBlock Grid.Column="2"
+                                       x:Name="ReceptionOrderTitleTextBlock"
+                                       Text="Lignes à recevoir"
+                                       Style="{StaticResource SectionTitleText}" />
+
+                            <Grid Grid.Row="2">
+                                <DataGrid x:Name="ReceivableOrdersDataGrid"
+                                          SelectionChanged="ReceivableOrdersDataGrid_SelectionChanged">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="N°" Binding="{Binding Number}" Width="150" />
+                                        <DataGridTextColumn Header="Fournisseur" Binding="{Binding SupplierLabel}" Width="*" />
+                                        <DataGridTextColumn Header="Avancement"
+                                                            Binding="{Binding ProgressLabel}"
+                                                            Width="130"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=ReceivableOrdersDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <!-- Carton ouvert, au trait. -->
+                                    <Path Data="M2,6 L8,3 L14,6 L14,13 L8,15.5 L2,13 Z M2,6 L8,8.5 L14,6 M8,8.5 V15.5"
+                                          Stroke="{StaticResource BorderStrongBrush}"
+                                          StrokeThickness="1.5"
+                                          StrokeLineJoin="Round"
+                                          Width="44"
+                                          Height="40"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,10" />
+                                    <TextBlock Text="Aucune commande en attente de livraison"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Une commande n'apparaît ici qu'une fois approuvée."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Grid.Row="2" Grid.Column="2">
+                                <DataGrid x:Name="ReceptionLinesDataGrid"
+                                          CanUserSortColumns="False"
+                                          VerticalScrollBarVisibility="Auto">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Article"
+                                                            Binding="{Binding ItemCode, Mode=OneWay}"
+                                                            Width="120" />
+                                        <DataGridTextColumn Header="Désignation"
+                                                            Binding="{Binding Designation, Mode=OneWay}"
+                                                            Width="*"
+                                                            MinWidth="130" />
+                                        <DataGridTextColumn Header="Commandé"
+                                                            Binding="{Binding OrderedText, Mode=OneWay}"
+                                                            Width="95"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Déjà reçu"
+                                                            Binding="{Binding ReceivedText, Mode=OneWay}"
+                                                            Width="95"
+                                                            ElementStyle="{StaticResource AmountCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        <DataGridTextColumn Header="Restant"
+                                                            Binding="{Binding RemainingText, Mode=OneWay}"
+                                                            Width="95"
+                                                            ElementStyle="{StaticResource TotalCellText}"
+                                                            HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+
+                                        <DataGridTemplateColumn Header="Reçu maintenant" Width="130" HeaderStyle="{StaticResource RightAlignedColumnHeader}">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding QuantityText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             Style="{StaticResource LineEditorAmountTextBox}"
+                                                             ToolTip="Laisser vide pour ne rien recevoir sur cette ligne ; au maximum le restant" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
+                                        <DataGridTemplateColumn Header="N° de lot" Width="140">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding LotNumber, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             Style="{StaticResource LineEditorTextBox}"
+                                                             MaxLength="60"
+                                                             Tag="Facultatif"
+                                                             ToolTip="Facultatif : transmis au module Stocks avec l'entrée générée" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
+                                        <DataGridTemplateColumn Header="Péremption" Width="140">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <DatePicker SelectedDate="{Binding ExpiryDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                Margin="0,6"
+                                                                FontSize="12.5"
+                                                                ToolTip="Facultative : transmise au module Stocks avec l'entrée générée" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=ReceptionLinesDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <Path Data="M2,4 H14 M2,8 H14 M2,12 H10"
+                                          Stroke="{StaticResource BorderStrongBrush}"
+                                          StrokeThickness="1.5"
+                                          StrokeLineJoin="Round"
+                                          Width="42"
+                                          Height="30"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,10" />
+                                    <TextBlock Text="Aucune ligne à recevoir"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Sélectionnez une commande à gauche pour saisir les quantités livrées."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="4" Style="{StaticResource SubtleCardBorder}">
+                        <DockPanel>
+                            <Button x:Name="RegisterReceiptButton"
+                                    DockPanel.Dock="Right"
+                                    Content="Enregistrer la réception"
+                                    Style="{StaticResource PrimaryButton}"
+                                    ToolTip="Enregistrer les quantités livrées et générer l'entrée en stock correspondante"
+                                    ToolTipService.ShowOnDisabled="True"
+                                    VerticalAlignment="Center"
+                                    Click="RegisterReceiptButton_Click" />
+
+                            <TextBlock x:Name="ReceptionSummaryTextBlock"
+                                       Text="Sélectionnez une commande approuvée pour saisir une réception."
+                                       Style="{StaticResource BusinessRuleText}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,20,0" />
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- =============================== Fournisseurs =============================== -->
+            <TabItem Header="Fournisseurs">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="16" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Référentiel fournisseurs"
+                                               Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock Text="Fournisseurs de l'établissement et leurs identifiants fiscaux."
+                                               Style="{StaticResource SubtitleText}"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal"
+                                            DockPanel.Dock="Right"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center">
+                                    <TextBox x:Name="SupplierSearchTextBox"
+                                             Width="240"
+                                             Tag="Rechercher par code ou nom"
+                                             ToolTip="Filtrer les fournisseurs par code ou par nom, puis appuyer sur Entrée"
+                                             MaxLength="200"
+                                             Margin="0,0,12,0"
+                                             KeyDown="SupplierSearchTextBox_KeyDown" />
+                                    <CheckBox x:Name="IncludeInactiveSuppliersCheckBox"
+                                              Content="Inclure les fournisseurs inactifs"
+                                              ToolTip="Afficher aussi les fournisseurs désactivés"
+                                              VerticalAlignment="Center"
+                                              Margin="0,0,14,0"
+                                              Click="IncludeInactiveSuppliersCheckBox_Click" />
+                                    <Button x:Name="RefreshSuppliersButton"
+                                            Content="Actualiser"
+                                            Style="{StaticResource SecondaryButton}"
+                                            ToolTip="Recharger le référentiel fournisseurs"
+                                            Click="RefreshSuppliersButton_Click" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <Border Grid.Row="2" Style="{StaticResource SubtleCardBorder}" Padding="16">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="10" />
+                                        <RowDefinition Height="Auto" />
+                                        <!-- Espacement masque en meme temps que le bloc fiscal,
+                                             pour ne pas laisser un trou dans le formulaire. -->
+                                        <RowDefinition x:Name="FiscalSpacerRow" Height="12" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="12" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="14" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock x:Name="SupplierFormTitleTextBlock"
+                                               Text="Nouveau fournisseur"
+                                               Style="{StaticResource SectionTitleText}"
+                                               FontSize="14"
+                                               Margin="0,0,0,4" />
+
+                                    <Grid Grid.Row="2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="170" />
+                                            <ColumnDefinition Width="14" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="14" />
+                                            <ColumnDefinition Width="210" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel>
+                                            <TextBlock Text="Code" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="SupplierCodeTextBox"
+                                                     Tag="ex. FRN-0001"
+                                                     MaxLength="40" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Nom" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="SupplierNameTextBox"
+                                                     Tag="Raison sociale du fournisseur"
+                                                     MaxLength="200" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Text="Type de fournisseur" Style="{StaticResource LabelText}" />
+                                            <ComboBox x:Name="SupplierTypeComboBox"
+                                                      DisplayMemberPath="Label"
+                                                      SelectedValuePath="Value"
+                                                      SelectionChanged="SupplierTypeComboBox_SelectionChanged" />
+                                            <TextBlock x:Name="IndividualHintTextBlock"
+                                                       Text="Les identifiants fiscaux ne s'appliquent pas à un particulier."
+                                                       Style="{StaticResource FieldHintText}"
+                                                       Visibility="Collapsed" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Identifiants fiscaux algeriens : masques pour un
+                                         fournisseur particulier, a qui ils ne s'appliquent pas
+                                         (meme regle que la fiche client). -->
+                                    <Grid x:Name="FiscalIdentifiersGrid" Grid.Row="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel>
+                                            <TextBlock Text="NIF" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="SupplierNifTextBox"
+                                                     Tag="Numéro d'identification fiscale"
+                                                     ToolTip="Numéro d'identification fiscale : exactement 15 chiffres"
+                                                     MaxLength="15" />
+                                            <TextBlock Text="Facultatif — s'il est renseigné, exactement 15 chiffres."
+                                                       Style="{StaticResource FieldHintText}" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="RC" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="SupplierRcTextBox"
+                                                     Tag="Registre du commerce"
+                                                     MaxLength="20" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Text="AI" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="SupplierAiTextBox"
+                                                     Tag="Article d'imposition"
+                                                     MaxLength="20" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="6">
+                                            <TextBlock Text="NIS" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="SupplierNisTextBox"
+                                                     Tag="Identification statistique"
+                                                     MaxLength="20" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Grid Grid.Row="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="200" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="180" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="240" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel>
+                                            <TextBlock Text="Adresse" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="SupplierAddressTextBox"
+                                                     Tag="Adresse du fournisseur"
+                                                     MaxLength="200" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Ville" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="SupplierCityTextBox" MaxLength="80" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Text="Téléphone" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="SupplierPhoneTextBox" MaxLength="40" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="6">
+                                            <TextBlock Text="Courriel" Style="{StaticResource LabelText}" />
+                                            <TextBox x:Name="SupplierEmailTextBox"
+                                                     Tag="contact@exemple.dz"
+                                                     MaxLength="160" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <StackPanel Grid.Row="8"
+                                                Orientation="Horizontal"
+                                                HorizontalAlignment="Right">
+                                        <Button x:Name="NewSupplierButton"
+                                                Content="Nouveau"
+                                                Style="{StaticResource GhostButton}"
+                                                ToolTip="Vider le formulaire pour créer un nouveau fournisseur"
+                                                Margin="0,0,10,0"
+                                                Click="NewSupplierButton_Click" />
+
+                                        <Button x:Name="SaveSupplierButton"
+                                                Content="Créer le fournisseur"
+                                                Style="{StaticResource PrimaryButton}"
+                                                ToolTip="Enregistrer la fiche fournisseur"
+                                                ToolTipService.ShowOnDisabled="True"
+                                                Margin="0,0,10,0"
+                                                Click="SaveSupplierButton_Click" />
+
+                                        <Button x:Name="ActivateSupplierButton"
+                                                Content="Activer"
+                                                Style="{StaticResource SecondaryButton}"
+                                                ToolTip="Réactiver le fournisseur sélectionné"
+                                                ToolTipService.ShowOnDisabled="True"
+                                                Margin="0,0,10,0"
+                                                Click="ActivateSupplierButton_Click" />
+
+                                        <Button x:Name="DeactivateSupplierButton"
+                                                Content="Désactiver"
+                                                Style="{StaticResource DangerButton}"
+                                                ToolTip="Désactiver le fournisseur sélectionné"
+                                                ToolTipService.ShowOnDisabled="True"
+                                                Click="DeactivateSupplierButton_Click" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel>
+                                <TextBlock x:Name="SupplierCountTextBlock"
+                                           DockPanel.Dock="Right"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center"
+                                           Style="{StaticResource CaptionText}" />
+                                <TextBlock Text="Fournisseurs"
+                                           Style="{StaticResource SectionTitleText}" />
+                            </DockPanel>
+
+                            <Grid Grid.Row="2">
+                                <DataGrid x:Name="SuppliersDataGrid"
+                                          SelectionChanged="SuppliersDataGrid_SelectionChanged">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="140" />
+                                        <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="*" />
+                                        <DataGridTextColumn Header="Type" Binding="{Binding SupplierTypeLabel}" Width="150" />
+                                        <DataGridTextColumn Header="NIF"
+                                                            Binding="{Binding Nif}"
+                                                            Width="160"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                        <DataGridTextColumn Header="Ville" Binding="{Binding City}" Width="140" />
+                                        <DataGridTextColumn Header="Téléphone"
+                                                            Binding="{Binding Phone}"
+                                                            Width="140"
+                                                            ElementStyle="{StaticResource MutedCellText}" />
+                                        <DataGridTemplateColumn Header="Actif" Width="110" SortMemberPath="IsActive">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border x:Name="ActiveBadge"
+                                                            CornerRadius="10"
+                                                            Padding="10,3"
+                                                            HorizontalAlignment="Left"
+                                                            VerticalAlignment="Center"
+                                                            Background="{StaticResource StatusValidatedBackgroundBrush}">
+                                                        <TextBlock x:Name="ActiveBadgeText"
+                                                                   Text="Actif"
+                                                                   FontSize="11.5"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource StatusValidatedForegroundBrush}" />
+                                                    </Border>
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                            <Setter TargetName="ActiveBadge" Property="Background" Value="{StaticResource StatusDraftBackgroundBrush}" />
+                                                            <Setter TargetName="ActiveBadgeText" Property="Foreground" Value="{StaticResource StatusDraftForegroundBrush}" />
+                                                            <Setter TargetName="ActiveBadgeText" Property="Text" Value="Inactif" />
+                                                        </DataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Items.Count, ElementName=SuppliersDataGrid}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <!-- Camion de livraison, au trait. -->
+                                    <Path Data="M1,4 H9 V11 H1 Z M9,6.5 H12 L14.5,9 V11 H9 Z M4,11 A1.3,1.3 0 1 0 4,13.6 A1.3,1.3 0 1 0 4,11 M12,11 A1.3,1.3 0 1 0 12,13.6 A1.3,1.3 0 1 0 12,11"
+                                          Stroke="{StaticResource BorderStrongBrush}"
+                                          StrokeThickness="1.5"
+                                          StrokeLineJoin="Round"
+                                          Width="46"
+                                          Height="42"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          Margin="0,0,0,10" />
+                                    <TextBlock Text="Aucun fournisseur à afficher"
+                                               Style="{StaticResource EmptyStateTitleText}" />
+                                    <TextBlock Text="Élargissez la recherche ou créez un premier fournisseur ci-dessus."
+                                               Style="{StaticResource EmptyStateHintText}" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>
