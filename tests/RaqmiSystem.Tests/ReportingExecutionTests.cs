@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using RaqmiSystem.Application.Common;
 using RaqmiSystem.Application.Reporting;
 using RaqmiSystem.Application.Security;
+using RaqmiSystem.Domain.Billing;
 using RaqmiSystem.Domain.Reporting;
 using RaqmiSystem.Domain.Revenue;
 using RaqmiSystem.Domain.Treasury;
@@ -25,9 +26,19 @@ public sealed class ReportingExecutionTests : IClassFixture<RaqmiApiFactory>
 
     private const string OtherUnitCode = "RPT-OTHER";
 
+    private const string VatUnitCode = "RPT-VAT";
+
+    private const string VatCustomerCode = "RPT-CLI";
+
     private static readonly DateOnly PeriodFrom = new(2026, 3, 1);
 
     private static readonly DateOnly PeriodTo = new(2026, 3, 31);
+
+    // A period this class NEVER writes anything into: it is what "an empty period answers an
+    // empty report" is asserted against, whatever the other tests seed.
+    private static readonly DateOnly EmptyPeriodFrom = new(2025, 1, 1);
+
+    private static readonly DateOnly EmptyPeriodTo = new(2025, 1, 31);
 
     private readonly RaqmiApiFactory _factory;
 
@@ -121,12 +132,14 @@ public sealed class ReportingExecutionTests : IClassFixture<RaqmiApiFactory>
     public async Task The_aged_balance_and_the_invoiced_vat_run_and_answer_with_their_own_columns()
     {
         // Both delegate their whole computation (issued unpaid invoices aged from the invoice
-        // date; issued and paid invoices grouped by VAT rate). With no invoice in this database
-        // they must answer an EMPTY, well-formed report rather than fail: an empty period is a
-        // legitimate answer, not an error.
+        // date; issued and paid invoices grouped by VAT rate). Asked about a period with no
+        // invoice at all, they must answer an EMPTY, well-formed report rather than fail: an
+        // empty period is a legitimate answer, not an error. (The figures themselves are pinned
+        // on real invoices by Invoiced_vat_totals_..., which seeds the March 2026 period; this
+        // test therefore asks about a period deliberately left empty.)
         var aging = await RunAsync(ReportCatalog.AgedBalance, new Dictionary<string, string?>
         {
-            [ReportCatalog.AsOfDateParameter] = Format(PeriodTo)
+            [ReportCatalog.AsOfDateParameter] = Format(EmptyPeriodTo)
         });
 
         Assert.Equal(9, aging.Columns.Count);
@@ -136,8 +149,8 @@ public sealed class ReportingExecutionTests : IClassFixture<RaqmiApiFactory>
 
         var vat = await RunAsync(ReportCatalog.InvoicedVat, new Dictionary<string, string?>
         {
-            [ReportCatalog.FromParameter] = Format(PeriodFrom),
-            [ReportCatalog.ToParameter] = Format(PeriodTo)
+            [ReportCatalog.FromParameter] = Format(EmptyPeriodFrom),
+            [ReportCatalog.ToParameter] = Format(EmptyPeriodTo)
         });
 
         Assert.Equal(5, vat.Columns.Count);
@@ -145,6 +158,127 @@ public sealed class ReportingExecutionTests : IClassFixture<RaqmiApiFactory>
         Assert.Empty(vat.Rows);
         Assert.NotNull(vat.TotalRow);
         Assert.Equal("0", vat.TotalRow![1]);
+    }
+
+    /// <summary>
+    /// tva-facturee is the fiscal figure of the whole module: what the establishment declares as
+    /// collected VAT. An empty period proving it does not crash says nothing about whether it
+    /// COUNTS RIGHT, so this test runs it against real invoices, at the three Algerian rates,
+    /// with a draft and a cancelled invoice deliberately sitting in the same period:
+    ///
+    ///   * a draft is not a commercial document yet - it must never be declared;
+    ///   * a cancelled invoice is commercially void - it must never be declared;
+    ///   * a PAID invoice was issued first, so it stays part of its period's invoiced VAT.
+    ///
+    /// Base excluding VAT and collected VAT are pinned per rate AND on the total row: an error on
+    /// either is a wrong tax declaration.
+    /// </summary>
+    [Fact]
+    public async Task Invoiced_vat_totals_the_base_and_the_vat_of_each_rate_over_issued_and_paid_invoices_only()
+    {
+        await SeedInvoicesAsync();
+
+        var result = await RunAsync(ReportCatalog.InvoicedVat, new Dictionary<string, string?>
+        {
+            [ReportCatalog.FromParameter] = Format(PeriodFrom),
+            [ReportCatalog.ToParameter] = Format(PeriodTo),
+            [ReportCatalog.UnitCodeParameter] = VatUnitCode
+        });
+
+        // One row per rate found, ordered by rate: 0 %, 9 %, 19 %.
+        Assert.Equal(3, result.Rows.Count);
+        Assert.Equal(new[] { "0", "9", "19" }, result.Rows.Select(row => row[0]).ToArray());
+
+        // 0 %: the tourist tax line of the PAID invoice - 2 x 150.00, no VAT.
+        var exempt = result.Rows[0];
+        Assert.Equal("1", exempt[1]);
+        Assert.Equal("300.00", exempt[2]);
+        Assert.Equal("0.00", exempt[3]);
+        Assert.Equal("300.00", exempt[4]);
+
+        // 9 %: 2 nights at 12 500.00 on the ISSUED invoice. The 77 777.00 cancelled invoice
+        // carries the very same rate and must not add a centime here.
+        var reduced = result.Rows[1];
+        Assert.Equal("1", reduced[1]);
+        Assert.Equal("25000.00", reduced[2]);
+        Assert.Equal("2250.00", reduced[3]);
+        Assert.Equal("27250.00", reduced[4]);
+
+        // 19 %: 3 meals at 1 850.50 (issued, VAT 1 054.785 rounded to 1 054.79) plus 10 000.00
+        // (paid, VAT 1 900.00), spread over TWO invoices. The 99 999.00 draft is excluded.
+        var standard = result.Rows[2];
+        Assert.Equal("2", standard[1]);
+        Assert.Equal("15551.50", standard[2]);
+        Assert.Equal("2954.79", standard[3]);
+        Assert.Equal("18506.29", standard[4]);
+
+        // The total row is the sum of the two counted invoices, nothing else: neither the draft
+        // (99 999.00 excl. VAT) nor the cancelled one (77 777.00 excl. VAT) reaches it.
+        Assert.NotNull(result.TotalRow);
+        Assert.Equal("2", result.TotalRow![1]);
+        Assert.Equal("40851.50", result.TotalRow[2]);
+        Assert.Equal("5204.79", result.TotalRow[3]);
+        Assert.Equal("46056.29", result.TotalRow[4]);
+
+        // Per-rate bases and VAT add up to the total row: the report cannot be internally
+        // inconsistent (a rate silently dropped from the rows would show up here).
+        Assert.Equal(
+            result.TotalRow[2],
+            SumMoney(result.Rows.Select(row => row[2])));
+
+        Assert.Equal(
+            result.TotalRow[3],
+            SumMoney(result.Rows.Select(row => row[3])));
+    }
+
+    /// <summary>
+    /// The journal is read newest-first and capped: it grows by one row per execution and must
+    /// never return an arbitrary slice. With more rows than the cap - including rows older than
+    /// every time window the listing probes - the answer is exactly the newest 200, in order.
+    /// </summary>
+    [Fact]
+    public async Task The_execution_journal_returns_the_newest_two_hundred_rows_in_order()
+    {
+        const string JournalCode = "rapport-journal-plafond";
+        const int Recent = 150;
+        const int Ancient = 60;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<RaqmiDbContext>();
+            var utcNow = DateTimeOffset.UtcNow;
+
+            for (var index = 0; index < Recent; index++)
+            {
+                var execution = new ReportExecution(JournalCode, "{}", index, 1);
+                execution.MarkCreated("journal.tests", utcNow.AddMinutes(-index));
+                dbContext.Set<ReportExecution>().Add(execution);
+            }
+
+            // Older than the widest window the listing probes: they only matter because they
+            // complete the page, and they must arrive last.
+            for (var index = 0; index < Ancient; index++)
+            {
+                var execution = new ReportExecution(JournalCode, "{}", index, 1);
+                execution.MarkCreated("journal.tests", utcNow.AddDays(-500).AddMinutes(-index));
+                dbContext.Set<ReportExecution>().Add(execution);
+            }
+
+            await dbContext.SaveChangesAsync();
+        }
+
+        var journal = await ListExecutionsAsync(JournalCode);
+
+        Assert.Equal(200, journal.Count);
+        Assert.All(journal, execution => Assert.Equal(JournalCode, execution.ReportCode));
+
+        // Strictly newest-first, and the page really is the newest 200: every one of the 150
+        // recent rows is in it, and it is completed by the 50 newest of the ancient ones.
+        var timestamps = journal.Select(execution => execution.ExecutedAt).ToArray();
+        Assert.Equal(timestamps.OrderByDescending(timestamp => timestamp).ToArray(), timestamps);
+
+        var cutoff = DateTimeOffset.UtcNow.AddDays(-1);
+        Assert.Equal(Recent, timestamps.Count(timestamp => timestamp > cutoff));
     }
 
     /// <summary>
@@ -272,6 +406,14 @@ public sealed class ReportingExecutionTests : IClassFixture<RaqmiApiFactory>
 
     // ---------------------------------------------------------------- helpers
 
+    /// <summary>Adds up money cells the way the report renders them (invariant, two decimals).</summary>
+    private static string SumMoney(IEnumerable<string?> cells)
+    {
+        var total = cells.Sum(cell => decimal.Parse(cell!, CultureInfo.InvariantCulture));
+
+        return total.ToString("F2", CultureInfo.InvariantCulture);
+    }
+
     private static string Format(DateOnly value)
     {
         return value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -322,6 +464,7 @@ public sealed class ReportingExecutionTests : IClassFixture<RaqmiApiFactory>
 
         await _factory.CreateHotelUnitAsync(UnitCode, "Unité rapports");
         await _factory.CreateHotelUnitAsync(OtherUnitCode, "Unité encaissements");
+        await _factory.CreateHotelUnitAsync(VatUnitCode, "Unité facturation");
     }
 
     /// <summary>
@@ -362,6 +505,86 @@ public sealed class ReportingExecutionTests : IClassFixture<RaqmiApiFactory>
 
         dbContext.DailyRevenues.AddRange(validatedOne, validatedTwo, draft, rejected);
         await dbContext.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Four invoices in the period, on their own unit and customer so no other test's data can
+    /// move the figures:
+    ///
+    ///   * ISSUED  : 2 nights at 12 500.00 (9 %) + 3 meals at 1 850.50 (19 %);
+    ///   * PAID    : 10 000.00 (19 %) + 2 tourist taxes at 150.00 (0 %) - issued, then paid;
+    ///   * DRAFT   : 99 999.00 (19 %) - never a commercial document, must never be declared;
+    ///   * CANCELLED: 77 777.00 (9 %) - issued then cancelled, commercially void.
+    ///
+    /// Idempotent: written at most once per factory, whatever order xunit runs the class in.
+    /// </summary>
+    private async Task SeedInvoicesAsync()
+    {
+        await EnsureUnitsAsync();
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<RaqmiDbContext>();
+
+        if (dbContext.Set<Invoice>().Any(invoice => invoice.HotelUnitCode == VatUnitCode))
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+
+        if (!dbContext.Set<Customer>().Any(customer => customer.Code == VatCustomerCode))
+        {
+            var customer = new Customer(VatCustomerCode, "Client rapports TVA", CustomerType.Company);
+            customer.MarkCreated("tests", now);
+            dbContext.Set<Customer>().Add(customer);
+        }
+
+        var issued = NewInvoice(new DateOnly(2026, 3, 5), now,
+        [
+            new InvoiceLine("Hebergement chambre double", 2m, 12_500.00m, 9m),
+            new InvoiceLine("Restauration", 3m, 1_850.50m, 19m)
+        ]);
+
+        issued.Issue(2026, 9001, "facturation", now);
+
+        var paid = NewInvoice(new DateOnly(2026, 3, 10), now,
+        [
+            new InvoiceLine("Seminaire", 1m, 10_000.00m, 19m),
+            new InvoiceLine("Taxe de sejour", 2m, 150.00m, 0m)
+        ]);
+
+        paid.Issue(2026, 9002, "facturation", now);
+        paid.MarkPaid("caisse", now);
+
+        // Left as a draft: no number, not a commercial document.
+        var draft = NewInvoice(new DateOnly(2026, 3, 12), now,
+        [
+            new InvoiceLine("Prestation en cours de saisie", 1m, 99_999.00m, 19m)
+        ]);
+
+        var cancelled = NewInvoice(new DateOnly(2026, 3, 15), now,
+        [
+            new InvoiceLine("Sejour groupe annule", 1m, 77_777.00m, 9m)
+        ]);
+
+        cancelled.Issue(2026, 9003, "facturation", now);
+        cancelled.Cancel("Sejour annule par le client.", "facturation", now);
+
+        dbContext.Set<Invoice>().AddRange(issued, paid, draft, cancelled);
+        await dbContext.SaveChangesAsync();
+    }
+
+    private static Invoice NewInvoice(DateOnly invoiceDate, DateTimeOffset now, InvoiceLine[] lines)
+    {
+        var invoice = new Invoice(VatCustomerCode, VatUnitCode, invoiceDate);
+        invoice.ReplaceLines(lines);
+
+        // An invoice cannot be issued before its emitter is identified (billing domain rule).
+        invoice.CaptureCustomerSnapshot("Client rapports TVA", "098765432112345", null, null, null, "Alger");
+        invoice.CaptureIssuerSnapshot("Hotel El Manar Spa", "098765432112345", null, null, null, "Alger");
+        invoice.MarkCreated("facturation", now);
+
+        return invoice;
     }
 
     /// <summary>

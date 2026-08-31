@@ -13,10 +13,9 @@ namespace RaqmiSystem.Tests;
 /// Couverture HTTP du module Sauvegarde : authentification exigee, lecture reservee a
 /// maintenance.read, declenchement reserve a maintenance.backup.
 ///
-/// PREREQUIS D'INTEGRATION : ces tests supposent que les cles "maintenance.read" et
-/// "maintenance.backup" ont ete ajoutees a PermissionCatalog (le seeder les seme et
-/// Program.cs enregistre une policy par cle du catalogue) et que MapMaintenanceEndpoints
-/// est appele dans Program.cs - c'est le cablage decrit dans le manifeste du module.
+/// Les cles maintenance.read et maintenance.backup viennent de PermissionCatalog : le seeder
+/// les seme au demarrage de la fabrique et Program.cs enregistre une policy par cle du
+/// catalogue.
 ///
 /// Le declenchement REUSSI n'est volontairement pas exerce ici : il dependrait de
 /// l'environnement de la machine (RAQMI_BACKUP_DIR / RAQMI_PG_BIN reels) et pourrait
@@ -110,8 +109,7 @@ public sealed class MaintenanceEndpointTests : IClassFixture<RaqmiApiFactory>
 
         Assert.True(
             permissions.Length == permissionKeys.Length,
-            "Permission keys are missing from the seeded PermissionCatalog (has the integrator " +
-            "added maintenance.read / maintenance.backup to the catalog?): " +
+            "Permission keys are missing from the seeded PermissionCatalog: " +
             string.Join(", ", permissionKeys.Except(permissions.Select(permission => permission.Key))));
 
         var role = new Role(

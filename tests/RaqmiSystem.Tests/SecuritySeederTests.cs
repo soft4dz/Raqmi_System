@@ -76,4 +76,49 @@ public sealed class SecuritySeederTests
         var afterSecondRun = await dbContext.Permissions.SingleAsync(permission => permission.Key == "lodging.read");
         Assert.Equal(firstUpdateStamp, afterSecondRun.UpdatedAt);
     }
+
+    /// <summary>
+    /// RoleCatalog.ApprovalDeciderRoles is what the domain lets an approval step require. It is
+    /// only meaningful if it names EXACTLY the roles the seeder grants approvals.decide to: a
+    /// role listed here without the permission would make its steps undecidable (its holders are
+    /// refused by the authorization policy, and every other decider fails the step's role check),
+    /// and a role holding the permission without being listed would be a decider the circuit
+    /// designer is never allowed to call upon. The equality is asserted in BOTH directions so the
+    /// two lists cannot drift apart in either.
+    /// </summary>
+    [Fact]
+    public async Task The_approval_decider_roles_are_exactly_the_seeded_roles_holding_approvals_decide()
+    {
+        var connection = new SqliteConnection("DataSource=:memory:");
+        await connection.OpenAsync();
+
+        await using var _ = connection;
+
+        await using var dbContext = new RaqmiDbContext(
+            new DbContextOptionsBuilder<RaqmiDbContext>()
+                .UseSqlite(connection)
+                .Options);
+
+        await dbContext.Database.EnsureCreatedAsync();
+
+        var seeder = new SecuritySeeder(dbContext, new Pbkdf2PasswordHasher());
+        await seeder.SeedAsync(CancellationToken.None);
+
+        var rolesHoldingDecide = await dbContext.Roles
+            .Include(role => role.Permissions)
+            .ThenInclude(rolePermission => rolePermission.Permission)
+            .Where(role => role.Permissions.Any(rolePermission =>
+                rolePermission.Permission.Key == PermissionCatalog.ApprovalsDecide))
+            .Select(role => role.Name)
+            .ToArrayAsync();
+
+        Assert.Equal(
+            RoleCatalog.ApprovalDeciderRoles.OrderBy(role => role, StringComparer.Ordinal).ToArray(),
+            rolesHoldingDecide.OrderBy(role => role, StringComparer.Ordinal).ToArray());
+
+        // The two roles the finding is about: they are seeded, they can READ the approvals, and
+        // they must never be proposable as the required role of a step.
+        Assert.DoesNotContain(RoleCatalog.Cashier, RoleCatalog.ApprovalDeciderRoles);
+        Assert.DoesNotContain(RoleCatalog.Reader, RoleCatalog.ApprovalDeciderRoles);
+    }
 }

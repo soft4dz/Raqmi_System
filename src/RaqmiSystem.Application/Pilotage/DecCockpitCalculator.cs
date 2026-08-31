@@ -24,7 +24,9 @@ namespace RaqmiSystem.Application.Pilotage;
 /// - pending payment orders = the DRAFT status only;
 /// - occupancy = every non-cancelled / non-no-show reservation (Booked, CheckedIn, CheckedOut)
 ///   covering the night of the cockpit date - the recently hardened LodgingService rule,
-///   expressed through Reservation.IsBlocking / CoversNight.
+///   expressed through Reservation.IsBlocking / CoversNight. Numerator and denominator are
+///   LodgingService.GetOccupancyAsync's own: DISTINCT rooms blocked that night (whatever their
+///   activity flag) over the currently ACTIVE room count.
 ///
 /// AGES: timestamp-based ages (submitted, rejected) are whole elapsed days -
 /// floor((utcNow - moment) / 24h) - so an entry submitted exactly 48 hours ago is 2 days old
@@ -261,10 +263,10 @@ public static class DecCockpitCalculator
             .Select(closing => closing.HotelUnitCode)
             .ToHashSet();
 
-        var activeRoomIdsByUnit = rooms
+        var activeRoomCountByUnit = rooms
             .Where(room => room.IsActive)
             .GroupBy(room => room.HotelUnitCode)
-            .ToDictionary(group => group.Key, group => group.Select(room => room.Id).ToHashSet());
+            .ToDictionary(group => group.Key, group => group.Count());
 
         var coveringReservationsByUnit = reservations
             .Where(reservation => reservation.IsBlocking && reservation.CoversNight(date))
@@ -288,17 +290,21 @@ public static class DecCockpitCalculator
 
                 var yesterdayClosed = yesterdayClosedUnits.Contains(unit.Code);
 
-                var activeRoomIds = activeRoomIdsByUnit.GetValueOrDefault(unit.Code);
-                var activeRoomCount = activeRoomIds?.Count ?? 0;
+                var activeRoomCount = activeRoomCountByUnit.GetValueOrDefault(unit.Code);
 
-                // Distinct active rooms blocked tonight; restricting to active rooms keeps the
-                // numerator consistent with the denominator (rate can never exceed 100 %).
-                var occupiedRooms = activeRoomIds is null
-                    ? 0
-                    : coveringReservationsByUnit.GetValueOrDefault(unit.Code, [])
-                        .Select(reservation => reservation.RoomId)
-                        .Distinct()
-                        .Count(activeRoomIds.Contains);
+                // The lodging module's own occupancy rule, verbatim (LodgingService
+                // .GetOccupancyAsync): the numerator is the DISTINCT rooms blocked tonight -
+                // every room, not only the active ones - over the count of currently active
+                // rooms. Intersecting the numerator with the active rooms would read lower
+                // than the occupancy screen of the very unit concerned as soon as an occupied
+                // room is deactivated (nothing forbids deactivating a room a guest sleeps in),
+                // and the direction must never be shown a figure its own module contradicts.
+                // The consequence is accepted, and is the lodging module's: the rate can then
+                // exceed 100 %, which is exactly what "more guests than active rooms" means.
+                var occupiedRooms = coveringReservationsByUnit.GetValueOrDefault(unit.Code, [])
+                    .Select(reservation => reservation.RoomId)
+                    .Distinct()
+                    .Count();
 
                 var occupancyRate = activeRoomCount == 0
                     ? (decimal?)null

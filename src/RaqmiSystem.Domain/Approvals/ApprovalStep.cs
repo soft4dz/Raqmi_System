@@ -11,20 +11,17 @@ namespace RaqmiSystem.Domain.Approvals;
 public sealed class ApprovalStep
 {
     /// <summary>
-    /// Single source of truth for the roles a step may require: the REAL system roles of
-    /// <see cref="RoleCatalog"/>, nothing invented. Exposed so that the desktop client offers
-    /// exactly this list instead of restating it, and so a role later added to the catalog only
-    /// needs to be added here to become eligible.
+    /// The roles a step may require: exactly <see cref="RoleCatalog.ApprovalDeciderRoles"/>, the
+    /// roles that hold approvals.decide - never every role of the catalog. A step demanding a
+    /// role that cannot decide (cashier, reader) would be undecidable for life, and the snapshot
+    /// taken when an instance opens would freeze that dead end into every open instance; the
+    /// refusal therefore happens here, at creation time, where it is still recoverable.
+    ///
+    /// The list is not restated: it is the shared constant of the identity catalog, so the API,
+    /// the desktop client (which fills its role picker from here) and the seeder all read the
+    /// same truth.
     /// </summary>
-    public static readonly IReadOnlyCollection<string> AllowedRoles = new[]
-    {
-        RoleCatalog.SystemAdministrator,
-        RoleCatalog.Direction,
-        RoleCatalog.ExploitationControl,
-        RoleCatalog.UnitManager,
-        RoleCatalog.Cashier,
-        RoleCatalog.Reader
-    };
+    public static IReadOnlyCollection<string> AllowedRoles => RoleCatalog.ApprovalDeciderRoles;
 
     private ApprovalStep()
     {
@@ -55,7 +52,7 @@ public sealed class ApprovalStep
     }
 
     /// <summary>
-    /// Validates that a required role is one of the real system roles. Exposed because the
+    /// Validates that a required role is one of the roles able to DECIDE. Exposed because the
     /// instance snapshot (<see cref="ApprovalInstanceStep"/>) is held to the same rule.
     /// </summary>
     public static string RequireAllowedRole(string value, string argumentName)
@@ -70,7 +67,8 @@ public sealed class ApprovalStep
         if (!AllowedRoles.Contains(trimmed, StringComparer.OrdinalIgnoreCase))
         {
             throw new ArgumentException(
-                $"Required role must be one of the system roles: {string.Join(", ", AllowedRoles)}.",
+                "Required role must be one of the roles that can decide an approval " +
+                $"(they alone hold {PermissionCatalog.ApprovalsDecide}): {string.Join(", ", AllowedRoles)}.",
                 argumentName);
         }
 

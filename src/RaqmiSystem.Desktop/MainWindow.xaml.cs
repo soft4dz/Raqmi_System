@@ -72,13 +72,11 @@ public partial class MainWindow : Window
     // l'autorite. Null hors session.
     private Guid? currentUserId;
 
-    // Onglets des vues de module (ClosingView, TreasuryView, CustomersView,
-    // InvoicesView, SettingsView, UsersView, AccountingView, BudgetView,
-    // ReceivablesView, TariffsView, LodgingView) deja charges depuis la connexion
-    // en cours. Ces onze vues sont chargees paresseusement - a la premiere
-    // ouverture de leur onglet - pour ne pas declencher autant de series d'appels
-    // reseau inutiles a chaque connexion. Vide a la deconnexion : la session
-    // suivante repart de donnees fraiches.
+    // Onglets des vues de module autonomes (onglets 5 a 20 : ClosingView jusqu'a
+    // DecCockpitView) deja charges depuis la connexion en cours. Ces vues sont
+    // chargees paresseusement - a la premiere ouverture de leur onglet - pour ne
+    // pas declencher autant de series d'appels reseau inutiles a chaque connexion.
+    // Vide a la deconnexion : la session suivante repart de donnees fraiches.
     private readonly HashSet<int> loadedModuleTabs = [];
 
     public MainWindow()
@@ -172,7 +170,8 @@ public partial class MainWindow : Window
                      ShowAccountingButton, ShowBudgetButton, ShowReceivablesButton,
                      ShowTariffsButton, ShowLodgingButton,
                      ShowApprovalsButton, ShowReportsButton,
-                     ShowBackupButton, ShowSettingsButton, ShowUsersButton
+                     ShowBackupButton, ShowSettingsButton, ShowUsersButton,
+                     ShowGroupDashboardButton, ShowDecCockpitButton
                  })
         {
             button.Tag = ReferenceEquals(button, active) ? "Active" : null;
@@ -234,6 +233,11 @@ public partial class MainWindow : Window
         ApplyModuleAccess(PermissionCatalog.ApprovalsRead, ShowApprovalsButton, ApprovalsTabItem);
         ApplyModuleAccess(PermissionCatalog.ReportsRead, ShowReportsButton, ReportsTabItem);
         ApplyModuleAccess(PermissionCatalog.MaintenanceRead, ShowBackupButton, BackupTabItem);
+
+        // Les deux ecrans de pilotage sont de l'agregation pure des modules existants : ils
+        // reutilisent la cle dashboard.read deja semee, sans creer de permission a eux.
+        ApplyModuleAccess(PermissionCatalog.DashboardRead, ShowGroupDashboardButton, GroupDashboardTabItem);
+        ApplyModuleAccess(PermissionCatalog.DashboardRead, ShowDecCockpitButton, DecCockpitTabItem);
 
         ApplyWriteActionStates();
     }
@@ -417,7 +421,8 @@ public partial class MainWindow : Window
     // 9=Paramétrage global, 10=Administration & utilisateurs,
     // 11=Comptabilité SCF, 12=Budget & prévisions, 13=Créances & recouvrement,
     // 14=Tarifs & conventions, 15=Hébergement & occupation,
-    // 16=Validations, 17=Rapports, 18=Sauvegarde.
+    // 16=Validations, 17=Rapports, 18=Sauvegarde,
+    // 19=Tableau de bord PDG, 20=Cockpit DEC.
     //
     // Cet ordre est celui des TabItem, pas celui de la barre latérale : l'index d'un
     // onglet est l'identité d'un module dans tout le code (ModuleCatalog.TabIndex y
@@ -444,6 +449,8 @@ public partial class MainWindow : Window
         16 => ShowApprovalsButton,
         17 => ShowReportsButton,
         18 => ShowBackupButton,
+        19 => ShowGroupDashboardButton,
+        20 => ShowDecCockpitButton,
         _ => null
     };
 
@@ -539,6 +546,12 @@ public partial class MainWindow : Window
                 break;
             case 18:
                 await BackupView.LoadAsync();
+                break;
+            case 19:
+                await GroupDashboardView.LoadAsync();
+                break;
+            case 20:
+                await DecCockpitView.LoadAsync();
                 break;
             default:
                 // Les onglets 0 a 4 vivent dans MainWindow et sont charges a la
@@ -718,9 +731,36 @@ public partial class MainWindow : Window
         ApprovalsView.Initialize(context);
         ReportsView.Initialize(context);
         BackupView.Initialize(context);
+        GroupDashboardView.Initialize(context);
+        DecCockpitView.Initialize(context);
+
+        // Le cockpit DEC ne connait pas MainWindow : ses files de travail DEMANDENT
+        // l'ouverture du module concerne via NavigateRequested, et c'est la fenetre - seule a
+        // connaitre les onglets et la barre laterale - qui execute la navigation.
+        // Desabonnement systematique avant abonnement : InitializeModuleViews est rappelee a
+        // CHAQUE connexion, et un simple "+=" empilerait un handler de plus par session, donc
+        // autant de navigations pour un seul clic.
+        DecCockpitView.NavigateRequested -= DecCockpitView_NavigateRequested;
+        DecCockpitView.NavigateRequested += DecCockpitView_NavigateRequested;
 
         // Nouvelle session : aucune vue n'a encore charge ses donnees.
         loadedModuleTabs.Clear();
+    }
+
+    // Navigation demandee par le cockpit DEC (recettes=2, cloture=5, tresorerie=6). Le module
+    // cible reste garde par sa propre permission de lecture : un bouton de sidebar desactive
+    // signifie que le profil n'a pas le droit, et la demande est alors ignoree plutot que de
+    // renvoyer l'utilisateur sur l'accueil sans explication.
+    private void DecCockpitView_NavigateRequested(int tabIndex)
+    {
+        var moduleButton = SidebarButtonForTab(tabIndex);
+
+        if (moduleButton is null || !moduleButton.IsEnabled)
+        {
+            return;
+        }
+
+        NavigateToModule(tabIndex, moduleButton);
     }
 
     private void LogoutButton_Click(object sender, RoutedEventArgs e)
@@ -780,6 +820,8 @@ public partial class MainWindow : Window
         ApprovalsView.ResetState();
         ReportsView.ResetState();
         BackupView.ResetState();
+        GroupDashboardView.ResetState();
+        DecCockpitView.ResetState();
         loadedModuleTabs.Clear();
 
         ResetUnitForm();
@@ -920,6 +962,16 @@ public partial class MainWindow : Window
     private void ShowLodgingButton_Click(object sender, RoutedEventArgs e)
     {
         NavigateToModule(15, ShowLodgingButton);
+    }
+
+    private void ShowGroupDashboardButton_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(19, ShowGroupDashboardButton);
+    }
+
+    private void ShowDecCockpitButton_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToModule(20, ShowDecCockpitButton);
     }
 
     private async void CreateRevenueButton_Click(object sender, RoutedEventArgs e)

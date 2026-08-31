@@ -7,6 +7,7 @@ using System.Windows.Markup;
 using Microsoft.Win32;
 using RaqmiSystem.Application.Organization;
 using RaqmiSystem.Application.Reporting;
+using RaqmiSystem.Domain.Identity;
 
 namespace RaqmiSystem.Desktop.Views;
 
@@ -22,11 +23,17 @@ namespace RaqmiSystem.Desktop.Views;
 /// </summary>
 public partial class ReportsView : UserControl
 {
-    // NOTE INTEGRATEUR : remplacer par PermissionCatalog.ReportsRead une fois la
-    // constante ajoutee au catalogue des permissions.
-    private const string ReadPermission = "reports.read";
+    private const string ReadPermission = PermissionCatalog.ReportsRead;
+
+    // L'export est une permission DISTINCTE de la consultation (reports.export, "Exporter les
+    // rapports") : un profil peut consulter un rapport a l'ecran sans etre autorise a en sortir
+    // un fichier. Le serveur ne peut pas garder cet acte (l'export est purement local), donc
+    // l'ecran applique la meme regle que le catalogue de permissions.
+    private const string ExportPermission = PermissionCatalog.ReportsExport;
 
     private const string ReadPermissionHint = "Permission reports.read requise : votre profil ne peut pas consulter les rapports.";
+
+    private const string ExportPermissionHint = "Permission reports.export requise : votre profil ne peut pas exporter les rapports.";
 
     // Types de colonne renvoyes par le serveur (contrat ReportColumnResponse).
     private const string MoneyColumnType = "money";
@@ -40,6 +47,8 @@ public partial class ReportsView : UserControl
     private ModuleViewContext? context;
 
     private bool canReadReports = true;
+
+    private bool canExportReports = true;
 
     // Info-bulles d'origine des boutons, capturees avant toute substitution par le
     // message de permission : l'affectation doit rester symetrique (les vues
@@ -72,6 +81,7 @@ public partial class ReportsView : UserControl
     {
         this.context = context;
         canReadReports = context.HasPermission(ReadPermission);
+        canExportReports = context.HasPermission(ExportPermission);
 
         UpdateActionButtons();
     }
@@ -490,10 +500,13 @@ public partial class ReportsView : UserControl
         var hasResult = lastResult is not null && lastResult.Rows.Count > 0;
 
         RunReportButton.IsEnabled = canReadReports && hasReportSelected;
-        ExportCsvButton.IsEnabled = canReadReports && hasResult;
+        ExportCsvButton.IsEnabled = canReadReports && canExportReports && hasResult;
 
         ApplyPermissionHint(RunReportButton, canReadReports, ReadPermissionHint);
-        ApplyPermissionHint(ExportCsvButton, canReadReports, ReadPermissionHint);
+        ApplyPermissionHint(
+            ExportCsvButton,
+            canReadReports && canExportReports,
+            canReadReports ? ExportPermissionHint : ReadPermissionHint);
     }
 
     // Pose le message d'explication quand le droit manque, et RESTAURE l'info-bulle

@@ -11,7 +11,7 @@ namespace RaqmiSystem.Application.Approvals;
 /// active circuit exists, the answer is true only if an APPROVED instance exists for the
 /// reference; anything else (no instance, in progress, rejected) is false.
 ///
-/// Intended wiring (integrator): TreasuryService.ApprovePaymentOrderAsync calls
+/// Wired consumer: TreasuryService.ApprovePaymentOrderAsync calls
 /// IsApprovedAsync(ApprovalSubjectType.PaymentOrder, id.ToString(), ...) and refuses explicitly
 /// when the gate answers false.
 /// </summary>

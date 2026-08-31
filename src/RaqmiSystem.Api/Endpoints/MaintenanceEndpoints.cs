@@ -10,13 +10,9 @@ namespace RaqmiSystem.Api.Endpoints;
 /// d'administration serveur documentee (docs/deployment-onpremise.md), pas une action
 /// exposable par l'API.
 ///
-/// NOTE INTEGRATEUR : les permissions sont des chaines litterales ("maintenance.read",
-/// "maintenance.backup"). Elles doivent etre ajoutees a PermissionCatalog (constantes
-/// MaintenanceRead / MaintenanceBackup + entrees PermissionDefinition) pour que Program.cs
-/// enregistre les policies correspondantes et que SecuritySeeder les seme ; remplacer
-/// ensuite les litteraux ci-dessous par les constantes. Roles : maintenance.read pour
-/// direction (system.administrator recoit tout via le catch-all) ; maintenance.backup
-/// pour system.administrator UNIQUEMENT (aucune liste de role a completer).
+/// Permissions (constantes PermissionCatalog) : maintenance.read pour la consultation,
+/// accordee a direction ; maintenance.backup pour le declenchement, reservee a
+/// system.administrator, qui la recoit via le catch-all PermissionCatalog.All du seeder.
 /// </summary>
 internal static class MaintenanceEndpoints
 {

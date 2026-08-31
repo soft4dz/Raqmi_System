@@ -17,11 +17,9 @@ namespace RaqmiSystem.Desktop.Views;
 /// </summary>
 public partial class ApprovalsView : UserControl
 {
-    // NOTE INTEGRATEUR : cles de permission en chaines litterales, a remplacer par
-    // les constantes PermissionCatalog une fois les cles ajoutees au catalogue.
-    private const string WritePermission = "approvals.write";
+    private const string WritePermission = PermissionCatalog.ApprovalsWrite;
 
-    private const string DecidePermission = "approvals.decide";
+    private const string DecidePermission = PermissionCatalog.ApprovalsDecide;
 
     private const string WritePermissionHint = "Permission approvals.write requise : votre profil ne peut que consulter les circuits.";
 

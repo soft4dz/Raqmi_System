@@ -17,9 +17,8 @@ namespace RaqmiSystem.Tests;
 /// single-purpose test role holding exactly the approvals permission keys it needs.
 ///
 /// The permission keys (approvals.read / approvals.write / approvals.decide) are seeded from
-/// PermissionCatalog by SecuritySeeder during factory startup: if the assertion in
-/// CreateApprovalsUserAsync fails, the integrator has not yet added the three keys to
-/// PermissionCatalog (Program.cs also needs them there to register the authorization policies).
+/// PermissionCatalog by SecuritySeeder during factory startup, and Program.cs registers one
+/// authorization policy per catalog key.
 ///
 /// The tests share one in-memory database (one factory per test class) and the module allows a
 /// single ACTIVE circuit per subject type, so every test that needs an active circuit goes
@@ -282,6 +281,172 @@ public sealed class ApprovalsEndpointTests : IClassFixture<RaqmiApiFactory>
     }
 
     /// <summary>
+    /// A circuit may only demand a role that can DECIDE. cashier is a real system role that
+    /// never receives approvals.decide, so a step demanding it would be undecidable for life
+    /// (and the snapshot would freeze that dead end into every instance opened on it). The
+    /// refusal happens server-side, at creation: it does not depend on the desktop's role picker
+    /// offering the right list.
+    /// </summary>
+    [Fact]
+    public async Task A_circuit_demanding_a_role_that_cannot_decide_is_refused_at_creation()
+    {
+        await CreateApprovalsUserAsync(
+            "wf.roles", "wf.roles@example.com", "Configurateur roles", null, ApprovalsRead, ApprovalsWrite);
+
+        using var client = await _factory.CreateAuthenticatedClientAsync("wf.roles", Password);
+
+        var refused = await client.PostAsJsonAsync(
+            "/api/v1/approvals/circuits",
+            new CreateApprovalCircuitRequest(
+                "CIRC-CASHIER",
+                "Circuit indécidable",
+                ApprovalSubjectType.PaymentOrder,
+                new[]
+                {
+                    new ApprovalStepRequest("Visa du responsable", RoleCatalog.UnitManager),
+                    new ApprovalStepRequest("Visa de la caisse", RoleCatalog.Cashier)
+                }),
+            RaqmiApiFactory.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+
+        // Refused as a whole: no half-created circuit is left behind.
+        var lookup = await client.GetAsync("/api/v1/approvals/circuits/CIRC-CASHIER");
+        Assert.Equal(HttpStatusCode.NotFound, lookup.StatusCode);
+
+        // reader is refused for the same reason...
+        var refusedReader = await client.PostAsJsonAsync(
+            "/api/v1/approvals/circuits",
+            new CreateApprovalCircuitRequest(
+                "CIRC-READER",
+                "Circuit indécidable (lecture)",
+                ApprovalSubjectType.PaymentOrder,
+                new[] { new ApprovalStepRequest("Visa lecture", RoleCatalog.Reader) }),
+            RaqmiApiFactory.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.BadRequest, refusedReader.StatusCode);
+
+        // ...while a decider role is accepted (the circuit stays inactive: another one is active).
+        var accepted = await client.PostAsJsonAsync(
+            "/api/v1/approvals/circuits",
+            new CreateApprovalCircuitRequest(
+                "CIRC-DECIDERS",
+                "Circuit décidable",
+                ApprovalSubjectType.PaymentOrder,
+                new[] { new ApprovalStepRequest("Visa du contrôle", RoleCatalog.ExploitationControl) }),
+            RaqmiApiFactory.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.Created, accepted.StatusCode);
+    }
+
+    /// <summary>
+    /// The opening-time snapshot, proven THROUGH THE DATABASE rather than between two objects of
+    /// the same process: an instance is opened, the circuit it came from is then rewritten in
+    /// base (different labels, different required roles, fewer steps), and the instance is
+    /// reloaded from scratch by the API. Its steps must be exactly those of the opening, and the
+    /// decision must still obey them - the circuit edit reaches new instances only.
+    /// </summary>
+    [Fact]
+    public async Task An_instance_reloaded_from_the_database_still_carries_the_steps_of_its_opening()
+    {
+        await CreateApprovalsUserAsync(
+            "wf.snap.opener", "wf.snap.opener@example.com", "Ouvreur snapshot", null, ApprovalsRead, ApprovalsWrite);
+        await CreateApprovalsUserAsync(
+            "wf.snap.decider", "wf.snap.decider@example.com", "Chef snapshot", RoleCatalog.UnitManager, ApprovalsRead, ApprovalsDecide);
+
+        using var openerClient = await _factory.CreateAuthenticatedClientAsync("wf.snap.opener", Password);
+        using var deciderClient = await _factory.CreateAuthenticatedClientAsync("wf.snap.decider", Password);
+
+        await EnsureActiveCircuitAsync();
+
+        var reference = Guid.NewGuid().ToString();
+
+        var openResponse = await openerClient.PostAsJsonAsync(
+            "/api/v1/approvals/instances",
+            new OpenApprovalInstanceRequest(ApprovalSubjectType.PaymentOrder, reference),
+            RaqmiApiFactory.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.Created, openResponse.StatusCode);
+
+        var opened = await openResponse.Content.ReadFromJsonAsync<ApprovalInstanceResponse>(RaqmiApiFactory.JsonOptions);
+        Assert.NotNull(opened);
+
+        var openedSteps = opened!.Steps
+            .OrderBy(step => step.Rank)
+            .Select(step => (step.Rank, step.Label, step.RequiredRole))
+            .ToArray();
+
+        Assert.Equal(2, openedSteps.Length);
+
+        try
+        {
+            // The circuit is REWRITTEN IN BASE, behind the instance's back.
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var dbContext = scope.ServiceProvider.GetRequiredService<RaqmiDbContext>();
+
+                var circuit = await dbContext.Set<ApprovalCircuit>()
+                    .Include(current => current.Steps)
+                    .SingleAsync(current => current.Code == SharedCircuitCode);
+
+                circuit.ReplaceSteps(new[]
+                {
+                    new ApprovalStep("Visa unique du contrôle", RoleCatalog.ExploitationControl)
+                });
+
+                await dbContext.SaveChangesAsync();
+            }
+
+            // The circuit really did change - the read below is not a no-op.
+            var circuitAfterEdit = await openerClient.GetFromJsonAsync<ApprovalCircuitResponse>(
+                $"/api/v1/approvals/circuits/{SharedCircuitCode}",
+                RaqmiApiFactory.JsonOptions);
+
+            Assert.NotNull(circuitAfterEdit);
+            var editedStep = Assert.Single(circuitAfterEdit!.Steps);
+            Assert.Equal(RoleCatalog.ExploitationControl, editedStep.RequiredRole);
+
+            // The instance is reloaded from the database by a NEW request, on a fresh scope.
+            var reloaded = await openerClient.GetFromJsonAsync<ApprovalInstanceResponse>(
+                $"/api/v1/approvals/instances/{opened.Id}",
+                RaqmiApiFactory.JsonOptions);
+
+            Assert.NotNull(reloaded);
+            Assert.Equal(
+                openedSteps,
+                reloaded!.Steps.OrderBy(step => step.Rank).Select(step => (step.Rank, step.Label, step.RequiredRole)).ToArray());
+
+            Assert.Equal(RoleCatalog.UnitManager, reloaded.CurrentStepRequiredRole);
+
+            // And the snapshot governs the DECISION too: the role the circuit now demands
+            // (exploitation.control) is irrelevant to this instance, which still asks for the
+            // unit manager it was opened with.
+            var decided = await ApproveAsync(deciderClient, opened.Id, "Visa conforme au circuit d'origine.");
+
+            Assert.Equal(2, decided.CurrentRank);
+            Assert.Equal(RoleCatalog.Direction, decided.CurrentStepRequiredRole);
+        }
+        finally
+        {
+            // The circuit is shared by the whole class: put its two steps back.
+            using var scope = _factory.Services.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<RaqmiDbContext>();
+
+            var circuit = await dbContext.Set<ApprovalCircuit>()
+                .Include(current => current.Steps)
+                .SingleAsync(current => current.Code == SharedCircuitCode);
+
+            circuit.ReplaceSteps(new[]
+            {
+                new ApprovalStep("Visa du responsable d'unite", RoleCatalog.UnitManager),
+                new ApprovalStep("Signature de la direction", RoleCatalog.Direction)
+            });
+
+            await dbContext.SaveChangesAsync();
+        }
+    }
+
+    /// <summary>
     /// The one ACTIVE circuit of this test database (the module allows a single active circuit
     /// per subject type): two steps, unit.manager then direction. Created directly through the
     /// DbContext so the tests that only consume the workflow do not incidentally re-test the
@@ -367,8 +532,7 @@ public sealed class ApprovalsEndpointTests : IClassFixture<RaqmiApiFactory>
 
         Assert.True(
             permissions.Length == permissionKeys.Length,
-            "Approvals permission keys are missing from the seeded PermissionCatalog (the integrator must add " +
-            "approvals.read, approvals.write and approvals.decide to PermissionCatalog): " +
+            "Approvals permission keys are missing from the seeded PermissionCatalog: " +
             string.Join(", ", permissionKeys.Except(permissions.Select(permission => permission.Key))));
 
         var testRole = new Role(

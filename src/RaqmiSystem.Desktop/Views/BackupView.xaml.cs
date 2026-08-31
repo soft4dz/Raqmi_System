@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using RaqmiSystem.Application.Maintenance;
+using RaqmiSystem.Domain.Identity;
 
 namespace RaqmiSystem.Desktop.Views;
 
@@ -15,9 +16,7 @@ namespace RaqmiSystem.Desktop.Views;
 /// </summary>
 public partial class BackupView : UserControl
 {
-    // NOTE INTEGRATEUR : remplacer le litteral par PermissionCatalog.MaintenanceBackup
-    // une fois la cle ajoutee au catalogue.
-    private const string TriggerPermission = "maintenance.backup";
+    private const string TriggerPermission = PermissionCatalog.MaintenanceBackup;
 
     private const string TriggerPermissionHint =
         "Permission maintenance.backup requise : seul l'administrateur système peut déclencher une sauvegarde.";
@@ -143,10 +142,7 @@ public partial class BackupView : UserControl
 
     private void RenderStatus(BackupStatusResponse status)
     {
-        NotConfiguredBorder.Visibility = status.Configured ? Visibility.Collapsed : Visibility.Visible;
-
-        BackupDirectoryTextBlock.Text = status.BackupDirectory
-            ?? "RAQMI_BACKUP_DIR non défini sur le serveur";
+        RenderConfiguration(status.Configured, status.BackupDirectory);
 
         if (status.LastBackup is null)
         {
@@ -190,6 +186,49 @@ public partial class BackupView : UserControl
         {
             SetAgeBadge("En retard important", "StatusRejected");
         }
+    }
+
+    /// <summary>
+    /// Le serveur distingue soigneusement DEUX etats non configures, et l'ecran doit les
+    /// distinguer aussi car la marche a suivre n'est pas la meme :
+    ///
+    ///   * variable RAQMI_BACKUP_DIR absente (BackupDirectory null) : il faut la DEFINIR ;
+    ///   * variable definie mais dossier absent du disque (BackupDirectory renseigne, mais
+    ///     Configured faux) : le chemin est connu, il faut CREER le dossier ou corriger la
+    ///     variable - dire ici "non configuré" enverrait l'administrateur redefinir une
+    ///     variable deja definie.
+    /// </summary>
+    private void RenderConfiguration(bool configured, string? backupDirectory)
+    {
+        BackupDirectoryTextBlock.Text = backupDirectory ?? "RAQMI_BACKUP_DIR non défini sur le serveur";
+
+        if (configured)
+        {
+            NotConfiguredBorder.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        NotConfiguredBorder.Visibility = Visibility.Visible;
+
+        if (backupDirectory is null)
+        {
+            NotConfiguredTitleTextBlock.Text = "Dossier de sauvegarde non configuré sur le serveur";
+            NotConfiguredDetailTextBlock.Text =
+                "Définissez la variable RAQMI_BACKUP_DIR (et RAQMI_PG_BIN) dans le fichier " +
+                "config\\raqmi.env.ps1 du serveur — l'installeur deploy\\onpremise\\install-server.ps1 " +
+                "le fait automatiquement. Procédure complète : docs/deployment-onpremise.md, " +
+                "section « Backups ».";
+
+            return;
+        }
+
+        NotConfiguredTitleTextBlock.Text = "Dossier de sauvegarde introuvable sur le serveur";
+        NotConfiguredDetailTextBlock.Text =
+            $"La variable RAQMI_BACKUP_DIR désigne « {backupDirectory} », mais ce dossier n'existe " +
+            "pas sur le disque du serveur : aucune sauvegarde n'y est écrite ni lue. Créez ce " +
+            "dossier (ou corrigez le chemin dans config\\raqmi.env.ps1), puis relancez la tâche " +
+            "planifiée « Raqmi System Backup ». Procédure complète : docs/deployment-onpremise.md, " +
+            "section « Backups ».";
     }
 
     private void RenderList(BackupListResponse list)

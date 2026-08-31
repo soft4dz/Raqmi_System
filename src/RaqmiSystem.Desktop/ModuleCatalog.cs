@@ -43,9 +43,9 @@ public static class ModuleCatalog
 {
     // Totaux attendus - garde de coherence verifiee au chargement du type.
     public const int ExpectedTotal = 49;
-    public const int ExpectedAvailable = 19;
+    public const int ExpectedAvailable = 21;
     public const int ExpectedApiReady = 0;
-    public const int ExpectedPartial = 2;
+    public const int ExpectedPartial = 0;
     public const int ExpectedPlanned = 28;
 
     // Libelles affiches des groupes fonctionnels (ordre d'apparition).
@@ -86,7 +86,9 @@ public static class ModuleCatalog
     static ModuleCatalog()
     {
         // Garde de coherence : le tableau de verite du depot compte 49 modules,
-        // repartis en 16 Disponible / 0 API prete / 3 Partiel / 30 Planifie.
+        // repartis en 21 Disponible / 0 API prete / 0 Partiel / 28 Planifie.
+        // Plus AUCUN module partiel : les deux derniers (Dashboard PDG 24.2 et
+        // Cockpit DEC 24.4) ont recu leur ecran dedie et sont passes Disponible.
         // Toute edition qui casse ces totaux doit etre volontaire et reportee ici.
         EnsureCount("total", Entries.Count, ExpectedTotal);
         EnsureCount("Disponible", CountOf(ModuleStatus.Disponible), ExpectedAvailable);
@@ -229,17 +231,16 @@ public static class ModuleCatalog
         new ModuleCatalogEntry("24", Groups.Pilotage, "Tableaux de bord directionnels",
             "Indicateurs consolidés par période et unité",
             "P0", ModuleStatus.Disponible, PermissionCatalog.DashboardRead, 3),
-        // Pas de TabIndex : cliquer ouvrirait l'ecran "Tableau de bord - recettes
-        // par unite", dont le titre ne tient pas la promesse du libelle de la carte.
-        // Le statut Partiel et la note disent deja ou en est le module.
+        // Les deux ecrans de direction ont desormais leur onglet dedie (19 et 20).
+        // Agregation pure des modules existants : aucune table, aucune migration,
+        // aucune permission nouvelle - ils lisent sous la cle dashboard.read deja
+        // semee, comme le tableau de bord unifie.
         new ModuleCatalogEntry("24.2", Groups.Pilotage, "Dashboard PDG",
             "Vision groupe et alertes de direction",
-            "P0", ModuleStatus.Partiel, PermissionCatalog.DashboardRead, null,
-            "Couvert par le tableau de bord unifié - vision groupe dédiée à affiner"),
+            "P0", ModuleStatus.Disponible, PermissionCatalog.DashboardRead, 19),
         new ModuleCatalogEntry("24.4", Groups.Pilotage, "Cockpit DEC",
             "Pilotage exploitation et contrôles quotidiens",
-            "P0", ModuleStatus.Partiel, PermissionCatalog.DashboardRead, null,
-            "Couvert par le tableau de bord unifié - cockpit dédié à affiner"),
+            "P0", ModuleStatus.Disponible, PermissionCatalog.DashboardRead, 20),
         new ModuleCatalogEntry("25", Groups.Pilotage, "Rapports automatiques",
             "Catalogue de rapports paramétrables, export CSV et journal des exécutions",
             "P1", ModuleStatus.Disponible, PermissionCatalog.ReportsRead, 17),

@@ -170,6 +170,7 @@ api.MapReceivablesEndpoints();
 api.MapApprovalsEndpoints();
 api.MapReportingEndpoints();
 api.MapMaintenanceEndpoints();
+api.MapPilotageEndpoints();
 
 app.Run();
 

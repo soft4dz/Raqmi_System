@@ -160,9 +160,14 @@ public partial class DecCockpitView : UserControl
                 delay.AgeDays)
             : "Aucun";
 
+        // La base de calcul est dite avec les chiffres, comme sur le tableau de bord PDG : la
+        // colonne « Occupation du jour » affiche « chambres occupées / chambres actives », les
+        // memes numerateur et denominateur que l'ecran Hébergement & occupation.
         HealthSubtitleTextBlock.Text = string.Format(
             culture,
-            "Recette du {0}, clôture du {0} et occupation du {1}. Une unité sans recette d'hier et sans clôture est surlignée.",
+            "Recette du {0}, clôture du {0} et occupation du {1} (chambres occupées / chambres actives, "
+                + "tout séjour non annulé et non no-show occupant sa chambre). "
+                + "Une unité sans recette d'hier et sans clôture est surlignée.",
             cockpit.Yesterday.ToString("dd/MM/yyyy", culture),
             cockpit.Date.ToString("dd/MM/yyyy", culture));
     }

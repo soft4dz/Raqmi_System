@@ -11,6 +11,7 @@ using RaqmiSystem.Application.Identity;
 using RaqmiSystem.Application.Lodging;
 using RaqmiSystem.Application.Maintenance;
 using RaqmiSystem.Application.Organization;
+using RaqmiSystem.Application.Pilotage;
 using RaqmiSystem.Application.Receivables;
 using RaqmiSystem.Application.Reporting;
 using RaqmiSystem.Application.Revenue;
@@ -29,6 +30,7 @@ using RaqmiSystem.Infrastructure.Lodging;
 using RaqmiSystem.Infrastructure.Maintenance;
 using RaqmiSystem.Infrastructure.Organization;
 using RaqmiSystem.Infrastructure.Persistence;
+using RaqmiSystem.Infrastructure.Pilotage;
 using RaqmiSystem.Infrastructure.Receivables;
 using RaqmiSystem.Infrastructure.Reporting;
 using RaqmiSystem.Infrastructure.Revenue;
@@ -81,6 +83,10 @@ public static class DependencyInjection
         services.AddScoped<IApprovalGate, ApprovalService>();
         services.AddScoped<IReportingService, ReportingService>();
         services.AddScoped<IBackupService, BackupService>();
+
+        // Module Pilotage : deux lecteurs d'agregation pure (aucune table, aucune ecriture).
+        services.AddScoped<IGroupDashboardService, GroupDashboardService>();
+        services.AddScoped<IDecCockpitService, DecCockpitService>();
 
         return services;
     }

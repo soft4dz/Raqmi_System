@@ -128,8 +128,13 @@
                                        TextTrimming="CharacterEllipsis"
                                        ToolTip="Dossier RAQMI_BACKUP_DIR du serveur"
                                        Margin="0,4,0,0" />
+                            <!-- La retention (nombre de fichiers gardes par palier) est appliquee
+                                 par la tache serveur deploy\onpremise\backup-raqmi.ps1 et n'est
+                                 pas renvoyee par l'API : l'ecran nomme les paliers qu'il affiche
+                                 et renvoie a la procedure, sans avancer de chiffres qu'il ne
+                                 connait pas. -->
                             <TextBlock x:Name="RetentionCaptionTextBlock"
-                                       Text="Rétention : 7 quotidiennes, 4 hebdomadaires, 6 mensuelles."
+                                       Text="Rétention par paliers (quotidien, hebdomadaire, mensuel) appliquée par la tâche serveur — voir docs/deployment-onpremise.md."
                                        Style="{StaticResource CaptionText}"
                                        Margin="0,2,0,0" />
                         </StackPanel>
@@ -144,9 +149,11 @@
                         Margin="0,12,0,0"
                         Visibility="Collapsed">
                     <StackPanel>
-                        <TextBlock Text="Dossier de sauvegarde non configuré sur le serveur"
+                        <TextBlock x:Name="NotConfiguredTitleTextBlock"
+                                   Text="Dossier de sauvegarde non configuré sur le serveur"
                                    FontWeight="SemiBold"
                                    FontSize="12.5"
+                                   TextWrapping="Wrap"
                                    Foreground="{StaticResource StatusSubmittedForegroundBrush}" />
                         <TextBlock x:Name="NotConfiguredDetailTextBlock"
                                    Text="Définissez la variable RAQMI_BACKUP_DIR (et RAQMI_PG_BIN) dans le fichier config\raqmi.env.ps1 du serveur — l'installeur deploy\onpremise\install-server.ps1 le fait automatiquement. Procédure complète : docs/deployment-onpremise.md, section « Backups »."

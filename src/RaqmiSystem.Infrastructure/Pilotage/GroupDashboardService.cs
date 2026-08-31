@@ -112,15 +112,21 @@ public sealed class GroupDashboardService(RaqmiDbContext dbContext) : IGroupDash
         // prorata is the calculator's documented rule.
         var scopedYears = Enumerable.Range(from.Year, to.Year - from.Year + 1).ToArray();
 
-        var budgetTargets = await dbContext.Set<BudgetPlan>()
-            .AsNoTracking()
-            .Where(plan => scopedYears.Contains(plan.Year)
-                && (plan.Status == BudgetStatus.Approved || plan.Status == BudgetStatus.Closed))
-            .SelectMany(plan => plan.Lines.Select(line => new GroupBudgetMonthTarget(
-                plan.HotelUnitCode,
-                plan.Year,
-                line.Month,
-                line.AmountTarget)))
+        // A JOIN, not a SelectMany over the Lines navigation: projecting a collection navigation
+        // this way compiles to a correlated subquery (SQL APPLY / LATERAL), which SQLite refuses
+        // outright. A flat join over the BudgetLine set says exactly the same thing and every
+        // provider translates it.
+        var budgetTargets = await (
+                from plan in dbContext.Set<BudgetPlan>().AsNoTracking()
+                where scopedYears.Contains(plan.Year)
+                    && (plan.Status == BudgetStatus.Approved || plan.Status == BudgetStatus.Closed)
+                join line in dbContext.Set<BudgetLine>().AsNoTracking()
+                    on plan.Id equals line.BudgetPlanId
+                select new GroupBudgetMonthTarget(
+                    plan.HotelUnitCode,
+                    plan.Year,
+                    line.Month,
+                    line.AmountTarget))
             .ToArrayAsync(cancellationToken);
 
         // "Today" is the UTC business day - the codebase's convention for every UtcNow-based

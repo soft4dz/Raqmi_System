@@ -389,6 +389,49 @@
                                 </StackPanel>
                             </Button>
 
+                            <!-- Les deux ecrans de direction restent groupes avec le tableau
+                                 de bord : la barre laterale presente les modules a leur place
+                                 metier, l'ordre des onglets reste celui des TabItem. -->
+                            <Button x:Name="ShowGroupDashboardButton"
+                                    Style="{StaticResource ModuleNavButton}"
+                                    ToolTip="Vision groupe de la direction : toutes les unités sur une période, comparées à N-1"
+                                    Click="ShowGroupDashboardButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16"
+                                          Height="16"
+                                          Stretch="None"
+                                          StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Data="M8,1.8 A6.2,6.2 0 1 0 14.2,8 H8 Z M9.6,1.9 A6.2,6.2 0 0 1 14.1,6.4 H9.6 Z"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0" />
+                                    <TextBlock Text="Tableau de bord PDG" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="ShowDecCockpitButton"
+                                    Style="{StaticResource ModuleNavButton}"
+                                    ToolTip="Cockpit quotidien de la DEC : files de travail du jour et santé des unités"
+                                    Click="ShowDecCockpitButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16"
+                                          Height="16"
+                                          Stretch="None"
+                                          StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Data="M8,2.2 A5.8,5.8 0 1 0 8.01,2.2 M8,4.6 A3.4,3.4 0 1 0 8.01,4.6 M8,8 L11.2,5.6"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,10,0" />
+                                    <TextBlock Text="Cockpit DEC" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
                             <Button x:Name="ShowAuditButton"
                                     Style="{StaticResource ModuleNavButton}"
                                     ToolTip="Journal d'audit en lecture seule"
@@ -1840,6 +1883,19 @@
                     <!-- ==================== Sauvegarde &amp; restauration =============== -->
                     <TabItem x:Name="BackupTabItem" Header="Sauvegarde">
                         <views:BackupView x:Name="BackupView" />
+                    </TabItem>
+
+                    <!-- ======================== Pilotage : direction ================== -->
+                    <!-- Onglets 19 et 20. L'index d'un onglet est l'identite d'un module dans
+                         tout le code (ModuleCatalog.TabIndex compris) : les nouveaux modules
+                         s'ajoutent donc TOUJOURS a la fin, quelle que soit leur place metier
+                         dans la barre laterale. -->
+                    <TabItem x:Name="GroupDashboardTabItem" Header="Tableau de bord PDG">
+                        <views:GroupDashboardView x:Name="GroupDashboardView" />
+                    </TabItem>
+
+                    <TabItem x:Name="DecCockpitTabItem" Header="Cockpit DEC">
+                        <views:DecCockpitView x:Name="DecCockpitView" />
                     </TabItem>
                 </TabControl>
             </Grid>

@@ -39,6 +39,18 @@ public sealed class ReportingService(
 {
     private const int ExecutionListCap = 200;
 
+    /// <summary>
+    /// Time windows tried, narrowest first, to bound what the journal listing materializes
+    /// (see <see cref="LoadRecentExecutionsAsync"/>). A week, a month, a year - then, and only
+    /// then, the whole (necessarily small) table.
+    /// </summary>
+    private static readonly TimeSpan[] JournalWindows =
+    [
+        TimeSpan.FromDays(7),
+        TimeSpan.FromDays(31),
+        TimeSpan.FromDays(366)
+    ];
+
     public IReadOnlyCollection<ReportDefinitionResponse> GetCatalog()
     {
         return ReportCatalog.All
@@ -145,14 +157,7 @@ public sealed class ReportingService(
             query = query.Where(execution => execution.ReportCode == normalizedCode);
         }
 
-        // Ordered and capped in memory, deliberately. The SQLite provider of the test harness
-        // refuses ORDER BY on a DateTimeOffset column, and the cap is only meaningful once the
-        // rows are sorted: capping in the database WITHOUT the ordering would return an
-        // arbitrary 200 executions instead of the 200 most recent ones, which is precisely the
-        // kind of silently-wrong answer this journal must not give. The database still applies
-        // the report-code filter, so the materialized set is one report's journal, not the
-        // whole table.
-        var executions = await query.ToArrayAsync(cancellationToken);
+        var executions = await LoadRecentExecutionsAsync(query, cancellationToken);
 
         return executions
             .OrderByDescending(execution => execution.CreatedAt)
@@ -167,6 +172,53 @@ public sealed class ReportingService(
                 execution.DurationMilliseconds,
                 execution.RowCount))
             .ToArray();
+    }
+
+    /// <summary>
+    /// Loads the rows the capped, newest-first journal can possibly need, WITHOUT materializing
+    /// the whole table - the journal grows by one row per execution and never shrinks.
+    ///
+    /// Ordering cannot be pushed to the database: neither provider agrees on it. The SQLite
+    /// provider of the integration-test harness refuses both ORDER BY and MAX() on a
+    /// DateTimeOffset column ("SQLite doesn't support expressions of type 'DateTimeOffset' in
+    /// ORDER BY clauses"), and an unordered LIMIT would return an arbitrary 200 executions
+    /// instead of the 200 most recent ones - exactly the kind of silently-wrong answer a journal
+    /// must never give. So the volume is cut by FILTERING on time rather than by ordering.
+    ///
+    /// The filter is written with CompareTo, not with the &gt;= operator: the SQLite provider
+    /// refuses to translate a DateTimeOffset comparison too, but does translate CompareTo, which
+    /// the shared relational translator gives both providers. Timestamps are always written as
+    /// UTC (DateTimeOffset.UtcNow), so the text form SQLite compares carries one single offset
+    /// and orders exactly like the PostgreSQL timestamptz comparison.
+    ///
+    /// The windows are tried from the narrowest: as soon as one holds at least a full page, the
+    /// search stops, because every row outside a window is strictly older than every row inside
+    /// it - so the 200 newest rows overall are necessarily among those already loaded. A busy
+    /// installation therefore reads a few days of journal; only an installation with fewer than
+    /// 200 executions in a whole year falls back to the full scan, and that table is small by
+    /// definition.
+    /// </summary>
+    private static async Task<ReportExecution[]> LoadRecentExecutionsAsync(
+        IQueryable<ReportExecution> query,
+        CancellationToken cancellationToken)
+    {
+        var utcNow = DateTimeOffset.UtcNow;
+
+        foreach (var window in JournalWindows)
+        {
+            var cutoff = utcNow - window;
+
+            var page = await query
+                .Where(execution => execution.CreatedAt.CompareTo(cutoff) >= 0)
+                .ToArrayAsync(cancellationToken);
+
+            if (page.Length >= ExecutionListCap)
+            {
+                return page;
+            }
+        }
+
+        return await query.ToArrayAsync(cancellationToken);
     }
 
     // ------------------------------------------------------------------ report builders

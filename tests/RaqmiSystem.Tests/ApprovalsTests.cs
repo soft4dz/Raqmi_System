@@ -19,13 +19,13 @@ public sealed class ApprovalsTests
 
         circuit.ReplaceSteps(new[]
         {
-            new ApprovalStep("Visa comptable", RoleCatalog.Cashier),
+            new ApprovalStep("Visa du responsable", RoleCatalog.UnitManager),
             new ApprovalStep("Visa du controle", RoleCatalog.ExploitationControl),
             new ApprovalStep("Signature direction", RoleCatalog.Direction)
         });
 
         Assert.Equal(new[] { 1, 2, 3 }, circuit.Steps.OrderBy(step => step.Rank).Select(step => step.Rank));
-        Assert.Equal("Visa comptable", circuit.Steps.Single(step => step.Rank == 1).Label);
+        Assert.Equal("Visa du responsable", circuit.Steps.Single(step => step.Rank == 1).Label);
         Assert.Equal("Signature direction", circuit.Steps.Single(step => step.Rank == 3).Label);
     }
 
@@ -33,6 +33,32 @@ public sealed class ApprovalsTests
     public void A_step_role_must_be_a_real_system_role()
     {
         Assert.Throws<ArgumentException>(() => new ApprovalStep("Visa", "chief.happiness.officer"));
+    }
+
+    /// <summary>
+    /// A step may only demand a role that can DECIDE. cashier and reader are real system roles,
+    /// but they never receive approvals.decide: a step demanding one of them would be
+    /// undecidable for life - its holder is refused by the authorization policy, every holder of
+    /// approvals.decide fails the step's role check, and the opening-time snapshot would freeze
+    /// that dead end into every instance already opened. The refusal therefore happens at
+    /// construction, while it is still recoverable.
+    /// </summary>
+    [Fact]
+    public void A_step_cannot_demand_a_role_that_never_receives_the_decide_permission()
+    {
+        Assert.Throws<ArgumentException>(() => new ApprovalStep("Visa caisse", RoleCatalog.Cashier));
+        Assert.Throws<ArgumentException>(() => new ApprovalStep("Visa lecture", RoleCatalog.Reader));
+
+        // The snapshot copied into an instance is held to the very same rule.
+        Assert.Throws<ArgumentException>(() => new ApprovalInstanceStep(1, "Visa caisse", RoleCatalog.Cashier));
+
+        // Every proposable role is a decider role, and each of them is accepted.
+        Assert.Equal(RoleCatalog.ApprovalDeciderRoles, ApprovalStep.AllowedRoles);
+
+        foreach (var role in ApprovalStep.AllowedRoles)
+        {
+            Assert.Equal(role, new ApprovalStep("Visa", role).RequiredRole);
+        }
     }
 
     [Fact]

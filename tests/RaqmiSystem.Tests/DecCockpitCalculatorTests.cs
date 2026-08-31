@@ -304,4 +304,40 @@ public sealed class DecCockpitCalculatorTests
         Assert.Equal(0, roomlessRow.ActiveRooms);
         Assert.Null(roomlessRow.OccupancyRatePercent);
     }
+
+    /// <summary>
+    /// The occupancy of a unit must be the SAME figure as the one the lodging module publishes
+    /// for that unit and that night (LodgingService.GetOccupancyAsync): distinct rooms blocked -
+    /// every room, not only the active ones - over the currently active room count. Nothing
+    /// forbids deactivating a room a guest still sleeps in, so restricting the numerator to the
+    /// active rooms would make the cockpit read lower than the occupancy screen of the very unit
+    /// it describes - a direction figure contradicting its own module.
+    /// </summary>
+    [Fact]
+    public void Occupancy_counts_every_blocked_room_like_the_lodging_module_even_a_deactivated_one()
+    {
+        var unit = new HotelUnit("EL-MANAR", "Hotel El Manar", HotelUnitType.Hotel, 1);
+
+        var activeRoom = new Room(unit.Code, "101", "STD");
+        var deactivatedRoom = new Room(unit.Code, "102", "STD");
+        deactivatedRoom.Deactivate();
+
+        var inActiveRoom = new Reservation(unit.Code, activeRoom.Id, "CUST-01", Date, Date.AddDays(1), 2, 100m, "STD-PLAN");
+        var inDeactivatedRoom = new Reservation(unit.Code, deactivatedRoom.Id, "CUST-02", Date, Date.AddDays(1), 1, 100m, "STD-PLAN");
+
+        var result = Build(
+            units: [unit],
+            rooms: [activeRoom, deactivatedRoom],
+            reservations: [inActiveRoom, inDeactivatedRoom]);
+
+        var row = Assert.Single(result.UnitHealth);
+
+        // Two rooms are really busy tonight; only one of them is still an active room.
+        Assert.Equal(2, row.OccupiedRooms);
+        Assert.Equal(1, row.ActiveRooms);
+
+        // The consequence is the lodging module's own, and it is meaningful: more guests than
+        // active rooms is exactly what a rate above 100 % says.
+        Assert.Equal(200m, row.OccupancyRatePercent);
+    }
 }

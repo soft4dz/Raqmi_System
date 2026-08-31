@@ -9,11 +9,10 @@ namespace RaqmiSystem.Api.Endpoints;
 /// Workflows &amp; validations (module 22.2): configurable approval circuits, in-flight approval
 /// instances, and the decide actions.
 ///
-/// NOTE FOR THE INTEGRATOR - the three permission keys below are deliberately LITERAL strings
-/// ("approvals.read", "approvals.write", "approvals.decide"). Replace them with the
-/// PermissionCatalog constants once the keys are added to the catalog (Program.cs only registers
-/// an authorization policy per PermissionCatalog.All entry, so the keys MUST be added there for
-/// these routes to resolve their policies).
+/// Three permission keys guard the module, all taken from PermissionCatalog: approvals.read
+/// (consult), approvals.write (configure circuits and open instances) and approvals.decide
+/// (approve or reject a step). Program.cs registers one authorization policy per catalog entry,
+/// so a key that is not in the catalog has no policy to resolve here.
 /// </summary>
 internal static class ApprovalsEndpoints
 {
