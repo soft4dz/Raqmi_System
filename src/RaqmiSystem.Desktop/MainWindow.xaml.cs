@@ -368,6 +368,7 @@ public partial class MainWindow : Window
         // sont parmi les plus sensibles du produit.
         ApplyModuleAccess(PermissionCatalog.HrRead, HumanResourcesTabItem);
         ApplyModuleAccess(PermissionCatalog.SyncRead, SyncTabItem);
+        ApplyModuleAccess(PermissionCatalog.MiceRead, MiceTabItem);
 
         ApplyWriteActionStates();
     }
@@ -682,6 +683,9 @@ public partial class MainWindow : Window
             case 27:
                 await SyncView.LoadAsync();
                 break;
+            case 28:
+                await MiceView.LoadAsync();
+                break;
             default:
                 // Les onglets 0 a 4 vivent dans MainWindow et sont charges a la
                 // connexion : rien a faire, et rien a retenir non plus.
@@ -861,6 +865,7 @@ public partial class MainWindow : Window
         ReportsView.Initialize(context);
         BackupView.Initialize(context);
         SyncView.Initialize(context);
+        MiceView.Initialize(context);
         GroupDashboardView.Initialize(context);
         DecCockpitView.Initialize(context);
         HousekeepingView.Initialize(context);
@@ -955,6 +960,7 @@ public partial class MainWindow : Window
         ReportsView.ResetState();
         BackupView.ResetState();
         SyncView.ResetState();
+        MiceView.ResetState();
 
         // Remis a zero pour que la prochaine session batte immediatement : le registre doit
         // refleter le NOUVEL utilisateur du poste sans attendre cinq minutes.

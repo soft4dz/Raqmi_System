@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using RaqmiSystem.Domain.Accounting;
 using RaqmiSystem.Domain.Approvals;
 using RaqmiSystem.Domain.Audit;
@@ -12,6 +12,7 @@ using RaqmiSystem.Domain.Identity;
 using RaqmiSystem.Domain.Inventory;
 using RaqmiSystem.Domain.Kitchen;
 using RaqmiSystem.Domain.Lodging;
+using RaqmiSystem.Domain.Mice;
 using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Domain.Purchasing;
 using RaqmiSystem.Domain.Receivables;
@@ -164,6 +165,14 @@ public sealed class RaqmiDbContext(DbContextOptions<RaqmiDbContext> options) : D
     public DbSet<TemperatureCheckpoint> TemperatureCheckpoints => Set<TemperatureCheckpoint>();
 
     public DbSet<TemperatureReading> TemperatureReadings => Set<TemperatureReading>();
+
+    // ---------------------- Module 10.6 : evenementiel (Groupes & MICE) ----------------------
+    // Une salle de reception n'est PAS une chambre : elle se vend au creneau et non a la
+    // nuitee, et n'entre ni dans la disponibilite ni dans le taux d'occupation. C'est cette
+    // separation qui permet au module d'exister sans toucher au coeur reservation.
+    public DbSet<FunctionSpace> FunctionSpaces => Set<FunctionSpace>();
+
+    public DbSet<EventBooking> EventBookings => Set<EventBooking>();
 
     // -------------------------- Module 29 : supervision des postes --------------------------
     // Ces deux tables ne portent AUCUNE donnee metier : un inventaire des postes deployes et les

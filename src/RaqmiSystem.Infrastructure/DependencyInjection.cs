@@ -15,6 +15,7 @@ using RaqmiSystem.Application.Inventory;
 using RaqmiSystem.Application.Kitchen;
 using RaqmiSystem.Application.Lodging;
 using RaqmiSystem.Application.Maintenance;
+using RaqmiSystem.Application.Mice;
 using RaqmiSystem.Application.Sync;
 using RaqmiSystem.Application.Organization;
 using RaqmiSystem.Application.Purchasing;
@@ -40,6 +41,7 @@ using RaqmiSystem.Infrastructure.Kitchen;
 using RaqmiSystem.Infrastructure.HumanResources;
 using RaqmiSystem.Infrastructure.Lodging;
 using RaqmiSystem.Infrastructure.Maintenance;
+using RaqmiSystem.Infrastructure.Mice;
 using RaqmiSystem.Infrastructure.Sync;
 using RaqmiSystem.Infrastructure.Organization;
 using RaqmiSystem.Infrastructure.Persistence;
@@ -130,6 +132,11 @@ public static class DependencyInjection
         // Module 29 : supervision des postes. Lecture seule cote metier - ce service ne touche
         // aucune donnee d'exploitation, il tient un inventaire des clients deployes.
         services.AddScoped<ISyncSupervisionService, SyncSupervisionService>();
+
+        // Module 10.6 : l'evenementiel facture PAR le module Facturation (IBillingService)
+        // plutot que par une seconde implementation - une facture d'evenement doit etre de la
+        // meme nature que toutes les autres. Meme precedent que Housekeeping -> ILodgingService.
+        services.AddScoped<IMiceService, MiceService>();
 
         return services;
     }

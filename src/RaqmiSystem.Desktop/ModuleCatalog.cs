@@ -45,8 +45,8 @@ public static class ModuleCatalog
     public const int ExpectedTotal = 49;
     public const int ExpectedAvailable = 28;
     public const int ExpectedApiReady = 0;
-    public const int ExpectedPartial = 0;
-    public const int ExpectedPlanned = 21;
+    public const int ExpectedPartial = 1;
+    public const int ExpectedPlanned = 20;
 
     // Libelles affiches des groupes fonctionnels (ordre d'apparition).
     public static class Groups
@@ -86,9 +86,10 @@ public static class ModuleCatalog
     static ModuleCatalog()
     {
         // Garde de coherence : le tableau de verite du depot compte 49 modules,
-        // repartis en 28 Disponible / 0 API prete / 0 Partiel / 21 Planifie.
-        // Plus AUCUN module partiel : les deux derniers (Dashboard PDG 24.2 et
-        // Cockpit DEC 24.4) ont recu leur ecran dedie et sont passes Disponible.
+        // repartis en 28 Disponible / 0 API prete / 1 Partiel / 20 Planifie.
+        // Le SEUL module partiel est le 10.6 (Groupes & MICE) : son volet evenementiel
+        // est livre, ses allotements et rooming lists ne le sont pas. Le statut dit la
+        // moitie manquante au lieu de la passer sous silence.
         // La vague E1 fait passer trois modules d'exploitation de Planifie a
         // Disponible : Stocks (11), Cuisine (11.5) et Achats (12).
         // Le module 29 passe Disponible en supervision seule, et change de nom au
@@ -153,9 +154,16 @@ public static class ModuleCatalog
         new ModuleCatalogEntry("10.4", Groups.Exploitation, "CRM & expérience client",
             "Vue client 360°, segmentation, fidélité, campagnes et NPS",
             "P2", ModuleStatus.Disponible, PermissionCatalog.CrmRead, 23),
+        // Livre en PARTIE, et le statut le dit : Partiel et non Disponible. Les salles, les
+        // evenements, le devis, le BEO et la facturation evenementielle sont operationnels ; les
+        // allotements et les rooming lists ne le sont pas. Ces deux-la portent sur les CHAMBRES et
+        // devraient etre retires de la disponibilite ET du garde de creation de reservation, sans
+        // quoi l'hotel survendrait en silence. Annoncer Disponible ici serait mentir sur la moitie
+        // du module.
         new ModuleCatalogEntry("10.6", Groups.Exploitation, "Groupes & MICE",
-            "Rooming lists, allotements, salles et BEO",
-            "P2", ModuleStatus.Planifie),
+            "Salles, événements, devis, BEO et facturation événementielle",
+            "P2", ModuleStatus.Partiel, PermissionCatalog.MiceRead, 28,
+            "Volet événementiel livré. Allotements et rooming lists non couverts : ils touchent la disponibilité des chambres."),
         new ModuleCatalogEntry("11", Groups.Exploitation, "Stocks & consommations",
             "Magasins, articles, mouvements valorisés au PMP et inventaires physiques",
             "P2", ModuleStatus.Disponible, PermissionCatalog.InventoryRead, 24),

@@ -1,4 +1,4 @@
-namespace RaqmiSystem.Desktop;
+﻿namespace RaqmiSystem.Desktop;
 
 // Plan de la barre laterale : ses sections, leur ordre, et l'ordre des modules a
 // l'interieur de chacune.
@@ -46,7 +46,7 @@ public static class SidebarLayout
         // Le sejour, dans l'ordre de la journee : saisie de la recette, cloture,
         // reception, chambres, client. Les tarifs ferment la section : on les
         // consulte souvent, on les modifie rarement.
-        new Section("Exploitation", "Exploitation", false, [2, 5, 15, 21, 23, 14]),
+        new Section("Exploitation", "Exploitation", false, [2, 5, 15, 21, 23, 28, 14]),
 
         // L'arriere-cuisine au sens large : ce qu'on a en magasin, ce qu'on commande,
         // ce qu'on produit. Separee de l'exploitation parce que ce n'est ni les memes

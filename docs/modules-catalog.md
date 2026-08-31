@@ -123,3 +123,36 @@ aucune cle d'idempotence, un rejeu differe y produirait des doublons. Aujourd'hu
 fait perdre une action BRUYAMMENT et l'operateur la refait ; une file transformerait cela en doublon
 silencieux. Le mode hors-ligne reste par ailleurs explicitement differe par `docs/architecture.md`
 tant que le pilote client-serveur n'est pas stabilise.
+
+### Module 10.6 - "Groupes & MICE" livre a moitie, et le statut le dit
+
+Le catalogue source annonce six fonctions : rooming lists, allotements, evenements et salles,
+devis, BEO, facturation evenementielle. Quatre sont livrees, deux ne le sont pas, et le module porte
+le statut **Partiel** plutot que Disponible pour que le tableau d'avancement ne mente pas.
+
+LIVRE - tout ce qui porte sur les SALLES :
+- referentiel des espaces de reception (capacite, surface, activation) ;
+- evenements avec garde anti-double-reservation sur la fenetre REELLE d'occupation, montage et
+  demontage compris ;
+- devis chiffre par lignes, aux taux de TVA que la facturation accepte ;
+- deroule operationnel BEO, qui reste modifiable apres facturation ;
+- facturation evenementielle, produite PAR le module Facturation et non par une seconde
+  implementation.
+
+NON LIVRE - tout ce qui porte sur les CHAMBRES :
+- allotements (bloc de chambres tenu pour un groupe) ;
+- rooming lists (affectation nominative des chambres du bloc).
+
+La raison n'est pas la charge de travail mais l'integrite. Un allotement retire des chambres de la
+vente : il devrait etre soustrait A LA FOIS a la recherche de disponibilite et au garde de creation
+de reservation. Livrer un allotement que ces deux chemins ignorent ferait survendre l'hotel en
+silence - le systeme afficherait des chambres libres qui sont en realite promises a un groupe. Cela
+se joue au coeur du PMS (LodgingService.GetAvailabilityAsync et CreateReservationAsync) et merite sa
+propre passe, avec ses propres tests de concurrence.
+
+Une salle de reception, elle, n'est PAS une chambre : elle se vend au creneau et non a la nuitee,
+n'entre ni dans la disponibilite ni dans le taux d'occupation. C'est cette separation qui a permis
+de livrer le volet evenementiel sans toucher au coeur reservation.
+
+Point de securite : la route de facturation d'un evenement exige mice.write ET invoices.write. Sans
+cela, mice.write serait devenu un chemin detourne pour creer des factures sans en avoir le droit.

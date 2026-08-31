@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -177,6 +177,7 @@ api.MapHumanResourcesEndpoints();
 api.MapInventoryEndpoints();
 api.MapPurchasingEndpoints();
 api.MapKitchenEndpoints();
+api.MapMiceEndpoints();
 api.MapSyncEndpoints();
 
 app.Run();

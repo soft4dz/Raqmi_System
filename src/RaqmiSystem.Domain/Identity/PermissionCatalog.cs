@@ -1,4 +1,4 @@
-namespace RaqmiSystem.Domain.Identity;
+﻿namespace RaqmiSystem.Domain.Identity;
 
 public static class PermissionCatalog
 {
@@ -54,6 +54,8 @@ public static class PermissionCatalog
     public const string MaintenanceRead = "maintenance.read";
     public const string MaintenanceBackup = "maintenance.backup";
     public const string SyncRead = "sync.read";
+    public const string MiceRead = "mice.read";
+    public const string MiceWrite = "mice.write";
     public const string HrRead = "hr.read";
     public const string HrWrite = "hr.write";
     public const string HrPayroll = "hr.payroll";
@@ -122,6 +124,8 @@ public static class PermissionCatalog
         new PermissionDefinition(MaintenanceRead, "Lire la maintenance", "security", "Consulter l'etat des sauvegardes et la politique de retention."),
         new PermissionDefinition(MaintenanceBackup, "Declencher une sauvegarde", "security", "Declencher manuellement une sauvegarde de la base de donnees."),
         new PermissionDefinition(SyncRead, "Lire le registre des postes", "security", "Consulter les postes declares, leur dernier contact et les erreurs remontees par les clients."),
+        new PermissionDefinition(MiceRead, "Lire l'evenementiel", "exploitation", "Consulter les espaces de reception, les evenements, les devis et les BEO."),
+        new PermissionDefinition(MiceWrite, "Gerer l'evenementiel", "exploitation", "Creer et modifier les espaces de reception et les evenements, chiffrer un devis, saisir un BEO, confirmer ou annuler."),
         new PermissionDefinition(HrRead, "Lire les ressources humaines", "rh", "Consulter le referentiel des postes, les dossiers collaborateurs, les contrats, les pointages et les absences."),
         new PermissionDefinition(HrWrite, "Gerer les collaborateurs", "rh", "Creer et modifier les departements, les postes, les dossiers collaborateurs, les contrats, les pointages et les absences."),
         new PermissionDefinition(HrPayroll, "Preparer la paie", "rh", "Parametrer les baremes legaux, saisir les primes, generer la pre-paie et valider les bulletins."),

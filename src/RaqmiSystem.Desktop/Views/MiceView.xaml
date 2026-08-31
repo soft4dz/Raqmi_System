@@ -1,0 +1,619 @@
+﻿<UserControl x:Class="RaqmiSystem.Desktop.Views.MiceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignWidth="1280"
+             d:DesignHeight="820"
+             FontFamily="{StaticResource AppFontFamily}">
+
+    <!-- ============================================================================
+         Module 10.6 - Groupes & MICE, volet EVENEMENTIEL.
+
+         Perimetre partiel et assume : les salles, les evenements, le devis, le BEO et
+         la facturation sont ici. Les allotements et les rooming lists n'y sont PAS -
+         ils portent sur les chambres et devraient etre soustraits a la disponibilite,
+         ce qui se joue au coeur du PMS. L'encart de bas de page le dit a l'ecran.
+
+         Vocabulaire : la salle est occupee MONTAGE ET DEMONTAGE COMPRIS. La colonne
+         "Occupation" montre cette fenetre reelle, differente des horaires invites.
+         ============================================================================ -->
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="1.25*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============================== En-tete et indicateurs ============================== -->
+        <Border Style="{StaticResource CardBorder}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="14" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <DockPanel>
+                    <StackPanel>
+                        <TextBlock Text="Groupes &amp; MICE — événementiel"
+                                   Style="{StaticResource PageTitleText}" />
+                        <TextBlock Text="Salles de réception, événements, devis, BEO et facturation événementielle"
+                                   Style="{StaticResource SubtitleText}"
+                                   Margin="0,4,0,0" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal"
+                                DockPanel.Dock="Right"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="Unité"
+                                   VerticalAlignment="Center"
+                                   Style="{StaticResource CaptionText}"
+                                   Margin="0,0,6,0" />
+                        <ComboBox x:Name="UnitComboBox"
+                                  Width="150"
+                                  DisplayMemberPath="Name"
+                                  VerticalAlignment="Center"
+                                  Margin="0,0,12,0"
+                                  SelectionChanged="Filter_Changed" />
+
+                        <TextBlock Text="Du"
+                                   VerticalAlignment="Center"
+                                   Style="{StaticResource CaptionText}"
+                                   Margin="0,0,6,0" />
+                        <DatePicker x:Name="FromDatePicker"
+                                    Width="130"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,10,0"
+                                    SelectedDateChanged="Filter_Changed" />
+
+                        <TextBlock Text="au"
+                                   VerticalAlignment="Center"
+                                   Style="{StaticResource CaptionText}"
+                                   Margin="0,0,6,0" />
+                        <DatePicker x:Name="ToDatePicker"
+                                    Width="130"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,12,0"
+                                    SelectedDateChanged="Filter_Changed" />
+
+                        <CheckBox x:Name="IncludeCancelledCheckBox"
+                                  Content="Annulés"
+                                  VerticalAlignment="Center"
+                                  ToolTip="Afficher aussi les événements annulés"
+                                  Margin="0,0,12,0"
+                                  Checked="Filter_Changed"
+                                  Unchecked="Filter_Changed" />
+
+                        <Button x:Name="RefreshButton"
+                                Content="Actualiser"
+                                Style="{StaticResource SecondaryButton}"
+                                ToolTip="Recharger les salles et les événements"
+                                Click="RefreshButton_Click" />
+                    </StackPanel>
+                </DockPanel>
+
+                <Border Grid.Row="2" Style="{StaticResource SubtleCardBorder}" Padding="16">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="26" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="26" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="26" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel>
+                            <TextBlock Text="ÉVÉNEMENTS AFFICHÉS" Style="{StaticResource MetricLabelText}" />
+                            <TextBlock x:Name="EventCountTextBlock"
+                                       Text="—"
+                                       Style="{StaticResource MetricValueText}"
+                                       Margin="0,4,0,0" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="À CONFIRMER" Style="{StaticResource MetricLabelText}" />
+                            <TextBlock x:Name="DraftCountTextBlock"
+                                       Text="—"
+                                       Style="{StaticResource MetricValueText}"
+                                       Margin="0,4,0,0" />
+                            <TextBlock Text="Un devis tient déjà la salle."
+                                       Style="{StaticResource CaptionText}"
+                                       Margin="0,2,0,0" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="4">
+                            <TextBlock Text="CONFIRMÉ (HT)" Style="{StaticResource MetricLabelText}" />
+                            <TextBlock x:Name="ConfirmedAmountTextBlock"
+                                       Text="—"
+                                       Style="{StaticResource MetricValueText}"
+                                       Margin="0,4,0,0" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="6">
+                            <TextBlock Text="SALLES ACTIVES" Style="{StaticResource MetricLabelText}" />
+                            <TextBlock x:Name="SpaceCountTextBlock"
+                                       Text="—"
+                                       Style="{StaticResource BodyText}"
+                                       Margin="0,4,0,0" />
+                            <TextBlock Text="Une salle occupée l'est montage et démontage compris."
+                                       Style="{StaticResource CaptionText}"
+                                       Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- ====================== Salles a gauche, evenements a droite ====================== -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="0.85*" />
+                <ColumnDefinition Width="14" />
+                <ColumnDefinition Width="1.6*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ============================ Salles de reception ============================ -->
+            <Border Style="{StaticResource CardBorder}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="10" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="10" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="Salles de réception" Style="{StaticResource SectionTitleText}" />
+
+                    <Grid Grid.Row="2">
+                        <DataGrid x:Name="SpacesDataGrid"
+                                  SelectionChanged="SpacesDataGrid_SelectionChanged">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="80" />
+                                <DataGridTextColumn Header="Salle" Binding="{Binding Label}" Width="*" />
+                                <DataGridTextColumn Header="Capacité"
+                                                    Binding="{Binding MaxAttendance}"
+                                                    Width="80"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="À venir"
+                                                    Binding="{Binding UpcomingEventCount}"
+                                                    Width="70"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="État"
+                                                    Binding="{Binding StateLabel}"
+                                                    Width="80"
+                                                    ElementStyle="{StaticResource MutedCellText}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <StackPanel HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    IsHitTestVisible="False">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Items.Count, ElementName=SpacesDataGrid}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <Path Data="{StaticResource ModuleGroupIcon.Exploitation}"
+                                  Stroke="{StaticResource BorderStrongBrush}"
+                                  StrokeThickness="1.5"
+                                  StrokeLineJoin="Round"
+                                  Width="44"
+                                  Height="40"
+                                  Stretch="Uniform"
+                                  HorizontalAlignment="Center"
+                                  Margin="0,0,0,10" />
+                            <TextBlock Text="Aucune salle déclarée" Style="{StaticResource EmptyStateTitleText}" />
+                            <TextBlock Text="Déclarez une salle ci-dessous pour pouvoir y placer des événements."
+                                       Style="{StaticResource EmptyStateHintText}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Formulaire compact : creer ou modifier une salle. -->
+                    <StackPanel Grid.Row="4">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="90" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="80" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox x:Name="SpaceCodeTextBox" MaxLength="16" ToolTip="Code court, unique dans l'unité" />
+                            <TextBox x:Name="SpaceLabelTextBox" Grid.Column="2" MaxLength="120" ToolTip="Nom de la salle" />
+                            <TextBox x:Name="SpaceCapacityTextBox" Grid.Column="4" MaxLength="5" ToolTip="Capacité maximale, toutes dispositions confondues" />
+                        </Grid>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button x:Name="CreateSpaceButton"
+                                    Content="Créer"
+                                    Style="{StaticResource PrimaryButton}"
+                                    ToolTipService.ShowOnDisabled="True"
+                                    Margin="0,0,8,0"
+                                    Click="CreateSpaceButton_Click" />
+                            <Button x:Name="UpdateSpaceButton"
+                                    Content="Modifier"
+                                    Style="{StaticResource SecondaryButton}"
+                                    ToolTipService.ShowOnDisabled="True"
+                                    Margin="0,0,8,0"
+                                    Click="UpdateSpaceButton_Click" />
+                            <Button x:Name="ToggleSpaceButton"
+                                    Content="Activer / désactiver"
+                                    Style="{StaticResource SecondaryButton}"
+                                    ToolTipService.ShowOnDisabled="True"
+                                    Click="ToggleSpaceButton_Click" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- =============================== Evenements =============================== -->
+            <Border Grid.Column="2" Style="{StaticResource CardBorder}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="10" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="10" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <DockPanel>
+                        <TextBlock Text="Événements" Style="{StaticResource SectionTitleText}" />
+                        <TextBlock x:Name="EventsCaptionTextBlock"
+                                   DockPanel.Dock="Right"
+                                   HorizontalAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   Style="{StaticResource CaptionText}" />
+                    </DockPanel>
+
+                    <Grid Grid.Row="2">
+                        <DataGrid x:Name="EventsDataGrid"
+                                  SelectionChanged="EventsDataGrid_SelectionChanged">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Réf." Binding="{Binding Reference}" Width="90" />
+                                <DataGridTextColumn Header="Date"
+                                                    Binding="{Binding DateLabel}"
+                                                    Width="95"
+                                                    SortMemberPath="EventDate"
+                                                    ElementStyle="{StaticResource MutedCellText}" />
+                                <DataGridTextColumn Header="Horaires invités"
+                                                    Binding="{Binding GuestHoursLabel}"
+                                                    Width="120"
+                                                    ElementStyle="{StaticResource MutedCellText}" />
+                                <!-- La fenetre REELLE d'occupation, montage et demontage compris :
+                                     c'est elle qui decide des conflits, pas les horaires invites. -->
+                                <DataGridTextColumn Header="Occupation salle"
+                                                    Binding="{Binding OccupancyLabel}"
+                                                    Width="130"
+                                                    ElementStyle="{StaticResource MutedCellText}" />
+                                <DataGridTextColumn Header="Salle" Binding="{Binding FunctionSpaceLabel}" Width="*" />
+                                <DataGridTextColumn Header="Client" Binding="{Binding CustomerName}" Width="*" />
+                                <DataGridTextColumn Header="Pers."
+                                                    Binding="{Binding ExpectedAttendance}"
+                                                    Width="60"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTemplateColumn Header="Statut" Width="110" SortMemberPath="Status">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border x:Name="StatusBadge"
+                                                    CornerRadius="10"
+                                                    Padding="10,3"
+                                                    HorizontalAlignment="Left"
+                                                    VerticalAlignment="Center"
+                                                    Background="{StaticResource StatusDraftBackgroundBrush}">
+                                                <TextBlock x:Name="StatusBadgeText"
+                                                           Text="{Binding StatusLabel}"
+                                                           FontSize="11.5"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{StaticResource StatusDraftForegroundBrush}" />
+                                            </Border>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding Status}" Value="Confirmed">
+                                                    <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusValidatedBackgroundBrush}" />
+                                                    <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusValidatedForegroundBrush}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Status}" Value="Cancelled">
+                                                    <Setter TargetName="StatusBadge" Property="Background" Value="{StaticResource StatusRejectedBackgroundBrush}" />
+                                                    <Setter TargetName="StatusBadgeText" Property="Foreground" Value="{StaticResource StatusRejectedForegroundBrush}" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Total HT"
+                                                    Binding="{Binding TotalExclVat, StringFormat={}{0:N2}}"
+                                                    Width="105"
+                                                    SortMemberPath="TotalExclVat"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="Facture"
+                                                    Binding="{Binding InvoiceLabel}"
+                                                    Width="110"
+                                                    ElementStyle="{StaticResource MutedCellText}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <StackPanel HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    IsHitTestVisible="False">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Items.Count, ElementName=EventsDataGrid}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <Path Data="{StaticResource ModuleGroupIcon.Exploitation}"
+                                  Stroke="{StaticResource BorderStrongBrush}"
+                                  StrokeThickness="1.5"
+                                  StrokeLineJoin="Round"
+                                  Width="44"
+                                  Height="40"
+                                  Stretch="Uniform"
+                                  HorizontalAlignment="Center"
+                                  Margin="0,0,0,10" />
+                            <TextBlock Text="Aucun événement sur cette période" Style="{StaticResource EmptyStateTitleText}" />
+                            <TextBlock Text="Élargissez les dates ou créez un événement ci-dessous."
+                                       Style="{StaticResource EmptyStateHintText}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Formulaire compact de creation d'un evenement. -->
+                    <StackPanel Grid.Row="4">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="95" />
+                                <ColumnDefinition Width="6" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="6" />
+                                <ColumnDefinition Width="110" />
+                                <ColumnDefinition Width="6" />
+                                <ColumnDefinition Width="110" />
+                                <ColumnDefinition Width="6" />
+                                <ColumnDefinition Width="120" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox x:Name="EventReferenceTextBox" MaxLength="24" ToolTip="Référence unique dans l'unité (imprimée sur le BEO)" />
+                            <TextBox x:Name="EventTitleTextBox" Grid.Column="2" MaxLength="160" ToolTip="Intitulé de l'événement" />
+                            <ComboBox x:Name="EventSpaceComboBox" Grid.Column="4" DisplayMemberPath="Label" ToolTip="Salle" />
+                            <ComboBox x:Name="EventCustomerComboBox" Grid.Column="6" DisplayMemberPath="Name" ToolTip="Client" />
+                            <DatePicker x:Name="EventDatePicker" Grid.Column="8" ToolTip="Date de l'événement" />
+                        </Grid>
+
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="70" />
+                                <ColumnDefinition Width="6" />
+                                <ColumnDefinition Width="70" />
+                                <ColumnDefinition Width="6" />
+                                <ColumnDefinition Width="70" />
+                                <ColumnDefinition Width="6" />
+                                <ColumnDefinition Width="70" />
+                                <ColumnDefinition Width="6" />
+                                <ColumnDefinition Width="70" />
+                                <ColumnDefinition Width="6" />
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox x:Name="EventStartTextBox" MaxLength="5" ToolTip="Heure de début, format HH:mm" />
+                            <TextBox x:Name="EventDurationTextBox" Grid.Column="2" MaxLength="4" ToolTip="Durée en minutes" />
+                            <TextBox x:Name="EventSetupTextBox" Grid.Column="4" MaxLength="4" ToolTip="Montage en minutes : la salle est déjà occupée pendant ce temps" />
+                            <TextBox x:Name="EventTeardownTextBox" Grid.Column="6" MaxLength="4" ToolTip="Démontage en minutes : la salle reste occupée après le départ des invités" />
+                            <TextBox x:Name="EventAttendanceTextBox" Grid.Column="8" MaxLength="5" ToolTip="Nombre de personnes attendues" />
+                            <ComboBox x:Name="EventSetupStyleComboBox" Grid.Column="10" ToolTip="Disposition de la salle" />
+
+                            <Button x:Name="CreateEventButton"
+                                    Grid.Column="11"
+                                    Content="Créer l'événement"
+                                    Style="{StaticResource PrimaryButton}"
+                                    ToolTipService.ShowOnDisabled="True"
+                                    HorizontalAlignment="Right"
+                                    Click="CreateEventButton_Click" />
+                        </Grid>
+
+                        <TextBlock Text="Début HH:mm · durée · montage · démontage · personnes · disposition. Le montage et le démontage occupent la salle : ils comptent dans les conflits."
+                                   Style="{StaticResource CaptionText}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,6,0,0" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ============================ Detail : devis, BEO, actions ============================ -->
+        <Border Grid.Row="4" Style="{StaticResource CardBorder}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <DockPanel>
+                    <StackPanel>
+                        <TextBlock x:Name="DetailTitleTextBlock"
+                                   Text="Détail de l'événement"
+                                   Style="{StaticResource SectionTitleText}" />
+                        <TextBlock x:Name="DetailSubtitleTextBlock"
+                                   Text="Sélectionnez un événement pour ouvrir son devis et son BEO."
+                                   Style="{StaticResource CaptionText}"
+                                   Margin="0,4,0,0" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal"
+                                DockPanel.Dock="Right"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center">
+                        <Button x:Name="ConfirmEventButton"
+                                Content="Confirmer"
+                                Style="{StaticResource SecondaryButton}"
+                                ToolTipService.ShowOnDisabled="True"
+                                Margin="0,0,8,0"
+                                Click="ConfirmEventButton_Click" />
+                        <Button x:Name="InvoiceEventButton"
+                                Content="Facturer"
+                                Style="{StaticResource PrimaryButton}"
+                                ToolTipService.ShowOnDisabled="True"
+                                Margin="0,0,8,0"
+                                Click="InvoiceEventButton_Click" />
+                        <Button x:Name="CancelEventButton"
+                                Content="Annuler l'événement"
+                                Style="{StaticResource DangerButton}"
+                                ToolTipService.ShowOnDisabled="True"
+                                Click="CancelEventButton_Click" />
+                    </StackPanel>
+                </DockPanel>
+
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.3*" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- ================================= Devis ================================= -->
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="6" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <DockPanel>
+                            <TextBlock Text="Devis" Style="{StaticResource SectionTitleText}" FontSize="13" />
+                            <TextBlock x:Name="QuoteTotalsTextBlock"
+                                       DockPanel.Dock="Right"
+                                       HorizontalAlignment="Right"
+                                       VerticalAlignment="Center"
+                                       Style="{StaticResource CaptionText}" />
+                        </DockPanel>
+
+                        <DataGrid x:Name="QuoteLinesDataGrid"
+                                  Grid.Row="2"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Désignation" Binding="{Binding Designation}" Width="*" />
+                                <DataGridTextColumn Header="Qté"
+                                                    Binding="{Binding Quantity}"
+                                                    Width="70"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="P.U. HT"
+                                                    Binding="{Binding UnitPrice}"
+                                                    Width="95"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="TVA %"
+                                                    Binding="{Binding VatRate}"
+                                                    Width="70"
+                                                    ElementStyle="{StaticResource AmountCellText}"
+                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button x:Name="AddQuoteLineButton"
+                                    Content="Ajouter une ligne"
+                                    Style="{StaticResource SecondaryButton}"
+                                    ToolTipService.ShowOnDisabled="True"
+                                    Margin="0,0,8,0"
+                                    Click="AddQuoteLineButton_Click" />
+                            <Button x:Name="RemoveQuoteLineButton"
+                                    Content="Retirer"
+                                    Style="{StaticResource SecondaryButton}"
+                                    ToolTipService.ShowOnDisabled="True"
+                                    Margin="0,0,8,0"
+                                    Click="RemoveQuoteLineButton_Click" />
+                            <Button x:Name="SaveQuoteButton"
+                                    Content="Enregistrer le devis"
+                                    Style="{StaticResource PrimaryButton}"
+                                    ToolTipService.ShowOnDisabled="True"
+                                    Click="SaveQuoteButton_Click" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- ================================== BEO ================================== -->
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="6" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Text="Déroulé opérationnel (BEO)"
+                                   Style="{StaticResource SectionTitleText}"
+                                   FontSize="13" />
+
+                        <DataGrid x:Name="BeoDataGrid"
+                                  Grid.Row="2"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Heure" Binding="{Binding StartTime}" Width="75" />
+                                <DataGridTextColumn Header="Étape" Binding="{Binding Description}" Width="*" />
+                                <DataGridTextColumn Header="Service" Binding="{Binding Department}" Width="110" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button x:Name="AddBeoLineButton"
+                                    Content="Ajouter une étape"
+                                    Style="{StaticResource SecondaryButton}"
+                                    ToolTipService.ShowOnDisabled="True"
+                                    Margin="0,0,8,0"
+                                    Click="AddBeoLineButton_Click" />
+                            <Button x:Name="RemoveBeoLineButton"
+                                    Content="Retirer"
+                                    Style="{StaticResource SecondaryButton}"
+                                    ToolTipService.ShowOnDisabled="True"
+                                    Margin="0,0,8,0"
+                                    Click="RemoveBeoLineButton_Click" />
+                            <Button x:Name="SaveBeoButton"
+                                    Content="Enregistrer le BEO"
+                                    Style="{StaticResource PrimaryButton}"
+                                    ToolTipService.ShowOnDisabled="True"
+                                    Click="SaveBeoButton_Click" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+
+                <!-- Perimetre assume, dit a l'ecran plutot que dans une note de version. -->
+                <TextBlock Grid.Row="3"
+                           Style="{StaticResource CaptionText}"
+                           TextWrapping="Wrap"
+                           Margin="0,10,0,0">
+                    Ce module couvre les <Run FontWeight="SemiBold">salles</Run> : événements, devis, BEO et
+                    facturation. Les <Run FontWeight="SemiBold">allotements et rooming lists</Run> portent sur
+                    les chambres et ne sont pas encore ici : un bloc de chambres doit être retiré de la
+                    disponibilité, faute de quoi l'hôtel survendrait sans s'en apercevoir.
+                </TextBlock>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
