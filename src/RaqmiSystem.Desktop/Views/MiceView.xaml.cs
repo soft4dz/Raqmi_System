@@ -1,8 +1,9 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using RaqmiSystem.Application.Billing;
+using RaqmiSystem.Application.Lodging;
 using RaqmiSystem.Application.Mice;
 using RaqmiSystem.Application.Organization;
 using RaqmiSystem.Domain.Identity;
@@ -48,6 +49,9 @@ public partial class MiceView : UserControl
     private IReadOnlyList<CustomerResponse> customers = [];
 
     private IReadOnlyList<FunctionSpaceResponse> spaces = [];
+
+    // Types de chambre : le volet groupes en a besoin pour poser un bloc sur un type donne.
+    private IReadOnlyList<RoomTypeResponse> roomTypes = [];
 
     private EventBookingResponse? selectedEvent;
 
@@ -108,13 +112,18 @@ public partial class MiceView : UserControl
         units = [];
         customers = [];
         spaces = [];
+        roomTypes = [];
+        allotments = [];
         selectedEvent = null;
+        selectedAllotment = null;
 
         UnitComboBox.ItemsSource = null;
         EventCustomerComboBox.ItemsSource = null;
         EventSpaceComboBox.ItemsSource = null;
         SpacesDataGrid.ItemsSource = null;
         EventsDataGrid.ItemsSource = null;
+        AllotmentsDataGrid.ItemsSource = null;
+        RoomingListDataGrid.ItemsSource = null;
 
         quoteLines.Clear();
         beoRows.Clear();
@@ -147,6 +156,9 @@ public partial class MiceView : UserControl
             .ToList();
 
         customers = (await moduleContext.ApiClient.GetCustomersAsync(moduleContext.ApiBaseUrl, search: null, includeInactive: false))
+            .ToList();
+
+        roomTypes = (await moduleContext.ApiClient.GetRoomTypesAsync(moduleContext.ApiBaseUrl, hotelUnitCode: null, includeInactive: false))
             .ToList();
 
         var previousUnit = SelectedUnitCode;
@@ -193,6 +205,9 @@ public partial class MiceView : UserControl
 
         RenderSpaces();
         RenderEvents(events);
+
+        // Volet groupes : voir MiceView.Allotments.cs.
+        await ReloadAllotmentsAsync();
     }
 
     private void RenderSpaces()
@@ -781,6 +796,8 @@ public partial class MiceView : UserControl
         ApplyPermissionHint(ConfirmEventButton, canWrite && hasSelection && !isCancelled && !isConfirmed, WritePermissionHint);
         ApplyPermissionHint(CancelEventButton, canWrite && hasSelection && !isCancelled && !isInvoiced, WritePermissionHint);
         ApplyPermissionHint(InvoiceEventButton, canInvoice && hasSelection && isConfirmed && !isInvoiced, InvoicePermissionHint);
+
+        UpdateAllotmentButtons();
     }
 
     private void ApplyPermissionHint(Button button, bool isEnabled, string hint)

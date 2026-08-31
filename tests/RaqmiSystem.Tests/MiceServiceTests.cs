@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+﻿using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using RaqmiSystem.Application.Common;
 using RaqmiSystem.Application.Mice;
@@ -8,6 +8,7 @@ using RaqmiSystem.Domain.Mice;
 using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Infrastructure.Audit;
 using RaqmiSystem.Infrastructure.Billing;
+using RaqmiSystem.Infrastructure.Lodging;
 using RaqmiSystem.Infrastructure.Mice;
 using RaqmiSystem.Infrastructure.Persistence;
 using RaqmiSystem.Infrastructure.Settings;
@@ -584,7 +585,11 @@ public sealed class MiceServiceTests
             auditWriter,
             new ApplicationSettingsService(dbContext, auditWriter));
 
-        return new Harness(connection, dbContext, new MiceService(dbContext, billingService));
+        // MiceService consomme desormais ILodgingService : le volet groupes prend ses chambres
+        // par le meme chemin qu'une reservation individuelle.
+        var lodgingService = new LodgingService(dbContext, auditWriter, new StubTariffResolutionService());
+
+        return new Harness(connection, dbContext, new MiceService(dbContext, billingService, lodgingService));
     }
 
     private sealed class Harness(

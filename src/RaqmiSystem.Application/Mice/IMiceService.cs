@@ -1,22 +1,21 @@
-using RaqmiSystem.Application.Common;
+﻿using RaqmiSystem.Application.Common;
 using RaqmiSystem.Application.Security;
 
 namespace RaqmiSystem.Application.Mice;
 
 /// <summary>
-/// Module 10.6 - Groupes et MICE, volet EVENEMENTIEL : espaces de reception, evenements, devis,
-/// BEO et facturation evenementielle.
+/// Module 10.6 - Groupes et MICE. Le module couvre desormais ses deux volets.
 ///
-/// PERIMETRE ASSUME, ET IL EST PARTIEL. Le catalogue annonce six fonctions pour ce module ; celles
-/// livrees ici sont les quatre qui portent sur les SALLES : espaces et evenements, devis, BEO,
-/// facturation. Les deux autres - allotements et rooming lists - portent sur les CHAMBRES et ne
-/// sont pas ici : un allotement retire des chambres de la vente, il doit donc etre soustrait a la
-/// disponibilite ET au garde de creation de reservation, faute de quoi l'hotel survendrait
-/// silencieusement. Cela se joue au coeur du PMS et merite sa propre passe.
+/// VOLET SALLES : espaces de reception, evenements, devis, BEO, facturation evenementielle. Une
+/// salle se vend au creneau et non a la nuitee ; elle n'entre ni dans la disponibilite chambres ni
+/// dans le taux d'occupation.
 ///
-/// Une salle de reception n'est PAS une chambre : elle se vend au creneau et non a la nuitee, elle
-/// n'entre ni dans la disponibilite ni dans le taux d'occupation. C'est cette separation qui permet
-/// a ce module d'exister sans toucher au coeur reservation.
+/// VOLET GROUPES : allotements et rooming lists. Celui-la touche le coeur du PMS, et c'est ce qui
+/// le rend delicat. Un allotement retire des chambres de la vente SANS les nommer : la recherche de
+/// disponibilite doit en soustraire le solde ET la creation de reservation doit refuser de
+/// l'entamer. Les deux chemins partagent volontairement un unique calcul, dans LodgingService : les
+/// laisser diverger ferait survendre l'hotel en silence, la recherche affichant moins de chambres
+/// que la creation n'en accepte.
 /// </summary>
 public interface IMiceService
 {
@@ -122,6 +121,67 @@ public interface IMiceService
     /// </summary>
     Task<ApplicationResult<EventBookingResponse>> InvoiceEventAsync(
         Guid id,
+        OperationContext context,
+        CancellationToken cancellationToken);
+
+    // ==================== Allotements et rooming lists (volet GROUPES) ====================
+    //
+    // Un allotement retire des chambres de la vente publique SANS les nommer. La disponibilite les
+    // soustrait et la creation de reservation refuse d'entamer le solde : les deux chemins
+    // partagent le meme calcul dans LodgingService, faute de quoi l'hotel survendrait en silence.
+
+    Task<IReadOnlyCollection<RoomAllotmentResponse>> ListAllotmentsAsync(
+        string? hotelUnitCode,
+        DateOnly? from,
+        DateOnly? to,
+        bool includeClosed,
+        CancellationToken cancellationToken);
+
+    Task<ApplicationResult<RoomAllotmentResponse>> CreateAllotmentAsync(
+        CreateRoomAllotmentRequest request,
+        OperationContext context,
+        CancellationToken cancellationToken);
+
+    /// <summary>Modifie le bloc. Le reduire en dessous de ce qui est deja pris est refuse.</summary>
+    Task<ApplicationResult<RoomAllotmentResponse>> UpdateAllotmentAsync(
+        Guid id,
+        UpdateRoomAllotmentRequest request,
+        OperationContext context,
+        CancellationToken cancellationToken);
+
+    Task<ApplicationResult<RoomAllotmentResponse>> ConfirmAllotmentAsync(
+        Guid id,
+        OperationContext context,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Rend le SOLDE a la vente avant terme. Les chambres deja prises sur le bloc restent
+    /// reservees : liberer un allotement ne desengage personne.
+    /// </summary>
+    Task<ApplicationResult<RoomAllotmentResponse>> ReleaseAllotmentAsync(
+        Guid id,
+        OperationContext context,
+        CancellationToken cancellationToken);
+
+    /// <summary>Annule le bloc. Refuse tant que des reservations y sont rattachees.</summary>
+    Task<ApplicationResult<RoomAllotmentResponse>> CancelAllotmentAsync(
+        Guid id,
+        CancelRoomAllotmentRequest request,
+        OperationContext context,
+        CancellationToken cancellationToken);
+
+    Task<ApplicationResult<RoomingListResponse>> GetRoomingListAsync(
+        Guid allotmentId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Loge une liste d'occupants sur le bloc. Envoi PARTIEL assume : ce qui peut etre loge l'est,
+    /// et ce qui ne l'est pas revient dans Rejected avec sa raison. Echouer en bloc sur un groupe
+    /// de quarante personnes parce qu'un nom manque serait pire que loger les trente-neuf autres.
+    /// </summary>
+    Task<ApplicationResult<RoomingListResponse>> SubmitRoomingListAsync(
+        Guid allotmentId,
+        IReadOnlyCollection<RoomingListEntryRequest> entries,
         OperationContext context,
         CancellationToken cancellationToken);
 }

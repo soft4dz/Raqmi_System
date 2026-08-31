@@ -197,6 +197,108 @@ public sealed partial class RaqmiApiClient
         return await ReadResponseAsync<EventBookingResponse>(response, cancellationToken);
     }
 
+
+    // ==================== Allotements et rooming lists (volet GROUPES) ====================
+
+    public async Task<IReadOnlyCollection<RoomAllotmentResponse>> GetAllotmentsAsync(
+        string apiBaseUrl,
+        string? hotelUnitCode = null,
+        DateOnly? from = null,
+        DateOnly? to = null,
+        bool includeClosed = false,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var query = BuildMiceQuery(
+            ("hotelUnitCode", hotelUnitCode),
+            ("from", from?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
+            ("to", to?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
+            ("includeClosed", includeClosed ? "true" : null));
+
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Get, $"{MicePath}/allotments{query}", null, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<IReadOnlyCollection<RoomAllotmentResponse>>(response, cancellationToken);
+    }
+
+    public async Task<RoomAllotmentResponse> CreateAllotmentAsync(
+        string apiBaseUrl,
+        CreateRoomAllotmentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, $"{MicePath}/allotments", request, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<RoomAllotmentResponse>(response, cancellationToken);
+    }
+
+    public async Task<RoomAllotmentResponse> ConfirmAllotmentAsync(
+        string apiBaseUrl,
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, $"{MicePath}/allotments/{id}/confirm", null, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<RoomAllotmentResponse>(response, cancellationToken);
+    }
+
+    public async Task<RoomAllotmentResponse> ReleaseAllotmentAsync(
+        string apiBaseUrl,
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, $"{MicePath}/allotments/{id}/release", null, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<RoomAllotmentResponse>(response, cancellationToken);
+    }
+
+    public async Task<RoomAllotmentResponse> CancelAllotmentAsync(
+        string apiBaseUrl,
+        Guid id,
+        CancelRoomAllotmentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, $"{MicePath}/allotments/{id}/cancel", request, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<RoomAllotmentResponse>(response, cancellationToken);
+    }
+
+    public async Task<RoomingListResponse> GetRoomingListAsync(
+        string apiBaseUrl,
+        Guid allotmentId,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Get, $"{MicePath}/allotments/{allotmentId}/rooming-list", null, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<RoomingListResponse>(response, cancellationToken);
+    }
+
+    /// <summary>
+    /// Soumet une rooming list. La reponse porte les lignes REJETEES : un envoi partiel est normal
+    /// et doit etre montre, jamais avale en silence.
+    /// </summary>
+    public async Task<RoomingListResponse> SubmitRoomingListAsync(
+        string apiBaseUrl,
+        Guid allotmentId,
+        IReadOnlyCollection<RoomingListEntryRequest> entries,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Put, $"{MicePath}/allotments/{allotmentId}/rooming-list", entries, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<RoomingListResponse>(response, cancellationToken);
+    }
+
     // Constructeur de requete local : le BuildQuery de la classe principale a une signature figee
     // (from / to / hotelUnitCode) qui ne couvre pas les filtres de ce module.
     private static string BuildMiceQuery(params (string Key, string? Value)[] parts)

@@ -4,6 +4,7 @@ using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using RaqmiSystem.Application.Billing;
 using RaqmiSystem.Application.Common;
+using RaqmiSystem.Application.Lodging;
 using RaqmiSystem.Application.Mice;
 using RaqmiSystem.Application.Security;
 using RaqmiSystem.Domain.Billing;
@@ -34,7 +35,10 @@ namespace RaqmiSystem.Infrastructure.Mice;
 /// les CHAMBRES et devraient etre soustraites a la disponibilite ET au garde de creation de
 /// reservation, sans quoi l'hotel survendrait en silence. Elles relevent du coeur du PMS.
 /// </summary>
-public sealed class MiceService(RaqmiDbContext dbContext, IBillingService billingService) : IMiceService
+public sealed partial class MiceService(
+    RaqmiDbContext dbContext,
+    IBillingService billingService,
+    ILodgingService lodgingService) : IMiceService
 {
     private const string SpaceNotFound = "L'espace de reception est introuvable.";
 

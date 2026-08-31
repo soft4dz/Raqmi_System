@@ -178,6 +178,11 @@ public sealed class RaqmiDbContext(DbContextOptions<RaqmiDbContext> options) : D
 
     public DbSet<EventBooking> EventBookings => Set<EventBooking>();
 
+    // Un allotement porte sur des CHAMBRES : LodgingService le lit a chaque recherche de
+    // disponibilite pour en soustraire le solde tenu. Le module 10.6 en est proprietaire
+    // fonctionnel, le module hebergement en est lecteur permanent.
+    public DbSet<RoomAllotment> RoomAllotments => Set<RoomAllotment>();
+
     // -------------------------- Module 29 : supervision des postes --------------------------
     // Ces deux tables ne portent AUCUNE donnee metier : un inventaire des postes deployes et les
     // erreurs qu'ils signalent eux-memes. Il n'y a pas de file de synchronisation ici, et il ne

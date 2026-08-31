@@ -5,6 +5,7 @@ using RaqmiSystem.Application.Security;
 using RaqmiSystem.Application.Tariffs;
 using RaqmiSystem.Domain.Billing;
 using RaqmiSystem.Domain.Lodging;
+using RaqmiSystem.Domain.Mice;
 using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Infrastructure.Persistence;
 using System.Data;
@@ -750,6 +751,16 @@ public sealed class LodgingService(
                 return ApplicationResult<ReservationResponse>.Conflict(RoomAlreadyReserved);
             }
 
+            // Controle d'allotement DANS la meme transaction que le chevauchement : les deux
+            // portent sur la meme question - cette chambre est-elle vendable a ce client - et les
+            // separer laisserait passer une vente entre les deux controles.
+            var allotmentFailure = await EnsureAllotmentRulesAsync(room, request, cancellationToken);
+
+            if (allotmentFailure is not null)
+            {
+                return allotmentFailure;
+            }
+
             Reservation reservation;
 
             try
@@ -765,6 +776,16 @@ public sealed class LodgingService(
                     arrivalRate.RatePlanCode);
 
                 reservation.FreezeNightlyRates(nightlyRates);
+
+                // Rattachement au bloc : c'est lui qui dit si la nuitee CONSOMME l'allotement ou
+                // mange l'inventaire public. Sans lui, une chambre prise sur le bloc serait comptee
+                // deux fois et l'hotel s'interdirait de vendre des chambres pourtant libres.
+                if (request.AllotmentId is { } allotmentId)
+                {
+                    reservation.AttachToAllotment(allotmentId);
+                }
+
+                reservation.SetGuestName(request.GuestName);
             }
             catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
             {
@@ -1323,6 +1344,28 @@ public sealed class LodgingService(
             .ToArrayAsync(cancellationToken))
             .ToHashSet();
 
+        // ALLOTEMENTS : les chambres tenues pour des groupes ne sont PAS vendables au public. On
+        // retire, par type, autant de chambres libres que le bloc en tient encore.
+        //
+        // Le retrait se fait sur le MAXIMUM des nuits de la periode, et non sur la moyenne ou sur
+        // la premiere nuit : une chambre proposee ici doit etre vendable sur TOUTE la periode
+        // demandee. Prendre le maximum est le choix conservateur - il peut cacher une chambre
+        // vendable un soir donne, il ne peut jamais en proposer une qui est promise a un groupe.
+        var freeCandidates = candidateRooms.Where(candidate => !occupiedRoomIds.Contains(candidate.Id)).ToList();
+        var sellableRoomIds = new HashSet<Guid>();
+
+        foreach (var group in freeCandidates.GroupBy(candidate => candidate.RoomTypeCode))
+        {
+            var holds = await GetAllotmentHoldsAsync(normalizedUnitCode, group.Key, from, to, cancellationToken);
+            var peakHold = holds.Count == 0 ? 0 : holds.Values.Max();
+            var sellableCount = Math.Max(0, group.Count() - peakHold);
+
+            foreach (var candidate in group.Take(sellableCount))
+            {
+                sellableRoomIds.Add(candidate.Id);
+            }
+        }
+
         // One resolution per (room type, night), shared by every room of the type: pricing is
         // a function of the type, not of the individual room.
         var rateCache = new Dictionary<(string RoomTypeCode, DateOnly Night), ApplicationResult<ResolvedNightlyRate>>();
@@ -1330,7 +1373,7 @@ public sealed class LodgingService(
 
         foreach (var candidate in candidateRooms)
         {
-            if (occupiedRoomIds.Contains(candidate.Id))
+            if (!sellableRoomIds.Contains(candidate.Id))
             {
                 continue;
             }
@@ -1755,6 +1798,223 @@ public sealed class LodgingService(
         return $"{hotelUnitCode}/{roomTypeCode}";
     }
 
+
+
+    // ======================= Allotements : le calcul partage =======================
+
+    /// <summary>
+    /// Chambres encore TENUES par des allotements, nuit par nuit, pour un couple (unite, type),
+    /// deduction faite de celles deja prises sur ces blocs.
+    ///
+    /// C'est le calcul PARTAGE par la recherche de disponibilite et par le garde de creation, et
+    /// c'est volontaire : les deux chemins doivent appliquer exactement la meme regle. Si la
+    /// recherche cachait des chambres que la creation accepte encore, l'hotel survendrait ; si elle
+    /// en montrait que la creation refuse, l'operateur buterait sur un mur invisible. Un seul
+    /// calcul, donc un seul endroit a corriger le jour ou la regle change.
+    /// </summary>
+    private async Task<Dictionary<DateOnly, int>> GetAllotmentHoldsAsync(
+        string hotelUnitCode,
+        string roomTypeCode,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken cancellationToken)
+    {
+        var holds = new Dictionary<DateOnly, int>();
+
+        var allotments = await dbContext.Set<RoomAllotment>()
+            .AsNoTracking()
+            .Where(allotment => allotment.HotelUnitCode == hotelUnitCode
+                && allotment.RoomTypeCode == roomTypeCode)
+            .Where(allotment => allotment.Status == RoomAllotmentStatus.Draft
+                || allotment.Status == RoomAllotmentStatus.Confirmed)
+            .Where(allotment => allotment.ArrivalDate < to && allotment.DepartureDate > from)
+            .ToListAsync(cancellationToken);
+
+        if (allotments.Count == 0)
+        {
+            return holds;
+        }
+
+        var allotmentIds = allotments.Select(allotment => allotment.Id).ToList();
+
+        var picked = await dbContext.Set<Reservation>()
+            .AsNoTracking()
+            .Where(reservation => reservation.AllotmentId != null
+                && allotmentIds.Contains(reservation.AllotmentId.Value))
+            .Where(BlocksPeriod(from, to))
+            .Select(reservation => new
+            {
+                AllotmentId = reservation.AllotmentId!.Value,
+                reservation.ArrivalDate,
+                reservation.DepartureDate
+            })
+            .ToListAsync(cancellationToken);
+
+        // La date d'observation decide si un bloc a passe sa date de release. La disponibilite
+        // d'une meme nuit peut donc changer d'un jour a l'autre sans qu'aucune reservation n'ait
+        // bouge : c'est exactement l'objet d'un release, mais il faut le savoir.
+        var asOf = DateOnly.FromDateTime(DateTime.Today);
+
+        for (var night = from; night < to; night = night.AddDays(1))
+        {
+            var total = 0;
+
+            foreach (var allotment in allotments)
+            {
+                if (!allotment.IsHoldingOn(night, asOf))
+                {
+                    continue;
+                }
+
+                var takenThatNight = picked.Count(entry =>
+                    entry.AllotmentId == allotment.Id
+                    && entry.ArrivalDate <= night
+                    && night < entry.DepartureDate);
+
+                // Solde calcule PAR BLOC : un bloc sur-consomme ne vient pas compenser le solde
+                // d'un autre, ce qui reviendrait a rendre a la vente des chambres encore promises.
+                total += Math.Max(0, allotment.RoomsHeld - takenThatNight);
+            }
+
+            if (total > 0)
+            {
+                holds[night] = total;
+            }
+        }
+
+        return holds;
+    }
+
+    /// <summary>
+    /// Controle d'allotement a la creation d'une reservation. Appele DANS la transaction
+    /// Serializable, avec le controle de chevauchement : hors transaction, deux ventes simultanees
+    /// liraient toutes deux "il reste de la place" et entameraient toutes deux le bloc.
+    /// </summary>
+    private async Task<ApplicationResult<ReservationResponse>?> EnsureAllotmentRulesAsync(
+        Room room,
+        CreateReservationRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request.AllotmentId is { } allotmentId)
+        {
+            return await EnsureBlockHasRoomAsync(room, request, allotmentId, cancellationToken);
+        }
+
+        // VENTE PUBLIQUE : elle ne doit pas entamer ce qui est tenu pour un groupe.
+        var holds = await GetAllotmentHoldsAsync(
+            room.HotelUnitCode,
+            room.RoomTypeCode,
+            request.ArrivalDate,
+            request.DepartureDate,
+            cancellationToken);
+
+        if (holds.Count == 0)
+        {
+            return null;
+        }
+
+        var activeRoomsOfType = await dbContext.Set<Room>()
+            .CountAsync(
+                current => current.HotelUnitCode == room.HotelUnitCode
+                    && current.RoomTypeCode == room.RoomTypeCode
+                    && current.IsActive,
+                cancellationToken);
+
+        var blocking = dbContext.Set<Reservation>()
+            .Where(BlocksPeriod(request.ArrivalDate, request.DepartureDate));
+
+        var occupied = await (
+            from reservation in blocking
+            join current in dbContext.Set<Room>() on reservation.RoomId equals current.Id
+            where current.HotelUnitCode == room.HotelUnitCode
+                && current.RoomTypeCode == room.RoomTypeCode
+            select new { reservation.ArrivalDate, reservation.DepartureDate })
+            .ToListAsync(cancellationToken);
+
+        for (var night = request.ArrivalDate; night < request.DepartureDate; night = night.AddDays(1))
+        {
+            if (!holds.TryGetValue(night, out var held) || held == 0)
+            {
+                continue;
+            }
+
+            var occupiedThatNight = occupied.Count(entry =>
+                entry.ArrivalDate <= night && night < entry.DepartureDate);
+
+            // Le "- 1" est la chambre qu'on est en train de prendre. Elle est encore libre a cet
+            // instant : le controle de chevauchement vient de le verifier.
+            var remainingFree = activeRoomsOfType - occupiedThatNight - 1;
+
+            if (remainingFree < held)
+            {
+                return ApplicationResult<ReservationResponse>.Conflict(
+                    $"La nuit du {night:yyyy-MM-dd}, {held} chambre(s) de type {room.RoomTypeCode} sont tenues "
+                    + "pour un groupe. Prendre celle-ci entamerait l'allotement : reservez sur le bloc, "
+                    + "ou liberez-le d'abord.");
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Verifie qu'un bloc a encore de la place, nuit par nuit, avant d'y prendre une chambre.</summary>
+    private async Task<ApplicationResult<ReservationResponse>?> EnsureBlockHasRoomAsync(
+        Room room,
+        CreateReservationRequest request,
+        Guid allotmentId,
+        CancellationToken cancellationToken)
+    {
+        var allotment = await dbContext.Set<RoomAllotment>()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(current => current.Id == allotmentId, cancellationToken);
+
+        if (allotment is null)
+        {
+            return ApplicationResult<ReservationResponse>.NotFound("L'allotement est introuvable.");
+        }
+
+        if (!allotment.IsOpen)
+        {
+            return ApplicationResult<ReservationResponse>.Conflict(
+                "Cet allotement est cloture : il ne tient plus de chambres.");
+        }
+
+        if (allotment.HotelUnitCode != room.HotelUnitCode || allotment.RoomTypeCode != room.RoomTypeCode)
+        {
+            return ApplicationResult<ReservationResponse>.Validation(
+                $"L'allotement {allotment.Reference} porte sur le type {allotment.RoomTypeCode} de l'unite "
+                + $"{allotment.HotelUnitCode} : cette chambre n'en fait pas partie.");
+        }
+
+        if (request.ArrivalDate < allotment.ArrivalDate || request.DepartureDate > allotment.DepartureDate)
+        {
+            return ApplicationResult<ReservationResponse>.Validation(
+                $"L'allotement {allotment.Reference} couvre du {allotment.ArrivalDate:yyyy-MM-dd} au "
+                + $"{allotment.DepartureDate:yyyy-MM-dd} : le sejour demande en sort.");
+        }
+
+        var taken = await dbContext.Set<Reservation>()
+            .AsNoTracking()
+            .Where(reservation => reservation.AllotmentId == allotmentId)
+            .Where(BlocksPeriod(request.ArrivalDate, request.DepartureDate))
+            .Select(reservation => new { reservation.ArrivalDate, reservation.DepartureDate })
+            .ToListAsync(cancellationToken);
+
+        for (var night = request.ArrivalDate; night < request.DepartureDate; night = night.AddDays(1))
+        {
+            var takenThatNight = taken.Count(entry =>
+                entry.ArrivalDate <= night && night < entry.DepartureDate);
+
+            if (takenThatNight >= allotment.RoomsHeld)
+            {
+                return ApplicationResult<ReservationResponse>.Conflict(
+                    $"L'allotement {allotment.Reference} tient {allotment.RoomsHeld} chambre(s), toutes prises "
+                    + $"la nuit du {night:yyyy-MM-dd}. Agrandissez le bloc ou vendez hors bloc.");
+            }
+        }
+
+        return null;
+    }
 
     // ============================ Couchage : application et controle ============================
 

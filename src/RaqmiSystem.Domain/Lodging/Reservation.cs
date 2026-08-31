@@ -1,4 +1,4 @@
-using RaqmiSystem.Domain.Billing;
+﻿using RaqmiSystem.Domain.Billing;
 using RaqmiSystem.Domain.Common;
 using RaqmiSystem.Domain.Organization;
 using System.Text.Json;
@@ -73,6 +73,48 @@ public sealed class Reservation : AuditableEntity
     public DateOnly DepartureDate { get; private set; }
 
     public int GuestCount { get; private set; }
+
+    /// <summary>
+    /// Bloc de groupe sur lequel cette reservation a ete prise, quand elle vient d'un allotement.
+    /// Null pour une reservation publique.
+    ///
+    /// Ce rattachement n'est pas decoratif : il dit si la nuitee CONSOMME le bloc ou si elle mange
+    /// l'inventaire public. Sans lui, une chambre prise sur le bloc serait comptee deux fois -
+    /// une fois comme tenue, une fois comme vendue - et l'hotel s'interdirait de vendre des
+    /// chambres pourtant libres.
+    /// </summary>
+    public Guid? AllotmentId { get; private set; }
+
+    /// <summary>
+    /// Nom de l'occupant, tel qu'il figure sur la rooming list du groupe. Null tant que le groupe
+    /// n'a pas transmis ses noms, ce qui est l'etat normal d'un bloc pose des mois a l'avance.
+    /// </summary>
+    public string? GuestName { get; private set; }
+
+    /// <summary>Rattache la reservation a un bloc de groupe, a la creation.</summary>
+    public void AttachToAllotment(Guid allotmentId)
+    {
+        if (allotmentId == Guid.Empty)
+        {
+            throw new ArgumentException("L'identifiant de l'allotement est requis.", nameof(allotmentId));
+        }
+
+        AllotmentId = allotmentId;
+    }
+
+    /// <summary>Renseigne ou efface le nom de l'occupant (rooming list).</summary>
+    public void SetGuestName(string? guestName)
+    {
+        if (string.IsNullOrWhiteSpace(guestName))
+        {
+            GuestName = null;
+            return;
+        }
+
+        var trimmed = guestName.Trim();
+
+        GuestName = trimmed.Length <= 160 ? trimmed : trimmed[..160];
+    }
 
     public ReservationStatus Status { get; private set; } = ReservationStatus.Booked;
 

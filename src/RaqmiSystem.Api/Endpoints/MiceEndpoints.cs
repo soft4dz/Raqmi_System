@@ -1,22 +1,20 @@
-using RaqmiSystem.Application.Mice;
+﻿using RaqmiSystem.Application.Mice;
 using RaqmiSystem.Domain.Identity;
 
 namespace RaqmiSystem.Api.Endpoints;
 
 /// <summary>
-/// Module 10.6 - Groupes &amp; MICE, volet EVENEMENTIEL : espaces de reception, evenements, devis,
-/// BEO et facturation evenementielle.
+/// Module 10.6 - Groupes &amp; MICE. Les six fonctions annoncees au catalogue sont desormais la :
+/// espaces de reception, evenements, devis, BEO, facturation evenementielle, puis allotements et
+/// rooming lists.
 ///
-/// PERIMETRE PARTIEL, ET ASSUME. Le catalogue annonce six fonctions pour ce module. Les quatre qui
-/// portent sur les SALLES sont ici. Les deux autres - allotements et rooming lists - portent sur
-/// les CHAMBRES et n'y sont pas : un allotement retire des chambres de la vente, il devrait donc
-/// etre soustrait a la disponibilite ET au garde de creation de reservation. Livrer un allotement
-/// que la recherche de disponibilite ignore ferait survendre l'hotel en silence, ce qui est pire
-/// que de ne pas le livrer.
-///
-/// PERMISSIONS : mice.read pour consulter, mice.write pour agir. La facturation d'un evenement
-/// exige EN PLUS invoices.write - elle ecrit une facture reelle, et mice.write ne doit pas devenir
-/// un chemin detourne pour creer des factures sans le droit de facturer.
+/// PERMISSIONS, ET LEUR LOGIQUE : mice.read pour consulter, mice.write pour agir. Deux familles de
+/// routes en exigent une SECONDE, parce qu'elles ecrivent hors du module :
+///   * facturer un evenement demande aussi invoices.write - cela cree une facture reelle ;
+///   * poser un allotement ou soumettre une rooming list demande aussi lodging.write - cela gele
+///     ou consomme de l'inventaire chambres.
+/// Sans ces secondes exigences, mice.write serait devenu un chemin detourne vers la facturation et
+/// vers l'inventaire du PMS.
 /// </summary>
 internal static class MiceEndpoints
 {
@@ -267,6 +265,120 @@ internal static class MiceEndpoints
 
             return result.ToHttpResult();
         }).RequireAuthorization(PermissionCatalog.MiceWrite, PermissionCatalog.InvoicesWrite);
+
+        // ==================== Allotements et rooming lists (volet GROUPES) ====================
+        //
+        // Ces routes touchent l'inventaire chambres : un bloc pose ici retire des chambres de la
+        // vente publique. Le controle est fait par LodgingService, au meme endroit que la recherche
+        // de disponibilite et que le garde de creation de reservation.
+
+        mice.MapGet("/allotments", async (
+            IMiceService service,
+            CancellationToken cancellationToken,
+            string? hotelUnitCode = null,
+            DateOnly? from = null,
+            DateOnly? to = null,
+            bool includeClosed = false) =>
+        {
+            var result = await service.ListAllotmentsAsync(hotelUnitCode, from, to, includeClosed, cancellationToken);
+            return Results.Ok(result);
+        }).RequireAuthorization(PermissionCatalog.MiceRead);
+
+        // Poser un bloc retire des chambres de la vente : cela exige mice.write ET lodging.write.
+        // Sans cette seconde exigence, un commercial pourrait geler l'inventaire chambres sans
+        // avoir le droit d'y toucher par ailleurs.
+        mice.MapPost("/allotments", async (
+            CreateRoomAllotmentRequest request,
+            IMiceService service,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.CreateAllotmentAsync(
+                request,
+                httpContext.ToOperationContext(),
+                cancellationToken);
+
+            return result.ToHttpResult();
+        }).RequireAuthorization(PermissionCatalog.MiceWrite, PermissionCatalog.LodgingWrite);
+
+        mice.MapPut("/allotments/{id:guid}", async (
+            Guid id,
+            UpdateRoomAllotmentRequest request,
+            IMiceService service,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.UpdateAllotmentAsync(
+                id,
+                request,
+                httpContext.ToOperationContext(),
+                cancellationToken);
+
+            return result.ToHttpResult();
+        }).RequireAuthorization(PermissionCatalog.MiceWrite, PermissionCatalog.LodgingWrite);
+
+        mice.MapPost("/allotments/{id:guid}/confirm", async (
+            Guid id,
+            IMiceService service,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.ConfirmAllotmentAsync(id, httpContext.ToOperationContext(), cancellationToken);
+            return result.ToHttpResult();
+        }).RequireAuthorization(PermissionCatalog.MiceWrite, PermissionCatalog.LodgingWrite);
+
+        mice.MapPost("/allotments/{id:guid}/release", async (
+            Guid id,
+            IMiceService service,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.ReleaseAllotmentAsync(id, httpContext.ToOperationContext(), cancellationToken);
+            return result.ToHttpResult();
+        }).RequireAuthorization(PermissionCatalog.MiceWrite, PermissionCatalog.LodgingWrite);
+
+        mice.MapPost("/allotments/{id:guid}/cancel", async (
+            Guid id,
+            CancelRoomAllotmentRequest request,
+            IMiceService service,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.CancelAllotmentAsync(
+                id,
+                request,
+                httpContext.ToOperationContext(),
+                cancellationToken);
+
+            return result.ToHttpResult();
+        }).RequireAuthorization(PermissionCatalog.MiceWrite, PermissionCatalog.LodgingWrite);
+
+        mice.MapGet("/allotments/{id:guid}/rooming-list", async (
+            Guid id,
+            IMiceService service,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.GetRoomingListAsync(id, cancellationToken);
+            return result.ToHttpResult();
+        }).RequireAuthorization(PermissionCatalog.MiceRead);
+
+        // Soumettre une rooming list CREE des reservations : mice.write ne suffit pas, il faut
+        // aussi le droit de reserver.
+        mice.MapPut("/allotments/{id:guid}/rooming-list", async (
+            Guid id,
+            IReadOnlyCollection<RoomingListEntryRequest> entries,
+            IMiceService service,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.SubmitRoomingListAsync(
+                id,
+                entries,
+                httpContext.ToOperationContext(),
+                cancellationToken);
+
+            return result.ToHttpResult();
+        }).RequireAuthorization(PermissionCatalog.MiceWrite, PermissionCatalog.LodgingWrite);
 
         return api;
     }

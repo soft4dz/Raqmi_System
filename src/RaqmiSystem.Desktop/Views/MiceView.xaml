@@ -20,13 +20,16 @@
          "Occupation" montre cette fenetre reelle, differente des horaires invites.
          ============================================================================ -->
 
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="14" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" MinHeight="260" />
             <RowDefinition Height="14" />
-            <RowDefinition Height="1.25*" />
+            <RowDefinition Height="Auto" MinHeight="300" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="Auto" MinHeight="300" />
         </Grid.RowDefinitions>
 
         <!-- ============================== En-tete et indicateurs ============================== -->
@@ -615,5 +618,242 @@
                 </TextBlock>
             </Grid>
         </Border>
+        <!-- ==================== Allotements et rooming lists (volet GROUPES) ====================
+             Un bloc retire des chambres de la vente publique SANS les nommer. La recherche de
+             disponibilite en soustrait le solde et la creation de reservation refuse de l'entamer :
+             les deux appliquent le meme calcul cote serveur. -->
+        <Border Grid.Row="6" Style="{StaticResource CardBorder}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <DockPanel>
+                    <StackPanel>
+                        <TextBlock Text="Allotements &amp; rooming lists" Style="{StaticResource SectionTitleText}" />
+                        <TextBlock x:Name="AllotmentSummaryTextBlock"
+                                   Text="Un bloc retire ses chambres de la vente publique jusqu'à sa date de release."
+                                   Style="{StaticResource CaptionText}"
+                                   Margin="0,3,0,0" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal"
+                                DockPanel.Dock="Right"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center">
+                        <CheckBox x:Name="IncludeClosedAllotmentsCheckBox"
+                                  Content="Clôturés"
+                                  VerticalAlignment="Center"
+                                  ToolTip="Afficher aussi les blocs libérés ou annulés"
+                                  Margin="0,0,12,0"
+                                  Checked="Filter_Changed"
+                                  Unchecked="Filter_Changed" />
+                        <Button x:Name="ConfirmAllotmentButton" Content="Confirmer" Style="{StaticResource SecondaryButton}" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" Click="ConfirmAllotmentButton_Click" />
+                        <Button x:Name="ReleaseAllotmentButton" Content="Libérer le solde" Style="{StaticResource SecondaryButton}" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" Click="ReleaseAllotmentButton_Click" />
+                        <Button x:Name="CancelAllotmentButton" Content="Annuler le bloc" Style="{StaticResource DangerButton}" ToolTipService.ShowOnDisabled="True" Click="CancelAllotmentButton_Click" />
+                    </StackPanel>
+                </DockPanel>
+
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.4*" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- ============================ Blocs ============================ -->
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Grid MinHeight="130">
+                            <DataGrid x:Name="AllotmentsDataGrid" SelectionChanged="AllotmentsDataGrid_SelectionChanged">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Réf." Binding="{Binding Reference}" Width="90" />
+                                    <DataGridTextColumn Header="Client" Binding="{Binding CustomerName}" Width="*" />
+                                    <DataGridTextColumn Header="Type" Binding="{Binding RoomTypeLabel}" Width="120" />
+                                    <DataGridTextColumn Header="Période"
+                                                        Binding="{Binding PeriodLabel}"
+                                                        Width="150"
+                                                        ElementStyle="{StaticResource MutedCellText}" />
+                                    <DataGridTextColumn Header="Tenues"
+                                                        Binding="{Binding RoomsHeld}"
+                                                        Width="70"
+                                                        ElementStyle="{StaticResource AmountCellText}"
+                                                        HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                    <DataGridTextColumn Header="Prises"
+                                                        Binding="{Binding PickedUpPeak}"
+                                                        Width="70"
+                                                        ElementStyle="{StaticResource AmountCellText}"
+                                                        HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                    <DataGridTextColumn Header="Restant"
+                                                        Binding="{Binding RemainingAtPeak}"
+                                                        Width="80"
+                                                        ElementStyle="{StaticResource AmountCellText}"
+                                                        HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                    <DataGridTextColumn Header="Release"
+                                                        Binding="{Binding ReleaseLabel}"
+                                                        Width="100"
+                                                        ElementStyle="{StaticResource MutedCellText}" />
+                                    <DataGridTextColumn Header="État"
+                                                        Binding="{Binding StatusLabel}"
+                                                        Width="130"
+                                                        ElementStyle="{StaticResource MutedCellText}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        IsHitTestVisible="False">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Items.Count, ElementName=AllotmentsDataGrid}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <Path Data="{StaticResource ModuleGroupIcon.Exploitation}"
+                                      Stroke="{StaticResource BorderStrongBrush}"
+                                      StrokeThickness="1.5"
+                                      StrokeLineJoin="Round"
+                                      Width="42"
+                                      Height="38"
+                                      Stretch="Uniform"
+                                      HorizontalAlignment="Center"
+                                      Margin="0,0,0,10" />
+                                <TextBlock Text="Aucun allotement sur cette période" Style="{StaticResource EmptyStateTitleText}" />
+                                <TextBlock Text="Posez un bloc ci-dessous pour tenir des chambres au nom d'un groupe."
+                                           Style="{StaticResource EmptyStateHintText}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel Grid.Row="1" Margin="0,10,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="95" />
+                                    <ColumnDefinition Width="6" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="6" />
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="6" />
+                                    <ColumnDefinition Width="70" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="AllotmentReferenceTextBox" MaxLength="24" ToolTip="Référence du bloc, unique dans l'unité" />
+                                <ComboBox x:Name="AllotmentCustomerComboBox" Grid.Column="2" DisplayMemberPath="Name" ToolTip="Client porteur du groupe" />
+                                <ComboBox x:Name="AllotmentRoomTypeComboBox" Grid.Column="4" DisplayMemberPath="Label" ToolTip="Type de chambre tenu" />
+                                <TextBox x:Name="AllotmentRoomsTextBox" Grid.Column="6" MaxLength="3" ToolTip="Nombre de chambres tenues" />
+                            </Grid>
+
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="130" />
+                                    <ColumnDefinition Width="6" />
+                                    <ColumnDefinition Width="130" />
+                                    <ColumnDefinition Width="6" />
+                                    <ColumnDefinition Width="130" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <DatePicker x:Name="AllotmentArrivalDatePicker" ToolTip="Arrivée du groupe" />
+                                <DatePicker x:Name="AllotmentDepartureDatePicker" Grid.Column="2" ToolTip="Départ (exclu)" />
+                                <DatePicker x:Name="AllotmentReleaseDatePicker" Grid.Column="4" ToolTip="Date de release : au-delà, le solde retourne à la vente. Laisser vide = engagement ferme jusqu'au départ" />
+                                <Button x:Name="CreateAllotmentButton"
+                                        Grid.Column="5"
+                                        Content="Poser le bloc"
+                                        Style="{StaticResource PrimaryButton}"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        HorizontalAlignment="Right"
+                                        Click="CreateAllotmentButton_Click" />
+                            </Grid>
+
+                            <TextBlock Text="Réf. · client · type · nb chambres, puis arrivée · départ · release. Sans date de release, les chambres restent bloquées jusqu'au départ même invendues."
+                                       Style="{StaticResource CaptionText}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- ========================= Rooming list ========================= -->
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="6" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock x:Name="RoomingListTitleTextBlock"
+                                   Text="Rooming list"
+                                   Style="{StaticResource SectionTitleText}"
+                                   FontSize="13" />
+
+                        <Grid Grid.Row="2" MinHeight="120">
+                            <DataGrid x:Name="RoomingListDataGrid">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Chambre" Binding="{Binding RoomNumber}" Width="90" />
+                                    <DataGridTextColumn Header="Occupant" Binding="{Binding GuestName}" Width="*" />
+                                    <DataGridTextColumn Header="Pers."
+                                                        Binding="{Binding GuestCount}"
+                                                        Width="60"
+                                                        ElementStyle="{StaticResource AmountCellText}"
+                                                        HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                    <DataGridTextColumn Header="État"
+                                                        Binding="{Binding Status}"
+                                                        Width="90"
+                                                        ElementStyle="{StaticResource MutedCellText}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        IsHitTestVisible="False">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Items.Count, ElementName=RoomingListDataGrid}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <TextBlock Text="Aucun occupant logé" Style="{StaticResource EmptyStateTitleText}" />
+                                <TextBlock Text="Collez la liste des noms ci-dessous, un par ligne."
+                                           Style="{StaticResource EmptyStateHintText}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel Grid.Row="3" Margin="0,8,0,0">
+                            <TextBox x:Name="RoomingListNamesTextBox"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Auto"
+                                     Height="70"
+                                     ToolTip="Un nom par ligne. Format accepté : « Nom » ou « Nom;2 » pour préciser le nombre de personnes" />
+
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button x:Name="SubmitRoomingListButton"
+                                        Content="Loger ces occupants"
+                                        Style="{StaticResource PrimaryButton}"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        Click="SubmitRoomingListButton_Click" />
+                            </StackPanel>
+
+                            <TextBlock x:Name="RoomingListRejectedTextBlock"
+                                       Style="{StaticResource CaptionText}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
     </Grid>
+    </ScrollViewer>
 </UserControl>

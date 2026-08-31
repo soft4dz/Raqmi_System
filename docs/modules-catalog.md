@@ -1,4 +1,4 @@
-# Catalogue des modules
+﻿# Catalogue des modules
 
 Ce catalogue reprend la structure fonctionnelle de l'ancien depot `soft4dz/Hotel_Metrics_Pro_Desktop`, fichier source `src/modules/moduleCatalog.ts`.
 
@@ -124,7 +124,27 @@ fait perdre une action BRUYAMMENT et l'operateur la refait ; une file transforme
 silencieux. Le mode hors-ligne reste par ailleurs explicitement differe par `docs/architecture.md`
 tant que le pilote client-serveur n'est pas stabilise.
 
-### Module 10.6 - "Groupes & MICE" livre a moitie, et le statut le dit
+### Module 10.6 - complete depuis : le volet groupes est livre
+
+La section ci-dessous decrivait un module livre a moitie. Ce n'est plus le cas : les allotements et
+les rooming lists ont ete ajoutes, et le module est passe Disponible.
+
+Ce qui rendait ce volet delicat, et comment il est traite : un allotement retire des chambres de la
+vente SANS les nommer. La recherche de disponibilite en soustrait le solde ET le garde de creation
+de reservation refuse de l'entamer, par un CALCUL UNIQUE partage
+(LodgingService.GetAllotmentHoldsAsync). Les laisser diverger etait le risque principal - une
+recherche plus stricte que la creation aurait fait survendre l'hotel en silence. Un test parcourt
+toutes les tailles de bloc et verifie que le nombre de chambres proposees egale exactement le
+nombre de reservations que la creation accepte.
+
+Deux regles portent le reste :
+- une chambre prise SUR le bloc le consomme et ne reduit pas une seconde fois l'inventaire public ;
+- liberer un bloc rend le SOLDE, jamais les nuitees deja vendues.
+
+La section historique est conservee ci-dessous : elle documente l'etat au moment ou le module a ete
+livre en deux temps, et la raison pour laquelle le second temps a ete separe du premier.
+
+### [Historique] Module 10.6 - livre a moitie dans un premier temps
 
 Le catalogue source annonce six fonctions : rooming lists, allotements, evenements et salles,
 devis, BEO, facturation evenementielle. Quatre sont livrees, deux ne le sont pas, et le module porte

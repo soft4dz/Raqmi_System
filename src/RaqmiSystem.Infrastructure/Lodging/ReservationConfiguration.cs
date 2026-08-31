@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using RaqmiSystem.Domain.Billing;
 using RaqmiSystem.Domain.Lodging;
@@ -130,5 +130,17 @@ public sealed class ReservationConfiguration : IEntityTypeConfiguration<Reservat
             .HasPrincipalKey(customer => customer.Code)
             .HasForeignKey(reservation => reservation.CustomerCode)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Rattachement au bloc de groupe. Nullable : la vente publique n'en a pas. Aucune cle
+        // etrangere declaree vers room_allotments a dessein - un allotement annule ne doit pas
+        // pouvoir effacer en cascade des reservations bien reelles.
+        builder.Property(reservation => reservation.AllotmentId).HasColumnName("allotment_id");
+
+        builder.Property(reservation => reservation.GuestName)
+            .HasColumnName("guest_name")
+            .HasMaxLength(160);
+
+        builder.HasIndex(reservation => reservation.AllotmentId, "ix_reservations_allotment_id")
+            .HasDatabaseName("ix_reservations_allotment_id");
     }
 }
