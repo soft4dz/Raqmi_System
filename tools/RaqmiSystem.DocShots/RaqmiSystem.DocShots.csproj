@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Outil de documentation, hors solution et hors livraison : il produit les captures
+    d'ecran du guide utilisateur en pilotant la VRAIE fenetre du client WPF.
+
+    Pourquoi un projet a part plutot qu'un mode "capture" dans l'application : le client
+    livre au client final n'a aucune raison d'embarquer du code de documentation. Le
+    couplage se fait par reference de projet et reflexion, dans ce sens uniquement.
+
+    Pourquoi RenderTargetBitmap plutot qu'une capture d'ecran : le rendu vient de l'arbre
+    visuel WPF, pas du bureau. Il est donc identique quelle que soit la resolution du poste,
+    ne capte ni fenetre parasite ni curseur, et peut etre rendu a 1,5x pour un guide net.
+  -->
+
+  <PropertyGroup>
+    <!-- Exe et non WinExe : la console recoit le journal de la campagne de captures. -->
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\RaqmiSystem.Desktop\RaqmiSystem.Desktop.csproj" />
+  </ItemGroup>
+
+</Project>

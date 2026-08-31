@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -49,6 +49,20 @@ public sealed class DesktopSettings
     public Guid? StationKey { get; set; }
 
     /// <summary>
+    /// Apparence choisie sur ce poste : « Systeme », « Clair » ou « Sombre ». Le reglage est
+    /// per-poste et non per-compte, parce qu'il depend de l'ecran et de l'eclairage du lieu,
+    /// pas de qui se connecte : une reception de nuit garde son ecran sombre quand l'equipe
+    /// change. Valeur absente ou inconnue = « Systeme ».
+    /// </summary>
+    public string? Apparence { get; set; }
+
+    /// <summary>
+    /// Densite des grilles sur ce poste : « Confortable » ou « Compact ». Meme portee que
+    /// l'apparence - c'est l'ecran et le travail fait devant qui decident, pas le compte.
+    /// </summary>
+    public string? Densite { get; set; }
+
+    /// <summary>
     /// The URL forced by <see cref="ApiBaseUrlEnvironmentVariable"/>, or null when the variable is
     /// unset. When it is set, <see cref="Save"/> still writes to the settings file but the stored
     /// value is never used - the settings screen surfaces that instead of letting it surprise the
@@ -76,6 +90,40 @@ public sealed class DesktopSettings
         return string.IsNullOrWhiteSpace(settings.ApiBaseUrl)
             ? DefaultApiBaseUrl
             : settings.ApiBaseUrl.Trim();
+    }
+
+    /// <summary>Apparence enregistree sur ce poste, « Systeme » a defaut.</summary>
+    public static ApparenceMode LoadApparence()
+    {
+        var stored = ReadFile().Apparence;
+
+        return Enum.TryParse<ApparenceMode>(stored, ignoreCase: true, out var mode)
+            ? mode
+            : ApparenceMode.Systeme;
+    }
+
+    /// <summary>Densite enregistree sur ce poste, « Confortable » a defaut.</summary>
+    public static ApparenceDensite LoadDensite()
+    {
+        return Enum.TryParse<ApparenceDensite>(ReadFile().Densite, ignoreCase: true, out var densite)
+            ? densite
+            : ApparenceDensite.Confortable;
+    }
+
+    public static void SaveDensite(ApparenceDensite densite)
+    {
+        var settings = ReadFile();
+        settings.Densite = densite.ToString();
+        WriteFile(settings);
+    }
+
+    public static void SaveApparence(ApparenceMode mode)
+    {
+        // Load-modify-write, comme partout ici : enregistrer l'apparence ne doit effacer ni
+        // l'URL du serveur, ni les identifiants memorises, ni la clef du poste.
+        var settings = ReadFile();
+        settings.Apparence = mode.ToString();
+        WriteFile(settings);
     }
 
     public static void Save(string apiBaseUrl)

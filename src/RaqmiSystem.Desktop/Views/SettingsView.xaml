@@ -1,4 +1,4 @@
-<UserControl x:Class="RaqmiSystem.Desktop.Views.SettingsView"
+﻿<UserControl x:Class="RaqmiSystem.Desktop.Views.SettingsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -415,6 +415,65 @@
                                 Margin="0,22,0,0"
                                 Click="ForgetCredentialsButton_Click" />
                     </Grid>
+
+                    <Border Height="1"
+                            Background="{StaticResource PanelBorderBrush}"
+                            Margin="0,20,0,18" />
+
+                    <!-- Apparence. Le bouton de l'en-tete suffit au quotidien (clair
+                         ou sombre, un clic) ; il n'a pas de troisieme etat, et c'est
+                         ici qu'on rend la main a Windows. -->
+                    <TextBlock Text="Apparence" Style="{StaticResource LabelText}" />
+                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                        <RadioButton x:Name="ApparenceSystemeRadio"
+                                     Style="{StaticResource FilterChip}"
+                                     GroupName="Apparence"
+                                     Content="Système"
+                                     Tag="Systeme"
+                                     ToolTip="Suivre le réglage clair/sombre de Windows"
+                                     Checked="ApparenceRadio_Checked" />
+                        <RadioButton x:Name="ApparenceClairRadio"
+                                     Style="{StaticResource FilterChip}"
+                                     GroupName="Apparence"
+                                     Content="Clair"
+                                     Tag="Clair"
+                                     ToolTip="Toujours l'apparence claire sur ce poste"
+                                     Checked="ApparenceRadio_Checked" />
+                        <RadioButton x:Name="ApparenceSombreRadio"
+                                     Style="{StaticResource FilterChip}"
+                                     GroupName="Apparence"
+                                     Content="Sombre"
+                                     Tag="Sombre"
+                                     ToolTip="Toujours l'apparence sombre sur ce poste"
+                                     Checked="ApparenceRadio_Checked" />
+                    </StackPanel>
+                    <TextBlock Text="Réglage du poste, pas du compte : il dépend de l'écran et de l'éclairage du lieu, et ne suit donc pas l'utilisateur d'un poste à l'autre."
+                               Style="{StaticResource FieldHintText}"
+                               Margin="0,8,0,0" />
+
+                    <!-- Densite des grilles. Compact retire de l'air, jamais de la
+                         taille de texte : sur ces ecrans le facteur limitant est le
+                         nombre de lignes visibles, pas la finesse des caracteres. -->
+                    <TextBlock Text="Densité des tableaux" Style="{StaticResource LabelText}" Margin="0,18,0,0" />
+                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                        <RadioButton x:Name="DensiteConfortableRadio"
+                                     Style="{StaticResource FilterChip}"
+                                     GroupName="Densite"
+                                     Content="Confortable"
+                                     Tag="Confortable"
+                                     ToolTip="Lignes de 40 px"
+                                     Checked="DensiteRadio_Checked" />
+                        <RadioButton x:Name="DensiteCompactRadio"
+                                     Style="{StaticResource FilterChip}"
+                                     GroupName="Densite"
+                                     Content="Compact"
+                                     Tag="Compact"
+                                     ToolTip="Lignes de 32 px — environ un quart de lignes en plus à l'écran"
+                                     Checked="DensiteRadio_Checked" />
+                    </StackPanel>
+                    <TextBlock Text="Compact resserre les lignes sans réduire la taille du texte. Utile aux postes de saisie qui travaillent sur de longues listes."
+                               Style="{StaticResource FieldHintText}"
+                               Margin="0,8,0,0" />
                 </StackPanel>
             </Border>
 

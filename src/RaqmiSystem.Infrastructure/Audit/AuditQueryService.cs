@@ -46,14 +46,19 @@ public sealed class AuditQueryService(RaqmiDbContext dbContext) : IAuditQuerySer
         Guid? userId,
         string? action)
     {
+        // Converted to UTC before reaching the query: Npgsql refuses a DateTimeOffset whose
+        // offset is not zero against a 'timestamp with time zone' column. The instant is the
+        // same, only its offset changes, so the filtered period is unchanged.
         if (from.HasValue)
         {
-            query = query.Where(auditLog => auditLog.OccurredAt >= from.Value);
+            var fromValue = from.Value.ToUniversalTime();
+            query = query.Where(auditLog => auditLog.OccurredAt >= fromValue);
         }
 
         if (to.HasValue)
         {
-            query = query.Where(auditLog => auditLog.OccurredAt <= to.Value);
+            var toValue = to.Value.ToUniversalTime();
+            query = query.Where(auditLog => auditLog.OccurredAt <= toValue);
         }
 
         if (userId.HasValue)

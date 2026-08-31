@@ -24,10 +24,15 @@ connexion, `MainWindow.xaml:29` et `MainWindow.xaml:149`). Icône d'application 
 ### 1.2 Palette
 
 **Toutes** les couleurs de l'interface proviennent des brushes de
-`src/RaqmiSystem.Desktop/Themes/RaqmiTheme.xaml` (lignes 15-116). Aucun écran ne pose de couleur
+`src/RaqmiSystem.Desktop/Themes/RaqmiTheme.xaml` (lignes 15-134). Aucun écran ne pose de couleur
 en dur : un nouvel écran référence les clés ci-dessous par `{StaticResource …}`, rien d'autre.
 Les variantes hover/pressed sont dérivées de façon cohérente : ~ +8 % de luminosité au survol,
 ~ −10 % à l'appui (commentaire d'en-tête du thème, `RaqmiTheme.xaml:5-10`).
+
+**Règle de contraste** : toute paire texte/fond du produit atteint WCAG AA — 4,5:1 pour du
+texte, 3:1 pour un trait, une bordure ou une barre porteuse d'information. Un nouveau token de
+couleur se vérifie avant d'être ajouté. Deux conséquences structurantes suivent de cette règle,
+détaillées ci-dessous : l'accent existe en deux rôles, et le focus clavier a ses propres tokens.
 
 #### Structure et marque
 
@@ -41,7 +46,8 @@ Les variantes hover/pressed sont dérivées de façon cohérente : ~ +8 % de lum
 | `HeaderMutedBrush` | `#9FC3DC` | Texte secondaire sur fonds structure |
 | `PrimaryBrush` / Hover / Pressed | `#073B78` / `#0A4C97` / `#052B57` | Navy primaire : texte des boutons secondaires, état actif de navigation |
 | `SecondaryBrush` / Hover / Pressed | `#145CAB` / `#1A6BC4` / `#0F4A8C` | Bleu secondaire : boutons fantômes |
-| `AccentBrush` / Hover / Pressed | `#0AA3AD` / `#0DB6C1` / `#088790` | Teal accent : **actions principales**, focus clavier, indicateurs actifs |
+| `AccentBrush` / Hover / Pressed | `#0AA3AD` / `#0DB6C1` / `#088790` | Teal de **marque**. Uniquement ce qui ne porte pas de texte : pastilles, traits, bordures de survol, filets de sélection. Il ne pèse que 3,06:1 sur blanc — assez pour un trait, pas pour du texte |
+| `AccentActionBrush` / Hover / Pressed | `#07767D` / `#08838B` / `#066A70` | Teal d'**action** : toute surface pleine portant du texte ou un glyphe — bouton principal, filtre actif, case cochée, barre de progression. Même teinte (H 184), assombrie pour atteindre 5,39 / 4,54 / 6,36:1 sur texte blanc |
 | `AccentSoftBrush` | `#E1F4F5` | Fond doux teinté accent (pastille d'icône d'une carte module disponible) |
 | `AccentSelectionBrush` | `#2E0AA3AD` | Sélection translucide (18 % accent) : lignes de grille, sélection de texte |
 
@@ -61,17 +67,63 @@ Les variantes hover/pressed sont dérivées de façon cohérente : ~ +8 % de lum
 | `SurfaceBrush` | `#FFFFFF` | Cartes, champs, grilles |
 | `SurfaceSubtleBrush` | `#EEF4F8` | Cartes secondaires, survols discrets |
 | `SurfaceHoverBrush` | `#E4EDF4` | État pressé des surfaces |
-| `PanelBorderBrush` | `#DCE6EF` | Bordure standard des cartes et champs |
-| `BorderStrongBrush` | `#B9CCDD` | Bordure renforcée (survol des champs) |
+| `PanelBorderBrush` | `#DCE6EF` | Bordure d'une **carte** : filet décoratif, aucun seuil — la carte est déjà identifiée par sa surface |
+| `FieldBorderBrush` | `#7A8FA3` | Bordure d'un **champ de saisie** : 3:1 (WCAG 1.4.11). Un champ blanc sur carte blanche n'est identifiable que par sa bordure. Teinte du thème, saturation abaissée à 18 % pour rester gris à l'œil |
+| `BorderStrongBrush` | `#B9CCDD` | Bordure renforcée (survol des champs) — état de survol, l'identification est déjà portée par `FieldBorderBrush` au repos |
 | `TextPrimaryBrush` | `#0F2337` | Texte principal |
 | `TextSecondaryBrush` | `#4A6A87` | Texte secondaire (alias `MutedBrush`) |
-| `TextMutedBrush` | `#64778B` | Texte atténué (légendes) |
+| `TextMutedBrush` | `#5B6C7E` | Texte atténué (légendes). Choisi pour tenir 4,5:1 sur **tous** les fonds clairs du thème, fond de ligne alternée compris — pas seulement sur blanc |
 | `TextLabelBrush` | `#475569` | Libellés de champs |
-| `TextPlaceholderBrush` | `#9AAABB` | Textes indicatifs des champs |
-| `DisabledBackgroundBrush` / `DisabledForegroundBrush` / `DisabledBorderBrush` | `#E5EBF1` / `#9AAABB` / `#DDE5EC` | États désactivés |
+| `TextPlaceholderBrush` | `#5C7188` | Textes indicatifs des champs. Un texte indicatif est une consigne de saisie : il se lit, donc il respecte 4,5:1 comme n'importe quel texte |
+| `DisabledBackgroundBrush` / `DisabledForegroundBrush` / `DisabledBorderBrush` | `#E5EBF1` / `#576C82` / `#DDE5EC` | États désactivés. WCAG exempte les contrôles désactivés ; la règle 3.2 ne le permet pas : c'est par la désactivation qu'un profil en lecture seule apprend ce qu'il ne peut pas faire. Le libellé reste donc lisible (4,52:1) |
+| `FocusRingBrush` | `#073B78` | Anneau de focus clavier sur surface claire (9,3 à 11,0:1) |
+| `FocusRingOnFilledBrush` | `#FFFFFF` | Anneau de focus sur une surface d'action pleine : 5,4:1 sur l'accent d'action, 11,0 sur le primaire, 5,4 sur le danger |
+| `FocusRingOnDarkBrush` | `#FFFFFF` | Anneau de focus sur le fond structure (en-tête) : 18,4:1. Distinct du précédent **parce que les deux divergent en thème sombre** — la surface d'action y devient claire (anneau sombre) quand l'en-tête reste sombre (anneau clair). Un token unique tombait alors à 1,17:1 |
 | `ModuleInactiveBackgroundBrush` / `ModuleActiveBackgroundBrush` | `#EEF4F8` / `#1A0AA3AD` | Navigation latérale |
 | `RowHoverBrush` / `RowAltBrush` / `GridHeaderForegroundBrush` | `#F0F6FA` / `#FAFCFE` / `#5B7591` | Grilles |
-| `ScrollThumbBrush` / `ScrollThumbHoverBrush` | `#C3D2DF` / `#9FB4C6` | Barres de défilement |
+| `ScrollThumbBrush` / `ScrollThumbHoverBrush` | `#6C90B0` / `#567DA0` | Barres de défilement. Un ascenseur est un composant d'interface : 3:1 s'y applique, et il était à 1,44 |
+
+#### Les deux apparences
+
+Le produit a **deux palettes** : claire et sombre. Le choix est **par poste**, pas par compte —
+il dépend de l'écran et de l'éclairage du lieu, pas de qui se connecte, et une réception de nuit
+garde son écran sombre quand l'équipe change. Bascule rapide dans l'en-tête, trois états
+(Système / Clair / Sombre) dans « Paramétrage global → Poste de travail ».
+
+**Comment cela tient techniquement** : `ThemeManager` **remplace les entrées** du dictionnaire
+de ressources par des brushes neufs. Muter la propriété `Color` des brushes en place aurait été
+plus élégant — un `{StaticResource}` capture la référence de l'objet, donc muter l'objet aurait
+repeint tout à chaud — mais WPF **scelle** les `Freezable` d'un `ResourceDictionary` rattaché à
+l'`Application`, y compris les copies qu'on tenterait d'y réinjecter. La tentative échoue à
+l'exécution : *« impossible de définir une propriété pour l'objet '#FF073B78', car il est en
+lecture seule »*.
+
+**Conséquence à connaître** : une référence `{StaticResource}` déjà résolue garde l'ancien objet.
+Sans effet au démarrage, où rien n'est encore résolu — c'est pourquoi `App.OnStartup` applique le
+thème **avant** `base.OnStartup`, et pourquoi ce n'est pas négociable. En cours de session, en
+revanche, seuls les écrans pas encore ouverts prennent la nouvelle apparence ; les autres
+attendent le redémarrage, et le bandeau de session le dit au lieu de laisser croire à un bug.
+
+Repeindre réellement à chaud demanderait de convertir les références de couleur en
+`{DynamicResource}` — environ 3 000 lignes de XAML. C'est mécanique et faisable, mais c'est un
+chantier à part. Les deux clés de densité, elles, **sont** en `{DynamicResource}` : c'est pour
+cela que changer la densité repeint les grilles déjà affichées, contrairement au thème.
+
+**Conséquence pour un nouveau token de couleur** : tout `SolidColorBrush` ajouté au thème doit
+recevoir une valeur dans `ThemePalette.Sombre`, sinon il garde sa valeur claire — une carte
+blanche au milieu d'un écran de nuit. `ThemeManager.VerifierCouverture` lève une assertion en
+Debug si la table et le thème divergent, dans un sens comme dans l'autre. Les deux palettes
+couvrent aujourd'hui **69 brushes sur 69**.
+
+**Ce que le mode sombre n'est pas** : une inversion. Chaque valeur est posée pour son rôle —
+les surfaces s'éclaircissent avec l'élévation au lieu de s'assombrir, les accents s'éclaircissent
+et le texte qu'ils portent devient sombre (d'où `AccentActionForegroundBrush`), les badges gardent
+leur teinte sémantique mais renversent le couple fond/texte, et le texte principal est un blanc
+bleuté plutôt que du blanc pur, qui éblouit sur fond sombre.
+
+Deux ressources ne suivent pas et c'est voulu : `StructureShadowColor` est une `Color` (une
+valeur, pas un objet — elle ne se mute pas), et `LoginBackdropBrush` habille un écran de connexion
+déjà sombre dans les deux thèmes, qui est la scène de marque.
 
 #### Badges de statut (teintes sémantiques)
 
@@ -362,6 +414,68 @@ Le retour d'information courant (succès, erreur de saisie, erreur API) passe pa
 `context.SetStatus(message, isError)` vers le bandeau « Session » de la sidebar — rouge
 `DangerBrush` en erreur (`MainWindow.xaml.cs:1281-1293`). Les `MessageBox` sont réservées aux
 **confirmations** (§ 3.3), jamais à l'information.
+
+### 3.12 bis Le message d'état s'annonce
+
+`SetStatus` fait **clignoter brièvement le fond** du bandeau de session à chaque nouveau
+message (`MainWindow.xaml.cs`, `FlashSessionStrip`) : teinte accent pour une information,
+teinte danger pour une erreur, qui tient plus longtemps (1,6 s contre 0,9 s) et part d'un fond
+plus dense. Une pastille de couleur double le signal, reprise de la carte de connexion.
+
+La raison : le bandeau est en pied de fenêtre, toujours visible mais loin du geste. Après un
+clic sur un bouton placé en haut d'un écran défilant, un texte qui change sans bouger passe
+inaperçu — et l'utilisateur reclique, ou croit l'action perdue. Le mouvement attire l'œil sans
+rien déplacer, sans fenêtre à fermer et sans bulle qui recouvre l'écran.
+
+### 3.14 Densité des tableaux
+
+Deux densités, réglées par poste dans « Paramétrage global → Poste de travail » :
+**Confortable** (lignes de 40 px, l'historique) et **Compact** (32 px, environ un quart de
+lignes en plus à hauteur d'écran égale).
+
+Compact **ne réduit pas la taille du texte** — il retire de l'air. Sur ces écrans, le facteur
+limitant est le nombre de lignes visibles sans défiler, pas la finesse des caractères ;
+rabougrir la police ferait perdre en lisibilité ce qu'on gagnerait en lignes.
+
+Techniquement, deux ressources `Double` (`GridRowHeight`, `GridHeaderHeight`) lues en
+**`{DynamicResource}`** par les styles de `DataGrid` — la seule exception au `{StaticResource}`
+du reste du thème, et elle est nécessaire : un `Double` n'est pas un objet mutable, changer la
+densité remplace l'entrée du dictionnaire, et seul `DynamicResource` voit un remplacement.
+Un écran n'a rien à déclarer : la densité s'applique aux 759 grilles du produit.
+
+### 3.13 Nommer les contrôles pour que le clavier les trouve
+
+Neuf raccourcis sont déclarés une seule fois, sur la fenêtre (`MainWindow.xaml`,
+`Window.InputBindings`) — F1 les liste à l'utilisateur (`Views/ShortcutsWindow.xaml`). Quatre
+d'entre eux agissent sur **l'écran affiché** sans qu'aucune vue ait à les déclarer :
+`ShortcutRouter` cherche le contrôle dans le module ouvert et le déclenche comme un clic.
+
+Il le trouve par son **nom**. C'est donc le nom du contrôle qui décide si un écran répond au
+clavier, et la convention n'est pas cosmétique :
+
+| Raccourci | Cherche | Convention |
+|---|---|---|
+| `F5` | Bouton d'actualisation | `x:Name` commence par `Refresh` |
+| `Ctrl+S` | Bouton d'enregistrement | `x:Name` commence par `Save` |
+| `Ctrl+N` | Bouton de création | `x:Name` commence par `New` |
+| `Ctrl+F` | Champ de recherche | `x:Name` contient `Search` ou `Filter` |
+
+Ces noms sont ceux déjà en place : `Refresh…Button` dans 23 des 24 vues, `Save…Button` dans 15,
+`New…Button` dans 11, `…Search…TextBox` dans 10. Une vue nouvelle qui les suit hérite des quatre
+raccourcis sans écrire une ligne ; une vue qui nomme son bouton `ReloadButton` ne répondra pas à
+F5, et rien ne le signalera à la compilation.
+
+Trois garanties tiennent par construction, à ne pas défaire :
+
+- **Le raccourci n'ouvre jamais ce que le clic n'ouvre pas.** Le routeur n'actionne qu'un
+  contrôle `IsVisible` **et** `IsEnabled` : un bouton grisé par une permission manquante
+  (§ 3.2) le reste au clavier, et l'onglet non affiché d'une vue à sous-onglets est hors
+  d'atteinte.
+- **Le raccourci agit là où l'on saisit.** La recherche part du contrôle qui a le focus clavier
+  et remonte ses ancêtres : dans une vue à plusieurs formulaires, `Ctrl+S` enregistre celui de la
+  section courante, pas le premier de l'écran.
+- **Un raccourci sans cible le dit.** Pas de cible ⇒ message d'état (§ 3.12), jamais une action
+  approchante.
 
 ---
 

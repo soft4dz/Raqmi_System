@@ -1,5 +1,7 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace RaqmiSystem.Desktop;
 
@@ -21,6 +23,36 @@ public sealed class ModuleTile : INotifyPropertyChanged
         Entry = entry;
         StatusLabel = ModuleCatalog.StatusLabel(entry.Status);
         GroupIconKey = ModuleCatalog.GroupIconKey(entry.Group);
+        SearchText = NormalizeForSearch($"{entry.Name} {entry.Description} {entry.Group} {entry.Order}");
+    }
+
+    /// <summary>
+    /// Nom, description, famille et numero d'ordre, normalises une fois pour toutes.
+    /// Porte par la tuile plutot que par chacune des deux surfaces qui cherchent
+    /// (accueil et barre laterale) : une seule facon de trouver un module, donc jamais
+    /// un resultat d'un cote et pas de l'autre.
+    /// </summary>
+    public string SearchText { get; }
+
+    /// <summary>
+    /// Minuscules sans accent : « Hebergement » doit trouver « Hébergement », et « TVA »
+    /// comme « tva ». La decomposition Unicode separe la lettre de son accent, qu'il
+    /// suffit alors d'ecarter. A appliquer aussi a la saisie avant toute comparaison.
+    /// </summary>
+    public static string NormalizeForSearch(string value)
+    {
+        var decomposed = value.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(decomposed.Length);
+
+        foreach (var character in decomposed)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(char.ToLowerInvariant(character));
+            }
+        }
+
+        return builder.ToString();
     }
 
     public ModuleCatalogEntry Entry { get; }

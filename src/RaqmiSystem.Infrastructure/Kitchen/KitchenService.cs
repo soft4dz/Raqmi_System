@@ -505,15 +505,21 @@ public sealed class KitchenService(
         // both providers (same reason and same shape as ReportingService.LoadRecentExecutionsAsync).
         // Timestamps are always written as UTC, so the text form SQLite compares carries one
         // single offset and orders exactly like the PostgreSQL timestamptz comparison.
+        // The bounds are converted to UTC before they reach the query. Npgsql refuses to
+        // send a DateTimeOffset whose offset is not zero to a 'timestamp with time zone'
+        // column, and throws at execution time - the screen sends the operator's local time,
+        // so on an Algiers workstation every filtered read failed with
+        // "Cannot write DateTimeOffset with Offset=01:00:00". ToUniversalTime keeps the same
+        // instant, only expressed at offset 0, so the filtered period is unchanged.
         if (from.HasValue)
         {
-            var fromValue = from.Value;
+            var fromValue = from.Value.ToUniversalTime();
             query = query.Where(reading => reading.MeasuredAt.CompareTo(fromValue) >= 0);
         }
 
         if (to.HasValue)
         {
-            var toValue = to.Value;
+            var toValue = to.Value.ToUniversalTime();
             query = query.Where(reading => reading.MeasuredAt.CompareTo(toValue) <= 0);
         }
 

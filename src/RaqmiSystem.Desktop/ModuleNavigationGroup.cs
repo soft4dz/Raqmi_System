@@ -160,7 +160,7 @@ public sealed class ModuleNavigationGroup : INotifyPropertyChanged
     /// </summary>
     public int ApplySearch(string? query)
     {
-        var normalized = string.IsNullOrWhiteSpace(query) ? null : Normalize(query);
+        var normalized = string.IsNullOrWhiteSpace(query) ? null : ModuleTile.NormalizeForSearch(query);
 
         // Reconstruction plutot que filtrage en place : une section compte au plus une
         // demi-douzaine de boutons, et la collection reste ainsi la seule verite de ce
@@ -199,27 +199,7 @@ public sealed class ModuleNavigationGroup : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    private static NavigableModule Describe(ModuleTile tile) =>
-        new(tile, Normalize($"{tile.Name} {tile.Description} {tile.Group} {tile.Order}"));
-
-    // Minuscules sans accent : « Hebergement » doit trouver « Hébergement », et
-    // « TVA » comme « tva ». La decomposition Unicode separe la lettre de son
-    // accent, qu'il suffit alors d'ecarter.
-    private static string Normalize(string value)
-    {
-        var decomposed = value.Normalize(NormalizationForm.FormD);
-        var builder = new StringBuilder(decomposed.Length);
-
-        foreach (var character in decomposed)
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
-            {
-                builder.Append(char.ToLowerInvariant(character));
-            }
-        }
-
-        return builder.ToString();
-    }
+    private static NavigableModule Describe(ModuleTile tile) => new(tile, tile.SearchText);
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {

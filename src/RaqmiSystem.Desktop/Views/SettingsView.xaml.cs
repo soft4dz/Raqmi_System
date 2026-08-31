@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -66,6 +66,86 @@ public partial class SettingsView : UserControl
         ClearForm();
         ClearDiagnostics();
         ApplyPermissions();
+    }
+
+    // ============================== Apparence ==============================
+
+    // Coche la puce du mode enregistre. Le drapeau evite que le Checked declenche par ce
+    // marquage ne soit pris pour un choix de l'utilisateur - il reappliquerait le meme
+    // theme et reecrirait le fichier de reglages pour rien, a chaque ouverture de l'ecran.
+    private bool syncingApparence;
+
+    private void RefreshApparenceSection()
+    {
+        syncingApparence = true;
+
+        try
+        {
+            var mode = DesktopSettings.LoadApparence();
+
+            ApparenceSystemeRadio.IsChecked = mode == ApparenceMode.Systeme;
+            ApparenceClairRadio.IsChecked = mode == ApparenceMode.Clair;
+            ApparenceSombreRadio.IsChecked = mode == ApparenceMode.Sombre;
+
+            var densite = DesktopSettings.LoadDensite();
+            DensiteConfortableRadio.IsChecked = densite == ApparenceDensite.Confortable;
+            DensiteCompactRadio.IsChecked = densite == ApparenceDensite.Compact;
+        }
+        finally
+        {
+            syncingApparence = false;
+        }
+    }
+
+    private void DensiteRadio_Checked(object sender, RoutedEventArgs e)
+    {
+        if (syncingApparence || (sender as RadioButton)?.Tag is not string tag)
+        {
+            return;
+        }
+
+        if (!Enum.TryParse<ApparenceDensite>(tag, out var densite))
+        {
+            return;
+        }
+
+        ThemeManager.AppliquerDensite(System.Windows.Application.Current.Resources, densite);
+        DesktopSettings.SaveDensite(densite);
+
+        context?.SetStatus(densite == ApparenceDensite.Compact
+            ? "Tableaux en affichage compact sur ce poste."
+            : "Tableaux en affichage confortable sur ce poste.");
+    }
+
+    private void ApparenceRadio_Checked(object sender, RoutedEventArgs e)
+    {
+        if (syncingApparence || (sender as RadioButton)?.Tag is not string tag)
+        {
+            return;
+        }
+
+        if (!Enum.TryParse<ApparenceMode>(tag, out var mode))
+        {
+            return;
+        }
+
+        ThemeManager.Appliquer(System.Windows.Application.Current.Resources, mode);
+        DesktopSettings.SaveApparence(mode);
+
+        // L'icone de bascule de l'en-tete appartient a la fenetre, pas a cet ecran :
+        // elle doit suivre, sinon elle proposerait de passer a un theme deja affiche.
+        (Window.GetWindow(this) as MainWindow)?.RefreshApparenceToggle();
+
+        var applique = mode switch
+        {
+            ApparenceMode.Clair => "Apparence claire activée sur ce poste.",
+            ApparenceMode.Sombre => "Apparence sombre activée sur ce poste.",
+            _ => "L'apparence suit désormais le réglage de Windows.",
+        };
+
+        context?.SetStatus(ThemeManager.RedemarrageConseille
+            ? applique + " Les écrans déjà ouverts la prendront au prochain démarrage."
+            : applique);
     }
 
     /// <summary>Memorise le contexte fourni par la fenetre. Aucun appel reseau ici.</summary>
@@ -333,6 +413,7 @@ public partial class SettingsView : UserControl
     private void RefreshWorkstationSection()
     {
         ApiBaseUrlTextBox.Text = DesktopSettings.Load();
+        RefreshApparenceSection();
 
         var hasCredentials = DesktopSettings.TryLoadCredentials(out var rememberedUser, out _);
 

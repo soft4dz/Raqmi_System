@@ -11,6 +11,43 @@
         FontFamily="{StaticResource AppFontFamily}"
         Background="{StaticResource AppBackgroundBrush}">
 
+    <!-- ============================ Raccourcis clavier ============================
+         Ce produit se tient a la journee sur des ecrans de saisie : une reception, une
+         comptabilite, un economat. Les touches ci-dessous evitent d'aller chercher a la
+         souris des boutons qu'on actionne des dizaines de fois par jour. F1 les liste.
+
+         Les commandes sont declarees ici, au niveau de la fenetre, et non dans chaque
+         vue : les quatre raccourcis d'ecran sont resolus a l'execution par
+         ShortcutRouter, qui trouve dans le module affiche le bouton correspondant.
+         Aucune des 24 vues n'a eu a etre modifiee, et une vue future en herite sans
+         rien declarer, du moment qu'elle suit la convention de nommage de la charte.
+
+         Ctrl+Tab n'est volontairement pas pris : il appartient aux sous-onglets des
+         vues qui en ont. Le changement de module passe par Ctrl+Page haut/bas.       -->
+    <Window.InputBindings>
+        <KeyBinding Key="K" Modifiers="Control" Command="NavigationCommands.Search" />
+        <KeyBinding Key="Home" Modifiers="Alt" Command="NavigationCommands.BrowseHome" />
+        <KeyBinding Key="PageDown" Modifiers="Control" Command="NavigationCommands.NextPage" />
+        <KeyBinding Key="PageUp" Modifiers="Control" Command="NavigationCommands.PreviousPage" />
+        <KeyBinding Key="F5" Command="NavigationCommands.Refresh" />
+        <KeyBinding Key="F" Modifiers="Control" Command="ApplicationCommands.Find" />
+        <KeyBinding Key="N" Modifiers="Control" Command="ApplicationCommands.New" />
+        <KeyBinding Key="S" Modifiers="Control" Command="ApplicationCommands.Save" />
+        <KeyBinding Key="F1" Command="ApplicationCommands.Help" />
+    </Window.InputBindings>
+
+    <Window.CommandBindings>
+        <CommandBinding Command="NavigationCommands.Search" Executed="GoToModuleShortcut_Executed" />
+        <CommandBinding Command="NavigationCommands.BrowseHome" Executed="GoHomeShortcut_Executed" />
+        <CommandBinding Command="NavigationCommands.NextPage" Executed="NextModuleShortcut_Executed" />
+        <CommandBinding Command="NavigationCommands.PreviousPage" Executed="PreviousModuleShortcut_Executed" />
+        <CommandBinding Command="NavigationCommands.Refresh" Executed="RefreshShortcut_Executed" />
+        <CommandBinding Command="ApplicationCommands.Find" Executed="FindShortcut_Executed" />
+        <CommandBinding Command="ApplicationCommands.New" Executed="NewShortcut_Executed" />
+        <CommandBinding Command="ApplicationCommands.Save" Executed="SaveShortcut_Executed" />
+        <CommandBinding Command="ApplicationCommands.Help" Executed="ShortcutHelpShortcut_Executed" />
+    </Window.CommandBindings>
+
     <Window.Resources>
         <!-- Convertisseur partage (declare dans ClosingView.xaml.cs) : tout horodatage
              UTC renvoye par l'API est affiche en heure du poste (charte, regle 3.8). -->
@@ -102,6 +139,43 @@
                                FontSize="13"
                                VerticalAlignment="Center"
                                Margin="0,0,18,0" />
+                    <!-- Bascule jour/nuit. Dans l'en-tete et non dans le parametrage :
+                         c'est un geste d'ambiance, lie a l'heure et a l'eclairage du
+                         lieu, pas un reglage qu'on va chercher une fois pour toutes.
+                         L'icone montre la DESTINATION, pas l'etat courant : une lune
+                         veut dire « passer en sombre ». -->
+                    <Button x:Name="ThemeToggleButton"
+                            Style="{StaticResource HeaderIconButton}"
+                            Margin="0,0,10,0"
+                            Click="ThemeToggleButton_Click">
+                        <Grid>
+                            <!-- Lune : deux cercles, celui du dessus evide le premier. -->
+                            <Path x:Name="ThemeToggleMoonIcon"
+                                  Width="16"
+                                  Height="16"
+                                  Stretch="None"
+                                  Data="M13.2,9.9 A6,6 0 1 1 7.1,2.8 A4.8,4.8 0 0 0 13.2,9.9 Z"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.5"
+                                  StrokeLineJoin="Round"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center" />
+                            <!-- Soleil : un disque et huit rayons. -->
+                            <Path x:Name="ThemeToggleSunIcon"
+                                  Width="16"
+                                  Height="16"
+                                  Stretch="None"
+                                  Visibility="Collapsed"
+                                  Data="M8,5.2 A2.8,2.8 0 1 0 8.01,5.2 M8,1.3 V2.7 M8,13.3 V14.7 M1.3,8 H2.7 M13.3,8 H14.7 M3.3,3.3 L4.3,4.3 M11.7,11.7 L12.7,12.7 M12.7,3.3 L11.7,4.3 M4.3,11.7 L3.3,12.7"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.5"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center" />
+                        </Grid>
+                    </Button>
+
                     <Button x:Name="ChangePasswordButton"
                             Content="Changer mon mot de passe"
                             Style="{StaticResource HeaderGhostButton}"
@@ -576,8 +650,43 @@
                                         </StackPanel>
                                     </Border>
 
+                                    <!-- Recherche du catalogue. Meme moteur que la barre
+                                         laterale (ModuleTile.SearchText, sans accent ni
+                                         casse) : ce qu'une surface trouve, l'autre le
+                                         trouve. Elle se croise avec les puces de statut
+                                         et de priorite plutot que de les remplacer.
+                                         Ctrl+K y amene le focus depuis l'accueil, ou la
+                                         barre laterale est repliee par design. -->
+                                    <Grid Margin="0,20,0,0" MaxWidth="420" HorizontalAlignment="Left">
+                                        <TextBox x:Name="HomeSearchTextBox"
+                                                 Tag="Rechercher un module…  (Ctrl+K)"
+                                                 MinHeight="36"
+                                                 Padding="34,0,34,0"
+                                                 Width="420"
+                                                 ToolTip="Filtrer les 49 modules sur leur nom, leur description ou leur famille"
+                                                 TextChanged="HomeSearchTextBox_TextChanged"
+                                                 PreviewKeyDown="HomeSearchTextBox_PreviewKeyDown" />
+                                        <Path Width="16"
+                                              Height="16"
+                                              Stretch="None"
+                                              Data="M6.5,2.6 A3.9,3.9 0 1 0 6.51,2.6 M9.3,9.3 L13.4,13.4"
+                                              Stroke="{StaticResource TextPlaceholderBrush}"
+                                              StrokeThickness="1.5"
+                                              StrokeStartLineCap="Round"
+                                              StrokeEndLineCap="Round"
+                                              HorizontalAlignment="Left"
+                                              VerticalAlignment="Center"
+                                              Margin="11,0,0,0"
+                                              IsHitTestVisible="False" />
+                                        <Button x:Name="ClearHomeSearchButton"
+                                                Style="{StaticResource SearchClearButton}"
+                                                Visibility="Collapsed"
+                                                ToolTip="Effacer la recherche (Échap)"
+                                                Click="ClearHomeSearchButton_Click" />
+                                    </Grid>
+
                                     <!-- Filtres : statut, puis priorite -->
-                                    <WrapPanel Margin="0,20,0,0">
+                                    <WrapPanel Margin="0,12,0,0">
                                         <RadioButton x:Name="ModuleFilterAllChip"
                                                      Style="{StaticResource FilterChip}"
                                                      GroupName="ModuleStatusFilter"
@@ -1659,15 +1768,31 @@
                                  Visibility="Collapsed"
                                  Margin="0,0,0,10" />
 
-                    <Border Grid.Row="1"
+                    <!-- Le bandeau est toujours a l'ecran, mais l'oeil est ailleurs :
+                         quand on vient de cliquer un bouton en haut d'un ecran long, un
+                         texte qui change discretement 700 px plus bas ne se voit pas. Le
+                         fond fait donc un bref surlignage a chaque nouveau message (voir
+                         SetStatus) : le mouvement attire le regard sans deplacer quoi que
+                         ce soit, sans fenetre a fermer, et sans bulle qui recouvre l'ecran.
+                         La pastille reprend celle de la carte de connexion - meme grammaire
+                         des deux cotes de l'ouverture de session. -->
+                    <Border x:Name="SessionStatusBorder"
+                            Grid.Row="1"
                             BorderBrush="{StaticResource PanelBorderBrush}"
                             BorderThickness="0,1,0,0"
-                            Padding="2,10,2,0">
+                            CornerRadius="0,0,6,6"
+                            Padding="8,10,8,8">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Session"
                                        Style="{StaticResource MetricLabelText}"
                                        Margin="0,0,12,0"
                                        VerticalAlignment="Center" />
+                            <Ellipse x:Name="SessionStatusDot"
+                                     Width="7"
+                                     Height="7"
+                                     Fill="{StaticResource AccentBrush}"
+                                     VerticalAlignment="Center"
+                                     Margin="0,0,8,0" />
                             <TextBlock x:Name="StatusTextBlock"
                                        Text="Prêt."
                                        Foreground="{StaticResource TextSecondaryBrush}"

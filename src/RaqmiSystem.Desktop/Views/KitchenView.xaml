@@ -1,4 +1,4 @@
-<UserControl x:Class="RaqmiSystem.Desktop.Views.KitchenView"
+﻿<UserControl x:Class="RaqmiSystem.Desktop.Views.KitchenView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -589,7 +589,7 @@
                                                            Text="—"
                                                            Style="{StaticResource MetricValueText}"
                                                            FontSize="22"
-                                                           Foreground="{StaticResource AccentBrush}" />
+                                                           Foreground="{StaticResource AccentActionBrush}" />
                                             </StackPanel>
                                             <StackPanel Margin="0,0,30,0">
                                                 <TextBlock Text="Coût matière total" Style="{StaticResource MetricLabelText}" />

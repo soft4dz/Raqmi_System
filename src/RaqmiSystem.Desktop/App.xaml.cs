@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Threading;
 
 namespace RaqmiSystem.Desktop;
@@ -17,6 +17,15 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         DispatcherUnhandledException += OnDispatcherUnhandledException;
+
+        // Avant la premiere fenetre, et c'est une condition et non un confort : le theme
+        // remplace les entrees du dictionnaire de ressources, or une reference
+        // {StaticResource} deja resolue garde l'objet qu'elle a capture. Pose ici, aucune
+        // couleur n'a encore ete resolue, donc le theme choisi s'applique entierement.
+        // Voir l'en-tete de ThemeManager pour le detail du mecanisme.
+        ThemeManager.Appliquer(Resources, DesktopSettings.LoadApparence());
+        ThemeManager.AppliquerDensite(Resources, DesktopSettings.LoadDensite());
+
         base.OnStartup(e);
     }
 

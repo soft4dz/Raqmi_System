@@ -96,6 +96,10 @@ public partial class MainWindow : Window
     // Vide a la deconnexion : la session suivante repart de donnees fraiches.
     private readonly HashSet<int> loadedModuleTabs = [];
 
+    // Recherche du catalogue d'accueil, deja normalisee (sans accent ni casse) pour ne
+    // pas la recalculer a chaque tuile testee. Null = pas de recherche en cours.
+    private string? moduleSearchFilter;
+
     public MainWindow()
     {
         // Construits AVANT InitializeComponent : le TabControl choisit son premier
@@ -114,6 +118,10 @@ public partial class MainWindow : Window
         // poste : sans cela WPF formate en en-US pendant que le code-behind formate
         // en culture courante, et deux formats coexistent sur le meme ecran.
         Language = XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag);
+
+        // L'icone de bascule doit annoncer la bonne destination des la premiere image :
+        // le theme a deja ete applique par App.OnStartup, il ne reste qu'a s'y accorder.
+        SyncThemeToggle();
 
         ApiBaseUrlTextBox.Text = DesktopSettings.Load();
         PrefillRememberedCredentials();
@@ -469,10 +477,17 @@ public partial class MainWindow : Window
             $"{available} modules disponibles sur {total}  ·  {apiReady} avec API livrée, écran à venir  ·  {partial} partiellement couverts  ·  {planned} planifiés";
     }
 
-    // Filtre courant de la vue : statut, puis priorite.
+    // Filtre courant de la vue : recherche, puis statut, puis priorite. Les trois se
+    // croisent - chercher « tva » dans les seuls modules disponibles est une question
+    // legitime, et remplacer un critere par un autre y repondrait mal.
     private bool MatchesModuleFilters(object item)
     {
         if (item is not ModuleTile tile)
+        {
+            return false;
+        }
+
+        if (moduleSearchFilter is { } search && !tile.SearchText.Contains(search, StringComparison.Ordinal))
         {
             return false;
         }
@@ -484,6 +499,39 @@ public partial class MainWindow : Window
 
         return modulePriorityFilter is null
             || string.Equals(tile.Priority, modulePriorityFilter, StringComparison.Ordinal);
+    }
+
+    // ==================== Accueil : recherche dans le catalogue ====================
+
+    private void HomeSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        var query = HomeSearchTextBox.Text;
+
+        moduleSearchFilter = string.IsNullOrWhiteSpace(query)
+            ? null
+            : ModuleTile.NormalizeForSearch(query);
+
+        ClearHomeSearchButton.Visibility = query.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        ApplyModuleCatalogFilters();
+    }
+
+    // Echap efface la saisie sans quitter le champ - meme geste que dans la barre
+    // laterale, pour que le clavier se comporte pareil des deux cotes.
+    private void HomeSearchTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape || HomeSearchTextBox.Text.Length == 0)
+        {
+            return;
+        }
+
+        HomeSearchTextBox.Clear();
+        e.Handled = true;
+    }
+
+    private void ClearHomeSearchButton_Click(object sender, RoutedEventArgs e)
+    {
+        HomeSearchTextBox.Clear();
+        HomeSearchTextBox.Focus();
     }
 
     private void ModuleStatusFilterChip_Checked(object sender, RoutedEventArgs e)
@@ -518,10 +566,21 @@ public partial class MainWindow : Window
         RefreshModuleCatalogEmptyState();
     }
 
+    // Un etat vide utile dit comment en sortir (charte, regle 3.5). Ici la sortie
+    // depend de ce qui a vide la liste : effacer la recherche, ou elargir les puces.
     private void RefreshModuleCatalogEmptyState()
     {
         var isEmpty = moduleCatalogView is null || moduleCatalogView.IsEmpty;
         ModuleCatalogEmptyTextBlock.Visibility = isEmpty ? Visibility.Visible : Visibility.Collapsed;
+
+        if (!isEmpty)
+        {
+            return;
+        }
+
+        ModuleCatalogEmptyTextBlock.Text = moduleSearchFilter is null
+            ? "Aucun module ne correspond à ces filtres. Revenez à « Tous » pour voir les 49 modules."
+            : $"Aucun module ne correspond à « {HomeSearchTextBox.Text.Trim()} ». Échap efface la recherche.";
     }
 
     // Cartes de l'accueil ET boutons de la barre laterale : un seul handler, donc un
@@ -1762,6 +1821,8 @@ public partial class MainWindow : Window
     {
         StatusTextBlock.Text = message;
         StatusTextBlock.Foreground = (Brush)FindResource(isError ? "DangerBrush" : "TextSecondaryBrush");
+        SessionStatusDot.Fill = (Brush)FindResource(isError ? "DangerBrush" : "AccentBrush");
+        FlashSessionStrip(isError);
 
         // Sur la carte de connexion, le message est presente dans un encart stylise
         // dont l'apparence (info/erreur) est pilotee par le Tag (voir MainWindow.xaml).
@@ -1770,5 +1831,43 @@ public partial class MainWindow : Window
         LoginStatusBorder.Visibility = string.IsNullOrWhiteSpace(message)
             ? Visibility.Collapsed
             : Visibility.Visible;
+    }
+
+    // Surlignage bref du bandeau de session a chaque nouveau message.
+    //
+    // Pourquoi : le bandeau est en pied de fenetre, toujours visible mais loin du geste.
+    // Apres un clic sur un bouton place en haut d'un ecran defilant, un texte qui change
+    // sans bouger passe inapercu - et l'utilisateur reclique, ou croit l'action perdue.
+    // Un fond qui s'allume puis s'efface attire l'oeil sans rien deplacer.
+    //
+    // Une erreur tient plus longtemps (1,6 s contre 0,9 s) et part d'un fond plus dense :
+    // elle demande une lecture, la ou un succes ne demande qu'une confirmation du coin de
+    // l'oeil. La couleur est relue dans les ressources a chaque appel, donc elle suit le
+    // theme clair ou sombre sans code particulier.
+    private void FlashSessionStrip(bool isError)
+    {
+        var depart = ((SolidColorBrush)FindResource(isError ? "DangerSoftBrush" : "AccentSoftBrush")).Color;
+
+        // Un brush par animation : partage, il serait fige par la premiere et le
+        // second message ne s'allumerait plus.
+        var fond = new SolidColorBrush(depart);
+        SessionStatusBorder.Background = fond;
+
+        var extinction = new ColorAnimation
+        {
+            From = depart,
+            To = Colors.Transparent,
+            Duration = TimeSpan.FromMilliseconds(isError ? 1600 : 900),
+            BeginTime = TimeSpan.FromMilliseconds(isError ? 500 : 200),
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn },
+            FillBehavior = FillBehavior.Stop
+        };
+
+        // Le fond revient a transparent une fois l'animation retiree : sans cela, le
+        // FillBehavior.Stop rendrait au brush sa couleur de depart, et le bandeau
+        // resterait allume.
+        extinction.Completed += (_, _) => fond.Color = Colors.Transparent;
+
+        fond.BeginAnimation(SolidColorBrush.ColorProperty, extinction);
     }
 }

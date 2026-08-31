@@ -306,7 +306,7 @@
                                                 <Grid Width="70" Height="8" VerticalAlignment="Center">
                                                     <Border Background="{StaticResource AccentSelectionBrush}"
                                                             CornerRadius="4" />
-                                                    <Border Background="{StaticResource AccentBrush}"
+                                                    <Border Background="{StaticResource AccentActionBrush}"
                                                             CornerRadius="4"
                                                             HorizontalAlignment="Left"
                                                             Width="{Binding GroupShareBarWidth}" />

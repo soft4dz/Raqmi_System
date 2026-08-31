@@ -1,0 +1,192 @@
+﻿<Window x:Class="RaqmiSystem.Desktop.Views.ShortcutsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Raccourcis clavier"
+        Width="520"
+        SizeToContent="Height"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="{StaticResource AppFontFamily}"
+        Background="{StaticResource AppBackgroundBrush}">
+
+    <!-- =========================================================================
+         Liste des raccourcis, ouverte par F1.
+
+         Un raccourci que personne ne connait ne sert a personne : cette fenetre est
+         le seul endroit ou ils sont annonces, et F1 est la touche ou on la cherche.
+         Les raccourcis d'ecran sont marques comme tels - ils agissent sur le module
+         affiche, et n'ont donc pas d'effet sur un ecran qui n'a pas le bouton
+         correspondant. La fenetre le dit plutot que de laisser croire a une panne.
+         ========================================================================= -->
+
+    <Window.Resources>
+        <!-- Touche dessinee comme une touche : fond doux, bordure, chasse fixe. -->
+        <Style x:Key="KeyCap" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Padding" Value="9,3" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+
+        <Style x:Key="KeyCapText" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Consolas, Cascadia Mono, Courier New" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        </Style>
+    </Window.Resources>
+
+    <Border Style="{StaticResource CardBorder}" Margin="18" Padding="24,22">
+        <StackPanel>
+            <TextBlock Text="Raccourcis clavier" Style="{StaticResource PageTitleText}" />
+            <TextBlock Text="Ce que le clavier fait à votre place."
+                       Style="{StaticResource SubtitleText}"
+                       Margin="0,4,0,22" />
+
+            <TextBlock Text="Navigation" Style="{StaticResource MetricLabelText}" Margin="0,0,0,8" />
+            <Grid x:Name="NavigationGrid">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="152" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource KeyCap}" Margin="0,0,0,9">
+                    <TextBlock Text="Ctrl + K" Style="{StaticResource KeyCapText}" />
+                </Border>
+                <TextBlock Grid.Row="0" Grid.Column="1"
+                           Text="Aller à un module : le focus va dans la recherche"
+                           Style="{StaticResource BodyText}"
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,9" />
+
+                <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource KeyCap}" Margin="0,0,0,9">
+                    <TextBlock Text="Alt + Origine" Style="{StaticResource KeyCapText}" />
+                </Border>
+                <TextBlock Grid.Row="1" Grid.Column="1"
+                           Text="Revenir à l'accueil"
+                           Style="{StaticResource BodyText}"
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,9" />
+
+                <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource KeyCap}" Margin="0,0,0,9">
+                    <TextBlock Text="Ctrl + Page bas" Style="{StaticResource KeyCapText}" />
+                </Border>
+                <TextBlock Grid.Row="2" Grid.Column="1"
+                           Text="Module suivant (les modules interdits sont sautés)"
+                           Style="{StaticResource BodyText}"
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,9" />
+
+                <Border Grid.Row="3" Grid.Column="0" Style="{StaticResource KeyCap}" Margin="0,0,0,9">
+                    <TextBlock Text="Ctrl + Page haut" Style="{StaticResource KeyCapText}" />
+                </Border>
+                <TextBlock Grid.Row="3" Grid.Column="1"
+                           Text="Module précédent"
+                           Style="{StaticResource BodyText}"
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,9" />
+
+                <Border Grid.Row="4" Grid.Column="0" Style="{StaticResource KeyCap}" Margin="0,0,0,9">
+                    <TextBlock Text="Échap" Style="{StaticResource KeyCapText}" />
+                </Border>
+                <TextBlock Grid.Row="4" Grid.Column="1"
+                           Text="Dans un champ de recherche : effacer la saisie"
+                           Style="{StaticResource BodyText}"
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,9" />
+            </Grid>
+
+            <Border BorderBrush="{StaticResource PanelBorderBrush}"
+                    BorderThickness="0,1,0,0"
+                    Margin="0,14,0,16" />
+
+            <TextBlock Text="Sur l'écran affiché" Style="{StaticResource MetricLabelText}" Margin="0,0,0,8" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="152" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource KeyCap}" Margin="0,0,0,9">
+                    <TextBlock Text="F5" Style="{StaticResource KeyCapText}" />
+                </Border>
+                <TextBlock Grid.Row="0" Grid.Column="1"
+                           Text="Actualiser les données de l'écran"
+                           Style="{StaticResource BodyText}"
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,9" />
+
+                <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource KeyCap}" Margin="0,0,0,9">
+                    <TextBlock Text="Ctrl + F" Style="{StaticResource KeyCapText}" />
+                </Border>
+                <TextBlock Grid.Row="1" Grid.Column="1"
+                           Text="Aller au champ de recherche de l'écran"
+                           Style="{StaticResource BodyText}"
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,9" />
+
+                <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource KeyCap}" Margin="0,0,0,9">
+                    <TextBlock Text="Ctrl + N" Style="{StaticResource KeyCapText}" />
+                </Border>
+                <TextBlock Grid.Row="2" Grid.Column="1"
+                           Text="Créer un nouvel élément"
+                           Style="{StaticResource BodyText}"
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,9" />
+
+                <Border Grid.Row="3" Grid.Column="0" Style="{StaticResource KeyCap}" Margin="0,0,0,9">
+                    <TextBlock Text="Ctrl + S" Style="{StaticResource KeyCapText}" />
+                </Border>
+                <TextBlock Grid.Row="3" Grid.Column="1"
+                           Text="Enregistrer le formulaire où vous saisissez"
+                           Style="{StaticResource BodyText}"
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,9" />
+
+                <Border Grid.Row="4" Grid.Column="0" Style="{StaticResource KeyCap}" Margin="0,0,0,9">
+                    <TextBlock Text="F1" Style="{StaticResource KeyCapText}" />
+                </Border>
+                <TextBlock Grid.Row="4" Grid.Column="1"
+                           Text="Cette fenêtre"
+                           Style="{StaticResource BodyText}"
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,9" />
+            </Grid>
+
+            <Border Style="{StaticResource SubtleCardBorder}" Margin="0,12,0,0">
+                <TextBlock Style="{StaticResource CaptionText}" TextWrapping="Wrap">
+                    Les quatre raccourcis d'écran agissent sur le module affiché : ils cherchent le
+                    bouton correspondant et le déclenchent comme un clic. Un écran qui n'a pas ce
+                    bouton — ou dont votre profil n'a pas le droit — le dit dans le bandeau de
+                    session. Aucun raccourci n'ouvre une action que le clic n'ouvrirait pas.
+                </TextBlock>
+            </Border>
+
+            <Button Content="Fermer"
+                    Style="{StaticResource SecondaryButton}"
+                    IsCancel="True"
+                    IsDefault="True"
+                    HorizontalAlignment="Right"
+                    MinWidth="110"
+                    Margin="0,20,0,0" />
+        </StackPanel>
+    </Border>
+</Window>
