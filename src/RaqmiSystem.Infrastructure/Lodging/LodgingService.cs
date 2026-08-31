@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using RaqmiSystem.Application.Common;
 using RaqmiSystem.Application.Lodging;
 using RaqmiSystem.Application.Security;
@@ -103,6 +103,7 @@ public sealed class LodgingService(
         }
 
         var roomTypes = await query
+            .Include(roomType => roomType.Beds)
             .OrderBy(roomType => roomType.HotelUnitCode)
             .ThenBy(roomType => roomType.Code)
             .ToArrayAsync(cancellationToken);
@@ -124,6 +125,7 @@ public sealed class LodgingService(
     {
         var roomType = await dbContext.Set<RoomType>()
             .AsNoTracking()
+            .Include(current => current.Beds)
             .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
 
         if (roomType is null)
@@ -153,11 +155,25 @@ public sealed class LodgingService(
 
         try
         {
-            roomType = new RoomType(unitFailure.UnitCode, request.Code, request.Label, request.Capacity);
+            // La description etait IGNOREE a la creation : la requete la portait, le
+            // constructeur ne la recevait pas. Meme defaut que l'etage et les notes d'une chambre.
+            roomType = new RoomType(
+                unitFailure.UnitCode,
+                request.Code,
+                request.Label,
+                request.Capacity,
+                request.Description);
         }
         catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
         {
             return ApplicationResult<RoomTypeResponse>.Validation(ex.Message);
+        }
+
+        var bedFailure = ApplyRoomTypeBeds(roomType, request.Beds, request.MaxExtraBeds, request.MaxCots);
+
+        if (bedFailure is not null)
+        {
+            return bedFailure;
         }
 
         var exists = await dbContext.Set<RoomType>()
@@ -205,6 +221,7 @@ public sealed class LodgingService(
         CancellationToken cancellationToken)
     {
         var roomType = await dbContext.Set<RoomType>()
+            .Include(current => current.Beds)
             .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
 
         if (roomType is null)
@@ -214,11 +231,19 @@ public sealed class LodgingService(
 
         try
         {
-            roomType.UpdateDetails(request.Label, request.Capacity);
+            // La description etait ignoree ici aussi : elle n'etait tout simplement pas transmise.
+            roomType.UpdateDetails(request.Label, request.Capacity, request.Description);
         }
         catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
         {
             return ApplicationResult<RoomTypeResponse>.Validation(ex.Message);
+        }
+
+        var bedFailure = ApplyRoomTypeBeds(roomType, request.Beds, request.MaxExtraBeds, request.MaxCots);
+
+        if (bedFailure is not null)
+        {
+            return bedFailure;
         }
 
         roomType.MarkUpdated(context.UserName, DateTimeOffset.UtcNow);
@@ -298,11 +323,17 @@ public sealed class LodgingService(
         }
 
         var rooms = await query
+            .Include(room => room.Beds)
             .OrderBy(room => room.HotelUnitCode)
             .ThenBy(room => room.Number)
             .ToArrayAsync(cancellationToken);
 
-        return rooms.Select(Map).ToArray();
+        // Le couchage rendu est l'EFFECTIF : celui de la chambre quand elle en declare un, celui de
+        // son type sinon. La resolution se fait ici, en une requete pour tout le lot, pour que
+        // l'ecran n'ait jamais a recomposer l'heritage lui-meme.
+        var types = await LoadRoomTypesForAsync(rooms, cancellationToken);
+
+        return rooms.Select(room => Map(room, FindType(types, room))).ToArray();
     }
 
     public async Task<ApplicationResult<RoomResponse>> GetRoomAsync(
@@ -311,6 +342,7 @@ public sealed class LodgingService(
     {
         var room = await dbContext.Set<Room>()
             .AsNoTracking()
+            .Include(current => current.Beds)
             .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
 
         if (room is null)
@@ -318,7 +350,9 @@ public sealed class LodgingService(
             return ApplicationResult<RoomResponse>.NotFound("Room was not found.");
         }
 
-        return ApplicationResult<RoomResponse>.Success(Map(room));
+        var singleType = await LoadRoomTypesForAsync([room], cancellationToken);
+
+        return ApplicationResult<RoomResponse>.Success(Map(room, FindType(singleType, room)));
     }
 
     public async Task<ApplicationResult<RoomResponse>> CreateRoomAsync(
@@ -339,7 +373,15 @@ public sealed class LodgingService(
 
         try
         {
-            room = new Room(unitFailure.UnitCode, request.Number, request.RoomTypeCode);
+            // L'etage et les notes etaient jusqu'ici IGNORES a la creation : la requete les
+            // portait, le constructeur ne les recevait pas, et l'utilisateur devait rouvrir la
+            // chambre pour les ressaisir. Ils sont desormais transmis.
+            room = new Room(
+                unitFailure.UnitCode,
+                request.Number,
+                request.RoomTypeCode,
+                request.Floor,
+                request.Notes);
         }
         catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -354,6 +396,13 @@ public sealed class LodgingService(
         if (roomTypeFailure is not null)
         {
             return roomTypeFailure;
+        }
+
+        var bedFailure = await ApplyRoomBedsAsync(room, request.Beds, request.MaxExtraBeds, request.MaxCots, cancellationToken);
+
+        if (bedFailure is not null)
+        {
+            return bedFailure;
         }
 
         var exists = await dbContext.Set<Room>()
@@ -388,7 +437,7 @@ public sealed class LodgingService(
                 "A room with this number already exists in this hotel unit.");
         }
 
-        return ApplicationResult<RoomResponse>.Success(Map(room));
+        return ApplicationResult<RoomResponse>.Success(Map(room, await FindTypeForAsync(room, cancellationToken)));
     }
 
     public async Task<ApplicationResult<RoomResponse>> UpdateRoomAsync(
@@ -398,6 +447,7 @@ public sealed class LodgingService(
         CancellationToken cancellationToken)
     {
         var room = await dbContext.Set<Room>()
+            .Include(current => current.Beds)
             .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
 
         if (room is null)
@@ -427,6 +477,25 @@ public sealed class LodgingService(
         }
 
         room.AssignRoomType(normalizedRoomTypeCode);
+
+        // Meme defaut qu'a la creation : l'etage et les notes voyageaient dans la requete mais
+        // n'etaient jamais appliques. L'ecran de parametrage semblait donc perdre la saisie.
+        try
+        {
+            room.UpdateDetails(request.Floor, request.Notes);
+        }
+        catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
+        {
+            return ApplicationResult<RoomResponse>.Validation(ex.Message);
+        }
+
+        var bedFailure = await ApplyRoomBedsAsync(room, request.Beds, request.MaxExtraBeds, request.MaxCots, cancellationToken);
+
+        if (bedFailure is not null)
+        {
+            return bedFailure;
+        }
+
         room.MarkUpdated(context.UserName, DateTimeOffset.UtcNow);
 
         await WriteAuditAsync(
@@ -439,7 +508,7 @@ public sealed class LodgingService(
 
         await SaveAsync(cancellationToken);
 
-        return ApplicationResult<RoomResponse>.Success(Map(room));
+        return ApplicationResult<RoomResponse>.Success(Map(room, await FindTypeForAsync(room, cancellationToken)));
     }
 
     public async Task<ApplicationResult<RoomResponse>> SetRoomActiveAsync(
@@ -477,7 +546,7 @@ public sealed class LodgingService(
 
         await SaveAsync(cancellationToken);
 
-        return ApplicationResult<RoomResponse>.Success(Map(room));
+        return ApplicationResult<RoomResponse>.Success(Map(room, await FindTypeForAsync(room, cancellationToken)));
     }
 
     // Reservations ---------------------------------------------------------------------------
@@ -1686,6 +1755,106 @@ public sealed class LodgingService(
         return $"{hotelUnitCode}/{roomTypeCode}";
     }
 
+
+    // ============================ Couchage : application et controle ============================
+
+    /// <summary>
+    /// Applique le couchage standard d'un type et ses couchages d'appoint. Le refus d'une
+    /// composition dont le total ne correspond pas a la capacite vient du domaine : c'est la seule
+    /// garantie que la recherche de disponibilite et le couchage affiche racontent la meme chose.
+    /// </summary>
+    private static ApplicationResult<RoomTypeResponse>? ApplyRoomTypeBeds(
+        RoomType roomType,
+        IReadOnlyCollection<BedCompositionLine>? beds,
+        int maxExtraBeds,
+        int maxCots)
+    {
+        try
+        {
+            roomType.SetExtraSleeping(maxExtraBeds, maxCots);
+
+            if (beds is not null)
+            {
+                roomType.ReplaceBeds(beds.Select(line => new RoomTypeBed(ParseBedType(line.BedType), line.Quantity)));
+            }
+        }
+        catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
+        {
+            return ApplicationResult<RoomTypeResponse>.Validation(ex.Message);
+        }
+
+        return null;
+    }
+
+
+    /// <summary>
+    /// Applique le couchage propre a une chambre et ses couchages d'appoint. Rend un echec
+    /// applicatif plutot qu'une exception : une composition incoherente est une erreur de saisie,
+    /// pas un incident technique.
+    /// </summary>
+    private async Task<ApplicationResult<RoomResponse>?> ApplyRoomBedsAsync(
+        Room room,
+        IReadOnlyCollection<BedCompositionLine>? beds,
+        int? maxExtraBeds,
+        int? maxCots,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            room.SetExtraSleeping(maxExtraBeds, maxCots);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            return ApplicationResult<RoomResponse>.Validation(ex.Message);
+        }
+
+        if (beds is null)
+        {
+            return null;
+        }
+
+        var roomType = await FindTypeForAsync(room, cancellationToken);
+
+        if (roomType is null)
+        {
+            return ApplicationResult<RoomResponse>.Validation(
+                "Le type de chambre est introuvable : impossible de controler le couchage.");
+        }
+
+        try
+        {
+            room.ReplaceBeds(
+                beds.Select(line => new RoomBed(ParseBedType(line.BedType), line.Quantity)),
+                roomType.Capacity);
+        }
+        catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
+        {
+            return ApplicationResult<RoomResponse>.Validation(ex.Message);
+        }
+
+        return null;
+    }
+
+    private async Task<RoomType?> FindTypeForAsync(Room room, CancellationToken cancellationToken)
+    {
+        return await dbContext.Set<RoomType>()
+            .AsNoTracking()
+            .Include(roomType => roomType.Beds)
+            .FirstOrDefaultAsync(
+                roomType => roomType.HotelUnitCode == room.HotelUnitCode && roomType.Code == room.RoomTypeCode,
+                cancellationToken);
+    }
+
+    private static BedType ParseBedType(string value)
+    {
+        if (Enum.TryParse<BedType>(value, ignoreCase: true, out var parsed) && Enum.IsDefined(parsed))
+        {
+            return parsed;
+        }
+
+        throw new ArgumentException($"Nature de couchage inconnue : {value}.", nameof(value));
+    }
+
     private static RoomTypeResponse Map(RoomType roomType, int activeRoomCount)
     {
         return new RoomTypeResponse(
@@ -1697,14 +1866,37 @@ public sealed class LodgingService(
             roomType.Description,
             roomType.IsActive,
             activeRoomCount,
+            roomType.Beds
+                .OrderBy(bed => bed.BedType)
+                .Select(bed => new BedCompositionLine(bed.BedType.ToString(), bed.Quantity))
+                .ToList(),
+            roomType.DeclaredSleeps,
+            roomType.MaxExtraBeds,
+            roomType.MaxCots,
+            roomType.MaxOccupancy,
             roomType.CreatedAt,
             roomType.CreatedBy,
             roomType.UpdatedAt,
             roomType.UpdatedBy);
     }
 
-    private static RoomResponse Map(Room room)
+    /// <summary>
+    /// Projette une chambre avec son couchage EFFECTIF. <paramref name="roomType"/> peut etre nul
+    /// quand le type est introuvable - la chambre reste alors affichable, sans composition heritee,
+    /// plutot que de disparaitre de la liste pour un referentiel incomplet.
+    /// </summary>
+    private static RoomResponse Map(Room room, RoomType? roomType)
     {
+        var beds = room.OverridesBeds
+            ? room.Beds
+                .OrderBy(bed => bed.BedType)
+                .Select(bed => new BedCompositionLine(bed.BedType.ToString(), bed.Quantity))
+                .ToList()
+            : roomType?.Beds
+                .OrderBy(bed => bed.BedType)
+                .Select(bed => new BedCompositionLine(bed.BedType.ToString(), bed.Quantity))
+                .ToList() ?? [];
+
         return new RoomResponse(
             room.Id,
             room.HotelUnitCode,
@@ -1713,10 +1905,39 @@ public sealed class LodgingService(
             room.Floor,
             room.Notes,
             room.IsActive,
+            beds,
+            room.OverridesBeds,
+            room.MaxExtraBeds ?? roomType?.MaxExtraBeds ?? 0,
+            room.MaxCots ?? roomType?.MaxCots ?? 0,
             room.CreatedAt,
             room.CreatedBy,
             room.UpdatedAt,
             room.UpdatedBy);
+    }
+
+    /// <summary>Charge les types couvrant un lot de chambres, couchage compris.</summary>
+    private async Task<IReadOnlyList<RoomType>> LoadRoomTypesForAsync(
+        IReadOnlyCollection<Room> rooms,
+        CancellationToken cancellationToken)
+    {
+        if (rooms.Count == 0)
+        {
+            return [];
+        }
+
+        var unitCodes = rooms.Select(room => room.HotelUnitCode).Distinct().ToList();
+
+        return await dbContext.Set<RoomType>()
+            .AsNoTracking()
+            .Include(roomType => roomType.Beds)
+            .Where(roomType => unitCodes.Contains(roomType.HotelUnitCode))
+            .ToListAsync(cancellationToken);
+    }
+
+    private static RoomType? FindType(IReadOnlyList<RoomType> types, Room room)
+    {
+        return types.FirstOrDefault(type =>
+            type.HotelUnitCode == room.HotelUnitCode && type.Code == room.RoomTypeCode);
     }
 
     private static ReservationResponse Map(Reservation reservation, string? roomNumber)

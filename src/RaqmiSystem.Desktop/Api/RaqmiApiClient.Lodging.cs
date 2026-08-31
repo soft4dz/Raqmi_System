@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Net.Http;
 using RaqmiSystem.Application.Lodging;
 using RaqmiSystem.Application.Tariffs;
@@ -352,5 +352,87 @@ public sealed partial class RaqmiApiClient
         {
             query.Add(name + "=" + Uri.EscapeDataString(value.Trim()));
         }
+    }
+
+    // ==================== Parametrage des chambres (types, chambres, couchage) ====================
+    // Ces appels manquaient : l'API les exposait depuis le debut, le client ne les a jamais
+    // appeles, et l'ecran de parametrage n'existait donc pas. C'est ce trou que ce bloc comble.
+
+    public async Task<RoomTypeResponse> CreateRoomTypeAsync(
+        string apiBaseUrl,
+        CreateRoomTypeRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, "/api/v1/lodging/room-types", request, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<RoomTypeResponse>(response, cancellationToken);
+    }
+
+    public async Task<RoomTypeResponse> UpdateRoomTypeAsync(
+        string apiBaseUrl,
+        Guid id,
+        UpdateRoomTypeRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Put, $"/api/v1/lodging/room-types/{id}", request, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<RoomTypeResponse>(response, cancellationToken);
+    }
+
+    public async Task<RoomTypeResponse> SetRoomTypeActiveAsync(
+        string apiBaseUrl,
+        Guid id,
+        bool isActive,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var verb = isActive ? "activate" : "deactivate";
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, $"/api/v1/lodging/room-types/{id}/{verb}", null, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<RoomTypeResponse>(response, cancellationToken);
+    }
+
+    public async Task<RoomResponse> CreateRoomAsync(
+        string apiBaseUrl,
+        CreateRoomRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, "/api/v1/lodging/rooms", request, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<RoomResponse>(response, cancellationToken);
+    }
+
+    public async Task<RoomResponse> UpdateRoomAsync(
+        string apiBaseUrl,
+        Guid id,
+        UpdateRoomRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Put, $"/api/v1/lodging/rooms/{id}", request, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<RoomResponse>(response, cancellationToken);
+    }
+
+    public async Task<RoomResponse> SetRoomActiveAsync(
+        string apiBaseUrl,
+        Guid id,
+        bool isActive,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var verb = isActive ? "activate" : "deactivate";
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, $"/api/v1/lodging/rooms/{id}/{verb}", null, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<RoomResponse>(response, cancellationToken);
     }
 }

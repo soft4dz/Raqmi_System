@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -310,6 +310,10 @@ public partial class LodgingView : UserControl
             .OrderBy(room => room.HotelUnitCode)
             .ThenBy(room => room.Number)
             .ToArray();
+
+        // Le volet de parametrage vit dans LodgingView.RoomSetup.cs : il se recale sur le
+        // referentiel qui vient d'etre charge.
+        OnRoomsReferentialLoaded(roomTypes);
     }
 
     // =============================== 1. Reception ================================

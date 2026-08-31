@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using RaqmiSystem.Domain.Lodging;
 using RaqmiSystem.Domain.Organization;
@@ -68,5 +68,19 @@ public sealed class RoomConfiguration : IEntityTypeConfiguration<Room>
             .HasPrincipalKey(roomType => new { roomType.HotelUnitCode, roomType.Code })
             .HasForeignKey(room => new { room.HotelUnitCode, room.RoomTypeCode })
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(room => room.MaxExtraBeds).HasColumnName("max_extra_beds");
+        builder.Property(room => room.MaxCots).HasColumnName("max_cots");
+
+        // Derive de la presence de lignes de couchage : aucun indicateur stocke, qui finirait par
+        // contredire la collection.
+        builder.Ignore(room => room.OverridesBeds);
+
+        builder.HasMany(room => room.Beds)
+            .WithOne()
+            .HasForeignKey(bed => bed.RoomId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(room => room.Beds).UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

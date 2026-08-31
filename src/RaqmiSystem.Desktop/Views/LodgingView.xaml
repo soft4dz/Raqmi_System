@@ -1,4 +1,4 @@
-<UserControl x:Class="RaqmiSystem.Desktop.Views.LodgingView"
+﻿<UserControl x:Class="RaqmiSystem.Desktop.Views.LodgingView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              FontFamily="{StaticResource AppFontFamily}">
@@ -271,7 +271,7 @@
                                             <TextBlock x:Name="KpiOccupancyTextBlock"
                                                        Text="—"
                                                        Style="{StaticResource MetricValueText}"
-                                                       Foreground="{StaticResource AccentPressedBrush}" />
+                                                       Foreground="{StaticResource AccentActionBrush}" />
                                         </StackPanel>
                                     </Border>
                                 </Grid>
@@ -1380,9 +1380,11 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="14" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="14" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <!-- Referentiel : types de chambre et chambres (consultation) -->
+                        <!-- Referentiel : types de chambre et chambres -->
                         <Border Style="{StaticResource CardBorder}">
                             <Grid>
                                 <Grid.RowDefinitions>
@@ -1409,7 +1411,7 @@
 
                                     <StackPanel>
                                         <TextBlock Text="Types de chambre &amp; chambres" Style="{StaticResource SectionTitleText}" />
-                                        <TextBlock Text="Référentiel en consultation : la création et la modification passent par l'administration."
+                                        <TextBlock Text="Sélectionnez une ligne pour la modifier, ou renseignez le formulaire ci-dessous pour créer."
                                                    Style="{StaticResource CaptionText}"
                                                    Margin="0,3,0,0" />
                                     </StackPanel>
@@ -1423,7 +1425,7 @@
                                     </Grid.ColumnDefinitions>
 
                                     <Grid MinHeight="150" MaxHeight="240">
-                                        <DataGrid x:Name="RoomTypesDataGrid">
+                                        <DataGrid x:Name="RoomTypesDataGrid" SelectionChanged="RoomTypesDataGrid_SelectionChanged">
                                             <DataGrid.Columns>
                                                 <DataGridTextColumn Header="Unité" Binding="{Binding HotelUnitCode}" Width="85" />
                                                 <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="85" />
@@ -1467,7 +1469,7 @@
                                     </Grid>
 
                                     <Grid Grid.Column="2" MinHeight="150" MaxHeight="240">
-                                        <DataGrid x:Name="RoomsDataGrid">
+                                        <DataGrid x:Name="RoomsDataGrid" SelectionChanged="RoomsDataGrid_SelectionChanged">
                                             <DataGrid.Columns>
                                                 <DataGridTextColumn Header="Unité" Binding="{Binding HotelUnitCode}" Width="85" />
                                                 <DataGridTextColumn Header="Chambre" Binding="{Binding Number}" Width="95" />
@@ -1508,8 +1510,182 @@
                             </Grid>
                         </Border>
 
+                        <!-- ==================== Parametrage : types, chambres, couchage ====================
+                             Cet ecran manquait. L'API existait depuis le debut, le client ne
+                             l'appelait pas, et le referentiel n'etait donc modifiable nulle part.
+
+                             Regle du couchage : le TYPE porte la composition standard ; une chambre
+                             ne la surcharge que lorsqu'elle en differe. Une composition doit coucher
+                             exactement la capacite du type, car la recherche de disponibilite se fie
+                             a cette capacite et un ecart la rendrait fausse. -->
+                        <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- ============================ Type de chambre ============================ -->
+                                <StackPanel>
+                                    <TextBlock Text="Type de chambre" Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock Text="Catégorie vendue : capacité en personnes et couchage standard."
+                                               Style="{StaticResource CaptionText}"
+                                               Margin="0,3,0,10" />
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="100" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="80" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="TypeCodeTextBox" MaxLength="40" ToolTip="Code court, unique dans l'unité (DBL, SUITE...)" />
+                                        <TextBox x:Name="TypeLabelTextBox" Grid.Column="2" MaxLength="160" ToolTip="Libellé commercial du type" />
+                                        <TextBox x:Name="TypeCapacityTextBox" Grid.Column="4" MaxLength="3" ToolTip="Nombre de personnes que le type accueille" />
+                                    </Grid>
+
+                                    <TextBox x:Name="TypeDescriptionTextBox"
+                                             MaxLength="300"
+                                             ToolTip="Description commerciale (facultative)"
+                                             Margin="0,8,0,0" />
+
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="60" />
+                                            <ColumnDefinition Width="16" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="60" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Lits d'appoint" VerticalAlignment="Center" Style="{StaticResource CaptionText}" />
+                                        <TextBox x:Name="TypeExtraBedsTextBox" Grid.Column="2" MaxLength="2" ToolTip="Lits d'appoint installables en plus du couchage fixe" />
+                                        <TextBlock Text="Berceaux" Grid.Column="4" VerticalAlignment="Center" Style="{StaticResource CaptionText}" />
+                                        <TextBox x:Name="TypeCotsTextBox" Grid.Column="6" MaxLength="2" ToolTip="Berceaux installables ; ils ne comptent pas comme couchage adulte" />
+                                    </Grid>
+
+                                    <TextBlock Text="COUCHAGE STANDARD"
+                                               Style="{StaticResource MetricLabelText}"
+                                               Margin="0,12,0,4" />
+
+                                    <DataGrid x:Name="TypeBedsDataGrid"
+                                              AutoGenerateColumns="False"
+                                              CanUserAddRows="False"
+                                              MinHeight="90"
+                                              MaxHeight="140">
+                                        <DataGrid.Columns>
+                                            <DataGridComboBoxColumn x:Name="TypeBedKindColumn"
+                                                                    Header="Nature"
+                                                                    SelectedValueBinding="{Binding BedType}"
+                                                                    Width="*" />
+                                            <DataGridTextColumn Header="Nombre"
+                                                                Binding="{Binding Quantity}"
+                                                                Width="90"
+                                                                ElementStyle="{StaticResource AmountCellText}"
+                                                                HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+
+                                    <TextBlock x:Name="TypeBedsSummaryTextBlock"
+                                               Style="{StaticResource CaptionText}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,6,0,0" />
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                        <Button x:Name="AddTypeBedButton" Content="+ Lit" Style="{StaticResource SecondaryButton}" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" Click="AddTypeBedButton_Click" />
+                                        <Button x:Name="RemoveTypeBedButton" Content="Retirer" Style="{StaticResource SecondaryButton}" ToolTipService.ShowOnDisabled="True" Margin="0,0,14,0" Click="RemoveTypeBedButton_Click" />
+                                        <Button x:Name="CreateRoomTypeButton" Content="Créer" Style="{StaticResource PrimaryButton}" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" Click="CreateRoomTypeButton_Click" />
+                                        <Button x:Name="UpdateRoomTypeButton" Content="Enregistrer" Style="{StaticResource SecondaryButton}" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" Click="UpdateRoomTypeButton_Click" />
+                                        <Button x:Name="ToggleRoomTypeButton" Content="Activer / désactiver" Style="{StaticResource SecondaryButton}" ToolTipService.ShowOnDisabled="True" Click="ToggleRoomTypeButton_Click" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- ============================== Chambre ============================== -->
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Chambre" Style="{StaticResource SectionTitleText}" />
+                                    <TextBlock Text="Unité physique. Son couchage suit le type, sauf exception déclarée ici."
+                                               Style="{StaticResource CaptionText}"
+                                               Margin="0,3,0,10" />
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="100" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="90" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="RoomNumberTextBox" MaxLength="20" ToolTip="Numéro de chambre, unique dans l'unité" />
+                                        <ComboBox x:Name="RoomTypeComboBox" Grid.Column="2" DisplayMemberPath="Label" ToolTip="Type de chambre" />
+                                        <TextBox x:Name="RoomFloorTextBox" Grid.Column="4" MaxLength="20" ToolTip="Étage (RDC, 1, Mezzanine...)" />
+                                    </Grid>
+
+                                    <TextBox x:Name="RoomNotesTextBox"
+                                             MaxLength="300"
+                                             ToolTip="Notes d'exploitation (facultatives)"
+                                             Margin="0,8,0,0" />
+
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="60" />
+                                            <ColumnDefinition Width="16" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="60" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Lits d'appoint" VerticalAlignment="Center" Style="{StaticResource CaptionText}" />
+                                        <TextBox x:Name="RoomExtraBedsTextBox" Grid.Column="2" MaxLength="2" ToolTip="Laisser vide pour suivre le type" />
+                                        <TextBlock Text="Berceaux" Grid.Column="4" VerticalAlignment="Center" Style="{StaticResource CaptionText}" />
+                                        <TextBox x:Name="RoomCotsTextBox" Grid.Column="6" MaxLength="2" ToolTip="Laisser vide pour suivre le type" />
+                                    </Grid>
+
+                                    <TextBlock Text="COUCHAGE PROPRE À CETTE CHAMBRE"
+                                               Style="{StaticResource MetricLabelText}"
+                                               Margin="0,12,0,4" />
+
+                                    <DataGrid x:Name="RoomBedsDataGrid"
+                                              AutoGenerateColumns="False"
+                                              CanUserAddRows="False"
+                                              MinHeight="90"
+                                              MaxHeight="140">
+                                        <DataGrid.Columns>
+                                            <DataGridComboBoxColumn x:Name="RoomBedKindColumn"
+                                                                    Header="Nature"
+                                                                    SelectedValueBinding="{Binding BedType}"
+                                                                    Width="*" />
+                                            <DataGridTextColumn Header="Nombre"
+                                                                Binding="{Binding Quantity}"
+                                                                Width="90"
+                                                                ElementStyle="{StaticResource AmountCellText}"
+                                                                HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+
+                                    <TextBlock x:Name="RoomBedsSummaryTextBlock"
+                                               Style="{StaticResource CaptionText}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,6,0,0" />
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                        <Button x:Name="AddRoomBedButton" Content="+ Lit" Style="{StaticResource SecondaryButton}" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" Click="AddRoomBedButton_Click" />
+                                        <Button x:Name="RemoveRoomBedButton" Content="Retirer" Style="{StaticResource SecondaryButton}" ToolTipService.ShowOnDisabled="True" Margin="0,0,14,0" Click="RemoveRoomBedButton_Click" />
+                                        <Button x:Name="CreateRoomButton" Content="Créer" Style="{StaticResource PrimaryButton}" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" Click="CreateRoomButton_Click" />
+                                        <Button x:Name="UpdateRoomButton" Content="Enregistrer" Style="{StaticResource SecondaryButton}" ToolTipService.ShowOnDisabled="True" Margin="0,0,6,0" Click="UpdateRoomButton_Click" />
+                                        <Button x:Name="ToggleRoomButton" Content="Activer / désactiver" Style="{StaticResource SecondaryButton}" ToolTipService.ShowOnDisabled="True" Click="ToggleRoomButton_Click" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
                         <!-- Taux d'occupation par periode -->
-                        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+                        <Border Grid.Row="4" Style="{StaticResource CardBorder}" Margin="0,0,0,14">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />

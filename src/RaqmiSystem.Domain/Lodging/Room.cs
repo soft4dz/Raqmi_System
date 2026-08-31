@@ -1,4 +1,4 @@
-using RaqmiSystem.Domain.Common;
+﻿using RaqmiSystem.Domain.Common;
 using RaqmiSystem.Domain.Organization;
 
 namespace RaqmiSystem.Domain.Lodging;
@@ -11,6 +11,8 @@ namespace RaqmiSystem.Domain.Lodging;
 /// </summary>
 public sealed class Room : AuditableEntity
 {
+    private readonly List<RoomBed> beds = [];
+
     private Room()
     {
     }
@@ -41,6 +43,83 @@ public sealed class Room : AuditableEntity
     public string? Notes { get; private set; }
 
     public bool IsActive { get; private set; }
+
+    /// <summary>
+    /// Couchage PROPRE a cette chambre. Vide signifie "cette chambre suit son type" - c'est le cas
+    /// courant. Aucun indicateur separe ne double cette information : deux champs pour un meme fait
+    /// finiraient par se contredire.
+    ///
+    /// Une chambre surcharge sa COMPOSITION, jamais sa CAPACITE : la 101 peut etre en lit double la
+    /// ou le type est en deux lits simples, mais elle couche toujours le meme nombre de personnes.
+    /// La recherche de disponibilite se fie a la capacite du TYPE ; une chambre qui coucherait plus
+    /// que son type rendrait cette recherche fausse.
+    /// </summary>
+    public IReadOnlyCollection<RoomBed> Beds => beds.AsReadOnly();
+
+    /// <summary>Lits d'appoint propres a la chambre. Null = valeur du type.</summary>
+    public int? MaxExtraBeds { get; private set; }
+
+    /// <summary>Berceaux propres a la chambre. Null = valeur du type.</summary>
+    public int? MaxCots { get; private set; }
+
+    /// <summary>Vrai quand la chambre declare son propre couchage.</summary>
+    public bool OverridesBeds => beds.Count > 0;
+
+    /// <summary>
+    /// Remplace le couchage propre a la chambre. Une liste vide efface la surcharge et fait
+    /// retomber la chambre sur son type, ce qui est le geste normal pour annuler une exception.
+    /// </summary>
+    public void ReplaceBeds(IEnumerable<RoomBed> newBeds, int roomTypeCapacity)
+    {
+        var materialized = newBeds.ToList();
+
+        if (materialized.Count > 0)
+        {
+            var sleeps = materialized.Sum(bed => bed.Sleeps);
+
+            if (sleeps != roomTypeCapacity)
+            {
+                throw new ArgumentException(
+                    $"Le couchage de cette chambre couche {sleeps} personne(s) alors que son type en accueille "
+                    + $"{roomTypeCapacity}. Une chambre change de composition, pas de capacite : la recherche de "
+                    + "disponibilite raisonne sur le type.",
+                    nameof(newBeds));
+            }
+        }
+
+        beds.Clear();
+        beds.AddRange(materialized);
+    }
+
+    /// <summary>Fixe les couchages d'appoint propres a la chambre. Null pour suivre le type.</summary>
+    public void SetExtraSleeping(int? maxExtraBeds, int? maxCots)
+    {
+        MaxExtraBeds = RequireOptionalExtraCount(maxExtraBeds, nameof(maxExtraBeds));
+        MaxCots = RequireOptionalExtraCount(maxCots, nameof(maxCots));
+    }
+
+    private static int? RequireOptionalExtraCount(int? value, string argumentName)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        if (value < 0)
+        {
+            throw new ArgumentOutOfRangeException(argumentName, value, "La valeur ne peut pas etre negative.");
+        }
+
+        if (value > RoomType.MaxExtraBedCount)
+        {
+            throw new ArgumentOutOfRangeException(
+                argumentName,
+                value,
+                $"La valeur ne peut pas depasser {RoomType.MaxExtraBedCount}.");
+        }
+
+        return value;
+    }
 
     /// <summary>
     /// Moves the room to another type of the SAME unit (the unit itself never changes: a room

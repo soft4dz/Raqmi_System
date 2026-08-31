@@ -79,6 +79,10 @@ public sealed class RaqmiDbContext(DbContextOptions<RaqmiDbContext> options) : D
 
     public DbSet<Room> Rooms => Set<Room>();
 
+    public DbSet<RoomTypeBed> RoomTypeBeds => Set<RoomTypeBed>();
+
+    public DbSet<RoomBed> RoomBeds => Set<RoomBed>();
+
     public DbSet<Reservation> Reservations => Set<Reservation>();
 
     public DbSet<Folio> Folios => Set<Folio>();
