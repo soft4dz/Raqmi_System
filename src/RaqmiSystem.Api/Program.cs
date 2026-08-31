@@ -177,6 +177,7 @@ api.MapHumanResourcesEndpoints();
 api.MapInventoryEndpoints();
 api.MapPurchasingEndpoints();
 api.MapKitchenEndpoints();
+api.MapSyncEndpoints();
 
 app.Run();
 

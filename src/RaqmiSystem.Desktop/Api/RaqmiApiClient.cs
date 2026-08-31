@@ -251,7 +251,24 @@ public sealed partial class RaqmiApiClient(HttpClient httpClient)
             request.Content = new StringContent(json, Encoding.UTF8, "application/json");
         }
 
-        var response = await httpClient.SendAsync(request, cancellationToken);
+        HttpResponseMessage response;
+
+        try
+        {
+            response = await httpClient.SendAsync(request, cancellationToken);
+        }
+        catch (OperationCanceledException ex)
+        {
+            // Depuis .NET 5, un depassement de HttpClient.Timeout arrive ici sous la forme d'une
+            // TaskCanceledException et NON d'une HttpRequestException.
+            RecordFailure(method, relativePath, null, "Timeout", ex.Message);
+            throw;
+        }
+        catch (HttpRequestException ex)
+        {
+            RecordFailure(method, relativePath, null, "Network", ex.Message);
+            throw;
+        }
 
         if (response.IsSuccessStatusCode)
         {
@@ -259,7 +276,37 @@ public sealed partial class RaqmiApiClient(HttpClient httpClient)
         }
 
         var message = await ReadErrorMessageAsync(response, cancellationToken);
+        RecordFailure(method, relativePath, (int)response.StatusCode, "HttpError", message);
         throw new ApiRequestFailedException(response.StatusCode, message);
+    }
+
+    /// <summary>
+    /// Tampon des echecs constates par ce poste, en attente de signalement (module 29). Il est
+    /// alimente ICI parce que SendAsync est le seul endroit qui connaisse a la fois le verbe et la
+    /// route : ni ApiRequestFailedException ni HttpRequestException ne les portent, et un
+    /// enregistrement fait plus haut ne saurait pas quel appel a echoue.
+    /// </summary>
+    public ClientFailureBuffer Failures { get; } = new();
+
+    private void RecordFailure(HttpMethod method, string relativePath, int? statusCode, string kind, string message)
+    {
+        // On n'enregistre PAS les echecs des routes du module 29 lui-meme : quand le lien est
+        // coupe, le battement et le signalement echouent aussi, et les journaliser remplirait le
+        // tampon de bruit en chassant les vraies erreurs metier qu'il est cense conserver.
+        if (relativePath.StartsWith(SyncPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        // Le diagnostic ne doit jamais aggraver l'incident qu'il observe.
+        try
+        {
+            Failures.Record(method.Method, relativePath, statusCode, kind, message);
+        }
+        catch
+        {
+            // Rien a faire : perdre une ligne de journal est sans consequence pour l'operateur.
+        }
     }
 
     private static Uri BuildUri(string apiBaseUrl, string relativePath)

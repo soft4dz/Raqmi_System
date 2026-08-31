@@ -89,3 +89,37 @@ Important : le statut ci-dessous correspond a l'ancien projet Electron/SQLite. D
 ## Suites metier cible
 
 La navigation historique etait organisee autour de grandes suites : Pilotage, Exploitation, Finance, Operations, Controle interne, Qualite, Commercial/GED, RH, PortMaster, Administration et Systeme. La nouvelle version .NET doit garder cette logique, mais avec des autorisations serveur et une base PostgreSQL centrale.
+
+## Ecarts assumes entre le catalogue source et le depot .NET
+
+Le tableau ci-dessus transcrit fidelement le catalogue de l'ancien produit Electron/SQLite : il est
+conserve tel quel comme releve d'origine. Lorsque la reprise s'ecarte volontairement de la source,
+l'ecart est consigne ici plutot que d'etre efface du tableau.
+
+### Module 29 - "Synchronisation multi-postes" livre en supervision seule
+
+Dans le produit d'origine, chaque poste portait sa PROPRE base SQLite locale et l'API centrale etait
+optionnelle : une file `sync_queue` poussait les changements vers le serveur. Le manuel source
+(`docs/legacy/.../manuel-modules/synchronisation-multi-postes.md`) note d'ailleurs que la descente de
+donnees n'a jamais ete operationnelle - les donnees creees sur un poste n'apparaissaient pas sur les
+autres.
+
+Cette premisse a disparu dans le depot .NET : une seule base PostgreSQL centrale par deploiement
+(`docs/architecture.md`), un serveur unique par site (`docs/deployment-onpremise.md`), et un client
+lourd sans aucune persistance metier locale. La coherence multi-postes est donc deja garantie par la
+base : il n'y a plus rien a synchroniser.
+
+Le module 29 est par consequent livre sous le nom **"Registre des postes & erreurs clients"**, en
+supervision strictement en lecture seule :
+
+- registre des postes declares, avec dernier contact, dernier utilisateur et version applicative ;
+- detection d'une derive de version entre postes, qui est le vrai risque d'exploitation ;
+- journal des erreurs que les postes signalent eux-memes, pour rendre les pannes visibles apres coup.
+
+Ce qui n'est PAS livre, et ne doit pas l'etre en l'etat : aucune file de rejeu, aucun mode hors-ligne,
+aucune persistance metier sur le poste. La raison est une question d'integrite comptable et non de
+charge de travail : les routes qui creent un encaissement, une facture ou une ecriture ne portent
+aucune cle d'idempotence, un rejeu differe y produirait des doublons. Aujourd'hui une coupure reseau
+fait perdre une action BRUYAMMENT et l'operateur la refait ; une file transformerait cela en doublon
+silencieux. Le mode hors-ligne reste par ailleurs explicitement differe par `docs/architecture.md`
+tant que le pilote client-serveur n'est pas stabilise.

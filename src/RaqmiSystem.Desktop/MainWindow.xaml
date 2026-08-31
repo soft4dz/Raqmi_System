@@ -1632,6 +1632,10 @@
                     <TabItem x:Name="KitchenTabItem" Header="Cuisine &amp; HACCP">
                         <views:KitchenView x:Name="KitchenView" />
                     </TabItem>
+
+                    <TabItem x:Name="SyncTabItem" Header="Postes &amp; erreurs">
+                        <views:SyncView x:Name="SyncView" />
+                    </TabItem>
                 </TabControl>
 
                 <!-- ========================= Bandeau de session ========================= -->

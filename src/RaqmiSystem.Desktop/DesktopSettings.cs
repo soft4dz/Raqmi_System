@@ -38,6 +38,17 @@ public sealed class DesktopSettings
     public string? ProtectedPassword { get; set; }
 
     /// <summary>
+    /// Stable identifier of this workstation, generated once and kept for the life of the
+    /// installation. It carries NO secret and identifies an installation, never a person.
+    ///
+    /// It lives in the per-user settings file, so it is bound to the WINDOWS PROFILE rather than
+    /// to the machine: two Windows accounts on one PC are two workstations, and a roaming profile
+    /// follows its user from PC to PC. The registry screen shows the machine name next to it so
+    /// that this discrepancy stays visible instead of silently misleading the reader.
+    /// </summary>
+    public Guid? StationKey { get; set; }
+
+    /// <summary>
     /// The URL forced by <see cref="ApiBaseUrlEnvironmentVariable"/>, or null when the variable is
     /// unset. When it is set, <see cref="Save"/> still writes to the settings file but the stored
     /// value is never used - the settings screen surfaces that instead of letting it surprise the
@@ -78,6 +89,38 @@ public sealed class DesktopSettings
         var settings = ReadFile();
         settings.ApiBaseUrl = apiBaseUrl.Trim();
         WriteFile(settings);
+    }
+
+    /// <summary>
+    /// Returns this workstation's identifier, creating and persisting it on first use.
+    /// A failure to persist is not fatal: the caller still gets a usable identifier for the
+    /// current session, and supervision is a convenience that must never block a login. The only
+    /// consequence is that the workstation would appear as a new row at the next start.
+    /// </summary>
+    public static Guid LoadOrCreateStationKey()
+    {
+        var settings = ReadFile();
+
+        if (settings.StationKey is { } existing && existing != Guid.Empty)
+        {
+            return existing;
+        }
+
+        var created = Guid.NewGuid();
+
+        try
+        {
+            // Load-modify-write, comme partout ailleurs dans ce fichier : ecrire la cle ne doit
+            // jamais effacer l'URL ni les identifiants memorises.
+            settings.StationKey = created;
+            WriteFile(settings);
+        }
+        catch
+        {
+            // Voir le resume : on rend quand meme une cle utilisable pour la session en cours.
+        }
+
+        return created;
     }
 
     public static void SaveCredentials(string userName, string password)

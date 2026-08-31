@@ -66,6 +66,6 @@ public static class SidebarLayout
         new Section("Contrôle", "Controle", false, [16, 4]),
 
         // Epinglee en bas : referentiel des unites, comptes, reglages, sauvegardes.
-        new Section("Administration", "Systeme", true, [1, 10, 9, 18])
+        new Section("Administration", "Systeme", true, [1, 10, 9, 18, 27])
     ];
 }

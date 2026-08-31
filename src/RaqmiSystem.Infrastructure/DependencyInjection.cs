@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -15,6 +15,7 @@ using RaqmiSystem.Application.Inventory;
 using RaqmiSystem.Application.Kitchen;
 using RaqmiSystem.Application.Lodging;
 using RaqmiSystem.Application.Maintenance;
+using RaqmiSystem.Application.Sync;
 using RaqmiSystem.Application.Organization;
 using RaqmiSystem.Application.Purchasing;
 using RaqmiSystem.Application.Pilotage;
@@ -39,6 +40,7 @@ using RaqmiSystem.Infrastructure.Kitchen;
 using RaqmiSystem.Infrastructure.HumanResources;
 using RaqmiSystem.Infrastructure.Lodging;
 using RaqmiSystem.Infrastructure.Maintenance;
+using RaqmiSystem.Infrastructure.Sync;
 using RaqmiSystem.Infrastructure.Organization;
 using RaqmiSystem.Infrastructure.Persistence;
 using RaqmiSystem.Infrastructure.Purchasing;
@@ -124,6 +126,10 @@ public static class DependencyInjection
         services.AddScoped<IStockCostProvider, InventoryService>();
         services.AddScoped<IPurchasingService, PurchasingService>();
         services.AddScoped<IKitchenService, KitchenService>();
+
+        // Module 29 : supervision des postes. Lecture seule cote metier - ce service ne touche
+        // aucune donnee d'exploitation, il tient un inventaire des clients deployes.
+        services.AddScoped<ISyncSupervisionService, SyncSupervisionService>();
 
         return services;
     }

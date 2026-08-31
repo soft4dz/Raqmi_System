@@ -18,6 +18,7 @@ using RaqmiSystem.Domain.Receivables;
 using RaqmiSystem.Domain.Reporting;
 using RaqmiSystem.Domain.Revenue;
 using RaqmiSystem.Domain.Settings;
+using RaqmiSystem.Domain.Sync;
 using RaqmiSystem.Domain.Tariffs;
 using RaqmiSystem.Domain.Treasury;
 
@@ -163,6 +164,14 @@ public sealed class RaqmiDbContext(DbContextOptions<RaqmiDbContext> options) : D
     public DbSet<TemperatureCheckpoint> TemperatureCheckpoints => Set<TemperatureCheckpoint>();
 
     public DbSet<TemperatureReading> TemperatureReadings => Set<TemperatureReading>();
+
+    // -------------------------- Module 29 : supervision des postes --------------------------
+    // Ces deux tables ne portent AUCUNE donnee metier : un inventaire des postes deployes et les
+    // erreurs qu'ils signalent eux-memes. Il n'y a pas de file de synchronisation ici, et il ne
+    // doit jamais y en avoir : tous les postes ecrivent deja dans cette meme base.
+    public DbSet<Workstation> Workstations => Set<Workstation>();
+
+    public DbSet<WorkstationFailure> WorkstationFailures => Set<WorkstationFailure>();
 
     /// <summary>
     /// Singleton row holding the global configuration (see

@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Globalization;
 using System.Net.Http;
 using System.Windows;
@@ -14,6 +14,7 @@ using RaqmiSystem.Application.Identity;
 using RaqmiSystem.Application.Organization;
 using RaqmiSystem.Application.Revenue;
 using RaqmiSystem.Application.Security;
+using RaqmiSystem.Application.Sync;
 using RaqmiSystem.Desktop.Api;
 using RaqmiSystem.Desktop.Views;
 using RaqmiSystem.Domain.Identity;
@@ -366,6 +367,7 @@ public partial class MainWindow : Window
         // connecte, y compris par le cycle clavier Ctrl+Tab : les donnees de paie
         // sont parmi les plus sensibles du produit.
         ApplyModuleAccess(PermissionCatalog.HrRead, HumanResourcesTabItem);
+        ApplyModuleAccess(PermissionCatalog.SyncRead, SyncTabItem);
 
         ApplyWriteActionStates();
     }
@@ -677,6 +679,9 @@ public partial class MainWindow : Window
             case 26:
                 await KitchenView.LoadAsync();
                 break;
+            case 27:
+                await SyncView.LoadAsync();
+                break;
             default:
                 // Les onglets 0 a 4 vivent dans MainWindow et sont charges a la
                 // connexion : rien a faire, et rien a retenir non plus.
@@ -855,6 +860,7 @@ public partial class MainWindow : Window
         ApprovalsView.Initialize(context);
         ReportsView.Initialize(context);
         BackupView.Initialize(context);
+        SyncView.Initialize(context);
         GroupDashboardView.Initialize(context);
         DecCockpitView.Initialize(context);
         HousekeepingView.Initialize(context);
@@ -948,6 +954,11 @@ public partial class MainWindow : Window
         ApprovalsView.ResetState();
         ReportsView.ResetState();
         BackupView.ResetState();
+        SyncView.ResetState();
+
+        // Remis a zero pour que la prochaine session batte immediatement : le registre doit
+        // refleter le NOUVEL utilisateur du poste sans attendre cinq minutes.
+        lastHeartbeatUtc = DateTimeOffset.MinValue;
         GroupDashboardView.ResetState();
         DecCockpitView.ResetState();
         HousekeepingView.ResetState();
@@ -1599,6 +1610,20 @@ public partial class MainWindow : Window
         {
             SetStatus($"API indisponible : {ex.Message}", isError: true);
         }
+        catch (OperationCanceledException)
+        {
+            // Depuis .NET 5, un depassement de HttpClient.Timeout (100 s par defaut, aucun
+            // Timeout n'etant configure ici) leve TaskCanceledException, qui derive
+            // d'OperationCanceledException et NON de HttpRequestException. Sans ce catch elle
+            // n'etait attrapee par personne : comme les gestionnaires WPF sont async void, elle
+            // remontait au Dispatcher et FERMAIT l'application, sans message, environ 100
+            // secondes apres une coupure reseau silencieuse (cable, switch, serveur fige).
+            // Aucune annulation volontaire n'existe dans ce client (aucun CancellationTokenSource,
+            // aucun appel a Cancel), donc ce cas ne peut etre qu'un delai depasse.
+            SetStatus(
+                "Le serveur n'a pas repondu a temps. Verifiez le reseau puis reessayez.",
+                isError: true);
+        }
         catch (InvalidOperationException ex)
         {
             SetStatus(ex.Message, isError: true);
@@ -1606,6 +1631,88 @@ public partial class MainWindow : Window
         finally
         {
             SetBusy(false);
+        }
+
+        // Hors du try/finally : le battement ne doit ni retarder la remise a l'etat normal de
+        // l'interface, ni pouvoir en perturber le deroulement.
+        await SendHeartbeatIfDueAsync();
+    }
+
+    // ==================== Module 29 : battement de ce poste ====================
+
+    private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromMinutes(5);
+
+    private DateTimeOffset lastHeartbeatUtc = DateTimeOffset.MinValue;
+
+    /// <summary>
+    /// Signale au serveur que ce poste est actif, au plus une fois toutes les cinq minutes, en
+    /// profitant d'un appel metier deja effectue (aucun Timer, aucun thread : le jeton du client
+    /// API n'est pas synchronise et tout ce client est monothread - cette hypothese ne doit pas
+    /// etre cassee pour une fonction de confort).
+    ///
+    /// Rien ici ne peut faire echouer le travail de l'operateur : toute exception est avalee, et
+    /// aucun message n'est affiche. Un registre incomplet est un desagrement ; une saisie perdue
+    /// parce qu'un battement a echoue serait une faute.
+    /// </summary>
+    private async Task SendHeartbeatIfDueAsync()
+    {
+        if (!apiClient.IsAuthenticated)
+        {
+            return;
+        }
+
+        var nowUtc = DateTimeOffset.UtcNow;
+
+        if (nowUtc - lastHeartbeatUtc < HeartbeatInterval)
+        {
+            return;
+        }
+
+        // Marque AVANT l'appel : si le reseau est coupe, l'appel prend du temps et echoue, et on
+        // ne veut pas qu'un second battement parte a chaque action pendant toute la panne.
+        lastHeartbeatUtc = nowUtc;
+
+        try
+        {
+            var apiBaseUrl = ApiBaseUrlTextBox.Text;
+
+            var unitCode = RevenueUnitComboBox.SelectedItem is HotelUnitResponse selectedUnit
+                ? selectedUnit.Code
+                : null;
+
+            await apiClient.SendHeartbeatAsync(
+                apiBaseUrl,
+                new WorkstationHeartbeatRequest(
+                    StationIdentity.StationId,
+                    StationIdentity.Label,
+                    StationIdentity.AppVersion,
+                    unitCode));
+
+            var pending = apiClient.Failures.DrainUpTo(ClientFailureBuffer.Capacity);
+
+            if (pending.Count > 0)
+            {
+                await apiClient.ReportWorkstationFailuresAsync(
+                    apiBaseUrl,
+                    new ReportWorkstationFailuresRequest(
+                        StationIdentity.StationId,
+                        pending
+                            .Select(entry => new WorkstationFailureItem(
+                                entry.EventId,
+                                entry.Method,
+                                entry.Path,
+                                entry.StatusCode,
+                                entry.Kind,
+                                entry.Message,
+                                entry.ClaimedAtUtc))
+                            .ToList()));
+
+                apiClient.Failures.ResetLostCount();
+            }
+        }
+        catch
+        {
+            // Silence delibere : voir le resume de la methode.
         }
     }
 

@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using RaqmiSystem.Domain.Identity;
 
 namespace RaqmiSystem.Desktop;
@@ -43,10 +43,10 @@ public static class ModuleCatalog
 {
     // Totaux attendus - garde de coherence verifiee au chargement du type.
     public const int ExpectedTotal = 49;
-    public const int ExpectedAvailable = 27;
+    public const int ExpectedAvailable = 28;
     public const int ExpectedApiReady = 0;
     public const int ExpectedPartial = 0;
-    public const int ExpectedPlanned = 22;
+    public const int ExpectedPlanned = 21;
 
     // Libelles affiches des groupes fonctionnels (ordre d'apparition).
     public static class Groups
@@ -86,11 +86,13 @@ public static class ModuleCatalog
     static ModuleCatalog()
     {
         // Garde de coherence : le tableau de verite du depot compte 49 modules,
-        // repartis en 27 Disponible / 0 API prete / 0 Partiel / 22 Planifie.
+        // repartis en 28 Disponible / 0 API prete / 0 Partiel / 21 Planifie.
         // Plus AUCUN module partiel : les deux derniers (Dashboard PDG 24.2 et
         // Cockpit DEC 24.4) ont recu leur ecran dedie et sont passes Disponible.
         // La vague E1 fait passer trois modules d'exploitation de Planifie a
         // Disponible : Stocks (11), Cuisine (11.5) et Achats (12).
+        // Le module 29 passe Disponible en supervision seule, et change de nom au
+        // passage : il tient un registre des postes, il ne synchronise rien.
         // Toute edition qui casse ces totaux doit etre volontaire et reportee ici.
         EnsureCount("total", Entries.Count, ExpectedTotal);
         EnsureCount("Disponible", CountOf(ModuleStatus.Disponible), ExpectedAvailable);
@@ -281,9 +283,14 @@ public static class ModuleCatalog
         new ModuleCatalogEntry("28", Groups.Systeme, "Sauvegarde & restauration",
             "État des sauvegardes, déclenchement à la demande et paliers de rétention",
             "P1", ModuleStatus.Disponible, PermissionCatalog.MaintenanceRead, 18),
-        new ModuleCatalogEntry("29", Groups.Systeme, "Synchronisation multi-postes",
-            "File de synchronisation et état des postes",
-            "P1", ModuleStatus.Planifie),
+        // Renomme en connaissance de cause. Le titre d'origine "Synchronisation multi-postes"
+        // vient de l'ancien produit Electron, ou chaque poste portait sa propre base SQLite et ou
+        // une file de synchronisation avait donc un sens. Ici tous les postes ecrivent dans la
+        // meme base PostgreSQL : il n'y a rien a synchroniser, et annoncer une file qui n'existe
+        // pas induirait l'exploitant en erreur sur ce que le produit sait faire.
+        new ModuleCatalogEntry("29", Groups.Systeme, "Registre des postes & erreurs clients",
+            "Postes déclarés, dernier contact et erreurs remontées par les clients",
+            "P1", ModuleStatus.Disponible, PermissionCatalog.SyncRead, 27),
         new ModuleCatalogEntry("30", Groups.Systeme, "Journalisation & traçabilité",
             "Journal d'audit, recherche et export",
             "P0", ModuleStatus.Disponible, PermissionCatalog.AuditRead, 4)
