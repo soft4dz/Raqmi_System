@@ -107,7 +107,15 @@ public sealed class LodgingService(
             .ThenBy(roomType => roomType.Code)
             .ToArrayAsync(cancellationToken);
 
-        return roomTypes.Select(Map).ToArray();
+        var activeRoomCounts = await GetActiveRoomCountsAsync(
+            roomTypes.Select(roomType => roomType.HotelUnitCode).Distinct().ToArray(),
+            cancellationToken);
+
+        return roomTypes
+            .Select(roomType => Map(
+                roomType,
+                activeRoomCounts.GetValueOrDefault(ActiveRoomCountKey(roomType.HotelUnitCode, roomType.Code))))
+            .ToArray();
     }
 
     public async Task<ApplicationResult<RoomTypeResponse>> GetRoomTypeAsync(
@@ -123,7 +131,8 @@ public sealed class LodgingService(
             return ApplicationResult<RoomTypeResponse>.NotFound("Room type was not found.");
         }
 
-        return ApplicationResult<RoomTypeResponse>.Success(Map(roomType));
+        return ApplicationResult<RoomTypeResponse>.Success(
+            Map(roomType, await GetActiveRoomCountAsync(roomType, cancellationToken)));
     }
 
     public async Task<ApplicationResult<RoomTypeResponse>> CreateRoomTypeAsync(
@@ -185,7 +194,8 @@ public sealed class LodgingService(
                 "A room type with this code already exists in this hotel unit.");
         }
 
-        return ApplicationResult<RoomTypeResponse>.Success(Map(roomType));
+        return ApplicationResult<RoomTypeResponse>.Success(
+            Map(roomType, await GetActiveRoomCountAsync(roomType, cancellationToken)));
     }
 
     public async Task<ApplicationResult<RoomTypeResponse>> UpdateRoomTypeAsync(
@@ -223,7 +233,8 @@ public sealed class LodgingService(
 
         await SaveAsync(cancellationToken);
 
-        return ApplicationResult<RoomTypeResponse>.Success(Map(roomType));
+        return ApplicationResult<RoomTypeResponse>.Success(
+            Map(roomType, await GetActiveRoomCountAsync(roomType, cancellationToken)));
     }
 
     public async Task<ApplicationResult<RoomTypeResponse>> SetRoomTypeActiveAsync(
@@ -261,7 +272,8 @@ public sealed class LodgingService(
 
         await SaveAsync(cancellationToken);
 
-        return ApplicationResult<RoomTypeResponse>.Success(Map(roomType));
+        return ApplicationResult<RoomTypeResponse>.Success(
+            Map(roomType, await GetActiveRoomCountAsync(roomType, cancellationToken)));
     }
 
     // Rooms ----------------------------------------------------------------------------------
@@ -1629,7 +1641,52 @@ public sealed class LodgingService(
             .ToDictionaryAsync(room => room.Id, room => room.Number, cancellationToken);
     }
 
-    private static RoomTypeResponse Map(RoomType roomType)
+    // Nombre de chambres ACTIVES rattachees a chaque type de l'unite. Ce n'est pas
+    // une propriete de l'entite mais une donnee d'ecran : le parametrage montre ce
+    // que la desactivation d'un type bloquerait. Calcule a la projection, donc
+    // toujours exact - aucun compteur denormalise a maintenir.
+    private async Task<Dictionary<string, int>> GetActiveRoomCountsAsync(
+        IReadOnlyCollection<string> hotelUnitCodes,
+        CancellationToken cancellationToken)
+    {
+        if (hotelUnitCodes.Count == 0)
+        {
+            return [];
+        }
+
+        var counts = await dbContext.Set<Room>()
+            .AsNoTracking()
+            .Where(room => hotelUnitCodes.Contains(room.HotelUnitCode) && room.IsActive)
+            .GroupBy(room => new { room.HotelUnitCode, room.RoomTypeCode })
+            .Select(group => new { group.Key.HotelUnitCode, group.Key.RoomTypeCode, Count = group.Count() })
+            .ToArrayAsync(cancellationToken);
+
+        // Le code de type n'est unique QUE dans son unite : la cle combine les deux.
+        return counts.ToDictionary(
+            row => ActiveRoomCountKey(row.HotelUnitCode, row.RoomTypeCode),
+            row => row.Count,
+            StringComparer.Ordinal);
+    }
+
+    private async Task<int> GetActiveRoomCountAsync(
+        RoomType roomType,
+        CancellationToken cancellationToken)
+    {
+        return await dbContext.Set<Room>()
+            .AsNoTracking()
+            .CountAsync(
+                room => room.HotelUnitCode == roomType.HotelUnitCode
+                    && room.RoomTypeCode == roomType.Code
+                    && room.IsActive,
+                cancellationToken);
+    }
+
+    private static string ActiveRoomCountKey(string hotelUnitCode, string roomTypeCode)
+    {
+        return $"{hotelUnitCode}/{roomTypeCode}";
+    }
+
+    private static RoomTypeResponse Map(RoomType roomType, int activeRoomCount)
     {
         return new RoomTypeResponse(
             roomType.Id,
@@ -1637,7 +1694,9 @@ public sealed class LodgingService(
             roomType.Code,
             roomType.Label,
             roomType.Capacity,
+            roomType.Description,
             roomType.IsActive,
+            activeRoomCount,
             roomType.CreatedAt,
             roomType.CreatedBy,
             roomType.UpdatedAt,
@@ -1651,6 +1710,8 @@ public sealed class LodgingService(
             room.HotelUnitCode,
             room.Number,
             room.RoomTypeCode,
+            room.Floor,
+            room.Notes,
             room.IsActive,
             room.CreatedAt,
             room.CreatedBy,

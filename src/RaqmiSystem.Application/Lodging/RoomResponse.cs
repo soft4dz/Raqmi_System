@@ -5,6 +5,8 @@ public sealed record RoomResponse(
     string HotelUnitCode,
     string Number,
     string RoomTypeCode,
+    string? Floor,
+    string? Notes,
     bool IsActive,
     DateTimeOffset CreatedAt,
     string CreatedBy,

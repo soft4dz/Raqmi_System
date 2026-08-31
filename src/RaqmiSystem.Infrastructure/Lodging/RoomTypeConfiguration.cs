@@ -40,6 +40,13 @@ public sealed class RoomTypeConfiguration : IEntityTypeConfiguration<RoomType>
         builder.Property(roomType => roomType.Capacity)
             .HasColumnName("capacity");
 
+        // Bornes alignees sur RoomType.NormalizeOptional (domaine) : sans elles la
+        // colonne serait creee sans limite et la base accepterait ce que l'entite
+        // refuse.
+        builder.Property(roomType => roomType.Description)
+            .HasColumnName("description")
+            .HasMaxLength(300);
+
         builder.Property(roomType => roomType.IsActive)
             .HasColumnName("is_active");
 

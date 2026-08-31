@@ -15,12 +15,13 @@ public sealed class RoomType : AuditableEntity
     {
     }
 
-    public RoomType(string hotelUnitCode, string code, string label, int capacity)
+    public RoomType(string hotelUnitCode, string code, string label, int capacity, string? description = null)
     {
         HotelUnitCode = HotelUnit.NormalizeCode(hotelUnitCode);
         Code = NormalizeCode(code);
         Label = RequireValue(label, nameof(label), 160);
         Capacity = RequireStrictlyPositive(capacity, nameof(capacity));
+        Description = NormalizeOptional(description, nameof(description), 300);
         IsActive = true;
     }
 
@@ -32,12 +33,16 @@ public sealed class RoomType : AuditableEntity
 
     public int Capacity { get; private set; }
 
+    /// <summary>Free-form commercial description of the type, for the setup screen.</summary>
+    public string? Description { get; private set; }
+
     public bool IsActive { get; private set; }
 
-    public void UpdateDetails(string label, int capacity)
+    public void UpdateDetails(string label, int capacity, string? description = null)
     {
         Label = RequireValue(label, nameof(label), 160);
         Capacity = RequireStrictlyPositive(capacity, nameof(capacity));
+        Description = NormalizeOptional(description, nameof(description), 300);
     }
 
     public void Activate()
@@ -60,6 +65,23 @@ public sealed class RoomType : AuditableEntity
         if (string.IsNullOrWhiteSpace(value))
         {
             throw new ArgumentException("Value is required.", argumentName);
+        }
+
+        var trimmed = value.Trim();
+
+        if (trimmed.Length > maxLength)
+        {
+            throw new ArgumentException($"Value cannot exceed {maxLength} characters.", argumentName);
+        }
+
+        return trimmed;
+    }
+
+    private static string? NormalizeOptional(string? value, string argumentName, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
         }
 
         var trimmed = value.Trim();

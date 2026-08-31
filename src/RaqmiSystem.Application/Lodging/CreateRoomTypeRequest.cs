@@ -4,4 +4,5 @@ public sealed record CreateRoomTypeRequest(
     string HotelUnitCode,
     string Code,
     string Label,
-    int Capacity);
+    int Capacity,
+    string? Description = null);

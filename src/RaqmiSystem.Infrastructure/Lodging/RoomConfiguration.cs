@@ -34,6 +34,16 @@ public sealed class RoomConfiguration : IEntityTypeConfiguration<Room>
             .HasMaxLength(40)
             .IsRequired();
 
+        // Bornes alignees sur Room.NormalizeOptional (domaine). L'etage est une
+        // chaine et non un entier : "RDC", "Mezzanine" et "-1" sont des etages.
+        builder.Property(room => room.Floor)
+            .HasColumnName("floor")
+            .HasMaxLength(20);
+
+        builder.Property(room => room.Notes)
+            .HasColumnName("notes")
+            .HasMaxLength(300);
+
         builder.Property(room => room.IsActive)
             .HasColumnName("is_active");
 
