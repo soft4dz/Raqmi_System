@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - stabilization/**
+      - reorg/**
 
 jobs:
   module-readiness:
@@ -14,9 +15,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify available modules are wired end-to-end
+      # Le garde lit le code sans le compiler : il s'execute AVANT toute restauration
+      # ou compilation, pour echouer vite et sans bruit. Il ecrit aussi le tableau de
+      # readiness en Markdown dans readiness-summary.md.
+      - name: Verify available modules are wired end-to-end (readiness gate)
         shell: pwsh
-        run: ./tools/check-module-readiness.ps1
+        run: ./tools/check-module-readiness.ps1 -MarkdownSummaryPath readiness-summary.md
+
+      # Le tableau est publie dans le resume du job meme quand le garde echoue :
+      # c'est la que se lisent les preuves manquantes et les niveaux prouves.
+      - name: Publish readiness table to the job summary
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path readiness-summary.md) {
+            Get-Content readiness-summary.md -Raw -Encoding UTF8 | Add-Content -Path $env:GITHUB_STEP_SUMMARY -Encoding UTF8
+            Get-Content readiness-summary.md -Encoding UTF8
+          }
+          else {
+            "Aucun tableau de readiness produit (echec avant le calcul des ecrans)." | Add-Content -Path $env:GITHUB_STEP_SUMMARY -Encoding UTF8
+          }
+
+      - name: Upload readiness table
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: readiness-summary
+          path: readiness-summary.md
+          if-no-files-found: ignore
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4

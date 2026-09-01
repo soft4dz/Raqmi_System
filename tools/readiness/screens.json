@@ -1,0 +1,749 @@
+{
+  "version": 1,
+  "reference": "reorg/phase-1 - lot 1.3 (readiness par ecran)",
+  "updatedOn": "2026-09-01",
+  "conventions": {
+    "key": "x:Name de l'onglet MainWindow.xaml (un ecran = un onglet ; l'onglet 4 sert les ordres 22 et 30)",
+    "orders": "ordres ModuleCatalog Disponible servis par l'ecran ; verifies contre ModuleCatalog.cs",
+    "permission": "constante PermissionCatalog.* de lecture ; verifiee contre ModuleCatalog.cs, PermissionCatalog.cs, les endpoints API et ApplyModuleAccess",
+    "declared": "niveau revendique : Planned | TechnicalPreview | Functional | ProductionReady. Le script ECHOUE si declared > niveau prouve",
+    "evidence": "chaque preuve est un chemin (ou une liste de chemins) relatif a la racine du depot, verifie par Test-Path ; { \"status\": \"n/a\", \"reason\": \"...\" } = critere non applicable et justifie ; null = preuve manquante (honnete, pas une erreur de saisie)",
+    "evidence.rbac": "derive par le script : constante presente + referencee par au moins un endpoint declare + cablage ApplyModuleAccess ; aucune saisie",
+    "evidence.smoke": "null tant que le protocole de docs/stabilization/module-readiness.md n'a pas ete joue ; sinon { \"validatedOn\": \"AAAA-MM-JJ\", \"build\": \"...\", \"profiles\": [\"administrateur\", \"restreint\"] }",
+    "productionReady": "preuves exigees en plus pour ProductionReady : postgresqlCi (job CI sur PostgreSQL reel) et e2e (scenario transversal) ; null aujourd'hui pour tous les ecrans",
+    "levels": "TechnicalPreview = domain + api + tests ; Functional = + application + postgresql + rbac + desktop + documentation (ou grace) ; ProductionReady = Functional sans grace + smoke + postgresqlCi + e2e"
+  },
+  "documentationGrace": {
+    "until": "2026-12-31",
+    "reason": "Ecrans Disponibles avant le lot 1.3 dont la fiche docs/modules/*.md n'existe pas encore. La preuve Documentation est MANQUANTE pour eux ; la grace maintient le niveau Functional jusqu'a la date ci-dessus pour ne pas casser la CI sur ce seul motif. Passe cette date, chaque ecran encore liste retombe en TechnicalPreview et le garde echoue. Prolonger la date exige un commit motive sur ce fichier.",
+    "screens": [
+      "DashboardTabItem",
+      "AuditTabItem",
+      "ClosingTabItem",
+      "TreasuryTabItem",
+      "CustomersTabItem",
+      "InvoicesTabItem",
+      "SettingsTabItem",
+      "BudgetTabItem",
+      "ReceivablesTabItem",
+      "TariffsTabItem",
+      "ApprovalsTabItem",
+      "ReportsTabItem",
+      "BackupTabItem",
+      "GroupDashboardTabItem",
+      "DecCockpitTabItem",
+      "HousekeepingTabItem",
+      "InventoryTabItem",
+      "PurchasingTabItem",
+      "KitchenTabItem",
+      "SyncTabItem",
+      "MiceTabItem"
+    ]
+  },
+  "screens": {
+    "UnitsTabItem": {
+      "title": "Unites hotelieres",
+      "orders": ["3"],
+      "permission": "UnitsRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Organization"],
+        "application": ["src/RaqmiSystem.Application/Organization", "src/RaqmiSystem.Infrastructure/Organization"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/OrganizationEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260828132618_InitialSchema.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/MainWindow.xaml"],
+        "tests": ["tests/RaqmiSystem.Tests/HotelUnitTests.cs"],
+        "documentation": "docs/modules/unites-hotelieres.md",
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "Ecran inline dans MainWindow.xaml. Aucun test d'endpoint dedie a /organization/hotel-units : les tests d'API le traversent en preparation de donnees seulement."
+    },
+    "RevenueTabItem": {
+      "title": "Recettes journalieres (CA journalier ERP)",
+      "orders": ["4"],
+      "permission": "RevenueRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Revenue"],
+        "application": ["src/RaqmiSystem.Application/Revenue", "src/RaqmiSystem.Infrastructure/Revenue"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/RevenueEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260828132618_InitialSchema.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/MainWindow.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/DailyRevenueTests.cs",
+          "tests/RaqmiSystem.Tests/RevenueWorkflowEndpointTests.cs",
+          "tests/RaqmiSystem.Tests/RevenueSummaryServiceTests.cs"
+        ],
+        "documentation": "docs/modules/recettes-journalieres.md",
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "Ecran inline dans MainWindow.xaml. Rattachement au domaine 03 a valider (README du dossier de reorganisation, decision 2)."
+    },
+    "DashboardTabItem": {
+      "title": "Tableau de bord (unite)",
+      "orders": ["24"],
+      "permission": "DashboardRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Revenue"],
+        "application": ["src/RaqmiSystem.Application/Revenue", "src/RaqmiSystem.Infrastructure/Revenue"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/RevenueEndpoints.cs"],
+        "postgresql": { "status": "n/a", "reason": "Agregation en lecture des recettes journalieres (exploitation.daily_revenues) : aucune table propre, aucune migration." },
+        "desktop": ["src/RaqmiSystem.Desktop/MainWindow.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/UnitDashboardTests.cs",
+          "tests/RaqmiSystem.Tests/RevenueSummaryServiceTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "Ecran inline dans MainWindow.xaml, route GET /revenue/dashboard. La fiche recettes-journalieres.md ne decrit pas le tableau de bord : documentation manquante (grace)."
+    },
+    "AuditTabItem": {
+      "title": "Journal d'audit",
+      "orders": ["22", "30"],
+      "permission": "AuditRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Audit"],
+        "application": ["src/RaqmiSystem.Application/Security/IAuditQueryService.cs", "src/RaqmiSystem.Application/Security/IAuditLogWriter.cs", "src/RaqmiSystem.Infrastructure/Audit"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/AuditEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260828132618_InitialSchema.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/MainWindow.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/AuthenticationServiceTests.cs",
+          "tests/RaqmiSystem.Tests/UserAdministrationEndpointTests.cs",
+          "tests/RaqmiSystem.Tests/SettingsEndpointTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "Ecran partage par 22 (vue metier, domaine 15) et 30 (vue technique, domaine 22) sous la meme permission. Les tests cites verifient l'ecriture du journal comme effet de bord ; aucun test ne couvre la route de consultation GET /audit ni la purge."
+    },
+    "ClosingTabItem": {
+      "title": "Cloture journaliere & Night Audit",
+      "orders": ["4.5"],
+      "permission": "ClosingRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Closing"],
+        "application": ["src/RaqmiSystem.Application/Closing", "src/RaqmiSystem.Infrastructure/Closing"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/ClosingEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260829150212_P1WaveOne.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/ClosingView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/ClosingTests.cs",
+          "tests/RaqmiSystem.Tests/ClosingEndpointTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "Le Night Audit lui-meme vit dans le PMS (PmsTabItem, lodging.night_audit) ; cet ecran porte la cloture journaliere d'unite avec reouverture motivee."
+    },
+    "TreasuryTabItem": {
+      "title": "Encaissements & tresorerie",
+      "orders": ["5"],
+      "permission": "TreasuryRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Treasury"],
+        "application": ["src/RaqmiSystem.Application/Treasury", "src/RaqmiSystem.Infrastructure/Treasury"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/TreasuryEndpoints.cs"],
+        "postgresql": [
+          "src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260829150212_P1WaveOne.cs",
+          "src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260829152320_P1WaveOneHardening.cs"
+        ],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/TreasuryView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/TreasuryTests.cs",
+          "tests/RaqmiSystem.Tests/TreasuryEndpointTests.cs",
+          "tests/RaqmiSystem.Tests/TreasuryApprovalGateTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "Absence de cle d'idempotence sur les encaissements (docs/modules-catalog.md, section 29 ; plan, lot 2.3)."
+    },
+    "CustomersTabItem": {
+      "title": "Clients",
+      "orders": ["9.2"],
+      "permission": "CustomersRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Billing"],
+        "application": ["src/RaqmiSystem.Application/Billing", "src/RaqmiSystem.Infrastructure/Billing"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/BillingEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260829150212_P1WaveOne.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/CustomersView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/BillingTests.cs",
+          "tests/RaqmiSystem.Tests/BillingEndpointTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "Fichier client unique (Billing.Customer), etendu 1-1 par Crm.GuestProfile. Domaine cible 04."
+    },
+    "InvoicesTabItem": {
+      "title": "Facturation",
+      "orders": ["8"],
+      "permission": "InvoicesRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Billing"],
+        "application": ["src/RaqmiSystem.Application/Billing", "src/RaqmiSystem.Infrastructure/Billing"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/BillingEndpoints.cs"],
+        "postgresql": [
+          "src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260829150212_P1WaveOne.cs",
+          "src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260829152320_P1WaveOneHardening.cs"
+        ],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/InvoicesView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/BillingTests.cs",
+          "tests/RaqmiSystem.Tests/BillingEndpointTests.cs",
+          "tests/RaqmiSystem.Tests/InvoiceIssuanceIssuerIdentityTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "Les avoirs annonces par la description du module 8 n'ont aucune route observee (audit, section 1.10)."
+    },
+    "SettingsTabItem": {
+      "title": "Parametrage global",
+      "orders": ["2"],
+      "permission": "SettingsRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Settings"],
+        "application": ["src/RaqmiSystem.Application/Settings", "src/RaqmiSystem.Infrastructure/Settings"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/SettingsEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260829214749_GlobalSettings.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/SettingsView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/ApplicationSettingsTests.cs",
+          "tests/RaqmiSystem.Tests/SettingsEndpointTests.cs",
+          "tests/RaqmiSystem.Tests/SettingsDefaultsEndpointTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": null
+    },
+    "UsersTabItem": {
+      "title": "Administration & utilisateurs",
+      "orders": ["1"],
+      "permission": "UsersRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Identity"],
+        "application": [
+          "src/RaqmiSystem.Application/Identity",
+          "src/RaqmiSystem.Application/Security",
+          "src/RaqmiSystem.Infrastructure/Identity",
+          "src/RaqmiSystem.Infrastructure/Security"
+        ],
+        "api": ["src/RaqmiSystem.Api/Endpoints/SecurityEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260828132618_InitialSchema.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/UsersView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/UserAdministrationEndpointTests.cs",
+          "tests/RaqmiSystem.Tests/UserSecurityTests.cs",
+          "tests/RaqmiSystem.Tests/SecuritySeederTests.cs",
+          "tests/RaqmiSystem.Tests/PermissionCatalogTests.cs",
+          "tests/RaqmiSystem.Tests/LastAdministratorGuardTests.cs",
+          "tests/RaqmiSystem.Tests/LastAdministratorConcurrencyTests.cs"
+        ],
+        "documentation": "docs/security.md",
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "La fiche vit dans docs/security.md (perimetre livre, gardes anti-lockout, routes, limites), pas sous docs/modules/. Le perimetre par unite annonce par la description n'est pas implemente (aucune affectation utilisateur-unite)."
+    },
+    "AccountingTabItem": {
+      "title": "Comptabilite SCF",
+      "orders": ["5.2"],
+      "permission": "AccountingRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Accounting"],
+        "application": ["src/RaqmiSystem.Application/Accounting", "src/RaqmiSystem.Infrastructure/Accounting"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/AccountingEndpoints.cs"],
+        "postgresql": [
+          "src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260830192522_WaveAccounting.cs",
+          "src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260901154839_AccountingScfCore.cs",
+          "src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260901163333_AccountingAuxiliaryLedger.cs"
+        ],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/AccountingView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/AccountingTests.cs",
+          "tests/RaqmiSystem.Tests/AccountingCoreTests.cs",
+          "tests/RaqmiSystem.Tests/AccountingEndpointTests.cs",
+          "tests/RaqmiSystem.Tests/AccountingScfCoreEndpointTests.cs"
+        ],
+        "documentation": "docs/modules/comptabilite-scf.md",
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "Le lot feature/accounting-scf-core (exercices, periodes, tiers, lettrage, grand livre) etend cet ecran sans nouveau module."
+    },
+    "BudgetTabItem": {
+      "title": "Budget & previsions",
+      "orders": ["6"],
+      "permission": "BudgetRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Budgeting"],
+        "application": ["src/RaqmiSystem.Application/Budgeting", "src/RaqmiSystem.Infrastructure/Budgeting"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/BudgetEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260830192522_WaveAccounting.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/BudgetView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/BudgetingTests.cs",
+          "tests/RaqmiSystem.Tests/BudgetEndpointTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": null
+    },
+    "ReceivablesTabItem": {
+      "title": "Creances & recouvrement",
+      "orders": ["9"],
+      "permission": "ReceivablesRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Receivables"],
+        "application": ["src/RaqmiSystem.Application/Receivables", "src/RaqmiSystem.Infrastructure/Receivables"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/ReceivablesEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260830192522_WaveAccounting.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/ReceivablesView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/ReceivablesAgingTests.cs",
+          "tests/RaqmiSystem.Tests/ReceivablesServiceTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "La balance agee se calcule sur finance.invoices ; seule la table finance.reminders est propre au module. Aucun test d'endpoint dedie a /receivables."
+    },
+    "TariffsTabItem": {
+      "title": "Tarifs & conventions",
+      "orders": ["14.5"],
+      "permission": "TariffsRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Tariffs"],
+        "application": ["src/RaqmiSystem.Application/Tariffs", "src/RaqmiSystem.Infrastructure/Tariffs"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/TariffsEndpoints.cs"],
+        "postgresql": [
+          "src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260830210555_WaveHotel.cs",
+          "src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260830214657_WaveHotelHardening.cs"
+        ],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/TariffsView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/TariffsTests.cs",
+          "tests/RaqmiSystem.Tests/TariffServiceTests.cs",
+          "tests/RaqmiSystem.Tests/TariffResolutionServiceTests.cs",
+          "tests/RaqmiSystem.Tests/TariffDefaultPlanConcurrencyTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "Domaine cible 07 (Technical Preview au niveau domaine : distribution et channel manager absents) ; l'ecran de tarification lui-meme est Functional."
+    },
+    "LodgingTabItem": {
+      "title": "Hebergement & occupation",
+      "orders": ["10"],
+      "permission": "LodgingRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Lodging"],
+        "application": ["src/RaqmiSystem.Application/Lodging", "src/RaqmiSystem.Infrastructure/Lodging"],
+        "api": [
+          "src/RaqmiSystem.Api/Endpoints/LodgingEndpoints.cs",
+          "src/RaqmiSystem.Api/Endpoints/LodgingCatalogEndpoints.cs",
+          "src/RaqmiSystem.Api/Endpoints/LodgingInventoryEndpoints.cs"
+        ],
+        "postgresql": [
+          "src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260830210555_WaveHotel.cs",
+          "src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260830214657_WaveHotelHardening.cs",
+          "src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260830220944_LodgingNightlyRateDetail.cs",
+          "src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260831073828_RoomConfigurationFields.cs",
+          "src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260831221446_BedConfiguration.cs"
+        ],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/LodgingView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/LodgingTests.cs",
+          "tests/RaqmiSystem.Tests/LodgingServiceTests.cs",
+          "tests/RaqmiSystem.Tests/LodgingEndpointTests.cs",
+          "tests/RaqmiSystem.Tests/LodgingInventoryTests.cs",
+          "tests/RaqmiSystem.Tests/LodgingRestrictionTests.cs",
+          "tests/RaqmiSystem.Tests/LodgingOverbookingTests.cs",
+          "tests/RaqmiSystem.Tests/LodgingReservationConcurrencyTests.cs",
+          "tests/RaqmiSystem.Tests/LodgingBillingTests.cs",
+          "tests/RaqmiSystem.Tests/BedConfigurationTests.cs"
+        ],
+        "documentation": "docs/modules/pms-hebergement.md",
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "Source unique de l'inventaire hotelier (AvailabilityCalculator). Meme permission de lecture que PmsTabItem, deux ecrans distincts."
+    },
+    "ApprovalsTabItem": {
+      "title": "Workflows & validations",
+      "orders": ["22.2"],
+      "permission": "ApprovalsRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Approvals"],
+        "application": ["src/RaqmiSystem.Application/Approvals", "src/RaqmiSystem.Infrastructure/Approvals"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/ApprovalsEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260831080435_WaveApprovalsReporting.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/ApprovalsView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/ApprovalsTests.cs",
+          "tests/RaqmiSystem.Tests/ApprovalsEndpointTests.cs",
+          "tests/RaqmiSystem.Tests/ApprovalsGateTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "Un seul sujet d'approbation (ordre de paiement). Domaine cible 01 Mon Espace (rendu) + service transversal Workflow ; rattachement a valider."
+    },
+    "ReportsTabItem": {
+      "title": "Rapports automatiques",
+      "orders": ["25"],
+      "permission": "ReportsRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Reporting"],
+        "application": ["src/RaqmiSystem.Application/Reporting", "src/RaqmiSystem.Infrastructure/Reporting"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/ReportingEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260831080435_WaveApprovalsReporting.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/ReportsView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/ReportingCatalogTests.cs",
+          "tests/RaqmiSystem.Tests/ReportingExecutionTests.cs",
+          "tests/RaqmiSystem.Tests/ReportingEndpointTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "L'ancienne matrice marquait DB = N/A ; c'est inexact : le journal des executions est persiste dans reporting.report_executions. Corrige ici."
+    },
+    "BackupTabItem": {
+      "title": "Sauvegarde & restauration",
+      "orders": ["28"],
+      "permission": "MaintenanceRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": { "status": "n/a", "reason": "Aucune entite metier : la politique de retention (BackupPolicy) vit dans Application.Maintenance et la sauvegarde porte sur la base elle-meme." },
+        "application": ["src/RaqmiSystem.Application/Maintenance", "src/RaqmiSystem.Infrastructure/Maintenance"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/MaintenanceEndpoints.cs"],
+        "postgresql": { "status": "n/a", "reason": "L'ecran declenche et consulte des pg_dump ; il ne persiste rien dans la base applicative." },
+        "desktop": ["src/RaqmiSystem.Desktop/Views/BackupView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/MaintenanceBackupPolicyTests.cs",
+          "tests/RaqmiSystem.Tests/MaintenanceBackupServiceTests.cs",
+          "tests/RaqmiSystem.Tests/MaintenanceEndpointTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "La restauration reste volontairement hors ecran (acte d'administration serveur, docs/deployment-onpremise.md section Backups). Aucune fiche de module : la procedure d'exploitation ne decrit pas l'ecran."
+    },
+    "GroupDashboardTabItem": {
+      "title": "Tableau de bord PDG",
+      "orders": ["24.2"],
+      "permission": "DashboardRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": { "status": "n/a", "reason": "Agregation pure en lecture des modules existants ; les regles sont portees par GroupDashboardCalculator (Application.Pilotage), sans entite propre." },
+        "application": ["src/RaqmiSystem.Application/Pilotage", "src/RaqmiSystem.Infrastructure/Pilotage"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/PilotageEndpoints.cs"],
+        "postgresql": { "status": "n/a", "reason": "Aucune table, aucune migration : lecture multi-contextes via l'API." },
+        "desktop": ["src/RaqmiSystem.Desktop/Views/GroupDashboardView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/GroupDashboardCalculatorTests.cs",
+          "tests/RaqmiSystem.Tests/PilotageGroupEndpointTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": null
+    },
+    "DecCockpitTabItem": {
+      "title": "Cockpit DEC",
+      "orders": ["24.4"],
+      "permission": "DashboardRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": { "status": "n/a", "reason": "Agregation pure en lecture ; les regles sont portees par DecCockpitCalculator (Application.Pilotage), sans entite propre." },
+        "application": ["src/RaqmiSystem.Application/Pilotage", "src/RaqmiSystem.Infrastructure/Pilotage"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/PilotageEndpoints.cs"],
+        "postgresql": { "status": "n/a", "reason": "Aucune table, aucune migration : lecture multi-contextes via l'API." },
+        "desktop": ["src/RaqmiSystem.Desktop/Views/DecCockpitView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/DecCockpitCalculatorTests.cs",
+          "tests/RaqmiSystem.Tests/PilotageDecEndpointTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": null
+    },
+    "HousekeepingTabItem": {
+      "title": "Housekeeping & chambres",
+      "orders": ["10.2"],
+      "permission": "HousekeepingRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Housekeeping"],
+        "application": ["src/RaqmiSystem.Application/Housekeeping", "src/RaqmiSystem.Infrastructure/Housekeeping"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/HousekeepingEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260831092255_WaveHousekeeping.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/HousekeepingView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/HousekeepingTests.cs",
+          "tests/RaqmiSystem.Tests/HousekeepingEndpointTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": null
+    },
+    "HumanResourcesTabItem": {
+      "title": "RH & paie",
+      "orders": ["21"],
+      "permission": "HrRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/HumanResources"],
+        "application": ["src/RaqmiSystem.Application/HumanResources", "src/RaqmiSystem.Infrastructure/HumanResources"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/HumanResourcesEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260831092742_WaveHumanResources.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/HumanResourcesView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/HumanResourcesDomainTests.cs",
+          "tests/RaqmiSystem.Tests/HumanResourcesEndpointTests.cs",
+          "tests/RaqmiSystem.Tests/AlgerianPayrollEngineTests.cs"
+        ],
+        "documentation": "docs/modules/ressources-humaines.md",
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": null
+    },
+    "CrmTabItem": {
+      "title": "CRM & experience client",
+      "orders": ["10.4"],
+      "permission": "CrmRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Crm"],
+        "application": ["src/RaqmiSystem.Application/Crm", "src/RaqmiSystem.Infrastructure/Crm"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/CrmEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260831094712_WaveCrm.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/CrmView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/CrmTests.cs",
+          "tests/RaqmiSystem.Tests/CrmServiceTests.cs",
+          "tests/RaqmiSystem.Tests/CrmEndpointTests.cs"
+        ],
+        "documentation": "docs/modules/crm-experience-client.md",
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": null
+    },
+    "InventoryTabItem": {
+      "title": "Stocks & consommations",
+      "orders": ["11"],
+      "permission": "InventoryRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Inventory"],
+        "application": ["src/RaqmiSystem.Application/Inventory", "src/RaqmiSystem.Infrastructure/Inventory"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/InventoryEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260831094736_WaveInventory.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/InventoryView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/InventoryTests.cs",
+          "tests/RaqmiSystem.Tests/InventoryServiceTests.cs",
+          "tests/RaqmiSystem.Tests/InventoryEndpointTests.cs",
+          "tests/RaqmiSystem.Tests/InventoryStockConcurrencyTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": null
+    },
+    "PurchasingTabItem": {
+      "title": "Achats & approvisionnements",
+      "orders": ["12"],
+      "permission": "PurchasingRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Purchasing"],
+        "application": ["src/RaqmiSystem.Application/Purchasing", "src/RaqmiSystem.Infrastructure/Purchasing"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/PurchasingEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260831094736_WaveInventory.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/PurchasingView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/PurchasingTests.cs",
+          "tests/RaqmiSystem.Tests/PurchasingServiceTests.cs",
+          "tests/RaqmiSystem.Tests/PurchasingEndpointTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "Domaine cible 12 (Technical Preview au niveau domaine : demande d'achat, facture fournisseur et 3-way matching absents) ; le parcours livre par l'ecran est Functional."
+    },
+    "KitchenTabItem": {
+      "title": "Cuisine, production & qualite",
+      "orders": ["11.5"],
+      "permission": "KitchenRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Kitchen"],
+        "application": ["src/RaqmiSystem.Application/Kitchen", "src/RaqmiSystem.Infrastructure/Kitchen"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/KitchenEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260831094736_WaveInventory.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/KitchenView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/KitchenTests.cs",
+          "tests/RaqmiSystem.Tests/KitchenServiceTests.cs",
+          "tests/RaqmiSystem.Tests/KitchenEndpointTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "Domaine cible 10 (Technical Preview au niveau domaine : POS et KDS absents) ; fiches techniques et HACCP livres."
+    },
+    "SyncTabItem": {
+      "title": "Registre des postes & erreurs clients",
+      "orders": ["29"],
+      "permission": "SyncRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Sync"],
+        "application": ["src/RaqmiSystem.Application/Sync", "src/RaqmiSystem.Infrastructure/Sync"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/SyncEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260831113500_WaveSyncSupervision.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/SyncView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/SyncSupervisionTests.cs",
+          "tests/RaqmiSystem.Tests/SyncEndpointTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "Supervision seule, aucune file de synchronisation (docs/modules-catalog.md, section Module 29). Cette section n'est pas une fiche de module : documentation manquante (grace)."
+    },
+    "MiceTabItem": {
+      "title": "Groupes & MICE",
+      "orders": ["10.6"],
+      "permission": "MiceRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Mice"],
+        "application": ["src/RaqmiSystem.Application/Mice", "src/RaqmiSystem.Infrastructure/Mice"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/MiceEndpoints.cs"],
+        "postgresql": [
+          "src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260831142752_WaveMiceEvents.cs",
+          "src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260831224551_RoomAllotments.cs"
+        ],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/MiceView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/MiceServiceTests.cs",
+          "tests/RaqmiSystem.Tests/MiceEndpointTests.cs",
+          "tests/RaqmiSystem.Tests/RoomAllotmentTests.cs"
+        ],
+        "documentation": null,
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "Tables MICE physiquement dans le schema lodging (function_spaces, event_*, room_allotments)."
+    },
+    "KpiTabItem": {
+      "title": "Bibliotheque KPI (comparatif inter-unites)",
+      "orders": ["25.4"],
+      "permission": "DashboardRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Kpi"],
+        "application": ["src/RaqmiSystem.Application/Kpi", "src/RaqmiSystem.Infrastructure/Kpi"],
+        "api": ["src/RaqmiSystem.Api/Endpoints/KpiEndpoints.cs"],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260901130213_WaveKpi.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/KpiView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/KpiCatalogTests.cs",
+          "tests/RaqmiSystem.Tests/KpiEngineTests.cs",
+          "tests/RaqmiSystem.Tests/KpiEndpointTests.cs",
+          "tests/RaqmiSystem.Tests/KpiMathTests.cs",
+          "tests/RaqmiSystem.Tests/KpiPersistenceTests.cs",
+          "tests/RaqmiSystem.Tests/KpiSnapshotTests.cs",
+          "tests/RaqmiSystem.Tests/KpiThresholdTests.cs",
+          "tests/RaqmiSystem.Tests/KpiDashboardBuilderTests.cs",
+          "tests/RaqmiSystem.Tests/FinanceKpiCalculatorTests.cs",
+          "tests/RaqmiSystem.Tests/LodgingKpiCalculatorTests.cs",
+          "tests/RaqmiSystem.Tests/FoodBeverageKpiCalculatorTests.cs",
+          "tests/RaqmiSystem.Tests/WorkforceKpiCalculatorTests.cs"
+        ],
+        "documentation": "docs/modules/bibliotheque-kpi.md",
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "Lecture sous dashboard.read + cles des modules sources de chaque indicateur ; kpi.admin pour l'ecriture."
+    },
+    "PmsTabItem": {
+      "title": "PMS front office",
+      "orders": ["10.1"],
+      "permission": "LodgingRead",
+      "declared": "Functional",
+      "evidence": {
+        "domain": ["src/RaqmiSystem.Domain/Lodging"],
+        "application": ["src/RaqmiSystem.Application/Lodging", "src/RaqmiSystem.Infrastructure/Lodging"],
+        "api": [
+          "src/RaqmiSystem.Api/Endpoints/LodgingOperationsEndpoints.cs",
+          "src/RaqmiSystem.Api/Endpoints/LodgingEndpoints.cs"
+        ],
+        "postgresql": ["src/RaqmiSystem.Infrastructure/Persistence/Migrations/20260901130154_WavePmsFrontOffice.cs"],
+        "desktop": ["src/RaqmiSystem.Desktop/Views/PmsView.xaml"],
+        "tests": [
+          "tests/RaqmiSystem.Tests/LodgingStayTests.cs",
+          "tests/RaqmiSystem.Tests/LodgingNightAuditTests.cs",
+          "tests/RaqmiSystem.Tests/LodgingEndpointTests.cs",
+          "tests/RaqmiSystem.Tests/PmsHarness.cs",
+          "tests/RaqmiSystem.Tests/TestReservations.cs"
+        ],
+        "documentation": "docs/modules/pms-hebergement.md",
+        "smoke": null
+      },
+      "productionReady": { "postgresqlCi": null, "e2e": null },
+      "notes": "Cable par MainWindow.ModuleAccessFixes.cs (ApplyLateModuleAccess). Onglet 30, ajoute apres la liste historique."
+    }
+  }
+}

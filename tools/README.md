@@ -1,14 +1,60 @@
-# Outils de documentation
+# Outils
 
-Ces outils produisent le guide utilisateur de Raqmi System. Ils ne font pas partie du produit
-livre : ils ne sont pas dans `RaqmiSystem.sln`, aucun projet de `src/` ne les reference, et
-rien de ce qu'ils contiennent n'est deploye chez un client.
+Ces outils ne font pas partie du produit livre : ils ne sont pas dans `RaqmiSystem.sln`, aucun
+projet de `src/` ne les reference, et rien de ce qu'ils contiennent n'est deploye chez un client.
 
 | Outil | Role |
 |---|---|
+| `check-module-readiness.ps1` | Garde de readiness : lit le code (sans le compiler) et verifie que chaque module Disponible est cable, que les 22 domaines sont coherents et que chaque ecran prouve le niveau qu'il declare |
+| `readiness/screens.json` | Preuves lisibles par machine des 30 ecrans (un par onglet `x:Name`) : ordres, permission, niveau declare, fichiers de preuve |
 | `generate-guide.ps1` | Chaine complete : migrations, seed, API de demonstration, jeu de donnees, captures |
 | `demo-seed/` | Jeu de demonstration d'un groupe hotelier algerien fictif, ecrit uniquement via l'API HTTP |
 | `RaqmiSystem.DocShots/` | Campagne de captures : ouvre la vraie fenetre WPF et rend chaque module en PNG |
+
+## Garde de readiness
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/check-module-readiness.ps1
+```
+
+Le script fonctionne sous Windows PowerShell 5.1 et PowerShell 7 (`pwsh`, utilise par la CI). Il ne
+modifie rien et ne compile rien : il lit `ModuleCatalog.cs`, `MainWindow.xaml`, tous les partiels
+`MainWindow*.cs`, `PermissionCatalog.cs`, `FunctionalArchitectureCatalog.cs`, les endpoints API cites
+par `screens.json`, et verifie l'existence de chaque fichier de preuve. Le detail des dix controles,
+des neuf criteres et des quatre niveaux est dans
+[`docs/stabilization/module-readiness.md`](../docs/stabilization/module-readiness.md).
+
+| Parametre | Effet |
+|---|---|
+| `-RepositoryRoot` | Racine du depot (par defaut : le parent de `tools/`) |
+| `-ScreensPath` | Autre fichier de preuves (utile pour tester une variante sans toucher au depot) |
+| `-AsOf AAAA-MM-JJ` | Date de reference pour la periode de grace documentation (par defaut : aujourd'hui) |
+| `-MarkdownSummaryPath` | Ecrit le tableau en Markdown dans ce fichier ; sinon dans `GITHUB_STEP_SUMMARY` si la variable existe |
+
+Sortie : `Module readiness gate: 31/31 ...`, `Catalogue fonctionnel: 22/22 ...`, un tableau par ecran
+(onglet, ecran, ordres, domaine cible, permission, niveau declare, niveau prouve, preuves manquantes),
+un resume par niveau et l'etat de la grace. Code de sortie `0` si tout est coherent, `1` sinon, avec
+la liste complete des echecs prefixes `ECHEC:` (les avertissements, prefixes `AVERTISSEMENT:`, ne font
+pas echouer).
+
+**Ajouter ou faire evoluer un ecran.** Quand un module passe `Disponible` (hors gel) ou change de
+permission/onglet, ajouter ou corriger sa fiche dans `readiness/screens.json` : cle = `x:Name` de
+l'onglet, `orders` et `permission` identiques au catalogue, `declared` = niveau revendique, et une
+preuve par critere (`domain`, `application`, `api`, `postgresql`, `desktop`, `tests`, `documentation`,
+`smoke`). Une preuve est un chemin (ou une liste) relatif a la racine, `{ "status": "n/a",
+"reason": "..." }` quand le critere ne s'applique pas, ou `null` quand elle manque. Un chemin
+inexistant fait echouer le garde ; un `null` abaisse le niveau prouve, et le garde echoue si
+`declared` le depasse. Le niveau `ProductionReady` exige en plus `productionReady.postgresqlCi`,
+`productionReady.e2e` et un `smoke` joue : aucun ecran ne l'atteint aujourd'hui.
+
+**Grace documentation.** `documentationGrace` liste, avec une date limite, les ecrans historiques
+sans fiche `docs/modules/*.md`. Passe cette date ils retombent en Technical Preview et le garde
+echoue ; un ecran qui recoit sa fiche doit etre retire de la liste. `-AsOf 2027-01-01` permet de
+verifier ce comportement des maintenant.
+
+# Outils de documentation
+
+Ces outils produisent le guide utilisateur de Raqmi System.
 
 ## Pourquoi une base dediee
 
