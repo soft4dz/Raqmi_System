@@ -94,6 +94,7 @@ public static class DependencyInjection
         services.AddScoped<IApplicationSettingsService, ApplicationSettingsService>();
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<IAccountingService, AccountingService>();
+        services.AddScoped<IAccountingCoreService, AccountingCoreService>();
         services.AddScoped<IBudgetService, BudgetService>();
         services.AddScoped<IReceivablesService, ReceivablesService>();
         services.AddScoped<ITariffService, TariffService>();

@@ -31,6 +31,10 @@ public static class PermissionCatalog
     public const string AccountingRead = "accounting.read";
     public const string AccountingWrite = "accounting.write";
     public const string AccountingPost = "accounting.post";
+    public const string AccountingReconcile = "accounting.reconcile";
+    public const string AccountingClose = "accounting.close";
+    public const string AccountingReverse = "accounting.reverse";
+    public const string AccountingAdmin = "accounting.admin";
     public const string BudgetRead = "budget.read";
     public const string BudgetWrite = "budget.write";
     public const string BudgetApprove = "budget.approve";
@@ -130,6 +134,10 @@ public static class PermissionCatalog
         new PermissionDefinition(AccountingRead, "Lire la comptabilite", "finance", "Consulter le plan comptable, les journaux, les ecritures et la balance."),
         new PermissionDefinition(AccountingWrite, "Saisir la comptabilite", "finance", "Creer et modifier le plan comptable, les journaux et les ecritures en brouillon."),
         new PermissionDefinition(AccountingPost, "Comptabiliser les ecritures", "finance", "Comptabiliser une ecriture et enregistrer une ecriture d'extourne."),
+        new PermissionDefinition(AccountingReconcile, "Lettrer les tiers", "finance", "Effectuer un lettrage partiel ou total."),
+        new PermissionDefinition(AccountingClose, "Cloturer la comptabilite", "finance", "Cloturer les periodes et exercices comptables."),
+        new PermissionDefinition(AccountingReverse, "Contrepasser les ecritures", "finance", "Enregistrer une contre-passation liee a l'ecriture source."),
+        new PermissionDefinition(AccountingAdmin, "Administrer la comptabilite", "finance", "Initialiser le SCF et administrer les referentiels comptables."),
         new PermissionDefinition(BudgetRead, "Lire les budgets", "finance", "Consulter les budgets annuels et les ecarts budget/realise."),
         new PermissionDefinition(BudgetWrite, "Gerer les budgets", "finance", "Creer et modifier les budgets annuels et leurs objectifs mensuels."),
         new PermissionDefinition(BudgetApprove, "Approuver les budgets", "finance", "Approuver et cloturer un budget annuel."),

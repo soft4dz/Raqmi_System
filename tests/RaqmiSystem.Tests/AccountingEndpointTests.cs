@@ -29,6 +29,7 @@ public sealed class AccountingEndpointTests : IClassFixture<RaqmiApiFactory>
     private const string AccountingRead = "accounting.read";
     private const string AccountingWrite = "accounting.write";
     private const string AccountingPost = "accounting.post";
+    private const string AccountingReverse = "accounting.reverse";
 
     private readonly RaqmiApiFactory _factory;
 
@@ -50,7 +51,7 @@ public sealed class AccountingEndpointTests : IClassFixture<RaqmiApiFactory>
             "accounting.poster",
             "accounting.poster@example.com",
             "Accounting Poster",
-            AccountingRead, AccountingPost);
+            AccountingRead, AccountingPost, AccountingReverse);
 
         using var writerClient = await _factory.CreateAuthenticatedClientAsync("accounting.writer", Password);
         using var posterClient = await _factory.CreateAuthenticatedClientAsync("accounting.poster", Password);

@@ -471,6 +471,9 @@ public sealed class AccountingService(
             return ApplicationResult<JournalEntryResponse>.Validation(ex.Message);
         }
 
+        var periodFailure = await RequireOpenPeriodAsync(entry.EntryDate, cancellationToken);
+        if (periodFailure is not null) return periodFailure;
+
         var referenceFailure = await ValidateReferencesAsync(
             entry.JournalCode,
             DistinctAccountCodes(entry),
@@ -622,6 +625,9 @@ public sealed class AccountingService(
                         : "A cancelled journal entry cannot be posted.");
             }
 
+            var periodFailure = await RequireOpenPeriodAsync(entry.EntryDate, cancellationToken);
+            if (periodFailure is not null) return periodFailure;
+
             var now = DateTimeOffset.UtcNow;
 
             if (!await TryClaimDraftEntryAsync(entry.Id, now, cancellationToken))
@@ -644,6 +650,7 @@ public sealed class AccountingService(
 
             try
             {
+                await AssignDefinitiveNumberAsync(entry, cancellationToken);
                 entry.Post(context.UserName, now);
             }
             catch (InvalidOperationException ex)
@@ -696,11 +703,15 @@ public sealed class AccountingService(
         // refusing to correct an entry because one of the accounts it already touched has since
         // been deactivated would leave a wrong entry in the books with no legal way out.
         var now = DateTimeOffset.UtcNow;
+        var reversalDate = request.ReversalDate ?? entry.EntryDate;
+        var periodFailure = await RequireOpenPeriodAsync(reversalDate, cancellationToken);
+        if (periodFailure is not null) return periodFailure;
         JournalEntry reversal;
 
         try
         {
             reversal = entry.CreateReversal(request.ReversalDate, request.Reference, context.UserName, now);
+            await AssignDefinitiveNumberAsync(reversal, cancellationToken);
         }
         catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException or InvalidOperationException)
         {
@@ -739,10 +750,31 @@ public sealed class AccountingService(
             return ApplicationResult<JournalEntryResponse>.Conflict(
                 "This journal entry has already been reversed by a concurrent operation.");
         }
+        catch (DbUpdateConcurrencyException)
+        {
+            return ApplicationResult<JournalEntryResponse>.Conflict(
+                "The journal sequence changed concurrently. Reload and retry the reversal.");
+        }
 
         // The NEW entry is returned: it is the document the caller has to file, and the reversed
         // one is reachable through its ReversesEntryId.
         return ApplicationResult<JournalEntryResponse>.Success(Map(reversal));
+    }
+
+    private async Task<ApplicationResult<JournalEntryResponse>?> RequireOpenPeriodAsync(DateOnly date, CancellationToken cancellationToken)
+    {
+        var period = await dbContext.AccountingPeriods.AsNoTracking()
+            .SingleOrDefaultAsync(x => date >= x.StartsOn && date <= x.EndsOn, cancellationToken);
+        if (period is null)
+        {
+            // Backward-compatible bootstrap: period enforcement becomes strict as soon as the
+            // establishment configures its first fiscal year.
+            if (!await dbContext.AccountingPeriods.AnyAsync(cancellationToken)) return null;
+            return ApplicationResult<JournalEntryResponse>.Validation("The entry date is outside every configured accounting period.");
+        }
+        if (period.Status == AccountingPeriodStatus.Closed)
+            return ApplicationResult<JournalEntryResponse>.Conflict("The accounting period is closed; capture and posting are forbidden.");
+        return null;
     }
 
     public async Task<ApplicationResult<JournalEntryResponse>> CancelEntryAsync(
@@ -1076,7 +1108,9 @@ public sealed class AccountingService(
             entry.CreatedAt,
             entry.CreatedBy,
             entry.UpdatedAt,
-            entry.UpdatedBy);
+            entry.UpdatedBy,
+            entry.DocumentNumber,
+            entry.FiscalYearId);
     }
 
     /// <summary>
@@ -1114,6 +1148,19 @@ public sealed class AccountingService(
     private async Task SaveAsync(CancellationToken cancellationToken)
     {
         await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task AssignDefinitiveNumberAsync(JournalEntry entry, CancellationToken cancellationToken)
+    {
+        var period = await dbContext.AccountingPeriods.SingleOrDefaultAsync(
+            x => entry.EntryDate >= x.StartsOn && entry.EntryDate <= x.EndsOn, cancellationToken);
+        if (period is null) return;
+        var year = await dbContext.FiscalYears.SingleAsync(x => x.Id == period.FiscalYearId, cancellationToken);
+        var sequence = await dbContext.JournalSequences.SingleOrDefaultAsync(
+            x => x.JournalCode == entry.JournalCode && x.FiscalYearId == year.Id, cancellationToken);
+        if (sequence is null) { sequence = new JournalSequence(entry.JournalCode, year.Id); dbContext.JournalSequences.Add(sequence); }
+        var number = sequence.Next();
+        entry.AssignDocumentNumber(year.Id, $"{entry.JournalCode}-{year.Code}-{number:000000}");
     }
 
     private async Task WriteAuditAsync(

@@ -70,6 +70,8 @@ Légende :
 | 4.5 | Clôture journalière & Night Audit | CI | CI | CI | AUTO | AUTO | CI | DOC | SMOKE |
 | 5 | Encaissements & trésorerie | CI | CI | CI | AUTO | AUTO | CI | DOC | SMOKE |
 | 5.2 | Comptabilité SCF | CI | CI | CI | AUTO | AUTO | CI | DOC | SMOKE |
+
+Le lot `feature/accounting-scf-core` étend la ligne 5.2 sans créer de nouveau module : exercices/périodes, tiers, numérotation concurrente, lettrage, grand livre et clôture restent dans l'écran et la permission de lecture existants, avec des permissions d'action fines.
 | 6 | Budget & prévisions | CI | CI | CI | AUTO | AUTO | CI | DOC | SMOKE |
 | 8 | Facturation | CI | CI | CI | AUTO | AUTO | CI | DOC | SMOKE |
 | 9 | Créances & recouvrement | CI | CI | CI | AUTO | AUTO | CI | DOC | SMOKE |

@@ -64,6 +64,12 @@ public sealed class RaqmiDbContext(DbContextOptions<RaqmiDbContext> options) : D
 
     public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
 
+    public DbSet<FiscalYear> FiscalYears => Set<FiscalYear>();
+    public DbSet<AccountingPeriod> AccountingPeriods => Set<AccountingPeriod>();
+    public DbSet<AccountingParty> AccountingParties => Set<AccountingParty>();
+    public DbSet<JournalSequence> JournalSequences => Set<JournalSequence>();
+    public DbSet<Reconciliation> Reconciliations => Set<Reconciliation>();
+
     public DbSet<BudgetPlan> BudgetPlans => Set<BudgetPlan>();
 
     public DbSet<BudgetLine> BudgetLines => Set<BudgetLine>();

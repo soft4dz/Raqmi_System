@@ -22,6 +22,10 @@ public sealed class JournalEntryConfiguration : IEntityTypeConfiguration<Journal
                 "ck_journal_entries_totals_positive",
                 "CAST(total_debit AS numeric) >= 0 AND CAST(total_credit AS numeric) >= 0");
 
+            table.HasCheckConstraint(
+                "ck_journal_entries_posted_balanced",
+                "status <> 'Posted' OR CAST(total_debit AS numeric) = CAST(total_credit AS numeric)");
+
             // An entry cannot be its own reversal.
             table.HasCheckConstraint(
                 "ck_journal_entries_reverses_not_self",
@@ -52,6 +56,8 @@ public sealed class JournalEntryConfiguration : IEntityTypeConfiguration<Journal
         builder.Property(entry => entry.Reference)
             .HasColumnName("reference")
             .HasMaxLength(JournalEntry.MaxReferenceLength);
+        builder.Property(entry => entry.DocumentNumber).HasColumnName("document_number").HasMaxLength(60);
+        builder.Property(entry => entry.FiscalYearId).HasColumnName("fiscal_year_id");
 
         builder.Property(entry => entry.Status)
             .HasColumnName("status")
@@ -101,6 +107,8 @@ public sealed class JournalEntryConfiguration : IEntityTypeConfiguration<Journal
 
         builder.HasIndex(entry => entry.Status)
             .HasDatabaseName("ix_journal_entries_status");
+        builder.HasIndex(entry => entry.DocumentNumber).IsUnique().HasDatabaseName("ux_journal_entries_document_number");
+        builder.HasOne<FiscalYear>().WithMany().HasForeignKey(entry => entry.FiscalYearId).OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne<AccountingJournal>()
             .WithMany()

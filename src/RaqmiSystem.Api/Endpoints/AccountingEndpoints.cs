@@ -21,7 +21,23 @@ internal static class AccountingEndpoints
         MapJournalEndpoints(api);
         MapJournalEntryEndpoints(api);
         MapTrialBalanceEndpoints(api);
+        MapAccountingCoreEndpoints(api);
         return api;
+    }
+
+    private static void MapAccountingCoreEndpoints(RouteGroupBuilder api)
+    {
+        var core = api.MapGroup("/accounting").WithTags("SCF accounting core");
+        core.MapGet("/fiscal-years", async (IAccountingCoreService s, CancellationToken ct) => Results.Ok(await s.ListFiscalYearsAsync(ct))).RequireAuthorization(PermissionCatalog.AccountingRead);
+        core.MapPost("/fiscal-years", async (CreateFiscalYearRequest r,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.CreateFiscalYearAsync(r,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.AccountingAdmin);
+        core.MapGet("/fiscal-years/{id:guid}/periods", async (Guid id,IAccountingCoreService s,CancellationToken ct)=>Results.Ok(await s.ListPeriodsAsync(id,ct))).RequireAuthorization(PermissionCatalog.AccountingRead);
+        core.MapPost("/fiscal-years/{id:guid}/close", async (Guid id,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.CloseFiscalYearAsync(id,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.AccountingClose);
+        core.MapPost("/periods/{id:guid}/close", async (Guid id,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.ClosePeriodAsync(id,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.AccountingClose);
+        core.MapGet("/parties", async (IAccountingCoreService s,CancellationToken ct)=>Results.Ok(await s.ListPartiesAsync(ct))).RequireAuthorization(PermissionCatalog.AccountingRead);
+        core.MapPost("/parties", async (CreatePartyRequest r,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.CreatePartyAsync(r,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.AccountingWrite);
+        core.MapPost("/reconciliations", async (CreateReconciliationRequest r,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.ReconcileAsync(r,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.AccountingReconcile);
+        core.MapGet("/general-ledger/{accountCode}", async (string accountCode,DateOnly? from,DateOnly? to,IAccountingCoreService s,CancellationToken ct)=>Results.Ok(await s.GetGeneralLedgerAsync(accountCode,from,to,ct))).RequireAuthorization(PermissionCatalog.AccountingRead);
+        core.MapPost("/scf/seed", async (IAccountingCoreService s,HttpContext h,CancellationToken ct)=>Results.Ok(new{inserted=await s.SeedScfAsync(h.ToOperationContext(),ct)})).RequireAuthorization(PermissionCatalog.AccountingAdmin);
     }
 
     private static void MapChartAccountEndpoints(RouteGroupBuilder api)
@@ -294,7 +310,7 @@ internal static class AccountingEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/accounting/entries/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.AccountingPost);
+        }).RequireAuthorization(PermissionCatalog.AccountingReverse);
     }
 
     private static void MapTrialBalanceEndpoints(RouteGroupBuilder api)

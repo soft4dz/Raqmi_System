@@ -161,7 +161,7 @@
             <StackPanel>
                 <TextBlock Text="Comptabilité SCF"
                            Style="{StaticResource PageTitleText}" />
-                <TextBlock Text="Plan comptable, journaux, écritures et balance générale."
+                <TextBlock Text="Plan SCF, journaux, écritures, balance, grand livre, lettrage et clôture."
                            Style="{StaticResource SubtitleText}"
                            Margin="0,4,0,0" />
             </StackPanel>

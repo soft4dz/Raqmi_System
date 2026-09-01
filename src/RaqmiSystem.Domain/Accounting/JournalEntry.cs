@@ -51,6 +51,9 @@ public sealed class JournalEntry : AuditableEntity
     /// <summary>External reference (invoice number, receipt number, voucher...), optional.</summary>
     public string? Reference { get; private set; }
 
+    public string? DocumentNumber { get; private set; }
+    public Guid? FiscalYearId { get; private set; }
+
     public EntryStatus Status { get; private set; } = EntryStatus.Draft;
 
     public decimal TotalDebit { get; private set; }
@@ -154,6 +157,15 @@ public sealed class JournalEntry : AuditableEntity
         Status = EntryStatus.Posted;
         PostedAt = utcNow;
         PostedBy = RequireActor(userName);
+    }
+
+    public void AssignDocumentNumber(Guid fiscalYearId, string documentNumber)
+    {
+        if (Status != EntryStatus.Draft && !(Status == EntryStatus.Posted && ReversesEntryId.HasValue))
+            throw new InvalidOperationException("Only a draft or a newly-created reversal can receive its definitive number.");
+        if (DocumentNumber is not null) throw new InvalidOperationException("The journal entry already has a definitive number.");
+        FiscalYearId = fiscalYearId;
+        DocumentNumber = string.IsNullOrWhiteSpace(documentNumber) ? throw new ArgumentException("Document number is required.", nameof(documentNumber)) : documentNumber.Trim();
     }
 
     /// <summary>

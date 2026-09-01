@@ -35,4 +35,6 @@ public sealed record JournalEntryResponse(
     DateTimeOffset CreatedAt,
     string CreatedBy,
     DateTimeOffset? UpdatedAt,
-    string? UpdatedBy);
+    string? UpdatedBy,
+    string? DocumentNumber = null,
+    Guid? FiscalYearId = null);
