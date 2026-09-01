@@ -1,5 +1,16 @@
 # Index documentaire
 
+## Documentation active
+
+- [Architecture fonctionnelle cible — audit et plan de migration](architecture-fonctionnelle-cible.md)
+- [Dossier de réorganisation fonctionnelle — audit, cartographies, mapping, dépendances, risques, plan](reorganisation/README.md)
+- [Architecture technique](architecture.md)
+- [Matrice de readiness](stabilization/module-readiness.md)
+- [Catalogue des modules](modules-catalog.md)
+- [Périmètre fonctionnel cible](perimetre-fonctionnel-cible.md)
+
+## Références historiques importées
+
 Cette page liste la documentation reprise depuis l'ancien depot `Hotel_Metrics_Pro_Desktop` pour guider la nouvelle version `Raqmi_System`.
 
 - Commit source : c3a5795864f44363464a41ece95c169f4ca04bcf
