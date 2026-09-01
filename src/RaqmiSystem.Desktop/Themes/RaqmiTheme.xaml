@@ -169,6 +169,35 @@
     <SolidColorBrush x:Key="ModuleProgressPartialBrush" Color="#BF8B16" />
     <SolidColorBrush x:Key="ModuleProgressPlannedBrush" Color="#7798B5" />
 
+    <!-- Maturite des domaines fonctionnels (FunctionalMaturity, quatre niveaux
+         calcules depuis la readiness, jamais saisis). Quatre teintes semantiques
+         distinctes, dans l'ordre de progression :
+           Planned          : ardoise, non engage ;
+           TechnicalPreview : ambre, attention - noyau technique, parcours incomplet ;
+           Functional       : teal de marque, en service - le parcours annonce s'utilise ;
+           ProductionReady  : vert, accompli - homologue pour la production.
+         Le vert est reserve au dernier niveau : il ne peut donc pas etre atteint
+         par un domaine seulement Functional, et un bandeau sans vert dit la verite.
+         Les teintes sont celles de la carte d'avancement (meme famille ardoise /
+         ambre / teal / vert) : des clefs distinctes pour des semantiques distinctes,
+         qui pourront diverger sans casser l'accueil.
+         Pastilles : fond doux + texte fonce, 5,0 a 5,5:1 en clair. Accents : versions
+         saturees pour un point de legende ou un segment, 3:1 sur SurfaceBrush (a poser
+         sur une carte blanche, jamais directement sur AppBackground ou ils tombent
+         sous le seuil, comme les ModuleProgress). -->
+    <SolidColorBrush x:Key="MaturityPlannedBackgroundBrush" Color="#E8EEF4" />
+    <SolidColorBrush x:Key="MaturityPlannedForegroundBrush" Color="#46617B" />
+    <SolidColorBrush x:Key="MaturityPlannedAccentBrush" Color="#7798B5" />
+    <SolidColorBrush x:Key="MaturityTechnicalPreviewBackgroundBrush" Color="#FBEBC8" />
+    <SolidColorBrush x:Key="MaturityTechnicalPreviewForegroundBrush" Color="#8A5A08" />
+    <SolidColorBrush x:Key="MaturityTechnicalPreviewAccentBrush" Color="#BF8B16" />
+    <SolidColorBrush x:Key="MaturityFunctionalBackgroundBrush" Color="#DDF2F4" />
+    <SolidColorBrush x:Key="MaturityFunctionalForegroundBrush" Color="#096B73" />
+    <SolidColorBrush x:Key="MaturityFunctionalAccentBrush" Color="#0AA3AD" />
+    <SolidColorBrush x:Key="MaturityProductionReadyBackgroundBrush" Color="#DCF3E5" />
+    <SolidColorBrush x:Key="MaturityProductionReadyForegroundBrush" Color="#14713C" />
+    <SolidColorBrush x:Key="MaturityProductionReadyAccentBrush" Color="#1F9D57" />
+
     <!-- Barre de defilement -->
     <SolidColorBrush x:Key="ScrollThumbBrush" Color="#6C90B0" />
     <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#567DA0" />
@@ -1282,6 +1311,76 @@
     <PathGeometry x:Key="ModuleGroupIcon.Systeme"
                   Figures="M8,5.5 A2.5,2.5 0 1 0 8.01,5.5 M8,1.4 V3 M8,13 V14.6 M1.4,8 H3 M13,8 H14.6 M3.6,3.6 L4.7,4.7 M11.3,11.3 L12.4,12.4 M12.4,3.6 L11.3,4.7 M4.7,11.3 L3.6,12.4" />
 
+    <!-- Icones des 22 domaines fonctionnels (FunctionalArchitectureCatalog, clef
+         IconKey). Sept domaines reprennent une icone de famille ci-dessus - Finance
+         (03), Achats (12), RessourcesHumaines (13), Juridique (16), Documentaire (17),
+         Pilotage (20), Systeme (22) - et les quinze autres recoivent la leur ici, dans
+         le meme langage : boite 16x16, trait 1.5 arrondi, un seul motif par domaine,
+         lisible a 16 px dans la barre laterale. Les anciennes clefs de famille restent
+         declarees : le catalogue historique et SidebarLayout les citent encore.
+         Un cercle s'ecrit "M cx,(cy-r) A r,r 0 1 0 cx+0.01,(cy-r)" : le depart est
+         le sommet du cercle, comme pour les icones de famille.
+         Inventaire et descriptions : docs/design/icones-domaines.md. -->
+
+    <!-- 01 Mon Espace : un avatar - buste dans un cercle. Un seul personnage, la ou
+         RessourcesHumaines en montre deux : le portail est personnel. -->
+    <PathGeometry x:Key="ModuleGroupIcon.MonEspace"
+                  Figures="M8,1.8 A6.2,6.2 0 1 0 8.01,1.8 M8,5 A2,2 0 1 0 8.01,5 M4.3,12.6 A4.2,4.2 0 0 1 11.7,12.6" />
+    <!-- 02 Administration & Socle ERP : un organigramme - une boite qui en commande
+         deux. L'organisation, les comptes et les referentiels descendent de la. -->
+    <PathGeometry x:Key="ModuleGroupIcon.Administration"
+                  Figures="M5.6,1.8 H10.4 V5.4 H5.6 Z M8,5.4 V8 M3.6,8 H12.4 M3.6,8 V10.4 M12.4,8 V10.4 M1.4,10.4 H5.8 V14.2 H1.4 Z M10.2,10.4 H14.6 V14.2 H10.2 Z" />
+    <!-- 04 Commercial, Clients & CRM : une fiche contact - carte avec portrait et
+         deux lignes. Le fichier client ; la balance reste a Juridique. -->
+    <PathGeometry x:Key="ModuleGroupIcon.Commercial"
+                  Figures="M1.5,3.4 H14.5 V12.6 H1.5 Z M5.2,6 A1.5,1.5 0 1 0 5.21,6 M3.4,11.2 A1.9,1.9 0 0 1 7,11.2 M9,6.6 H12.2 M9,9.4 H12.2" />
+    <!-- 05 Facturation & Ventes : un ticket - feuille a bord dentele, deux lignes
+         dont une courte pour le montant. Distinct du billet de Finance. -->
+    <PathGeometry x:Key="ModuleGroupIcon.Facturation"
+                  Figures="M3,1.8 H13 V14.2 L10.5,12.7 L8,14.2 L5.5,12.7 L3,14.2 Z M5.6,5.4 H10.4 M5.6,8.2 H8.8" />
+    <!-- 06 PMS / Hebergement : un lit - tete de lit, matelas a coin arrondi, oreiller
+         separe, sommier. Le pictogramme hotelier par excellence. -->
+    <PathGeometry x:Key="ModuleGroupIcon.Hebergement"
+                  Figures="M1.6,3.2 V13.6 M1.6,6.4 H12.8 A1.6,1.6 0 0 1 14.4,8 V13.6 M1.6,11.2 H14.4 M5.2,6.4 V11.2" />
+    <!-- 07 Revenue Management & Distribution : une courbe qui monte, fleche en bout.
+         Pilotage garde son cadran : ici c'est la tendance, pas la mesure. -->
+    <PathGeometry x:Key="ModuleGroupIcon.Revenue"
+                  Figures="M1.8,12.4 L6.2,8 L9.2,11 L14.2,6 M10.6,6 H14.2 V9.6" />
+    <!-- 08 Housekeeping : un balai - manche en diagonale, tete trapezoidale, axe. -->
+    <PathGeometry x:Key="ModuleGroupIcon.Housekeeping"
+                  Figures="M13.6,2.4 L8.6,7.4 M7.75,6.55 L3.1,8.7 L7.3,12.9 L9.45,8.25 Z M8.6,7.4 L5.2,10.8" />
+    <!-- 09 Groupes, MICE & Evenementiel : un calendrier - deux attaches, ligne
+         d'en-tete, un evenement pose dans la grille. -->
+    <PathGeometry x:Key="ModuleGroupIcon.Evenementiel"
+                  Figures="M2.2,3.6 H13.8 V14 H2.2 Z M2.2,7 H13.8 M5.4,1.8 V4.8 M10.6,1.8 V4.8 M5,10.4 H8.4" />
+    <!-- 10 F&B / Restauration : une cloche de service - dome, bouton, plat, plateau. -->
+    <PathGeometry x:Key="ModuleGroupIcon.Restauration"
+                  Figures="M2.6,11.2 A5.4,5.4 0 0 1 13.4,11.2 M8,4 V5.8 M1.4,11.2 H14.6 M3.6,13.6 H12.4" />
+    <!-- 11 Stocks & Economat : trois cartons empiles. Achats garde son carton seul :
+         un carton, on l'achete ; trois, on les range. -->
+    <PathGeometry x:Key="ModuleGroupIcon.Stocks"
+                  Figures="M1.6,8.4 H8 V14.2 H1.6 Z M8,8.4 H14.4 V14.2 H8 Z M4.8,2.6 H11.2 V8.4 H4.8 Z" />
+    <!-- 14 Maintenance & Patrimoine : une clef a molette en diagonale, machoire en
+         haut a droite, manche arrondi. -->
+    <PathGeometry x:Key="ModuleGroupIcon.Maintenance"
+                  Figures="M9.8,4.2 A0.7,0.7 0 0 0 9.8,5.1 L10.9,6.2 A0.7,0.7 0 0 0 11.8,6.2 L14.3,3.7 A4,4 0 0 1 9,9 L4.4,13.6 A1.4,1.4 0 0 1 2.4,11.6 L7,7 A4,4 0 0 1 12.3,1.7 Z" />
+    <!-- 15 Qualite, Audit & Controle interne : un porte-bloc coche - la checklist
+         d'audit. Controle garde son bouclier : la conformite protege, l'audit verifie. -->
+    <PathGeometry x:Key="ModuleGroupIcon.Qualite"
+                  Figures="M5.8,3 H3 V14.2 H13 V3 H10.2 M5.8,1.8 H10.2 V4.2 H5.8 Z M5.6,9.2 L7.4,11 L10.6,7.4" />
+    <!-- 18 PortMaster / Marina : un voilier - coque, mat, grand-voile. L'ancre reste
+         a Specifique, qui couvrait aussi le parking. -->
+    <PathGeometry x:Key="ModuleGroupIcon.Marina"
+                  Figures="M2.2,11.2 H13.8 L12.2,14.2 H3.8 Z M8,1.8 V11.2 M8,3.2 L12.6,9.4 H8" />
+    <!-- 19 Parking & Controle d'acces : une voiture de face - caisse, ligne de
+         ceinture, deux roues. -->
+    <PathGeometry x:Key="ModuleGroupIcon.Parking"
+                  Figures="M1.6,12 V8.6 L3.6,4.6 H12.4 L14.4,8.6 V12 M1.6,8.6 H14.4 M4.4,10.7 A1.3,1.3 0 1 0 4.41,10.7 M11.6,10.7 A1.3,1.3 0 1 0 11.61,10.7" />
+    <!-- 21 Integrations & Materiels : une fiche electrique - corps, deux broches,
+         cordon. Le materiel se branche ; Systeme garde l'engrenage du serveur. -->
+    <PathGeometry x:Key="ModuleGroupIcon.Integrations"
+                  Figures="M4.4,6.4 H11.6 V9.4 A3.6,3.6 0 0 1 4.4,9.4 Z M6,2.8 V6.4 M10,2.8 V6.4 M8,13 V14.6" />
+
     <!-- ===================== Barre laterale : familles deroulantes ===================== -->
     <!-- Suite de ModuleNavButton, declaree ICI et pas la-bas : ces gabarits lisent
          ModuleGroupIconConverter et les geometries ci-dessus, qu'un StaticResource
@@ -1506,6 +1605,81 @@
         <Setter Property="StrokeStartLineCap" Value="Round" />
         <Setter Property="StrokeEndLineCap" Value="Round" />
         <Setter Property="StrokeLineJoin" Value="Round" />
+    </Style>
+
+    <!-- ======================= Badges de maturite des domaines ======================= -->
+    <!-- Meme mecanique que la pastille de statut de la carte module (Border arrondi,
+         fond doux, texte 10.5 semi-gras fonce de la meme teinte), mais en styles
+         nommes : un badge de maturite s'affiche sur l'accueil, dans la barre laterale
+         et dans le fil d'Ariane, et ne doit pas etre redessine trois fois.
+
+         La couleur du texte est posee par TextElement.Foreground SUR LE BORDER : la
+         propriete est heritee, le TextBlock enfant la recoit sans style propre, et le
+         badge tient en un seul element :
+
+             <Border Style="{StaticResource MaturityBadge.Functional}">
+                 <TextBlock Text="Fonctionnel" />
+             </Border>
+
+         Dans un gabarit pilote par les donnees, un DataTrigger sur la maturite change
+         le Style du Border nomme (Setter TargetName="badge" Property="Style") plutot
+         que de recopier fond et texte, comme le fait la carte module pour ModuleStatus.
+
+         Libelles attendus, a une seule source (charte, 1.5) : « Planifie »,
+         « Apercu technique », « Fonctionnel », « Pret pour la production ». -->
+    <Style x:Key="MaturityBadge" TargetType="Border">
+        <Setter Property="CornerRadius" Value="9" />
+        <Setter Property="Padding" Value="9,2.5" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="TextElement.FontSize" Value="10.5" />
+        <Setter Property="TextElement.FontWeight" Value="SemiBold" />
+        <!-- Defaut = Planned : le niveau le plus bas est le seul qu'un oubli de style
+             ait le droit d'annoncer (charte, 4.3 : un statut gonfle est un defaut). -->
+        <Setter Property="Background" Value="{StaticResource MaturityPlannedBackgroundBrush}" />
+        <Setter Property="TextElement.Foreground" Value="{StaticResource MaturityPlannedForegroundBrush}" />
+    </Style>
+
+    <Style x:Key="MaturityBadge.Planned" TargetType="Border" BasedOn="{StaticResource MaturityBadge}" />
+
+    <Style x:Key="MaturityBadge.TechnicalPreview" TargetType="Border" BasedOn="{StaticResource MaturityBadge}">
+        <Setter Property="Background" Value="{StaticResource MaturityTechnicalPreviewBackgroundBrush}" />
+        <Setter Property="TextElement.Foreground" Value="{StaticResource MaturityTechnicalPreviewForegroundBrush}" />
+    </Style>
+
+    <Style x:Key="MaturityBadge.Functional" TargetType="Border" BasedOn="{StaticResource MaturityBadge}">
+        <Setter Property="Background" Value="{StaticResource MaturityFunctionalBackgroundBrush}" />
+        <Setter Property="TextElement.Foreground" Value="{StaticResource MaturityFunctionalForegroundBrush}" />
+    </Style>
+
+    <Style x:Key="MaturityBadge.ProductionReady" TargetType="Border" BasedOn="{StaticResource MaturityBadge}">
+        <Setter Property="Background" Value="{StaticResource MaturityProductionReadyBackgroundBrush}" />
+        <Setter Property="TextElement.Foreground" Value="{StaticResource MaturityProductionReadyForegroundBrush}" />
+    </Style>
+
+    <!-- Point de maturite : la version compacte du badge, pour un en-tete de domaine
+         de la barre laterale ou une legende, la ou un mot ne tient pas. Le sens reste
+         porte par l'info-bulle ou le libelle voisin, jamais par la couleur seule. -->
+    <Style x:Key="MaturityDot" TargetType="Ellipse">
+        <Setter Property="Width" Value="7" />
+        <Setter Property="Height" Value="7" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Fill" Value="{StaticResource MaturityPlannedAccentBrush}" />
+    </Style>
+
+    <Style x:Key="MaturityDot.Planned" TargetType="Ellipse" BasedOn="{StaticResource MaturityDot}" />
+
+    <Style x:Key="MaturityDot.TechnicalPreview" TargetType="Ellipse" BasedOn="{StaticResource MaturityDot}">
+        <Setter Property="Fill" Value="{StaticResource MaturityTechnicalPreviewAccentBrush}" />
+    </Style>
+
+    <Style x:Key="MaturityDot.Functional" TargetType="Ellipse" BasedOn="{StaticResource MaturityDot}">
+        <Setter Property="Fill" Value="{StaticResource MaturityFunctionalAccentBrush}" />
+    </Style>
+
+    <Style x:Key="MaturityDot.ProductionReady" TargetType="Ellipse" BasedOn="{StaticResource MaturityDot}">
+        <Setter Property="Fill" Value="{StaticResource MaturityProductionReadyAccentBrush}" />
     </Style>
 
     <!-- ==================== Carte d'avancement des 49 modules ==================== -->
