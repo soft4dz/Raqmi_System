@@ -11,6 +11,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using Microsoft.Win32;
 using RaqmiSystem.Application.Identity;
+using RaqmiSystem.Application.Navigation;
 using RaqmiSystem.Application.Organization;
 using RaqmiSystem.Application.Revenue;
 using RaqmiSystem.Application.Security;
@@ -51,34 +52,6 @@ public partial class MainWindow : Window
     private IReadOnlyCollection<HotelUnitResponse> hotelUnits = Array.Empty<HotelUnitResponse>();
     private string? editingUnitCode;
 
-    // Ecran d'accueil : les 49 modules du catalogue, exposes une seule fois et
-    // filtres via une vue (pas de reconstruction de collection, donc pas de
-    // clignotement quand on change de filtre ou de profil).
-    private readonly IReadOnlyList<ModuleTile> moduleTiles =
-        ModuleCatalog.Entries.Select(entry => new ModuleTile(entry)).ToList();
-
-    private ICollectionView? moduleCatalogView;
-    private ModuleStatus? moduleStatusFilter;
-    private string? modulePriorityFilter;
-    private string? functionalDomainFilter;
-    private readonly IReadOnlyList<FunctionalDomainOption> functionalDomainOptions;
-
-    // Barre laterale : les ecrans livres, ranges selon les 22 domaines fonctionnels.
-    // Memes instances de ModuleTile que l'accueil -
-    // une permission qui change (IsLocked) ou un module qui s'ouvre (IsActive) se voit
-    // des deux cotes sans rien resynchroniser.
-    private readonly IReadOnlyList<ModuleNavigationGroup> sidebarGroups;
-
-    // Onglet de MainTabs -> module qui le porte : le garde de permission de la
-    // navigation (CanOpenModule), quel que soit le chemin emprunte.
-    private readonly IReadOnlyDictionary<int, ModuleTile> tilesByTab;
-
-    // Sections ouvertes avant le debut d'une recherche : une recherche ouvre celles
-    // qui ont un resultat, et l'effacer doit rendre la barre laterale telle que
-    // l'utilisateur l'avait laissee, pas la replier arbitrairement.
-    private readonly HashSet<ModuleNavigationGroup> groupsExpandedBeforeSearch = [];
-    private bool isSidebarSearchActive;
-
     // Permissions de l'utilisateur connecte (cles "units.read", "revenue.read", ...).
     // Null tant que personne n'est connecte : l'ecran d'accueil est alors dans son
     // etat par defaut (tout accessible), retabli a chaque deconnexion.
@@ -98,22 +71,14 @@ public partial class MainWindow : Window
     // Vide a la deconnexion : la session suivante repart de donnees fraiches.
     private readonly HashSet<int> loadedModuleTabs = [];
 
-    // Recherche du catalogue d'accueil, deja normalisee (sans accent ni casse) pour ne
-    // pas la recalculer a chaque tuile testee. Null = pas de recherche en cours.
-    private string? moduleSearchFilter;
-
     public MainWindow()
     {
         // Construits AVANT InitializeComponent : le TabControl choisit son premier
         // onglet pendant l'analyse du XAML, ce qui declenche MainTabs_SelectionChanged,
-        // qui lit deja ces deux collections.
-        sidebarGroups = ModuleNavigationGroup.Build(moduleTiles);
+        // qui lit deja ces collections (voir MainWindow.Navigation.cs).
+        sidebarGroups = ModuleNavigationGroup.Build(FunctionalArchitectureCatalog.Tree);
         functionalDomainOptions = FunctionalDomainOption.Build(moduleTiles);
-
-        // Build ne garde qu'un module par onglet : la cle est donc unique.
-        tilesByTab = sidebarGroups
-            .SelectMany(group => group.Modules)
-            .ToDictionary(tile => tile.TabIndex!.Value);
+        tilesByTab = BuildTilesByTab(moduleTiles);
 
         InitializeComponent();
 
@@ -174,17 +139,7 @@ public partial class MainWindow : Window
         UnitTypeComboBox.ItemsSource = Enum.GetValues<HotelUnitType>();
         ResetUnitForm();
         RefreshHomeDate();
-        InitializeModuleCatalog();
-        FunctionalDomainItemsControl.ItemsSource = functionalDomainOptions;
-        // Deux zones de lecture : les domaines métier défilent, l'administration
-        // système reste épinglée en pied de panneau.
-        SidebarGroupsItemsControl.ItemsSource = sidebarGroups.Where(group => !group.IsPinned).ToList();
-        SidebarPinnedGroupsItemsControl.ItemsSource = sidebarGroups.Where(group => group.IsPinned).ToList();
-        ApplyModulePermissions();
-
-        // L'application demarre sur l'accueil, meme avant la premiere connexion :
-        // le TabControl n'a pas d'en-tetes, sa selection doit donc etre explicite.
-        NavigateToModule(HomeTabIndex);
+        InitializeNavigation();
         SetStatus("Connectez-vous pour charger les données de l'API.");
     }
 
@@ -200,125 +155,6 @@ public partial class MainWindow : Window
         HeaderSessionPanel.Visibility = isAuthenticated ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    // Unique chemin de navigation entre modules : selection de l'onglet + remise en
-    // phase de la barre laterale. Utilise par la barre laterale ET par les cartes de
-    // l'ecran d'accueil, pour ne jamais desynchroniser les deux.
-    private void NavigateToModule(int tabIndex)
-    {
-        MainTabs.SelectedIndex = tabIndex;
-        SyncSidebarToTab(tabIndex);
-    }
-
-    // Aligne la barre laterale sur l'onglet affiche : surbrillance du module courant
-    // (le style ModuleNavButton reagit a Tag="Active" : filet accent de 3px, teinte
-    // douce, texte en semi-gras), ouverture de sa famille, et repli complet du
-    // panneau sur l'accueil.
-    //
-    // L'accueil ne montre PAS la barre laterale : cet ecran est deja le sommaire des
-    // 49 modules, un second sommaire a cote ferait doublon et volerait aux cartes la
-    // largeur dont elles ont besoin. Partout ailleurs elle est la, avec son bouton
-    // « Accueil » comme chemin de retour.
-    private void SyncSidebarToTab(int tabIndex)
-    {
-        var isHome = tabIndex == HomeTabIndex;
-
-        ShowHomeButton.Tag = isHome ? "Active" : null;
-
-        foreach (var group in sidebarGroups)
-        {
-            // Ouvrir la section du module courant sans replier les autres : la barre
-            // laterale suit la navigation, elle ne defait pas ce que l'utilisateur a
-            // ouvert lui-meme.
-            if (group.SetActiveTab(tabIndex))
-            {
-                group.IsExpanded = true;
-            }
-        }
-
-        SidebarBorder.Visibility = isHome ? Visibility.Collapsed : Visibility.Visible;
-        SidebarColumn.Width = isHome ? new GridLength(0) : new GridLength(SidebarWidth);
-        SidebarGapColumn.Width = isHome ? new GridLength(0) : new GridLength(SidebarGapWidth);
-    }
-
-    // Un module ne s'ouvre que s'il a un ecran connu du catalogue ET que le profil a
-    // le droit de le lire. L'accueil n'est garde par aucune permission : c'est le
-    // point de repli de toute navigation refusee.
-    private bool CanOpenModule(int tabIndex) =>
-        tabIndex == HomeTabIndex
-        || (tilesByTab.TryGetValue(tabIndex, out var tile) && tile.IsClickable);
-
-    // ==================== Barre laterale : recherche de module ====================
-
-    private void ModuleSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        ApplySidebarSearch();
-    }
-
-    // Echap efface la recherche sans quitter le champ : le raccourci attendu d'un
-    // champ de recherche, et le seul moyen au clavier de retrouver la liste complete.
-    private void ModuleSearchTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key != Key.Escape || ModuleSearchTextBox.Text.Length == 0)
-        {
-            return;
-        }
-
-        ModuleSearchTextBox.Clear();
-        e.Handled = true;
-    }
-
-    private void ClearModuleSearchButton_Click(object sender, RoutedEventArgs e)
-    {
-        ModuleSearchTextBox.Clear();
-        ModuleSearchTextBox.Focus();
-    }
-
-    // Filtre la barre laterale sur la saisie : les sections qui ont un resultat
-    // s'ouvrent, les autres disparaissent. Effacer la recherche rend les sections a
-    // l'etat ou l'utilisateur les avait laissees, plus celle du module affiche.
-    private void ApplySidebarSearch()
-    {
-        var query = ModuleSearchTextBox.Text;
-        var isSearching = !string.IsNullOrWhiteSpace(query);
-
-        if (isSearching && !isSidebarSearchActive)
-        {
-            groupsExpandedBeforeSearch.Clear();
-
-            foreach (var group in sidebarGroups.Where(group => group.IsExpanded))
-            {
-                groupsExpandedBeforeSearch.Add(group);
-            }
-        }
-
-        var matches = 0;
-
-        foreach (var group in sidebarGroups)
-        {
-            matches += group.ApplySearch(query);
-            group.IsExpanded = isSearching ? group.HasMatches : groupsExpandedBeforeSearch.Contains(group);
-        }
-
-        if (!isSearching)
-        {
-            groupsExpandedBeforeSearch.Clear();
-            SyncSidebarToTab(MainTabs.SelectedIndex);
-        }
-
-        isSidebarSearchActive = isSearching;
-
-        // Le filet de separation du pied ne doit pas rester seul quand la recherche ne
-        // retient rien dans le parametrage.
-        SidebarPinnedPanel.Visibility = sidebarGroups.Any(group => group.IsPinned && group.HasMatches)
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-
-        ClearModuleSearchButton.Visibility = query.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-        SidebarSearchEmptyTextBlock.Visibility = isSearching && matches == 0
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-    }
-
     // Date du jour en toutes lettres ("vendredi 29 août 2026") sur l'accueil.
     private void RefreshHomeDate()
     {
@@ -331,59 +167,6 @@ public partial class MainWindow : Window
     {
         return currentUserPermissions is null
             || currentUserPermissions.Contains(permission, StringComparer.OrdinalIgnoreCase);
-    }
-
-    // Aligne l'ecran d'accueil et la sidebar sur les permissions de lecture du
-    // profil connecte : carte verrouillee (cadenas + info-bulle explicite) quand
-    // la permission manque, bouton et onglet desactives pour les modules qui ont
-    // un ecran. Appele au demarrage, apres connexion et apres deconnexion (ou
-    // currentUserPermissions est null : tout revient a l'etat par defaut).
-    private void ApplyModulePermissions()
-    {
-        // Un module sans cle de permission n'est jamais verrouille : son statut
-        // d'avancement suffit a dire ce que l'utilisateur peut en faire.
-        foreach (var tile in moduleTiles)
-        {
-            tile.IsLocked = tile.PermissionKey is { } permission && !HasModulePermission(permission);
-        }
-
-        ApplyModuleAccess(PermissionCatalog.UnitsRead, UnitsTabItem);
-        ApplyModuleAccess(PermissionCatalog.RevenueRead, RevenueTabItem);
-        ApplyModuleAccess(PermissionCatalog.DashboardRead, DashboardTabItem);
-        ApplyModuleAccess(PermissionCatalog.AuditRead, AuditTabItem);
-        ApplyModuleAccess(PermissionCatalog.ClosingRead, ClosingTabItem);
-        ApplyModuleAccess(PermissionCatalog.TreasuryRead, TreasuryTabItem);
-        ApplyModuleAccess(PermissionCatalog.CustomersRead, CustomersTabItem);
-        ApplyModuleAccess(PermissionCatalog.InvoicesRead, InvoicesTabItem);
-        ApplyModuleAccess(PermissionCatalog.SettingsRead, SettingsTabItem);
-        ApplyModuleAccess(PermissionCatalog.UsersRead, UsersTabItem);
-        ApplyModuleAccess(PermissionCatalog.AccountingRead, AccountingTabItem);
-        ApplyModuleAccess(PermissionCatalog.BudgetRead, BudgetTabItem);
-        ApplyModuleAccess(PermissionCatalog.ReceivablesRead, ReceivablesTabItem);
-        ApplyModuleAccess(PermissionCatalog.TariffsRead, TariffsTabItem);
-        ApplyModuleAccess(PermissionCatalog.LodgingRead, LodgingTabItem);
-        ApplyModuleAccess(PermissionCatalog.ApprovalsRead, ApprovalsTabItem);
-        ApplyModuleAccess(PermissionCatalog.ReportsRead, ReportsTabItem);
-        ApplyModuleAccess(PermissionCatalog.MaintenanceRead, BackupTabItem);
-
-        // Les deux ecrans de pilotage sont de l'agregation pure des modules existants : ils
-        // reutilisent la cle dashboard.read deja semee, sans creer de permission a eux.
-        ApplyModuleAccess(PermissionCatalog.DashboardRead, GroupDashboardTabItem);
-        ApplyModuleAccess(PermissionCatalog.DashboardRead, DecCockpitTabItem);
-        ApplyModuleAccess(PermissionCatalog.HousekeepingRead, HousekeepingTabItem);
-        ApplyModuleAccess(PermissionCatalog.InventoryRead, InventoryTabItem);
-        ApplyModuleAccess(PermissionCatalog.PurchasingRead, PurchasingTabItem);
-        ApplyModuleAccess(PermissionCatalog.KitchenRead, KitchenTabItem);
-        ApplyModuleAccess(PermissionCatalog.CrmRead, CrmTabItem);
-        // Sans cette ligne l'onglet RH restait le SEUL module ouvert a tout profil
-        // connecte, y compris par le cycle clavier Ctrl+Tab : les donnees de paie
-        // sont parmi les plus sensibles du produit.
-        ApplyModuleAccess(PermissionCatalog.HrRead, HumanResourcesTabItem);
-        ApplyModuleAccess(PermissionCatalog.SyncRead, SyncTabItem);
-        ApplyModuleAccess(PermissionCatalog.MiceRead, MiceTabItem);
-
-        ApplyWriteActionStates();
-        ApplySidebarSearch();
     }
 
     // Source unique de verite de l'etat des boutons d'ecriture des onglets Unites
@@ -421,372 +204,6 @@ public partial class MainWindow : Window
         }
 
         button.ToolTip = allowed ? originalToolTips[button] : hint;
-    }
-
-    // Le bouton de la barre laterale suit deja le verrouillage de sa tuile
-    // (IsClickable, pose juste au-dessus) : il ne reste ici que l'onglet, dont la
-    // desactivation ferme le chemin clavier Ctrl+Tab / Ctrl+Shift+Tab, qui cycle les
-    // onglets meme quand leurs en-tetes ne sont pas affiches - un onglet desactive
-    // est saute par ce cycle.
-    private void ApplyModuleAccess(string permission, TabItem tabItem)
-    {
-        tabItem.IsEnabled = HasModulePermission(permission);
-    }
-
-    // ==================== Accueil : carte d'avancement des modules ====================
-
-    // Prepare la liste groupee des 49 modules (regroupement par famille via la
-    // vue, filtres statut/priorite appliques par MatchesModuleFilters) et le
-    // bandeau d'avancement.
-    private void InitializeModuleCatalog()
-    {
-        var source = new CollectionViewSource { Source = moduleTiles };
-        source.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ModuleTile.Group)));
-
-        moduleCatalogView = source.View;
-        moduleCatalogView.Filter = MatchesModuleFilters;
-        ModuleCatalogItemsControl.ItemsSource = moduleCatalogView;
-
-        RefreshModuleProgress();
-        RefreshModuleCatalogEmptyState();
-    }
-
-    // Compteurs par statut, largeurs proportionnelles de la barre segmentee et
-    // libelles de synthese : la reponse directe a "ou en est le produit ?".
-    private void RefreshModuleProgress()
-    {
-        var total = ModuleCatalog.Entries.Count;
-        var available = ModuleCatalog.CountOf(ModuleStatus.Disponible);
-        var apiReady = ModuleCatalog.CountOf(ModuleStatus.ApiPrete);
-        var partial = ModuleCatalog.CountOf(ModuleStatus.Partiel);
-        var planned = ModuleCatalog.CountOf(ModuleStatus.Planifie);
-
-        ModuleCountAvailableTextBlock.Text = available.ToString(CultureInfo.CurrentCulture);
-        ModuleCountApiTextBlock.Text = apiReady.ToString(CultureInfo.CurrentCulture);
-        ModuleCountPartialTextBlock.Text = partial.ToString(CultureInfo.CurrentCulture);
-        ModuleCountPlannedTextBlock.Text = planned.ToString(CultureInfo.CurrentCulture);
-
-        ModuleProgressAvailableColumn.Width = new GridLength(available, GridUnitType.Star);
-        ModuleProgressApiColumn.Width = new GridLength(apiReady, GridUnitType.Star);
-        ModuleProgressPartialColumn.Width = new GridLength(partial, GridUnitType.Star);
-        ModuleProgressPlannedColumn.Width = new GridLength(planned, GridUnitType.Star);
-
-        var availableShare = total == 0 ? 0 : (int)Math.Round(available * 100d / total);
-        ModuleProgressHeadlineTextBlock.Text = $"{availableShare} % du périmètre déjà utilisable";
-
-        // Les quatre statuts restent distincts dans la legende : les additionner
-        // ("livres cote serveur") surestimerait le travail fait, car "Partiel"
-        // recouvre des situations tres differentes (API seule, fonction absorbee
-        // par un autre ecran, outillage serveur hors application).
-        ModuleProgressCaptionTextBlock.Text =
-            $"{available} modules disponibles sur {total}  ·  {apiReady} avec API livrée, écran à venir  ·  {partial} partiellement couverts  ·  {planned} planifiés";
-    }
-
-    // Filtre courant de la vue : recherche, puis statut, puis priorite. Les trois se
-    // croisent - chercher « tva » dans les seuls modules disponibles est une question
-    // legitime, et remplacer un critere par un autre y repondrait mal.
-    private bool MatchesModuleFilters(object item)
-    {
-        if (item is not ModuleTile tile)
-        {
-            return false;
-        }
-
-        if (functionalDomainFilter is not null
-            && !string.Equals(tile.FunctionalDomainId, functionalDomainFilter, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        if (moduleSearchFilter is { } search && !tile.SearchText.Contains(search, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        if (moduleStatusFilter is { } status && tile.Status != status)
-        {
-            return false;
-        }
-
-        return modulePriorityFilter is null
-            || string.Equals(tile.Priority, modulePriorityFilter, StringComparison.Ordinal);
-    }
-
-    private void FunctionalDomainFilter_Checked(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement { DataContext: FunctionalDomainOption option })
-        {
-            return;
-        }
-
-        functionalDomainFilter = option.Id;
-
-        if (FunctionalDomainBreadcrumbTextBlock is not null)
-        {
-            FunctionalDomainBreadcrumbTextBlock.Text = option.Id is null
-                ? "Tous les domaines  →  modules"
-                : $"{option.Id}  {option.Name}  →  modules";
-        }
-
-        ApplyModuleCatalogFilters();
-    }
-
-    // ==================== Accueil : recherche dans le catalogue ====================
-
-    private void HomeSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        var query = HomeSearchTextBox.Text;
-
-        moduleSearchFilter = string.IsNullOrWhiteSpace(query)
-            ? null
-            : ModuleTile.NormalizeForSearch(query);
-
-        ClearHomeSearchButton.Visibility = query.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-        ApplyModuleCatalogFilters();
-    }
-
-    // Echap efface la saisie sans quitter le champ - meme geste que dans la barre
-    // laterale, pour que le clavier se comporte pareil des deux cotes.
-    private void HomeSearchTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key != Key.Escape || HomeSearchTextBox.Text.Length == 0)
-        {
-            return;
-        }
-
-        HomeSearchTextBox.Clear();
-        e.Handled = true;
-    }
-
-    private void ClearHomeSearchButton_Click(object sender, RoutedEventArgs e)
-    {
-        HomeSearchTextBox.Clear();
-        HomeSearchTextBox.Focus();
-    }
-
-    private void ModuleStatusFilterChip_Checked(object sender, RoutedEventArgs e)
-    {
-        // Les puces par defaut sont cochees pendant InitializeComponent, donc
-        // avant la creation de la vue : ces premiers evenements sont sans objet.
-        if (moduleCatalogView is null)
-        {
-            return;
-        }
-
-        var tag = (sender as RadioButton)?.Tag as string;
-        moduleStatusFilter = Enum.TryParse<ModuleStatus>(tag, out var status) ? status : null;
-        ApplyModuleCatalogFilters();
-    }
-
-    private void ModulePriorityFilterChip_Checked(object sender, RoutedEventArgs e)
-    {
-        if (moduleCatalogView is null)
-        {
-            return;
-        }
-
-        var tag = (sender as RadioButton)?.Tag as string;
-        modulePriorityFilter = string.IsNullOrEmpty(tag) ? null : tag;
-        ApplyModuleCatalogFilters();
-    }
-
-    private void ApplyModuleCatalogFilters()
-    {
-        moduleCatalogView?.Refresh();
-        RefreshModuleCatalogEmptyState();
-    }
-
-    // Un etat vide utile dit comment en sortir (charte, regle 3.5). Ici la sortie
-    // depend de ce qui a vide la liste : effacer la recherche, ou elargir les puces.
-    private void RefreshModuleCatalogEmptyState()
-    {
-        var isEmpty = moduleCatalogView is null || moduleCatalogView.IsEmpty;
-        ModuleCatalogEmptyTextBlock.Visibility = isEmpty ? Visibility.Visible : Visibility.Collapsed;
-
-        if (!isEmpty)
-        {
-            return;
-        }
-
-        ModuleCatalogEmptyTextBlock.Text = moduleSearchFilter is null
-            ? "Aucun module ne correspond à ces filtres. Revenez à « Tous » pour voir les 49 modules."
-            : $"Aucun module ne correspond à « {HomeSearchTextBox.Text.Trim()} ». Échap efface la recherche.";
-    }
-
-    // Cartes de l'accueil ET boutons de la barre laterale : un seul handler, donc un
-    // seul comportement. Une carte ou un bouton sans ecran ou sans permission est
-    // desactive (IsClickable=False) et ne peut donc pas declencher ce handler ; le
-    // test reste une securite si un chemin futur y arrivait autrement.
-    private void ModuleTileNavigate_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement { DataContext: ModuleTile tile } || tile.TabIndex is not { } tabIndex)
-        {
-            return;
-        }
-
-        if (!CanOpenModule(tabIndex))
-        {
-            return;
-        }
-
-        // La recherche a rempli son office : la barre laterale revient a son etat
-        // normal, ou le module qui vient de s'ouvrir se voit dans sa famille.
-        ModuleSearchTextBox.Clear();
-        NavigateToModule(tabIndex);
-    }
-
-    // Ordre des onglets de MainTabs : 0=Accueil, 1=Unités hôtelières,
-    // 2=Recettes journalières, 3=Tableau de bord, 4=Journal d'audit,
-    // 5=Clôture journalière, 6=Trésorerie, 7=Clients, 8=Facturation,
-    // 9=Paramétrage global, 10=Administration & utilisateurs,
-    // 11=Comptabilité SCF, 12=Budget & prévisions, 13=Créances & recouvrement,
-    // 14=Tarifs & conventions, 15=Hébergement & occupation,
-    // 16=Validations, 17=Rapports, 18=Sauvegarde,
-    // 19=Tableau de bord PDG, 20=Cockpit DEC, 21=Housekeeping & chambres,
-    // 22=RH & paie, 23=CRM & expérience client.
-    //
-    // Cet ordre est celui des TabItem, pas celui de la barre latérale : l'index d'un
-    // onglet est l'identité d'un module dans tout le code (ModuleCatalog.TabIndex y
-    // compris), donc les nouveaux modules s'ajoutent à la fin. La barre latérale, elle,
-    // les présente à leur place métier, dans la famille fonctionnelle du catalogue.
-    private const int HomeTabIndex = 0;
-
-    // Largeurs du panneau lateral et de sa gouttiere quand il est affiche - reprises
-    // telles quelles des ColumnDefinition de MainWindow.xaml.
-    private const double SidebarWidth = 248;
-    private const double SidebarGapWidth = 20;
-
-    // Fondu discret (150 ms) du contenu a chaque changement de module, et
-    // resynchronisation de la surbrillance de la sidebar : quel que soit le chemin
-    // de navigation (cartes, sidebar, cycle clavier), les deux restent alignes.
-    private async void MainTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        // SelectionChanged est un evenement routé : ignorer ceux qui remontent des
-        // DataGrid/ComboBox internes.
-        if (!ReferenceEquals(e.OriginalSource, MainTabs))
-        {
-            return;
-        }
-
-        // Ceinture et bretelles en plus des TabItem desactives : si un chemin de
-        // navigation futur atteint un module non autorise, retour a l'accueil - la
-        // nouvelle selection repasse aussitot par ce meme handler.
-        if (!CanOpenModule(MainTabs.SelectedIndex))
-        {
-            MainTabs.SelectedIndex = HomeTabIndex;
-            return;
-        }
-
-        SyncSidebarToTab(MainTabs.SelectedIndex);
-
-        var fade = new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(150))
-        {
-            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
-        };
-
-        MainTabs.BeginAnimation(OpacityProperty, fade);
-
-        // Chargement paresseux des vues de module autonomes : la premiere
-        // ouverture de leur onglet declenche leur LoadAsync, les suivantes non.
-        await EnsureModuleTabLoadedAsync(MainTabs.SelectedIndex);
-    }
-
-    // Declenche le premier chargement de la vue hebergee par l'onglet demande.
-    // Les vues sortent d'elles-memes si le contexte n'a pas ete fourni ou si la
-    // session est fermee : rien a garder ici en plus de l'index deja charge.
-    private async Task EnsureModuleTabLoadedAsync(int tabIndex)
-    {
-        if (!apiClient.IsAuthenticated || !loadedModuleTabs.Add(tabIndex))
-        {
-            return;
-        }
-
-        switch (tabIndex)
-        {
-            case 5:
-                await ClosingView.LoadAsync();
-                break;
-            case 6:
-                await TreasuryView.LoadAsync();
-                break;
-            case 7:
-                await CustomersView.LoadAsync();
-                break;
-            case 8:
-                await InvoicesView.LoadAsync();
-                break;
-            case 9:
-                await SettingsView.LoadAsync();
-                break;
-            case 10:
-                await UsersView.LoadAsync();
-                break;
-            case 11:
-                await AccountingView.LoadAsync();
-                break;
-            case 12:
-                await BudgetView.LoadAsync();
-                break;
-            case 13:
-                await ReceivablesView.LoadAsync();
-                break;
-            case 14:
-                await TariffsView.LoadAsync();
-                break;
-            case 15:
-                await LodgingView.LoadAsync();
-                break;
-            case 16:
-                await ApprovalsView.LoadAsync();
-                break;
-            case 17:
-                await ReportsView.LoadAsync();
-                break;
-            case 18:
-                await BackupView.LoadAsync();
-                break;
-            case 19:
-                await GroupDashboardView.LoadAsync();
-                break;
-            case 20:
-                await DecCockpitView.LoadAsync();
-                break;
-            case 21:
-                await HousekeepingView.LoadAsync();
-                break;
-            case 22:
-                await HumanResourcesView.LoadAsync();
-                break;
-            case 23:
-                await CrmView.LoadAsync();
-                break;
-            case 24:
-                await InventoryView.LoadAsync();
-                break;
-            case 25:
-                await PurchasingView.LoadAsync();
-                break;
-            case 26:
-                await KitchenView.LoadAsync();
-                break;
-            case 27:
-                await SyncView.LoadAsync();
-                break;
-            case 28:
-                await MiceView.LoadAsync();
-                break;
-            case 29:
-                await KpiView.LoadAsync();
-                break;
-            case 30:
-                await PmsView.LoadAsync();
-                break;
-            default:
-                // Les onglets 0 a 4 vivent dans MainWindow et sont charges a la
-                // connexion : rien a faire, et rien a retenir non plus.
-                loadedModuleTabs.Remove(tabIndex);
-                break;
-        }
     }
 
     private async void LoginButton_Click(object sender, RoutedEventArgs e)
@@ -985,20 +402,6 @@ public partial class MainWindow : Window
         loadedModuleTabs.Clear();
     }
 
-    // Navigation demandee par le cockpit DEC (recettes=2, cloture=5, tresorerie=6). Le module
-    // cible reste garde par sa propre permission de lecture : un bouton de sidebar desactive
-    // signifie que le profil n'a pas le droit, et la demande est alors ignoree plutot que de
-    // renvoyer l'utilisateur sur l'accueil sans explication.
-    private void DecCockpitView_NavigateRequested(int tabIndex)
-    {
-        if (!CanOpenModule(tabIndex))
-        {
-            return;
-        }
-
-        NavigateToModule(tabIndex);
-    }
-
     private void LogoutButton_Click(object sender, RoutedEventArgs e)
     {
         apiClient.Logout();
@@ -1117,13 +520,6 @@ public partial class MainWindow : Window
             SetStatus("Tableau de bord actualisé.");
         });
     }
-
-    private void ShowHomeButton_Click(object sender, RoutedEventArgs e)
-    {
-        ModuleSearchTextBox.Clear();
-        NavigateToModule(HomeTabIndex);
-    }
-
 
     private async void CreateRevenueButton_Click(object sender, RoutedEventArgs e)
     {

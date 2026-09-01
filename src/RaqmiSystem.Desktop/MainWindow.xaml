@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:RaqmiSystem.Desktop.Views"
+        xmlns:desktop="clr-namespace:RaqmiSystem.Desktop"
         Title="Raqmi System"
         Icon="Assets/RaqmiSystem.ico"
         Height="760"
@@ -56,33 +57,77 @@
         <!-- Masquage des sections de modules sans resultat de recherche. -->
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
 
-        <!-- Gabarit d'une section de la barre laterale (ModuleNavigationGroup).
-             Declare ici et non dans le theme : ses boutons appellent un handler de
-             cette fenetre, qu'un dictionnaire de ressources sans code-behind ne peut
-             pas nommer. Partage par la liste defilante et par la section epinglee en
-             pied de panneau, pour qu'elles ne divergent jamais. -->
+        <!-- Repli des badges de maturite des cartes de l'accueil. Les styles definitifs
+             sont livres par le theme sous les cles "MaturityBadge.<niveau>" ; tant qu'une
+             cle y manque, la fenetre enregistre sous ce nom le style ci-dessous
+             (MainWindow.EnsureMaturityBadgeStyles), qui reprend la pastille de statut
+             actuelle. Contrat attendu du theme : un Style de Border, le TextBlock interne
+             heritant de TextElement.Foreground / FontSize / FontWeight. -->
+        <Style x:Key="MaturityBadgeFallback" TargetType="Border">
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Padding" Value="9,2.5" />
+            <Setter Property="TextElement.FontSize" Value="10.5" />
+            <Setter Property="TextElement.FontWeight" Value="SemiBold" />
+            <Setter Property="Background" Value="{StaticResource ModuleStatusPlannedBackgroundBrush}" />
+            <Setter Property="TextElement.Foreground" Value="{StaticResource ModuleStatusPlannedForegroundBrush}" />
+        </Style>
+        <Style x:Key="MaturityBadgeFallback.Planned" TargetType="Border" BasedOn="{StaticResource MaturityBadgeFallback}" />
+        <Style x:Key="MaturityBadgeFallback.TechnicalPreview" TargetType="Border" BasedOn="{StaticResource MaturityBadgeFallback}">
+            <Setter Property="Background" Value="{StaticResource ModuleStatusApiBackgroundBrush}" />
+            <Setter Property="TextElement.Foreground" Value="{StaticResource ModuleStatusApiForegroundBrush}" />
+        </Style>
+        <Style x:Key="MaturityBadgeFallback.Functional" TargetType="Border" BasedOn="{StaticResource MaturityBadgeFallback}">
+            <Setter Property="Background" Value="{StaticResource ModuleStatusAvailableBackgroundBrush}" />
+            <Setter Property="TextElement.Foreground" Value="{StaticResource ModuleStatusAvailableForegroundBrush}" />
+        </Style>
+        <Style x:Key="MaturityBadgeFallback.ProductionReady" TargetType="Border" BasedOn="{StaticResource MaturityBadgeFallback}">
+            <Setter Property="Background" Value="{StaticResource StatusValidatedBackgroundBrush}" />
+            <Setter Property="TextElement.Foreground" Value="{StaticResource StatusValidatedForegroundBrush}" />
+        </Style>
+
+        <!-- Gabarit d'un domaine de la barre laterale (ModuleNavigationGroup) :
+             Domaine (repliable) -> Module -> Écran. Declare ici et non dans le theme :
+             ses boutons appellent un handler de cette fenetre, qu'un dictionnaire de
+             ressources sans code-behind ne peut pas nommer. Partage par la liste
+             defilante et par la section epinglee en pied de panneau, pour qu'elles ne
+             divergent jamais. -->
         <DataTemplate x:Key="SidebarGroupTemplate">
-            <!-- Une section sans resultat de recherche disparait entierement plutot
-                 que de laisser un en-tete vide. -->
+            <!-- Un domaine sans ecran ouvrable (ou sans resultat de recherche) disparait
+                 entierement plutot que de laisser un en-tete vide. -->
             <Expander Style="{StaticResource ModuleNavGroup}"
                       Header="{Binding}"
                       HeaderTemplate="{StaticResource ModuleNavGroupHeaderTemplate}"
                       IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
                       Visibility="{Binding HasMatches, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <ItemsControl ItemsSource="{Binding VisibleModules}">
+                <ItemsControl ItemsSource="{Binding VisibleSections}">
                     <ItemsControl.ItemTemplate>
+                        <!-- Un module : son libelle en petites capitales, puis ses ecrans. -->
                         <DataTemplate>
-                            <!-- Meme handler que les cartes de l'accueil : un seul
-                                 chemin de navigation, jamais desynchronise. -->
-                            <Button Style="{StaticResource ModuleNavSubButton}"
-                                    Tag="{Binding NavTag}"
-                                    IsEnabled="{Binding IsClickable}"
-                                    ToolTip="{Binding ToolTipText}"
-                                    Click="ModuleTileNavigate_Click">
-                                <TextBlock Text="{Binding Name}"
+                            <StackPanel>
+                                <TextBlock Text="{Binding Label}"
+                                           Style="{StaticResource MetricLabelText}"
                                            TextTrimming="CharacterEllipsis"
-                                           VerticalAlignment="Center" />
-                            </Button>
+                                           Margin="18,6,0,3" />
+                                <ItemsControl ItemsSource="{Binding Screens}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <!-- Meme handler que les cartes de l'accueil : un seul
+                                                 chemin de navigation, jamais desynchronise. L'etat
+                                                 vivant (module courant, verrouillage) est celui de
+                                                 la tuile de l'accueil, partagee. -->
+                                            <Button Style="{StaticResource ModuleNavSubButton}"
+                                                    Tag="{Binding Tile.NavTag}"
+                                                    IsEnabled="{Binding Tile.IsClickable}"
+                                                    ToolTip="{Binding Tile.ToolTipText}"
+                                                    Click="ModuleTileNavigate_Click">
+                                                <TextBlock Text="{Binding Label}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center" />
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
@@ -403,6 +448,10 @@
             <!-- ===================== Application connectée ===================== -->
             <Grid x:Name="MainContentGrid" Margin="24" Visibility="Collapsed">
                 <Grid.RowDefinitions>
+                    <!-- Fil d'Ariane de l'ecran actif, puis le contenu, puis le bandeau
+                         de session. La barre laterale s'etend sur les deux premieres
+                         lignes : le fil d'Ariane appartient a l'ecran, pas au panneau. -->
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
@@ -417,13 +466,18 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- ========================= Panneau latéral ========================= -->
-                <!-- Navigation des modules : retour a l'accueil, recherche, les sections
-                     de travail dans l'ordre de la journee, et le parametrage epingle en
-                     pied de panneau. Le contenu vient de SidebarLayout + ModuleCatalog
-                     (ModuleNavigationGroup) : aucun bouton de module n'est ecrit en dur
-                     ici, et les libelles sont ceux des cartes de l'accueil, donc un seul
-                     vocabulaire dans toute l'application. -->
-                <Border x:Name="SidebarBorder" Style="{StaticResource CardBorder}" Padding="14,18">
+                <!-- Navigation des modules : retour a l'accueil, recherche, les domaines
+                     de l'arbre fonctionnel (Domaine -> Module -> Écran) dans l'ordre du
+                     catalogue cible, et l'administration systeme epinglee en pied de
+                     panneau. Le contenu vient de FunctionalArchitectureCatalog.Tree elague
+                     par NavigationTreeBuilder (ModuleNavigationGroup) : aucun bouton de
+                     module n'est ecrit en dur ici, seuls les ecrans que le profil peut
+                     ouvrir y figurent, et les libelles sont ceux des cartes de l'accueil,
+                     donc un seul vocabulaire dans toute l'application. -->
+                <Border x:Name="SidebarBorder"
+                        Grid.RowSpan="2"
+                        Style="{StaticResource CardBorder}"
+                        Padding="14,18">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -499,7 +553,7 @@
                                      le message renvoie au catalogue complet plutot que de
                                      laisser croire que le module n'existe pas. -->
                                 <TextBlock x:Name="SidebarSearchEmptyTextBlock"
-                                           Text="Aucun écran ne correspond. L'accueil liste les 49 modules du catalogue."
+                                           Text="Aucun écran ne correspond. L'accueil liste les 50 modules du catalogue."
                                            FontSize="12"
                                            Foreground="{StaticResource TextMutedBrush}"
                                            TextWrapping="Wrap"
@@ -524,8 +578,26 @@
                     </Grid>
                 </Border>
 
+                <!-- ========================= Fil d'Ariane ========================= -->
+                <!-- « Domaine -> Module -> Sous-module -> Écran » de l'ecran actif, par le
+                     chemin primaire de l'arbre (MainWindow.UpdateBreadcrumb). Mis a jour a
+                     chaque changement d'onglet, quel que soit le chemin : carte, barre
+                     laterale, raccourci clavier, demande d'une vue. Masque sur l'accueil,
+                     qui a son propre en-tete. -->
+                <Border x:Name="BreadcrumbBorder"
+                        Grid.Column="2"
+                        Margin="2,0,0,10"
+                        Visibility="Collapsed">
+                    <TextBlock x:Name="BreadcrumbTextBlock"
+                               FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               TextTrimming="CharacterEllipsis"
+                               AutomationProperties.LiveSetting="Polite" />
+                </Border>
+
                 <!-- Contenu des modules -->
                 <TabControl x:Name="MainTabs"
+                            Grid.Row="1"
                             Grid.Column="2"
                             SelectionChanged="MainTabs_SelectionChanged">
 
@@ -826,12 +898,29 @@
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <!-- Gabarit unique : toute la mise en forme de la carte
-                                                 vit dans le style ModuleCatalogCard du theme. -->
+                                                 vit dans le style ModuleCatalogCard du theme. Le
+                                                 badge de maturite (quatre niveaux du modele de
+                                                 readiness) est pose PAR-DESSUS la carte, en bas a
+                                                 droite, face a la pastille de statut du theme :
+                                                 les deux disent des choses differentes - ou en est
+                                                 le depot, et ce que le parcours vaut pour l'usage.
+                                                 Marges = marge de la carte + son padding interne.
+                                                 Le badge ne prend pas les clics : la carte reste
+                                                 l'unique cible. -->
                                             <DataTemplate>
-                                                <Button Style="{StaticResource ModuleCatalogCard}"
-                                                        IsEnabled="{Binding IsClickable}"
-                                                        ToolTip="{Binding ToolTipText}"
-                                                        Click="ModuleTileNavigate_Click" />
+                                                <Grid>
+                                                    <Button Style="{StaticResource ModuleCatalogCard}"
+                                                            IsEnabled="{Binding IsClickable}"
+                                                            ToolTip="{Binding ToolTipText}"
+                                                            Click="ModuleTileNavigate_Click" />
+                                                    <Border desktop:MaturityBadge.Maturity="{Binding Maturity}"
+                                                            HorizontalAlignment="Right"
+                                                            VerticalAlignment="Bottom"
+                                                            Margin="0,0,30,28"
+                                                            IsHitTestVisible="False">
+                                                        <TextBlock Text="{Binding MaturityLabel}" />
+                                                    </Border>
+                                                </Grid>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                         <ItemsControl.GroupStyle>
@@ -1826,7 +1915,7 @@
                      resultat d'un appel ("Données chargées.", une erreur) doit rester
                      lisible sur TOUS les ecrans, y compris celui d'ouverture. Une seule
                      surface, donc un seul StatusTextBlock alimente par SetStatus. -->
-                <Grid Grid.Row="1" Grid.ColumnSpan="3" Margin="0,14,0,0">
+                <Grid Grid.Row="2" Grid.ColumnSpan="3" Margin="0,14,0,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />

@@ -1,7 +1,5 @@
 using System.ComponentModel;
-using System.Globalization;
 using System.Runtime.CompilerServices;
-using System.Text;
 using RaqmiSystem.Application.Navigation;
 
 namespace RaqmiSystem.Desktop;
@@ -19,19 +17,29 @@ public sealed class ModuleTile : INotifyPropertyChanged
     private bool isLocked;
     private bool isActive;
     private readonly FunctionalDomainDefinition functionalDomain;
+    private readonly NavigationModulePlacement placement;
 
-    public ModuleTile(ModuleCatalogEntry entry)
+    // catalogIndex : rang de l'entree dans ModuleCatalog. Il departage les cartes d'un
+    // meme module sur l'accueil, pour que l'ordre editorial du catalogue y survive au tri
+    // par module de l'arbre.
+    public ModuleTile(ModuleCatalogEntry entry, int catalogIndex = 0)
     {
         Entry = entry;
+        CatalogIndex = catalogIndex;
         functionalDomain = FunctionalArchitectureCatalog.DomainForLegacyOrder(entry.Order);
+        placement = FunctionalArchitectureCatalog.PlacementForLegacyOrder(entry.Order);
         StatusLabel = ModuleCatalog.StatusLabel(entry.Status);
+        Maturity = FunctionalMaturityMapper.FromLegacyStatus(ToLegacyStatus(entry.Status));
+        MaturityLabel = FunctionalMaturityMapper.Label(Maturity);
         GroupIconKey = functionalDomain.IconKey;
+        HomeGroup = $"{placement.Domain.Id} · {placement.Domain.Label}  →  {placement.Module.Label}";
+        HomeGroupRank = placement.ModuleRank;
         SearchText = NormalizeForSearch(
-            $"{entry.Name} {entry.Description} {functionalDomain.Name} {entry.Group} {entry.Order}");
+            $"{entry.Name} {entry.Description} {functionalDomain.Name} {placement.Module.Label} {entry.Group} {entry.Order}");
     }
 
     /// <summary>
-    /// Nom, description, famille et numero d'ordre, normalises une fois pour toutes.
+    /// Nom, description, domaine, module et numero d'ordre, normalises une fois pour toutes.
     /// Porte par la tuile plutot que par chacune des deux surfaces qui cherchent
     /// (accueil et barre laterale) : une seule facon de trouver un module, donc jamais
     /// un resultat d'un cote et pas de l'autre.
@@ -39,27 +47,15 @@ public sealed class ModuleTile : INotifyPropertyChanged
     public string SearchText { get; }
 
     /// <summary>
-    /// Minuscules sans accent : « Hebergement » doit trouver « Hébergement », et « TVA »
-    /// comme « tva ». La decomposition Unicode separe la lettre de son accent, qu'il
-    /// suffit alors d'ecarter. A appliquer aussi a la saisie avant toute comparaison.
+    /// Minuscules sans accent. La normalisation vit dans Application.Navigation
+    /// (<see cref="NavigationSearch.Normalize"/>), ou l'arbre de navigation et ses tests la
+    /// partagent ; cette methode reste pour les appelants existants.
     /// </summary>
-    public static string NormalizeForSearch(string value)
-    {
-        var decomposed = value.Normalize(NormalizationForm.FormD);
-        var builder = new StringBuilder(decomposed.Length);
-
-        foreach (var character in decomposed)
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
-            {
-                builder.Append(char.ToLowerInvariant(character));
-            }
-        }
-
-        return builder.ToString();
-    }
+    public static string NormalizeForSearch(string value) => NavigationSearch.Normalize(value);
 
     public ModuleCatalogEntry Entry { get; }
+
+    public int CatalogIndex { get; }
 
     public string Order => Entry.Order;
 
@@ -68,6 +64,25 @@ public sealed class ModuleTile : INotifyPropertyChanged
     public string FunctionalDomainId => functionalDomain.Id;
 
     public FunctionalMaturity FunctionalMaturity => functionalDomain.Maturity;
+
+    /// <summary>
+    /// Maturite de CE module (statut du catalogue converti en quatre niveaux), a ne pas
+    /// confondre avec celle de son domaine : un ecran fonctionnel peut vivre dans un
+    /// domaine encore en apercu technique.
+    /// </summary>
+    public FunctionalMaturity Maturity { get; }
+
+    public string MaturityLabel { get; }
+
+    /// <summary>
+    /// Cle de regroupement de l'accueil : « 06 · PMS / Hébergement  →  Front Office ».
+    /// Chaine et non objet, parce que l'en-tete de groupe du theme affiche
+    /// <c>CollectionViewGroup.Name</c> tel quel.
+    /// </summary>
+    public string HomeGroup { get; }
+
+    /// <summary>Rang du module dans l'arbre : l'ordre des groupes de l'accueil.</summary>
+    public int HomeGroupRank { get; }
 
     public string Name => Entry.Name;
 
@@ -136,6 +151,17 @@ public sealed class ModuleTile : INotifyPropertyChanged
         : Entry.StatusNote ?? Entry.Description;
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    // Passage par le nom, pas par la valeur numerique : les deux enumerations ont les memes
+    // membres, mais rien n'oblige a ce qu'elles gardent le meme ordre.
+    private static LegacyModuleStatus ToLegacyStatus(ModuleStatus status) => status switch
+    {
+        ModuleStatus.Disponible => LegacyModuleStatus.Disponible,
+        ModuleStatus.ApiPrete => LegacyModuleStatus.ApiPrete,
+        ModuleStatus.Partiel => LegacyModuleStatus.Partiel,
+        ModuleStatus.Planifie => LegacyModuleStatus.Planifie,
+        _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Statut de module inconnu.")
+    };
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {

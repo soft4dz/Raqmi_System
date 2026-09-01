@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using RaqmiSystem.Application.Navigation;
 using RaqmiSystem.Desktop.Views;
 
 namespace RaqmiSystem.Desktop;
@@ -131,9 +132,11 @@ public partial class MainWindow
     private void PreviousModuleShortcut_Executed(object sender, ExecutedRoutedEventArgs e) =>
         MoveModule(-1);
 
-    // Passe au module ouvrable suivant, en sautant ceux que le profil ne peut pas lire.
-    // La liste boucle : depuis le dernier module on revient a l'accueil, qui n'est garde
-    // par aucune permission et sert de point fixe.
+    // Passe au module ouvrable suivant, dans l'ordre de l'arbre visible - celui de la
+    // barre laterale, pas celui des onglets, qui n'est que l'ordre d'ajout des ecrans.
+    // La liste boucle : depuis le dernier ecran on revient a l'accueil, qui n'est garde
+    // par aucune permission et sert de point fixe. CanOpenModule reste le garde final :
+    // l'ordre est calcule des permissions, il ne les remplace pas.
     private void MoveModule(int direction)
     {
         if (!ShortcutsAvailable)
@@ -141,18 +144,15 @@ public partial class MainWindow
             return;
         }
 
-        var count = MainTabs.Items.Count;
-        var index = MainTabs.SelectedIndex;
+        var target = NavigationKeyboardOrder.Next(
+            navigableTree.OpenableTabOrder,
+            HomeTabIndex,
+            MainTabs.SelectedIndex,
+            direction);
 
-        for (var step = 0; step < count; step++)
+        if (CanOpenModule(target))
         {
-            index = (index + direction + count) % count;
-
-            if (CanOpenModule(index))
-            {
-                NavigateToModule(index);
-                return;
-            }
+            NavigateToModule(target);
         }
     }
 

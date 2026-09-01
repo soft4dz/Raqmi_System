@@ -86,3 +86,54 @@ public sealed class ModuleCountLabelConverter : IValueConverter
         throw new NotSupportedException();
     }
 }
+
+// Badge de maturite d'une carte de l'accueil : quatre niveaux (Planifie, Apercu technique,
+// Fonctionnel, Pret pour la production), chacun avec son style de pastille.
+//
+// Le style est reference par cle de ressource DYNAMIQUE - "MaturityBadge.<niveau>" - et non
+// choisi par un declencheur : un Style ne peut pas poser la propriete Style de l'element
+// qu'il habille, WPF le refuse. SetResourceReference est exactement ce que fait
+// {DynamicResource} en XAML, a ceci pres que la cle depend ici de la donnee liee.
+//
+// Les styles sont livres par le theme (Themes/RaqmiTheme.xaml). Tant qu'ils n'y sont pas,
+// la fenetre principale enregistre sous les memes cles un repli reprenant la pastille de
+// statut actuelle (MainWindow.EnsureMaturityBadgeStyles) : le badge n'est jamais nu.
+public static class MaturityBadge
+{
+    // Nullable a dessein : la valeur par defaut d'une propriete attachee ne declenche
+    // pas de rappel, et un badge « Planifie » (premiere valeur de l'enumeration) resterait
+    // sans style si le defaut etait deja « Planifie ».
+    public static readonly DependencyProperty MaturityProperty =
+        DependencyProperty.RegisterAttached(
+            "Maturity",
+            typeof(RaqmiSystem.Application.Navigation.FunctionalMaturity?),
+            typeof(MaturityBadge),
+            new PropertyMetadata(null, OnMaturityChanged));
+
+    public static void SetMaturity(DependencyObject element, RaqmiSystem.Application.Navigation.FunctionalMaturity? value) =>
+        element.SetValue(MaturityProperty, value);
+
+    public static RaqmiSystem.Application.Navigation.FunctionalMaturity? GetMaturity(DependencyObject element) =>
+        (RaqmiSystem.Application.Navigation.FunctionalMaturity?)element.GetValue(MaturityProperty);
+
+    /// <summary>Cle de ressource du style d'un niveau : « MaturityBadge.Functional ».</summary>
+    public static string StyleKey(RaqmiSystem.Application.Navigation.FunctionalMaturity maturity) =>
+        $"MaturityBadge.{maturity}";
+
+    private static void OnMaturityChanged(DependencyObject element, DependencyPropertyChangedEventArgs e)
+    {
+        if (element is not FrameworkElement target)
+        {
+            return;
+        }
+
+        if (e.NewValue is RaqmiSystem.Application.Navigation.FunctionalMaturity maturity)
+        {
+            target.SetResourceReference(FrameworkElement.StyleProperty, StyleKey(maturity));
+        }
+        else
+        {
+            target.ClearValue(FrameworkElement.StyleProperty);
+        }
+    }
+}
