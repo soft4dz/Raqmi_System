@@ -72,10 +72,19 @@ foreach ($module in $availableMatches) {
     $permissionConst = $module.Groups['permission'].Value
     $tabIndex = [int]$module.Groups['tab'].Value
 
+    # Plusieurs lignes fonctionnelles peuvent volontairement partager le meme ecran
+    # (ex. Audit & controle interne + Journalisation & tracabilite). Ce partage est
+    # acceptable UNIQUEMENT si la permission de lecture est identique. Une collision
+    # avec deux permissions differentes serait un vrai melange de perimetres RBAC.
     if ($seenTabs.ContainsKey($tabIndex)) {
-        throw "Module readiness: onglet $tabIndex partage par '$($seenTabs[$tabIndex])' et '$name'. Un onglet ne peut porter qu'un module Disponible."
+        $previous = $seenTabs[$tabIndex]
+        if ($previous.Permission -ne $permissionConst) {
+            throw "Module readiness: onglet $tabIndex partage par '$($previous.Name)' ($($previous.Permission)) et '$name' ($permissionConst). Un ecran partage doit avoir le meme perimetre RBAC."
+        }
     }
-    $seenTabs[$tabIndex] = $name
+    else {
+        $seenTabs[$tabIndex] = [pscustomobject]@{ Name = $name; Permission = $permissionConst }
+    }
 
     if ($tabIndex -ge $tabTags.Count) {
         throw "Module readiness: '$name' pointe vers l'onglet $tabIndex mais MainWindow n'en contient que $($tabTags.Count)."
@@ -98,17 +107,21 @@ foreach ($module in $availableMatches) {
         throw "Module readiness: '$name' ($tabName) n'est pas cable a PermissionCatalog.$permissionConst via ApplyModuleAccess."
     }
 
+    $shared = ($availableMatches | Where-Object {
+        [int]$_.Groups['tab'].Value -eq $tabIndex
+    }).Count -gt 1
+
     $rows += [pscustomobject]@{
         Order = $order
         Module = $name
         Permission = "PermissionCatalog.$permissionConst"
         TabIndex = $tabIndex
         TabName = $tabName
-        Navigation = "OK"
+        Navigation = if ($shared) { "OK (ecran partage)" } else { "OK" }
         RBAC = "OK"
         Desktop = "OK"
     }
 }
 
 Write-Host "Module readiness gate: $($rows.Count)/$expectedAvailable modules Disponibles cables Navigation + RBAC + Desktop."
-$rows | Sort-Object TabIndex | Format-Table -AutoSize
+$rows | Sort-Object TabIndex, Order | Format-Table -AutoSize
