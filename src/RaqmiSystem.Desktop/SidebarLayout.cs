@@ -25,6 +25,7 @@
 //     lui rend sa famille de catalogue - dans la section de meme nom si elle existe,
 //     sinon dans une section creee avant celle epinglee. La table reste donc un choix
 //     editorial, pas une obligation de maintenance.
+[Obsolete("Remplacé par FunctionalArchitectureCatalog ; conservé pendant le lot de compatibilité.")]
 public static class SidebarLayout
 {
     // Une section de la barre laterale.

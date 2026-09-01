@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
+using RaqmiSystem.Application.Navigation;
 
 namespace RaqmiSystem.Desktop;
 
@@ -17,13 +18,16 @@ public sealed class ModuleTile : INotifyPropertyChanged
 
     private bool isLocked;
     private bool isActive;
+    private readonly FunctionalDomainDefinition functionalDomain;
 
     public ModuleTile(ModuleCatalogEntry entry)
     {
         Entry = entry;
+        functionalDomain = FunctionalArchitectureCatalog.DomainForLegacyOrder(entry.Order);
         StatusLabel = ModuleCatalog.StatusLabel(entry.Status);
-        GroupIconKey = ModuleCatalog.GroupIconKey(entry.Group);
-        SearchText = NormalizeForSearch($"{entry.Name} {entry.Description} {entry.Group} {entry.Order}");
+        GroupIconKey = functionalDomain.IconKey;
+        SearchText = NormalizeForSearch(
+            $"{entry.Name} {entry.Description} {functionalDomain.Name} {entry.Group} {entry.Order}");
     }
 
     /// <summary>
@@ -59,7 +63,11 @@ public sealed class ModuleTile : INotifyPropertyChanged
 
     public string Order => Entry.Order;
 
-    public string Group => Entry.Group;
+    public string Group => functionalDomain.Name;
+
+    public string FunctionalDomainId => functionalDomain.Id;
+
+    public FunctionalMaturity FunctionalMaturity => functionalDomain.Maturity;
 
     public string Name => Entry.Name;
 

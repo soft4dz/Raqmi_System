@@ -3,12 +3,13 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
+using RaqmiSystem.Application.Navigation;
 
 namespace RaqmiSystem.Desktop;
 
 // Une section de la barre laterale : un intitule et les ecrans qu'elle regroupe.
-// L'ordre des sections et celui des modules viennent de SidebarLayout ; le panneau
-// ne liste QUE des ecrans ouvrables - le sommaire complet des 49 modules,
+// L'ordre des sections vient du catalogue fonctionnel cible ; le panneau ne liste
+// QUE des écrans ouvrables - le sommaire complet des 50 modules,
 // planifies compris, reste l'ecran d'accueil.
 //
 // Les ModuleTile sont ceux de l'accueil, pas des copies : un changement de
@@ -80,9 +81,8 @@ public sealed class ModuleNavigationGroup : INotifyPropertyChanged
     public bool HasMatches => VisibleModules.Count > 0;
 
     /// <summary>
-    /// Construit les sections de la barre laterale : celles de <see cref="SidebarLayout"/>
-    /// dans leur ordre, puis les ecrans que le plan ne cite pas, rendus a leur famille
-    /// de catalogue, et enfin la section epinglee.
+    /// Construit les sections dans l'ordre des 22 domaines fonctionnels cibles, puis
+    /// rattache chaque écran historique par son numéro de catalogue stable.
     /// </summary>
     /// <remarks>
     /// Un seul module par onglet : le catalogue peut decrire deux modules servis par
@@ -92,56 +92,50 @@ public sealed class ModuleNavigationGroup : INotifyPropertyChanged
     /// </remarks>
     public static IReadOnlyList<ModuleNavigationGroup> Build(IEnumerable<ModuleTile> tiles)
     {
-        var byTab = new Dictionary<int, ModuleTile>();
-
-        foreach (var tile in tiles)
-        {
-            if (tile.TabIndex is { } tabIndex)
-            {
-                byTab.TryAdd(tabIndex, tile);
-            }
-        }
-
-        var placed = new HashSet<int>();
+        var tileList = tiles.ToList();
+        var byOrder = tileList.ToDictionary(tile => tile.Order, StringComparer.Ordinal);
+        var placedTabs = new HashSet<int>();
         var drafts = new List<Draft>();
 
-        foreach (var section in SidebarLayout.Sections)
+        foreach (var domain in FunctionalArchitectureCatalog.Domains)
         {
-            var draft = new Draft(section.Name, section.IconKey, section.IsPinned, []);
-            drafts.Add(draft);
+            var draft = new Draft(domain.Name, domain.IconKey, domain.Id == "22", []);
 
-            foreach (var tabIndex in section.Tabs)
+            foreach (var order in domain.LegacyModuleOrders)
             {
-                // Un onglet cite par le plan mais absent du catalogue est ignore,
-                // plutot que de poser une ligne qui n'ouvrirait rien. placed garde
-                // contre un onglet cite par deux sections : un ecran, une ligne.
-                if (byTab.TryGetValue(tabIndex, out var tile) && placed.Add(tabIndex))
+                if (byOrder.TryGetValue(order, out var tile)
+                    && tile.TabIndex is { } tabIndex
+                    && placedTabs.Add(tabIndex))
                 {
                     draft.Modules.Add(Describe(tile));
                 }
             }
+
+            if (draft.Modules.Count > 0)
+            {
+                drafts.Add(draft);
+            }
         }
 
-        // Ecrans livres depuis la derniere revision du plan : ils reprennent leur
-        // famille de catalogue. Si une section porte deja ce nom ils la rejoignent -
-        // sans quoi la barre laterale afficherait deux en-tetes « Exploitation ».
-        // Sinon une section nait juste avant celle epinglee en pied : rien ne
-        // disparait de la navigation parce qu'une table n'a pas suivi.
-        foreach (var family in byTab
-                     .Where(entry => !placed.Contains(entry.Key))
-                     .OrderBy(entry => entry.Key)
-                     .GroupBy(entry => entry.Value.Group))
+        // Garde de compatibilite : un ecran ajoute avant son rattachement explicite
+        // reste visible. Le test de couverture doit normalement rendre ce chemin vide.
+        foreach (var family in tileList
+                     .Where(tile => tile.TabIndex is { } tabIndex && !placedTabs.Contains(tabIndex))
+                     .OrderBy(tile => tile.TabIndex)
+                     .GroupBy(tile => tile.Group))
         {
-            var draft = drafts.Find(candidate => candidate.Name == family.Key);
+            var draft = new Draft(family.Key, family.First().GroupIconKey, IsPinned: false, []);
 
-            if (draft is null)
+            foreach (var tile in family)
             {
-                draft = new Draft(family.Key, ModuleCatalog.GroupIconKey(family.Key), IsPinned: false, []);
-                var pinned = drafts.FindIndex(candidate => candidate.IsPinned);
-                drafts.Insert(pinned < 0 ? drafts.Count : pinned, draft);
+                if (tile.TabIndex is { } tabIndex && placedTabs.Add(tabIndex))
+                {
+                    draft.Modules.Add(Describe(tile));
+                }
             }
 
-            draft.Modules.AddRange(family.Select(entry => Describe(entry.Value)));
+            var pinned = drafts.FindIndex(candidate => candidate.IsPinned);
+            drafts.Insert(pinned < 0 ? drafts.Count : pinned, draft);
         }
 
         return drafts
@@ -169,7 +163,8 @@ public sealed class ModuleNavigationGroup : INotifyPropertyChanged
 
         foreach (var module in modules)
         {
-            if (normalized is null || module.SearchText.Contains(normalized, StringComparison.Ordinal))
+            if (!module.Tile.IsLocked
+                && (normalized is null || module.SearchText.Contains(normalized, StringComparison.Ordinal)))
             {
                 VisibleModules.Add(module.Tile);
             }

@@ -60,9 +60,11 @@ public partial class MainWindow : Window
     private ICollectionView? moduleCatalogView;
     private ModuleStatus? moduleStatusFilter;
     private string? modulePriorityFilter;
+    private string? functionalDomainFilter;
+    private readonly IReadOnlyList<FunctionalDomainOption> functionalDomainOptions;
 
-    // Barre laterale : les ecrans livres, ranges en sections deroulables dans l'ordre
-    // de travail defini par SidebarLayout. Memes instances de ModuleTile que l'accueil -
+    // Barre laterale : les ecrans livres, ranges selon les 22 domaines fonctionnels.
+    // Memes instances de ModuleTile que l'accueil -
     // une permission qui change (IsLocked) ou un module qui s'ouvre (IsActive) se voit
     // des deux cotes sans rien resynchroniser.
     private readonly IReadOnlyList<ModuleNavigationGroup> sidebarGroups;
@@ -106,6 +108,7 @@ public partial class MainWindow : Window
         // onglet pendant l'analyse du XAML, ce qui declenche MainTabs_SelectionChanged,
         // qui lit deja ces deux collections.
         sidebarGroups = ModuleNavigationGroup.Build(moduleTiles);
+        functionalDomainOptions = FunctionalDomainOption.Build(moduleTiles);
 
         // Build ne garde qu'un module par onglet : la cle est donc unique.
         tilesByTab = sidebarGroups
@@ -172,8 +175,9 @@ public partial class MainWindow : Window
         ResetUnitForm();
         RefreshHomeDate();
         InitializeModuleCatalog();
-        // Deux zones de lecture : les sections de travail defilent, le parametrage
-        // reste epingle en pied de panneau (voir SidebarLayout).
+        FunctionalDomainItemsControl.ItemsSource = functionalDomainOptions;
+        // Deux zones de lecture : les domaines métier défilent, l'administration
+        // système reste épinglée en pied de panneau.
         SidebarGroupsItemsControl.ItemsSource = sidebarGroups.Where(group => !group.IsPinned).ToList();
         SidebarPinnedGroupsItemsControl.ItemsSource = sidebarGroups.Where(group => group.IsPinned).ToList();
         ApplyModulePermissions();
@@ -379,6 +383,7 @@ public partial class MainWindow : Window
         ApplyModuleAccess(PermissionCatalog.MiceRead, MiceTabItem);
 
         ApplyWriteActionStates();
+        ApplySidebarSearch();
     }
 
     // Source unique de verite de l'etat des boutons d'ecriture des onglets Unites
@@ -487,6 +492,12 @@ public partial class MainWindow : Window
             return false;
         }
 
+        if (functionalDomainFilter is not null
+            && !string.Equals(tile.FunctionalDomainId, functionalDomainFilter, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
         if (moduleSearchFilter is { } search && !tile.SearchText.Contains(search, StringComparison.Ordinal))
         {
             return false;
@@ -499,6 +510,25 @@ public partial class MainWindow : Window
 
         return modulePriorityFilter is null
             || string.Equals(tile.Priority, modulePriorityFilter, StringComparison.Ordinal);
+    }
+
+    private void FunctionalDomainFilter_Checked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: FunctionalDomainOption option })
+        {
+            return;
+        }
+
+        functionalDomainFilter = option.Id;
+
+        if (FunctionalDomainBreadcrumbTextBlock is not null)
+        {
+            FunctionalDomainBreadcrumbTextBlock.Text = option.Id is null
+                ? "Tous les domaines  →  modules"
+                : $"{option.Id}  {option.Name}  →  modules";
+        }
+
+        ApplyModuleCatalogFilters();
     }
 
     // ==================== Accueil : recherche dans le catalogue ====================

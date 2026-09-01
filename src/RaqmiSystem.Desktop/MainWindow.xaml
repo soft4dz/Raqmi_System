@@ -555,6 +555,59 @@
                                                Style="{StaticResource SubtitleText}" />
                                 </StackPanel>
 
+                                <!-- Navigation cible visible : Domaine -> Module. Le sélecteur
+                                     filtre les cartes sans changer les écrans historiques. -->
+                                <Border Style="{StaticResource CardBorder}"
+                                        Padding="22,18"
+                                        Margin="0,24,0,0">
+                                    <StackPanel>
+                                        <Grid>
+                                            <StackPanel>
+                                                <TextBlock Text="Architecture fonctionnelle"
+                                                           Style="{StaticResource HomeSectionLabel}"
+                                                           Margin="0" />
+                                                <TextBlock Text="22 domaines métier · choisissez votre espace de travail"
+                                                           Style="{StaticResource SubtitleText}"
+                                                           Margin="0,5,0,0" />
+                                            </StackPanel>
+                                            <TextBlock x:Name="FunctionalDomainBreadcrumbTextBlock"
+                                                       Text="Tous les domaines  →  modules"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource AccentBrush}" />
+                                        </Grid>
+
+                                        <ItemsControl x:Name="FunctionalDomainItemsControl" Margin="0,16,0,0">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <RadioButton GroupName="FunctionalDomainFilter"
+                                                                 Content="{Binding DisplayLabel}"
+                                                                 ToolTip="{Binding Name}"
+                                                                 Checked="FunctionalDomainFilter_Checked">
+                                                        <RadioButton.Style>
+                                                            <Style TargetType="RadioButton"
+                                                                   BasedOn="{StaticResource FilterChip}">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Id}" Value="{x:Null}">
+                                                                        <Setter Property="IsChecked" Value="True" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </RadioButton.Style>
+                                                    </RadioButton>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+
                                 <!-- ============== Bandeau d'avancement + filtres ============== -->
                                 <StackPanel Style="{StaticResource HomeRevealDelayedStyle}"
                                             Margin="0,26,0,0">
