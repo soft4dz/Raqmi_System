@@ -274,14 +274,14 @@ public sealed class DecCockpitCalculatorTests
         inactiveRoom.Deactivate();
 
         // Covers tonight (arrival today, departure tomorrow): blocks roomA.
-        var staying = new Reservation(healthyUnit.Code, roomA.Id, "CUST-01", Date, Date.AddDays(1), 2, 100m, "STD-PLAN");
+        var staying = TestReservations.Create(healthyUnit.Code, roomA.Id, "CUST-01", Date, Date.AddDays(1), 2, 100m, "STD-PLAN", "STD");
 
         // Cancelled: does not block.
-        var cancelled = new Reservation(healthyUnit.Code, roomB.Id, "CUST-02", Date, Date.AddDays(2), 1, 100m, "STD-PLAN");
+        var cancelled = TestReservations.Create(healthyUnit.Code, roomB.Id, "CUST-02", Date, Date.AddDays(2), 1, 100m, "STD-PLAN", "STD");
         cancelled.Cancel("Annulation client.", "reception", UtcNow);
 
         // Departs today: the departure night is not part of the stay - does not cover tonight.
-        var departing = new Reservation(healthyUnit.Code, roomB.Id, "CUST-03", Date.AddDays(-2), Date, 1, 100m, "STD-PLAN");
+        var departing = TestReservations.Create(healthyUnit.Code, roomB.Id, "CUST-03", Date.AddDays(-2), Date, 1, 100m, "STD-PLAN", "STD");
 
         var result = Build(
             units: [healthyUnit, attentionUnit, roomlessUnit],
@@ -322,8 +322,8 @@ public sealed class DecCockpitCalculatorTests
         var deactivatedRoom = new Room(unit.Code, "102", "STD");
         deactivatedRoom.Deactivate();
 
-        var inActiveRoom = new Reservation(unit.Code, activeRoom.Id, "CUST-01", Date, Date.AddDays(1), 2, 100m, "STD-PLAN");
-        var inDeactivatedRoom = new Reservation(unit.Code, deactivatedRoom.Id, "CUST-02", Date, Date.AddDays(1), 1, 100m, "STD-PLAN");
+        var inActiveRoom = TestReservations.Create(unit.Code, activeRoom.Id, "CUST-01", Date, Date.AddDays(1), 2, 100m, "STD-PLAN", "STD");
+        var inDeactivatedRoom = TestReservations.Create(unit.Code, deactivatedRoom.Id, "CUST-02", Date, Date.AddDays(1), 1, 100m, "STD-PLAN", "STD");
 
         var result = Build(
             units: [unit],

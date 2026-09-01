@@ -44,6 +44,41 @@ public sealed class Room : AuditableEntity
 
     public bool IsActive { get; private set; }
 
+    // ------------------------------- Localisation physique -------------------------------
+
+    /// <summary>
+    /// Batiment, quand l'unite en compte plusieurs. Libelle libre pour la meme raison que l'etage :
+    /// un batiment s'appelle "Annexe" ou "Bloc B" aussi souvent qu'il porte un numero.
+    /// </summary>
+    public string? Building { get; private set; }
+
+    /// <summary>Aile ou secteur a l'interieur du batiment ("Est", "Piscine", "Mer").</summary>
+    public string? Wing { get; private set; }
+
+    /// <summary>
+    /// Code interne de la chambre, distinct du numero affiche : c'est celui que portent la
+    /// serrure, la centrale telephonique ou l'ancien systeme. Unique dans l'unite quand il est
+    /// renseigne, pour qu'un rapprochement automatique ne puisse jamais viser deux chambres.
+    /// </summary>
+    public string? InternalCode { get; private set; }
+
+    // -------------------------------- Attributs commerciaux --------------------------------
+
+    /// <summary>Vue depuis la chambre ("MER", "JARDIN", "COUR"). Code normalise.</summary>
+    public string? View { get; private set; }
+
+    /// <summary>Equipements propres a la chambre, codes normalises separes par des points-virgules.</summary>
+    public string? Amenities { get; private set; }
+
+    /// <summary>Chambre accessible aux personnes a mobilite reduite.</summary>
+    public bool IsAccessible { get; private set; }
+
+    /// <summary>Chambre fumeur. Faux par defaut : le non-fumeur est la norme.</summary>
+    public bool IsSmoking { get; private set; }
+
+    /// <summary>Ordre d'affichage sur le plan et dans les listes. Zero suit le numero de chambre.</summary>
+    public int DisplayOrder { get; private set; }
+
     /// <summary>
     /// Couchage PROPRE a cette chambre. Vide signifie "cette chambre suit son type" - c'est le cas
     /// courant. Aucun indicateur separe ne double cette information : deux champs pour un meme fait
@@ -136,6 +171,39 @@ public sealed class Room : AuditableEntity
     {
         Floor = NormalizeOptional(floor, nameof(floor), 20);
         Notes = NormalizeOptional(notes, nameof(notes), 300);
+    }
+
+    /// <summary>Renseigne la localisation physique : batiment, aile, code interne.</summary>
+    public void SetLocation(string? building, string? wing, string? internalCode)
+    {
+        Building = NormalizeOptional(building, nameof(building), 60);
+        Wing = NormalizeOptional(wing, nameof(wing), 60);
+        InternalCode = NormalizeOptional(internalCode, nameof(internalCode), 40)?.ToUpperInvariant();
+    }
+
+    /// <summary>
+    /// Renseigne les attributs commerciaux de la chambre. Ils sont DESCRIPTIFS : ils qualifient et
+    /// filtrent, ils ne changent ni la capacite ni le prix, qui restent portes par le type et par
+    /// le module Tarifs.
+    /// </summary>
+    public void SetAttributes(
+        string? view,
+        IEnumerable<string>? amenities,
+        bool isAccessible,
+        bool isSmoking,
+        int displayOrder)
+    {
+        View = NormalizeOptional(view, nameof(view), 40)?.ToUpperInvariant();
+        Amenities = LodgingText.Amenities(amenities, nameof(amenities));
+        IsAccessible = isAccessible;
+        IsSmoking = isSmoking;
+        DisplayOrder = LodgingText.Count(displayOrder, nameof(displayOrder), RoomType.MaxDisplayOrder);
+    }
+
+    /// <summary>Relit les equipements de la chambre sous forme de liste.</summary>
+    public IReadOnlyList<string> GetAmenities()
+    {
+        return LodgingText.ReadAmenities(Amenities);
     }
 
     public void Activate()

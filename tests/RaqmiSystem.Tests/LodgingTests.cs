@@ -18,15 +18,15 @@ public sealed class LodgingTests
         DateOnly? departure = null,
         decimal rate = 12_000.00m)
     {
-        return new Reservation(
+        return TestReservations.Create(
             " htl-alger ",
             Guid.NewGuid(),
             " cli-42 ",
             arrival ?? Arrival,
             departure ?? Departure,
-            guestCount: 2,
-            nightlyRateSnapshot: rate,
-            ratePlanCodeSnapshot: "STD");
+            guests: 2,
+            nightlyRate: rate,
+            ratePlanCode: "STD");
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public sealed class LodgingTests
 
         var reservation = CreateBookedReservation();
         Assert.Equal(3, reservation.Nights);
-        Assert.Equal(ReservationStatus.Booked, reservation.Status);
+        Assert.Equal(ReservationStatus.Confirmed, reservation.Status);
     }
 
     [Fact]
@@ -92,8 +92,8 @@ public sealed class LodgingTests
         var exception = Assert.Throws<InvalidOperationException>(
             () => reservation.CheckIn(Arrival.AddDays(-2), "receptionist", DateTimeOffset.UtcNow));
 
-        Assert.Contains("before its arrival date", exception.Message);
-        Assert.Equal(ReservationStatus.Booked, reservation.Status);
+        Assert.Contains("avant sa date d'arrivee", exception.Message);
+        Assert.Equal(ReservationStatus.Confirmed, reservation.Status);
 
         reservation.CheckIn(Arrival, "receptionist", DateTimeOffset.UtcNow);
 
@@ -122,8 +122,8 @@ public sealed class LodgingTests
         var exception = Assert.Throws<InvalidOperationException>(
             () => stale.CheckIn(Departure.AddDays(1), "receptionist", DateTimeOffset.UtcNow));
 
-        Assert.Contains("departure date has passed", exception.Message);
-        Assert.Equal(ReservationStatus.Booked, stale.Status);
+        Assert.Contains("date de depart est passee", exception.Message);
+        Assert.Equal(ReservationStatus.Confirmed, stale.Status);
     }
 
     [Fact]
@@ -173,7 +173,7 @@ public sealed class LodgingTests
         var exception = Assert.Throws<InvalidOperationException>(
             () => reservation.MarkNoShow(Arrival, "receptionist", DateTimeOffset.UtcNow));
 
-        Assert.Contains("after its arrival date", exception.Message);
+        Assert.Contains("date d'arrivee passee", exception.Message);
 
         reservation.MarkNoShow(Arrival.AddDays(1), "receptionist", DateTimeOffset.UtcNow);
 
@@ -208,7 +208,7 @@ public sealed class LodgingTests
     [Fact]
     public void Folio_balance_is_the_sum_of_its_lines()
     {
-        var folio = new Folio(Guid.NewGuid());
+        var folio = new Folio(Guid.NewGuid(), "HTL-ALGER", "F-0001");
         var date = new DateOnly(2026, 9, 10);
 
         folio.AddCharge(new FolioCharge(date, "Nuit 1", 12_000m, ChargeKind.Night));

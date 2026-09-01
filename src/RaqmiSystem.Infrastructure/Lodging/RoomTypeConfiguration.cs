@@ -68,6 +68,22 @@ public sealed class RoomTypeConfiguration : IEntityTypeConfiguration<RoomType>
         builder.Property(roomType => roomType.MaxExtraBeds).HasColumnName("max_extra_beds");
         builder.Property(roomType => roomType.MaxCots).HasColumnName("max_cots");
 
+        // Composition commerciale et attributs de gamme (passe PMS). Zero signifie "non declare"
+        // partout : les types crees avant cette distinction restent valides et retombent sur la
+        // capacite seule.
+        builder.Property(roomType => roomType.MaxAdults).HasColumnName("max_adults");
+        builder.Property(roomType => roomType.MaxChildren).HasColumnName("max_children");
+        builder.Property(roomType => roomType.MaxInfants).HasColumnName("max_infants");
+
+        builder.Property(roomType => roomType.BaseRate).HasColumnName("base_rate").HasPrecision(18, 2);
+        builder.Property(roomType => roomType.SurfaceSquareMeters)
+            .HasColumnName("surface_square_meters")
+            .HasPrecision(9, 2);
+
+        builder.Property(roomType => roomType.Rank).HasColumnName("rank");
+        builder.Property(roomType => roomType.Amenities).HasColumnName("amenities").HasMaxLength(400);
+        builder.Property(roomType => roomType.DisplayOrder).HasColumnName("display_order");
+
         // Totaux derives du couchage : calcules a la lecture, jamais stockes.
         builder.Ignore(roomType => roomType.DeclaredSleeps);
         builder.Ignore(roomType => roomType.MaxOccupancy);

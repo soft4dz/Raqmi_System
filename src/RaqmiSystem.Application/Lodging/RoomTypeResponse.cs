@@ -1,4 +1,4 @@
-﻿namespace RaqmiSystem.Application.Lodging;
+namespace RaqmiSystem.Application.Lodging;
 
 /// <summary>
 /// Un type de chambre et son couchage.
@@ -27,4 +27,12 @@ public sealed record RoomTypeResponse(
     DateTimeOffset CreatedAt,
     string CreatedBy,
     DateTimeOffset? UpdatedAt,
-    string? UpdatedBy);
+    string? UpdatedBy,
+    int MaxAdults = 0,
+    int MaxChildren = 0,
+    int MaxInfants = 0,
+    decimal BaseRate = 0m,
+    decimal SurfaceSquareMeters = 0m,
+    int Rank = 0,
+    IReadOnlyCollection<string>? Amenities = null,
+    int DisplayOrder = 0);

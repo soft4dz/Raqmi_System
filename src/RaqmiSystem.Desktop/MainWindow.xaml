@@ -1749,6 +1749,23 @@
                     <TabItem x:Name="MiceTabItem" Header="Groupes &amp; MICE">
                         <views:MiceView x:Name="MiceView" />
                     </TabItem>
+
+                    <!-- Onglet 29. Meme regle que ci-dessus : l'index d'un onglet est
+                         l'identite d'un module dans tout le code, un nouveau module s'ajoute
+                         donc TOUJOURS a la fin. Sa place metier - le groupe Pilotage - lui est
+                         donnee par ModuleCatalog dans la barre laterale. -->
+                    <TabItem x:Name="KpiTabItem" Header="Bibliothèque KPI">
+                        <views:KpiView x:Name="KpiView" />
+                    </TabItem>
+
+                    <!-- Onglet 30 - PMS front office. Meme regle que ci-dessus : un nouveau module
+                         s'ajoute TOUJOURS a la fin, sa place metier lui etant donnee par
+                         ModuleCatalog dans la barre laterale. Il complete le module 10 plutot que
+                         de le remplacer : "Hebergement & occupation" tient le parametrage et la
+                         vente, celui-ci tient l'exploitation quotidienne. -->
+                    <TabItem x:Name="PmsTabItem" Header="PMS front office">
+                        <views:PmsView x:Name="PmsView" />
+                    </TabItem>
                 </TabControl>
 
                 <!-- ========================= Bandeau de session ========================= -->

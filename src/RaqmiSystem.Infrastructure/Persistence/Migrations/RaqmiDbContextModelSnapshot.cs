@@ -3997,10 +3997,192 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.Folio", b =>
+            modelBuilder.Entity("RaqmiSystem.Domain.Kpi.KpiAccountMapping", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AccountPrefix")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("account_prefix");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Group")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("group");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("label");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountPrefix")
+                        .IsUnique()
+                        .HasDatabaseName("ux_kpi_account_mappings_prefix");
+
+                    b.ToTable("kpi_account_mappings", "kpi", t =>
+                        {
+                            t.HasCheckConstraint("ck_kpi_account_mappings_group", "\"group\" IN ('Revenue', 'DepartmentalExpense', 'UndistributedExpense', 'FixedCharge', 'DepreciationAndProvision', 'FinancialResult', 'IncomeTax')");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Kpi.KpiSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CalculatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("calculated_at");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<string>("ClosedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("closed_by");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<decimal?>("Denominator")
+                        .HasPrecision(20, 6)
+                        .HasColumnType("numeric(20,6)")
+                        .HasColumnName("denominator");
+
+                    b.Property<int>("FormulaVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("formula_version");
+
+                    b.Property<string>("Granularity")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("granularity");
+
+                    b.Property<string>("HotelUnitCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("hotel_unit_code");
+
+                    b.Property<string>("KpiCode")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("kpi_code");
+
+                    b.Property<decimal?>("Numerator")
+                        .HasPrecision(20, 6)
+                        .HasColumnType("numeric(20,6)")
+                        .HasColumnName("numerator");
+
+                    b.Property<DateOnly>("PeriodEnd")
+                        .HasColumnType("date")
+                        .HasColumnName("period_end");
+
+                    b.Property<DateOnly>("PeriodStart")
+                        .HasColumnType("date")
+                        .HasColumnName("period_start");
+
+                    b.Property<string>("Quality")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("quality");
+
+                    b.Property<string>("ScopeKey")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("scope_key");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<decimal?>("Value")
+                        .HasPrecision(20, 6)
+                        .HasColumnType("numeric(20,6)")
+                        .HasColumnName("value");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HotelUnitCode");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_kpi_snapshots_status");
+
+                    b.HasIndex("PeriodStart", "PeriodEnd")
+                        .HasDatabaseName("ix_kpi_snapshots_period");
+
+                    b.HasIndex("KpiCode", "ScopeKey", "PeriodStart", "PeriodEnd")
+                        .IsUnique()
+                        .HasDatabaseName("ux_kpi_snapshots_code_scope_period");
+
+                    b.ToTable("kpi_snapshots", "kpi", t =>
+                        {
+                            t.HasCheckConstraint("ck_kpi_snapshots_period", "period_end >= period_start");
+
+                            t.HasCheckConstraint("ck_kpi_snapshots_quality", "quality IN ('Valid', 'Partial', 'MissingData', 'NotApplicable')");
+
+                            t.HasCheckConstraint("ck_kpi_snapshots_status", "status IN ('Provisional', 'Closed')");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Kpi.KpiThreshold", b =>
+                {
+                    b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
@@ -4014,9 +4196,263 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(160)")
                         .HasColumnName("created_by");
 
+                    b.Property<decimal?>("CriticalThreshold")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("critical_threshold");
+
+                    b.Property<decimal?>("FavorableThreshold")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("favorable_threshold");
+
+                    b.Property<string>("HotelUnitCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("hotel_unit_code");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("KpiCode")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("kpi_code");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("OwnerRole")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("owner_role");
+
+                    b.Property<string>("ScopeKey")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("scope_key");
+
+                    b.Property<decimal?>("TargetValue")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("target_value");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HotelUnitCode");
+
+                    b.HasIndex("KpiCode", "ScopeKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_kpi_thresholds_code_scope");
+
+                    b.ToTable("kpi_thresholds", "kpi");
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.CancellationPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("HotelUnitCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("hotel_unit_code");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("label");
+
+                    b.Property<string>("NoShowBasis")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("no_show_basis");
+
+                    b.Property<decimal>("NoShowValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("no_show_value");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HotelUnitCode", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ux_cancellation_policies_hotel_unit_code_code");
+
+                    b.ToTable("cancellation_policies", "lodging", t =>
+                        {
+                            t.HasCheckConstraint("ck_cancellation_policies_no_show_basis", "no_show_basis IN ('None', 'FirstNight', 'Nights', 'PercentOfStay', 'FixedAmount')");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.CancellationPolicyRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Basis")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("basis");
+
+                    b.Property<Guid>("CancellationPolicyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cancellation_policy_id");
+
+                    b.Property<int>("MinDaysBeforeArrival")
+                        .HasColumnType("integer")
+                        .HasColumnName("min_days_before_arrival");
+
+                    b.Property<decimal>("Value")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("value");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CancellationPolicyId", "MinDaysBeforeArrival")
+                        .IsUnique()
+                        .HasDatabaseName("ux_cancellation_policy_rules_policy_days");
+
+                    b.ToTable("cancellation_policy_rules", "lodging", t =>
+                        {
+                            t.HasCheckConstraint("ck_cancellation_policy_rules_basis", "basis IN ('None', 'FirstNight', 'Nights', 'PercentOfStay', 'FixedAmount')");
+
+                            t.HasCheckConstraint("ck_cancellation_policy_rules_days", "min_days_before_arrival >= 0 AND min_days_before_arrival <= 365");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.Deposit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTimeOffset?>("AppliedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("applied_at");
+
+                    b.Property<string>("AppliedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("applied_by");
+
+                    b.Property<Guid?>("AppliedToFolioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("applied_to_folio_id");
+
+                    b.Property<string>("ClosingReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("closing_reason");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateOnly>("DueDate")
+                        .HasColumnType("date")
+                        .HasColumnName("due_date");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("notes");
+
+                    b.Property<DateOnly?>("PaidDate")
+                        .HasColumnType("date")
+                        .HasColumnName("paid_date");
+
+                    b.Property<string>("PaymentMethod")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("payment_method");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("reference");
+
+                    b.Property<DateOnly?>("RefundedDate")
+                        .HasColumnType("date")
+                        .HasColumnName("refunded_date");
+
                     b.Property<Guid>("ReservationId")
                         .HasColumnType("uuid")
                         .HasColumnName("reservation_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -4030,10 +4466,212 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ReservationId")
-                        .IsUnique()
-                        .HasDatabaseName("ux_folios_reservation_id");
+                        .HasDatabaseName("ix_deposits_reservation_id");
 
-                    b.ToTable("folios", "lodging");
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_deposits_status");
+
+                    b.ToTable("deposits", "lodging", t =>
+                        {
+                            t.HasCheckConstraint("ck_deposits_amount", "CAST(amount AS numeric) > 0");
+
+                            t.HasCheckConstraint("ck_deposits_status", "status IN ('Requested', 'Paid', 'Applied', 'Refunded', 'Forfeited')");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.ExtraItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ChargeKind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("charge_kind");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("display_order");
+
+                    b.Property<string>("HotelUnitCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("hotel_unit_code");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<bool>("IsPostedByNightAudit")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_posted_by_night_audit");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("label");
+
+                    b.Property<string>("PricingBasis")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("pricing_basis");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("unit_price");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<decimal>("VatRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("vat_rate");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HotelUnitCode", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ux_extra_items_hotel_unit_code_code");
+
+                    b.ToTable("extra_items", "lodging", t =>
+                        {
+                            t.HasCheckConstraint("ck_extra_items_charge_kind", "charge_kind IN ('Extra', 'Tax', 'Package')");
+
+                            t.HasCheckConstraint("ck_extra_items_pricing_basis", "pricing_basis IN ('PerStay', 'PerNight', 'PerPerson', 'PerPersonPerNight', 'PerQuantity')");
+
+                            t.HasCheckConstraint("ck_extra_items_unit_price", "CAST(unit_price AS numeric) >= 0");
+
+                            t.HasCheckConstraint("ck_extra_items_vat_rate", "CAST(vat_rate AS numeric) IN (0, 9, 19)");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.Folio", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("BillToCustomerCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("bill_to_customer_code");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<string>("ClosedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("closed_by");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("HotelUnitCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("hotel_unit_code");
+
+                    b.Property<Guid?>("InvoiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invoice_id");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Label")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("label");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("number");
+
+                    b.Property<Guid>("ReservationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reservation_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReservationId")
+                        .HasDatabaseName("ix_folios_reservation_id");
+
+                    b.HasIndex("HotelUnitCode", "Number")
+                        .IsUnique()
+                        .HasDatabaseName("ux_folios_hotel_unit_code_number");
+
+                    b.ToTable("folios", "lodging", t =>
+                        {
+                            t.HasCheckConstraint("ck_folios_kind", "kind IN ('Guest', 'Company', 'Agency', 'Group')");
+
+                            t.HasCheckConstraint("ck_folios_status", "status IN ('Open', 'Closed')");
+                        });
                 });
 
             modelBuilder.Entity("RaqmiSystem.Domain.Lodging.FolioCharge", b =>
@@ -4047,9 +4685,18 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("amount");
 
+                    b.Property<DateOnly?>("BusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("business_date");
+
                     b.Property<DateOnly>("ChargeDate")
                         .HasColumnType("date")
                         .HasColumnName("charge_date");
+
+                    b.Property<string>("ExtraCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("extra_code");
 
                     b.Property<Guid>("FolioId")
                         .HasColumnType("uuid")
@@ -4071,15 +4718,35 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("line_number");
 
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("numeric(12,3)")
+                        .HasColumnName("quantity");
+
                     b.Property<string>("Reference")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("reference");
 
+                    b.Property<string>("SourceReference")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("source_reference");
+
+                    b.Property<decimal?>("VatRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("vat_rate");
+
                     b.HasKey("Id");
 
                     b.HasIndex("FolioId")
                         .HasDatabaseName("ix_folio_charges_folio_id");
+
+                    b.HasIndex("FolioId", "SourceReference")
+                        .IsUnique()
+                        .HasDatabaseName("ux_folio_charges_folio_id_source_reference")
+                        .HasFilter("source_reference IS NOT NULL");
 
                     b.ToTable("folio_charges", "lodging", t =>
                         {
@@ -4087,7 +4754,553 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_folio_charges_amount_sign", "kind IN ('Settlement', 'Adjustment') OR CAST(amount AS numeric) > 0");
 
-                            t.HasCheckConstraint("ck_folio_charges_kind", "kind IN ('Night', 'Extra', 'Settlement', 'Adjustment')");
+                            t.HasCheckConstraint("ck_folio_charges_kind", "kind IN ('Night', 'Extra', 'Settlement', 'Adjustment', 'Tax', 'Package')");
+
+                            t.HasCheckConstraint("ck_folio_charges_quantity", "CAST(quantity AS numeric) > 0");
+
+                            t.HasCheckConstraint("ck_folio_charges_vat_rate", "vat_rate IS NULL OR CAST(vat_rate AS numeric) IN (0, 9, 19)");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.LodgingPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<TimeOnly>("CheckInTime")
+                        .HasColumnType("time without time zone")
+                        .HasColumnName("check_in_time");
+
+                    b.Property<TimeOnly>("CheckOutTime")
+                        .HasColumnType("time without time zone")
+                        .HasColumnName("check_out_time");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<decimal>("EarlyCheckInFlatCharge")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("early_check_in_flat_charge");
+
+                    b.Property<TimeOnly?>("EarlyCheckInFromTime")
+                        .HasColumnType("time without time zone")
+                        .HasColumnName("early_check_in_from_time");
+
+                    b.Property<bool>("EarlyCheckInIsFree")
+                        .HasColumnType("boolean")
+                        .HasColumnName("early_check_in_is_free");
+
+                    b.Property<decimal>("EarlyCheckInPercentOfNight")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("early_check_in_percent_of_night");
+
+                    b.Property<string>("HotelUnitCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("hotel_unit_code");
+
+                    b.Property<decimal>("LateCheckOutFlatCharge")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("late_check_out_flat_charge");
+
+                    b.Property<bool>("LateCheckOutIsFree")
+                        .HasColumnType("boolean")
+                        .HasColumnName("late_check_out_is_free");
+
+                    b.Property<decimal>("LateCheckOutPercentOfNight")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("late_check_out_percent_of_night");
+
+                    b.Property<TimeOnly?>("LateCheckOutUntilTime")
+                        .HasColumnType("time without time zone")
+                        .HasColumnName("late_check_out_until_time");
+
+                    b.Property<bool>("OutOfServiceReducesInventory")
+                        .HasColumnType("boolean")
+                        .HasColumnName("out_of_service_reduces_inventory");
+
+                    b.Property<bool>("OverbookingEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("overbooking_enabled");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HotelUnitCode")
+                        .IsUnique()
+                        .HasDatabaseName("ux_lodging_policies_hotel_unit_code");
+
+                    b.ToTable("lodging_policies", "lodging", t =>
+                        {
+                            t.HasCheckConstraint("ck_lodging_policies_early_percent", "CAST(early_check_in_percent_of_night AS numeric) BETWEEN 0 AND 100");
+
+                            t.HasCheckConstraint("ck_lodging_policies_late_percent", "CAST(late_check_out_percent_of_night AS numeric) BETWEEN 0 AND 100");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.NightAuditRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("business_date");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<string>("CompletedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("completed_by");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("HotelUnitCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("hotel_unit_code");
+
+                    b.Property<int>("NoShowsRecorded")
+                        .HasColumnType("integer")
+                        .HasColumnName("no_shows_recorded");
+
+                    b.Property<int>("OpenFolios")
+                        .HasColumnType("integer")
+                        .HasColumnName("open_folios");
+
+                    b.Property<int>("PendingArrivals")
+                        .HasColumnType("integer")
+                        .HasColumnName("pending_arrivals");
+
+                    b.Property<int>("PendingDepartures")
+                        .HasColumnType("integer")
+                        .HasColumnName("pending_departures");
+
+                    b.Property<decimal>("PostedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("posted_amount");
+
+                    b.Property<int>("PostedExtras")
+                        .HasColumnType("integer")
+                        .HasColumnName("posted_extras");
+
+                    b.Property<int>("PostedRoomNights")
+                        .HasColumnType("integer")
+                        .HasColumnName("posted_room_nights");
+
+                    b.Property<string>("Report")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)")
+                        .HasColumnName("report");
+
+                    b.Property<int>("RoomStateMismatches")
+                        .HasColumnType("integer")
+                        .HasColumnName("room_state_mismatches");
+
+                    b.Property<int>("SkippedAlreadyPosted")
+                        .HasColumnType("integer")
+                        .HasColumnName("skipped_already_posted");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<string>("StartedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("started_by");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex(new[] { "HotelUnitCode", "BusinessDate" }, "ix_night_audit_runs_unit_business_date")
+                        .HasDatabaseName("ix_night_audit_runs_unit_business_date");
+
+                    b.HasIndex(new[] { "HotelUnitCode", "BusinessDate" }, "ux_night_audit_runs_unit_business_date_completed")
+                        .IsUnique()
+                        .HasDatabaseName("ux_night_audit_runs_unit_business_date_completed")
+                        .HasFilter("status = 'Completed'");
+
+                    b.ToTable("night_audit_runs", "lodging", t =>
+                        {
+                            t.HasCheckConstraint("ck_night_audit_runs_status", "status IN ('Inspected', 'Completed', 'Blocked')");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.OverbookingAllowance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<int>("ExtraRooms")
+                        .HasColumnType("integer")
+                        .HasColumnName("extra_rooms");
+
+                    b.Property<DateOnly>("FromDate")
+                        .HasColumnType("date")
+                        .HasColumnName("from_date");
+
+                    b.Property<string>("HotelUnitCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("hotel_unit_code");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("RoomTypeCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("room_type_code");
+
+                    b.Property<DateOnly>("ToDate")
+                        .HasColumnType("date")
+                        .HasColumnName("to_date");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HotelUnitCode", "RoomTypeCode", "FromDate")
+                        .HasDatabaseName("ix_overbooking_allowances_unit_type_from");
+
+                    b.ToTable("overbooking_allowances", "lodging", t =>
+                        {
+                            t.HasCheckConstraint("ck_overbooking_allowances_dates", "to_date >= from_date");
+
+                            t.HasCheckConstraint("ck_overbooking_allowances_extra_rooms", "extra_rooms > 0 AND extra_rooms <= 50");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.Package", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("HotelUnitCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("hotel_unit_code");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("label");
+
+                    b.Property<int>("Nights")
+                        .HasColumnType("integer")
+                        .HasColumnName("nights");
+
+                    b.Property<string>("RatePlanCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("rate_plan_code");
+
+                    b.Property<string>("RoomTypeCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("room_type_code");
+
+                    b.Property<decimal>("TotalPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("total_price");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<DateOnly?>("ValidFrom")
+                        .HasColumnType("date")
+                        .HasColumnName("valid_from");
+
+                    b.Property<DateOnly?>("ValidTo")
+                        .HasColumnType("date")
+                        .HasColumnName("valid_to");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HotelUnitCode", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ux_packages_hotel_unit_code_code");
+
+                    b.ToTable("packages", "lodging", t =>
+                        {
+                            t.HasCheckConstraint("ck_packages_total_price", "CAST(total_price AS numeric) >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.PackageComponent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<string>("ChargeKind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("charge_kind");
+
+                    b.Property<string>("ExtraCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("extra_code");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("label");
+
+                    b.Property<Guid>("PackageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("package_id");
+
+                    b.Property<string>("PricingBasis")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("pricing_basis");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PackageId")
+                        .HasDatabaseName("ix_package_components_package_id");
+
+                    b.ToTable("package_components", "lodging", t =>
+                        {
+                            t.HasCheckConstraint("ck_package_components_amount", "CAST(amount AS numeric) > 0");
+
+                            t.HasCheckConstraint("ck_package_components_charge_kind", "charge_kind IN ('Night', 'Extra', 'Tax', 'Package')");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.RateRestriction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ChannelCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("channel_code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateOnly>("FromDate")
+                        .HasColumnType("date")
+                        .HasColumnName("from_date");
+
+                    b.Property<string>("HotelUnitCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("hotel_unit_code");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<bool>("IsClosed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_closed");
+
+                    b.Property<bool>("IsClosedToArrival")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_closed_to_arrival");
+
+                    b.Property<bool>("IsClosedToDeparture")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_closed_to_departure");
+
+                    b.Property<int>("MaxAdvanceDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_advance_days");
+
+                    b.Property<int>("MaximumStay")
+                        .HasColumnType("integer")
+                        .HasColumnName("maximum_stay");
+
+                    b.Property<int>("MinAdvanceDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("min_advance_days");
+
+                    b.Property<int>("MinimumStay")
+                        .HasColumnType("integer")
+                        .HasColumnName("minimum_stay");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("RatePlanCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("rate_plan_code");
+
+                    b.Property<string>("RoomTypeCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("room_type_code");
+
+                    b.Property<DateOnly>("ToDate")
+                        .HasColumnType("date")
+                        .HasColumnName("to_date");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HotelUnitCode", "RoomTypeCode")
+                        .HasDatabaseName("ix_rate_restrictions_unit_room_type");
+
+                    b.HasIndex("HotelUnitCode", "FromDate", "ToDate")
+                        .HasDatabaseName("ix_rate_restrictions_unit_period");
+
+                    b.ToTable("rate_restrictions", "lodging", t =>
+                        {
+                            t.HasCheckConstraint("ck_rate_restrictions_advance_bounds", "min_advance_days >= 0 AND max_advance_days >= 0 AND (min_advance_days = 0 OR max_advance_days = 0 OR min_advance_days <= max_advance_days)");
+
+                            t.HasCheckConstraint("ck_rate_restrictions_dates", "to_date >= from_date");
+
+                            t.HasCheckConstraint("ck_rate_restrictions_stay_bounds", "minimum_stay >= 0 AND maximum_stay >= 0 AND (minimum_stay = 0 OR maximum_stay = 0 OR minimum_stay <= maximum_stay)");
                         });
                 });
 
@@ -4097,6 +5310,15 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<int>("Adults")
+                        .HasColumnType("integer")
+                        .HasColumnName("adults");
+
+                    b.Property<string>("AgencyCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("agency_code");
 
                     b.Property<Guid?>("AllotmentId")
                         .HasColumnType("uuid")
@@ -4111,6 +5333,20 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("cancel_reason");
 
+                    b.Property<decimal>("CancellationFeeAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("cancellation_fee_amount");
+
+                    b.Property<string>("CancellationPolicyCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("cancellation_policy_code");
+
+                    b.Property<string>("CancellationPolicySnapshotJson")
+                        .HasColumnType("text")
+                        .HasColumnName("cancellation_policy_snapshot");
+
                     b.Property<DateTimeOffset?>("CancelledAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("cancelled_at");
@@ -4119,6 +5355,11 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)")
                         .HasColumnName("cancelled_by");
+
+                    b.Property<string>("ChannelCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("channel_code");
 
                     b.Property<DateTimeOffset?>("CheckedInAt")
                         .HasColumnType("timestamp with time zone")
@@ -4137,6 +5378,20 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)")
                         .HasColumnName("checked_out_by");
+
+                    b.Property<int>("Children")
+                        .HasColumnType("integer")
+                        .HasColumnName("children");
+
+                    b.Property<string>("CompanyCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("company_code");
+
+                    b.Property<string>("ConventionCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("convention_code");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -4158,6 +5413,25 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("departure_date");
 
+                    b.Property<TimeOnly?>("EstimatedArrivalTime")
+                        .HasColumnType("time without time zone")
+                        .HasColumnName("estimated_arrival_time");
+
+                    b.Property<TimeOnly?>("EstimatedDepartureTime")
+                        .HasColumnType("time without time zone")
+                        .HasColumnName("estimated_departure_time");
+
+                    b.Property<string>("Guarantee")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("guarantee_kind");
+
+                    b.Property<string>("GuaranteeReference")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("guarantee_reference");
+
                     b.Property<int>("GuestCount")
                         .HasColumnType("integer")
                         .HasColumnName("guest_count");
@@ -4172,6 +5446,23 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
                         .HasColumnName("hotel_unit_code");
+
+                    b.Property<int>("Infants")
+                        .HasColumnType("integer")
+                        .HasColumnName("infants");
+
+                    b.Property<bool>("IsOverbooking")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_overbooking");
+
+                    b.Property<bool>("IsWalkIn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_walk_in");
+
+                    b.Property<string>("MarketSegmentCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("market_segment_code");
 
                     b.Property<decimal>("NightlyRateSnapshot")
                         .HasPrecision(18, 2)
@@ -4191,15 +5482,48 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(160)")
                         .HasColumnName("no_show_by");
 
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("number");
+
+                    b.Property<string>("OriginalRoomTypeCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("original_room_type_code");
+
                     b.Property<string>("RatePlanCodeSnapshot")
                         .IsRequired()
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)")
                         .HasColumnName("rate_plan_code_snapshot");
 
-                    b.Property<Guid>("RoomId")
+                    b.Property<Guid?>("RoomId")
                         .HasColumnType("uuid")
                         .HasColumnName("room_id");
+
+                    b.Property<string>("RoomTypeCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("room_type_code");
+
+                    b.Property<string>("SourceCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("source_code");
+
+                    b.Property<string>("SpecialRequests")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("special_requests");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -4227,21 +5551,174 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                     b.HasIndex("Status")
                         .HasDatabaseName("ix_reservations_status");
 
+                    b.HasIndex("HotelUnitCode", "ArrivalDate")
+                        .HasDatabaseName("ix_reservations_unit_arrival_date");
+
+                    b.HasIndex("HotelUnitCode", "DepartureDate")
+                        .HasDatabaseName("ix_reservations_unit_departure_date");
+
+                    b.HasIndex("HotelUnitCode", "Number")
+                        .IsUnique()
+                        .HasDatabaseName("ux_reservations_hotel_unit_code_number");
+
                     b.HasIndex("RoomId", "ArrivalDate")
                         .HasDatabaseName("ix_reservations_room_id_arrival_date");
+
+                    b.HasIndex("HotelUnitCode", "RoomTypeCode", "ArrivalDate", "DepartureDate")
+                        .HasDatabaseName("ix_reservations_unit_type_period");
 
                     b.HasIndex(new[] { "AllotmentId" }, "ix_reservations_allotment_id")
                         .HasDatabaseName("ix_reservations_allotment_id");
 
                     b.ToTable("reservations", "lodging", t =>
                         {
+                            t.HasCheckConstraint("ck_reservations_cancellation_fee", "CAST(cancellation_fee_amount AS numeric) >= 0");
+
                             t.HasCheckConstraint("ck_reservations_dates", "departure_date > arrival_date");
 
-                            t.HasCheckConstraint("ck_reservations_guest_count", "guest_count > 0");
+                            t.HasCheckConstraint("ck_reservations_guest_count", "guest_count > 0 AND adults > 0 AND children >= 0 AND infants >= 0 AND guest_count = adults + children");
 
                             t.HasCheckConstraint("ck_reservations_nightly_rate", "CAST(nightly_rate_snapshot AS numeric) >= 0");
 
-                            t.HasCheckConstraint("ck_reservations_status", "status IN ('Booked', 'CheckedIn', 'CheckedOut', 'Cancelled', 'NoShow')");
+                            t.HasCheckConstraint("ck_reservations_status", "status IN ('Inquiry', 'Option', 'Confirmed', 'Guaranteed', 'CheckedIn', 'CheckedOut', 'Cancelled', 'NoShow')");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.ReservationEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("actor");
+
+                    b.Property<DateOnly?>("BusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("business_date");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("NewValue")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("new_value");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<string>("PreviousValue")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("previous_value");
+
+                    b.Property<Guid>("ReservationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reservation_id");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("summary");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReservationId", "OccurredAt")
+                        .HasDatabaseName("ix_reservation_events_reservation_id_occurred_at");
+
+                    b.ToTable("reservation_events", "lodging");
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.ReservationExtra", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ChargeKind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("charge_kind");
+
+                    b.Property<string>("ExtraCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("extra_code");
+
+                    b.Property<DateOnly?>("FromDate")
+                        .HasColumnType("date")
+                        .HasColumnName("from_date");
+
+                    b.Property<bool>("IsIncludedInRate")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_included_in_rate");
+
+                    b.Property<string>("LabelSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("label_snapshot");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("PackageCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("package_code");
+
+                    b.Property<string>("PricingBasis")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("pricing_basis");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("numeric(12,3)")
+                        .HasColumnName("quantity");
+
+                    b.Property<Guid>("ReservationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reservation_id");
+
+                    b.Property<DateOnly?>("ToDate")
+                        .HasColumnType("date")
+                        .HasColumnName("to_date");
+
+                    b.Property<decimal>("UnitPriceSnapshot")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("unit_price_snapshot");
+
+                    b.Property<decimal>("VatRateSnapshot")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("vat_rate_snapshot");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReservationId")
+                        .HasDatabaseName("ix_reservation_extras_reservation_id");
+
+                    b.ToTable("reservation_extras", "lodging", t =>
+                        {
+                            t.HasCheckConstraint("ck_reservation_extras_quantity", "CAST(quantity AS numeric) > 0");
+
+                            t.HasCheckConstraint("ck_reservation_extras_unit_price", "CAST(unit_price_snapshot AS numeric) >= 0");
                         });
                 });
 
@@ -4252,6 +5729,16 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("Amenities")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("amenities");
+
+                    b.Property<string>("Building")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("building");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -4261,6 +5748,10 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)")
                         .HasColumnName("created_by");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("display_order");
 
                     b.Property<string>("Floor")
                         .HasMaxLength(20)
@@ -4273,9 +5764,22 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(40)")
                         .HasColumnName("hotel_unit_code");
 
+                    b.Property<string>("InternalCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("internal_code");
+
+                    b.Property<bool>("IsAccessible")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_accessible");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
+
+                    b.Property<bool>("IsSmoking")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_smoking");
 
                     b.Property<int?>("MaxCots")
                         .HasColumnType("integer")
@@ -4311,10 +5815,25 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(160)")
                         .HasColumnName("updated_by");
 
+                    b.Property<string>("View")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("view");
+
+                    b.Property<string>("Wing")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("wing");
+
                     b.HasKey("Id");
 
                     b.HasIndex("HotelUnitCode")
                         .HasDatabaseName("ix_rooms_hotel_unit_code");
+
+                    b.HasIndex("HotelUnitCode", "InternalCode")
+                        .IsUnique()
+                        .HasDatabaseName("ux_rooms_hotel_unit_code_internal_code")
+                        .HasFilter("internal_code IS NOT NULL");
 
                     b.HasIndex("HotelUnitCode", "Number")
                         .IsUnique()
@@ -4357,12 +5876,139 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.RoomBlock", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateOnly?>("ActualReturnDate")
+                        .HasColumnType("date")
+                        .HasColumnName("actual_return_date");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("cancel_reason");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("category");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<string>("ClosedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("closed_by");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("comment");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date")
+                        .HasColumnName("end_date");
+
+                    b.Property<string>("HotelUnitCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("hotel_unit_code");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("MaintenanceReference")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("maintenance_reference");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("room_id");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date")
+                        .HasColumnName("start_date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_room_blocks_status");
+
+                    b.HasIndex("RoomId", "StartDate")
+                        .HasDatabaseName("ix_room_blocks_room_id_start_date");
+
+                    b.HasIndex("HotelUnitCode", "StartDate", "EndDate")
+                        .HasDatabaseName("ix_room_blocks_unit_period");
+
+                    b.ToTable("room_blocks", "lodging", t =>
+                        {
+                            t.HasCheckConstraint("ck_room_blocks_dates", "end_date > start_date");
+
+                            t.HasCheckConstraint("ck_room_blocks_kind", "kind IN ('OutOfOrder', 'OutOfService')");
+
+                            t.HasCheckConstraint("ck_room_blocks_status", "status IN ('Planned', 'Active', 'Closed', 'Cancelled')");
+                        });
+                });
+
             modelBuilder.Entity("RaqmiSystem.Domain.Lodging.RoomType", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<string>("Amenities")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("amenities");
+
+                    b.Property<decimal>("BaseRate")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("base_rate");
 
                     b.Property<int>("Capacity")
                         .HasColumnType("integer")
@@ -4389,6 +6035,10 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(300)")
                         .HasColumnName("description");
 
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("display_order");
+
                     b.Property<string>("HotelUnitCode")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -4405,6 +6055,14 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(160)")
                         .HasColumnName("label");
 
+                    b.Property<int>("MaxAdults")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_adults");
+
+                    b.Property<int>("MaxChildren")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_children");
+
                     b.Property<int>("MaxCots")
                         .HasColumnType("integer")
                         .HasColumnName("max_cots");
@@ -4412,6 +6070,19 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                     b.Property<int>("MaxExtraBeds")
                         .HasColumnType("integer")
                         .HasColumnName("max_extra_beds");
+
+                    b.Property<int>("MaxInfants")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_infants");
+
+                    b.Property<int>("Rank")
+                        .HasColumnType("integer")
+                        .HasColumnName("rank");
+
+                    b.Property<decimal>("SurfaceSquareMeters")
+                        .HasPrecision(9, 2)
+                        .HasColumnType("numeric(9,2)")
+                        .HasColumnName("surface_square_meters");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -4462,6 +6133,182 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                     b.ToTable("room_type_beds", "lodging", t =>
                         {
                             t.HasCheckConstraint("ck_room_type_beds_quantity", "quantity > 0");
+                        });
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.StayRoomAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("AssignedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assigned_at");
+
+                    b.Property<string>("AssignedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("assigned_by");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset?>("ReleasedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("released_at");
+
+                    b.Property<string>("ReleasedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("released_by");
+
+                    b.Property<Guid>("ReservationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reservation_id");
+
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("room_id");
+
+                    b.Property<string>("RoomNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("room_number");
+
+                    b.Property<string>("RoomTypeCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("room_type_code");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoomId")
+                        .HasDatabaseName("ix_stay_room_assignments_room_id");
+
+                    b.HasIndex("ReservationId", "AssignedAt")
+                        .HasDatabaseName("ix_stay_room_assignments_reservation_id_assigned_at");
+
+                    b.ToTable("stay_room_assignments", "lodging");
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.YieldRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("AdjustmentPercent")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)")
+                        .HasColumnName("adjustment_percent");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("DaysOfWeek")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("days_of_week");
+
+                    b.Property<DateOnly>("FromDate")
+                        .HasColumnType("date")
+                        .HasColumnName("from_date");
+
+                    b.Property<string>("HotelUnitCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("hotel_unit_code");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("label");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("notes");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer")
+                        .HasColumnName("priority");
+
+                    b.Property<string>("RatePlanCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("rate_plan_code");
+
+                    b.Property<string>("RoomTypeCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("room_type_code");
+
+                    b.Property<decimal>("ThresholdValue")
+                        .HasPrecision(9, 2)
+                        .HasColumnType("numeric(9,2)")
+                        .HasColumnName("threshold_value");
+
+                    b.Property<DateOnly>("ToDate")
+                        .HasColumnType("date")
+                        .HasColumnName("to_date");
+
+                    b.Property<string>("Trigger")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("trigger_kind");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HotelUnitCode", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ux_yield_rules_hotel_unit_code_code");
+
+                    b.HasIndex("HotelUnitCode", "FromDate", "ToDate")
+                        .HasDatabaseName("ix_yield_rules_unit_period");
+
+                    b.ToTable("yield_rules", "lodging", t =>
+                        {
+                            t.HasCheckConstraint("ck_yield_rules_adjustment", "CAST(adjustment_percent AS numeric) <> 0 AND CAST(adjustment_percent AS numeric) BETWEEN -300 AND 300");
+
+                            t.HasCheckConstraint("ck_yield_rules_dates", "to_date >= from_date");
+
+                            t.HasCheckConstraint("ck_yield_rules_trigger", "trigger_kind IN ('OccupancyAtOrAbove', 'OccupancyBelow', 'LeadTimeAtOrBelow', 'LeadTimeAtOrAbove', 'DayOfWeek', 'Always')");
                         });
                 });
 
@@ -5881,6 +7728,22 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("Board")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("board");
+
+                    b.Property<string>("CancellationPolicyCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("cancellation_policy_code");
+
+                    b.Property<string>("ChannelCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("channel_code");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -5897,6 +7760,21 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(160)")
                         .HasColumnName("created_by");
 
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency_code");
+
+                    b.Property<decimal>("DepositPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("deposit_percent");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("display_order");
+
                     b.Property<string>("HotelUnitCode")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -5911,11 +7789,26 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_default");
 
+                    b.Property<bool>("IsRefundable")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_refundable");
+
                     b.Property<string>("Label")
                         .IsRequired()
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)")
                         .HasColumnName("label");
+
+                    b.Property<string>("MarketSegmentCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("market_segment_code");
+
+                    b.Property<string>("RequiredGuarantee")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("required_guarantee");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -5925,6 +7818,14 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)")
                         .HasColumnName("updated_by");
+
+                    b.Property<DateOnly?>("ValidFrom")
+                        .HasColumnType("date")
+                        .HasColumnName("valid_from");
+
+                    b.Property<DateOnly?>("ValidTo")
+                        .HasColumnType("date")
+                        .HasColumnName("valid_to");
 
                     b.HasKey("Id");
 
@@ -6710,8 +8611,71 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("RaqmiSystem.Domain.Kpi.KpiSnapshot", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Organization.HotelUnit", null)
+                        .WithMany()
+                        .HasForeignKey("HotelUnitCode")
+                        .HasPrincipalKey("Code")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Kpi.KpiThreshold", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Organization.HotelUnit", null)
+                        .WithMany()
+                        .HasForeignKey("HotelUnitCode")
+                        .HasPrincipalKey("Code")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.CancellationPolicy", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Organization.HotelUnit", null)
+                        .WithMany()
+                        .HasForeignKey("HotelUnitCode")
+                        .HasPrincipalKey("Code")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.CancellationPolicyRule", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Lodging.CancellationPolicy", null)
+                        .WithMany("Rules")
+                        .HasForeignKey("CancellationPolicyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.Deposit", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Lodging.Reservation", null)
+                        .WithMany()
+                        .HasForeignKey("ReservationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.ExtraItem", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Organization.HotelUnit", null)
+                        .WithMany()
+                        .HasForeignKey("HotelUnitCode")
+                        .HasPrincipalKey("Code")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("RaqmiSystem.Domain.Lodging.Folio", b =>
                 {
+                    b.HasOne("RaqmiSystem.Domain.Organization.HotelUnit", null)
+                        .WithMany()
+                        .HasForeignKey("HotelUnitCode")
+                        .HasPrincipalKey("Code")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("RaqmiSystem.Domain.Lodging.Reservation", null)
                         .WithMany()
                         .HasForeignKey("ReservationId")
@@ -6725,6 +8689,72 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .WithMany("Charges")
                         .HasForeignKey("FolioId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.LodgingPolicy", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Organization.HotelUnit", null)
+                        .WithMany()
+                        .HasForeignKey("HotelUnitCode")
+                        .HasPrincipalKey("Code")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.NightAuditRun", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Organization.HotelUnit", null)
+                        .WithMany()
+                        .HasForeignKey("HotelUnitCode")
+                        .HasPrincipalKey("Code")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.OverbookingAllowance", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Organization.HotelUnit", null)
+                        .WithMany()
+                        .HasForeignKey("HotelUnitCode")
+                        .HasPrincipalKey("Code")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RaqmiSystem.Domain.Lodging.RoomType", null)
+                        .WithMany()
+                        .HasForeignKey("HotelUnitCode", "RoomTypeCode")
+                        .HasPrincipalKey("HotelUnitCode", "Code")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.Package", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Organization.HotelUnit", null)
+                        .WithMany()
+                        .HasForeignKey("HotelUnitCode")
+                        .HasPrincipalKey("Code")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.PackageComponent", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Lodging.Package", null)
+                        .WithMany("Components")
+                        .HasForeignKey("PackageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.RateRestriction", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Organization.HotelUnit", null)
+                        .WithMany()
+                        .HasForeignKey("HotelUnitCode")
+                        .HasPrincipalKey("Code")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 
@@ -6747,7 +8777,31 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                     b.HasOne("RaqmiSystem.Domain.Lodging.Room", null)
                         .WithMany()
                         .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("RaqmiSystem.Domain.Lodging.RoomType", null)
+                        .WithMany()
+                        .HasForeignKey("HotelUnitCode", "RoomTypeCode")
+                        .HasPrincipalKey("HotelUnitCode", "Code")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.ReservationEvent", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Lodging.Reservation", null)
+                        .WithMany()
+                        .HasForeignKey("ReservationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.ReservationExtra", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Lodging.Reservation", null)
+                        .WithMany()
+                        .HasForeignKey("ReservationId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
@@ -6777,6 +8831,22 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.RoomBlock", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Organization.HotelUnit", null)
+                        .WithMany()
+                        .HasForeignKey("HotelUnitCode")
+                        .HasPrincipalKey("Code")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RaqmiSystem.Domain.Lodging.Room", null)
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("RaqmiSystem.Domain.Lodging.RoomType", b =>
                 {
                     b.HasOne("RaqmiSystem.Domain.Organization.HotelUnit", null)
@@ -6793,6 +8863,31 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         .WithMany("Beds")
                         .HasForeignKey("RoomTypeId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.StayRoomAssignment", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Lodging.Reservation", null)
+                        .WithMany()
+                        .HasForeignKey("ReservationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RaqmiSystem.Domain.Lodging.Room", null)
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.YieldRule", b =>
+                {
+                    b.HasOne("RaqmiSystem.Domain.Organization.HotelUnit", null)
+                        .WithMany()
+                        .HasForeignKey("HotelUnitCode")
+                        .HasPrincipalKey("Code")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 
@@ -6962,9 +9057,19 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                     b.Navigation("Ingredients");
                 });
 
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.CancellationPolicy", b =>
+                {
+                    b.Navigation("Rules");
+                });
+
             modelBuilder.Entity("RaqmiSystem.Domain.Lodging.Folio", b =>
                 {
                     b.Navigation("Charges");
+                });
+
+            modelBuilder.Entity("RaqmiSystem.Domain.Lodging.Package", b =>
+                {
+                    b.Navigation("Components");
                 });
 
             modelBuilder.Entity("RaqmiSystem.Domain.Lodging.Room", b =>

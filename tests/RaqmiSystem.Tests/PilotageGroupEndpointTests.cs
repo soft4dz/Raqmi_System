@@ -110,7 +110,7 @@ public sealed class PilotageGroupEndpointTests : IClassFixture<RaqmiApiFactory>
 
             // CheckedOut still blocks - those nights were really consumed. Nights of 1 and 2
             // April (the departure night is not part of the stay).
-            var stay = new Reservation(unitCode, room.Id, "PDG-CLI", from, to, 2, 100m, "STD-PLAN");
+            var stay = TestReservations.Create(unitCode, room.Id, "PDG-CLI", from, to, 2, 100m, "STD-PLAN", "STD");
             stay.CheckIn(to, "pdg.dashboard.reader", utcNow.AddDays(-3));
             stay.CheckOut("pdg.dashboard.reader", utcNow.AddDays(-1));
             dbContext.Set<Reservation>().Add(stay);

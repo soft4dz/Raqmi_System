@@ -107,7 +107,7 @@ public sealed class LodgingEndpointTests : IClassFixture<RaqmiApiFactory>
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
         var reservation = await createResponse.Content.ReadFromJsonAsync<ReservationResponse>(RaqmiApiFactory.JsonOptions);
-        Assert.Equal(ReservationStatus.Booked, reservation!.Status);
+        Assert.Equal(ReservationStatus.Confirmed, reservation!.Status);
         Assert.Equal("LODCLI", reservation.CustomerCode);
         Assert.Equal(NightlyRate, reservation.NightlyRateSnapshot);
         Assert.Equal("STD", reservation.RatePlanCodeSnapshot);
@@ -133,11 +133,13 @@ public sealed class LodgingEndpointTests : IClassFixture<RaqmiApiFactory>
         var folioResponse = await client.GetAsync($"/api/v1/lodging/reservations/{reservation.Id}/folio");
         Assert.Equal(HttpStatusCode.OK, folioResponse.StatusCode);
 
+        // L'arrivee ne pose que la nuit d'arrivee : les suivantes appartiennent a leur propre
+        // journee d'exploitation et sont posees par le night audit, ou rattrapees au depart.
         var folio = await folioResponse.Content.ReadFromJsonAsync<FolioResponse>(RaqmiApiFactory.JsonOptions);
-        Assert.Equal(2, folio!.Charges.Count);
+        Assert.Single(folio!.Charges);
         Assert.All(folio.Charges, charge => Assert.Equal(ChargeKind.Night, charge.Kind));
         Assert.All(folio.Charges, charge => Assert.Equal(NightlyRate, charge.Amount));
-        Assert.Equal(2 * NightlyRate, folio.Balance);
+        Assert.Equal(NightlyRate, folio.Balance);
 
         // Once booked, the room disappears from the availability search over the same period.
         var afterBooking = await client.GetAsync(

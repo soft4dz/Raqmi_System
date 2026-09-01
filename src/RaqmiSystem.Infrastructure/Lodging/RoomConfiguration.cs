@@ -72,6 +72,26 @@ public sealed class RoomConfiguration : IEntityTypeConfiguration<Room>
         builder.Property(room => room.MaxExtraBeds).HasColumnName("max_extra_beds");
         builder.Property(room => room.MaxCots).HasColumnName("max_cots");
 
+        // Localisation physique et attributs commerciaux (passe PMS). Bornes alignees sur
+        // Room.SetLocation / Room.SetAttributes : sans elles la base accepterait ce que
+        // l'entite refuse.
+        builder.Property(room => room.Building).HasColumnName("building").HasMaxLength(60);
+        builder.Property(room => room.Wing).HasColumnName("wing").HasMaxLength(60);
+        builder.Property(room => room.InternalCode).HasColumnName("internal_code").HasMaxLength(40);
+        builder.Property(room => room.View).HasColumnName("view").HasMaxLength(40);
+        builder.Property(room => room.Amenities).HasColumnName("amenities").HasMaxLength(400);
+        builder.Property(room => room.IsAccessible).HasColumnName("is_accessible");
+        builder.Property(room => room.IsSmoking).HasColumnName("is_smoking");
+        builder.Property(room => room.DisplayOrder).HasColumnName("display_order");
+
+        // Le code interne sert aux rapprochements automatiques (serrures, PABX, ancien systeme) :
+        // s'il pouvait designer deux chambres, un rapprochement viserait la mauvaise. Index filtre,
+        // parce que la plupart des chambres n'en portent pas.
+        builder.HasIndex(room => new { room.HotelUnitCode, room.InternalCode })
+            .IsUnique()
+            .HasFilter("internal_code IS NOT NULL")
+            .HasDatabaseName("ux_rooms_hotel_unit_code_internal_code");
+
         // Derive de la presence de lignes de couchage : aucun indicateur stocke, qui finirait par
         // contredire la collection.
         builder.Ignore(room => room.OverridesBeds);

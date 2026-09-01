@@ -1,0 +1,602 @@
+<UserControl x:Class="RaqmiSystem.Desktop.Views.PmsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignWidth="1400"
+             d:DesignHeight="820"
+             FontFamily="{StaticResource AppFontFamily}">
+
+    <!-- ============================================================================
+         Module 10 - PMS hotelier, front office.
+
+         CE QUE CET ECRAN N'EST PAS : un second moteur de disponibilite. Tout ce qu'il
+         affiche - planning, arrivees, departs, previsionnel, inventaire - vient du
+         MEME calcul serveur. L'ecran ne soustrait rien, ne compte rien : il montre.
+         C'est ce qui garantit qu'il ne pourra jamais annoncer une chambre libre que
+         la creation refuserait.
+
+         Le glisser-deposer n'existe pas ici, et c'est deliberе : deplacer un sejour
+         exige un motif et une revalidation de disponibilite. Un geste qui contourne
+         ces deux controles fait survendre l'hotel sans que personne ne le voie.
+         ============================================================================ -->
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============================ Bandeau de pilotage ============================ -->
+        <Border Style="{StaticResource CardBorder}">
+            <DockPanel>
+                <StackPanel>
+                    <TextBlock Text="PMS - Front office" Style="{StaticResource PageTitleText}" />
+                    <TextBlock x:Name="BusinessDateText"
+                               Text="Date métier : —"
+                               Style="{StaticResource SubtitleText}"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal"
+                            DockPanel.Dock="Right"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center">
+                    <TextBlock Text="Unité"
+                               Style="{StaticResource FilterRowLabelText}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0" />
+                    <ComboBox x:Name="UnitComboBox"
+                              MinWidth="200"
+                              DisplayMemberPath="Name"
+                              SelectedValuePath="Code"
+                              SelectionChanged="UnitComboBox_SelectionChanged"
+                              Margin="0,0,16,0" />
+
+                    <TextBlock Text="Du"
+                               Style="{StaticResource FilterRowLabelText}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0" />
+                    <DatePicker x:Name="FromDatePicker" Width="140" Margin="0,0,12,0" />
+
+                    <TextBlock Text="Au"
+                               Style="{StaticResource FilterRowLabelText}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0" />
+                    <DatePicker x:Name="ToDatePicker" Width="140" Margin="0,0,16,0" />
+
+                    <Button x:Name="RefreshButton"
+                            Content="Actualiser"
+                            Style="{StaticResource SecondaryButton}"
+                            ToolTip="Recharger le planning, les tableaux et le prévisionnel"
+                            Click="RefreshButton_Click" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <TabControl Grid.Row="2" x:Name="PmsTabs">
+
+            <!-- ================================ Planning ================================ -->
+            <TabItem Header="Planning">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Légende :" Style="{StaticResource LabelText}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <Border Background="#1D4ED8" Width="16" Height="12" CornerRadius="2" Margin="0,0,4,0" />
+                        <TextBlock Text="Confirmée" Style="{StaticResource CaptionText}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                        <Border Background="#15803D" Width="16" Height="12" CornerRadius="2" Margin="0,0,4,0" />
+                        <TextBlock Text="Garantie" Style="{StaticResource CaptionText}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                        <Border Background="#A16207" Width="16" Height="12" CornerRadius="2" Margin="0,0,4,0" />
+                        <TextBlock Text="Option" Style="{StaticResource CaptionText}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                        <Border Background="#0F766E" Width="16" Height="12" CornerRadius="2" Margin="0,0,4,0" />
+                        <TextBlock Text="En cours" Style="{StaticResource CaptionText}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                        <Border Background="#B00020" Width="16" Height="12" CornerRadius="2" Margin="0,0,4,0" />
+                        <TextBlock Text="Hors service technique" Style="{StaticResource CaptionText}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                        <Border Background="#8A6D3B" Width="16" Height="12" CornerRadius="2" Margin="0,0,4,0" />
+                        <TextBlock Text="Hors service exploitation" Style="{StaticResource CaptionText}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                        <Border Background="#C2410C" Width="16" Height="12" CornerRadius="2" Margin="0,0,4,0" />
+                        <TextBlock Text="Surréservation" Style="{StaticResource CaptionText}" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <Border Grid.Row="1" Style="{StaticResource SubtleCardBorder}" Padding="0">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                            <Grid x:Name="TapeChartGrid" Margin="8" />
+                        </ScrollViewer>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}" Margin="0,12,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Séjours vendus sans chambre affectée"
+                                       Style="{StaticResource SectionTitleText}" />
+                            <TextBlock Text="Ils n'ont aucune ligne sur le plan et pourtant ils consomment l'inventaire : les ignorer ferait croire à des chambres libres déjà vendues."
+                                       Style="{StaticResource CaptionText}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,2,0,8" />
+                            <DataGrid x:Name="UnassignedGrid"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      MaxHeight="150"
+                                      HeadersVisibility="Column">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Dossier" Binding="{Binding Number}" Width="120" />
+                                    <DataGridTextColumn Header="Client" Binding="{Binding CustomerName}" Width="*" />
+                                    <DataGridTextColumn Header="Type" Binding="{Binding RoomTypeCode}" Width="90" />
+                                    <DataGridTextColumn Header="Arrivée" Binding="{Binding From, StringFormat=dd/MM/yyyy}" Width="110" />
+                                    <DataGridTextColumn Header="Départ" Binding="{Binding To, StringFormat=dd/MM/yyyy}" Width="110" />
+                                    <DataGridTextColumn Header="Statut" Binding="{Binding Status}" Width="110" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ================================ Arrivées ================================ -->
+            <TabItem Header="Arrivées">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock x:Name="ArrivalSummaryText"
+                               Style="{StaticResource SubtitleText}"
+                               Margin="0,0,0,10" />
+
+                    <DataGrid Grid.Row="1"
+                              x:Name="ArrivalsGrid"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              SelectionMode="Single"
+                              HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Dossier" Binding="{Binding Number}" Width="110" />
+                            <DataGridTextColumn Header="Client" Binding="{Binding CustomerName}" Width="*" />
+                            <DataGridTextColumn Header="Occupant" Binding="{Binding GuestName}" Width="150" />
+                            <DataGridTextColumn Header="Type" Binding="{Binding RoomTypeCode}" Width="80" />
+                            <DataGridTextColumn Header="Chambre" Binding="{Binding RoomNumber}" Width="90" />
+                            <DataGridTextColumn Header="État chambre" Binding="{Binding HousekeepingStatus}" Width="120" />
+                            <DataGridTextColumn Header="ETA" Binding="{Binding EstimatedArrivalTime, StringFormat=HH\\:mm}" Width="70" />
+                            <DataGridTextColumn Header="Nuits" Binding="{Binding Nights}" Width="60" />
+                            <DataGridTextColumn Header="Pax" Binding="{Binding Adults}" Width="55" />
+                            <DataGridTextColumn Header="Garantie" Binding="{Binding Guarantee}" Width="120" />
+                            <DataGridTextColumn Header="Solde" Binding="{Binding Balance, StringFormat=N2}" Width="110"
+                                                ElementStyle="{StaticResource AmountCellText}" />
+                            <DataGridTextColumn Header="Statut" Binding="{Binding Status}" Width="110" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,12,0,0">
+                        <Button x:Name="AssignRoomButton"
+                                Content="Affecter une chambre…"
+                                Style="{StaticResource SecondaryButton}"
+                                Margin="0,0,10,0"
+                                ToolTip="Affecter une chambre libre du type vendu, ou libérer celle en place"
+                                Click="AssignRoomButton_Click" />
+                        <Button x:Name="CheckInButton"
+                                Content="Enregistrer l'arrivée"
+                                Style="{StaticResource PrimaryButton}"
+                                Margin="0,0,10,0"
+                                ToolTip="Ouvre le folio et informe le housekeeping"
+                                Click="CheckInButton_Click" />
+                        <Button x:Name="WalkInButton"
+                                Content="Walk-in…"
+                                Style="{StaticResource SecondaryButton}"
+                                ToolTip="Vente, affectation et arrivée en un seul geste"
+                                Click="WalkInButton_Click" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- ================================= Départs ================================= -->
+            <TabItem Header="Départs">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock x:Name="DepartureSummaryText"
+                               Style="{StaticResource SubtitleText}"
+                               Margin="0,0,0,10" />
+
+                    <DataGrid Grid.Row="1"
+                              x:Name="DeparturesGrid"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              SelectionMode="Single"
+                              HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Chambre" Binding="{Binding RoomNumber}" Width="90" />
+                            <DataGridTextColumn Header="Dossier" Binding="{Binding Number}" Width="110" />
+                            <DataGridTextColumn Header="Client" Binding="{Binding CustomerName}" Width="*" />
+                            <DataGridTextColumn Header="Arrivée" Binding="{Binding ArrivalDate, StringFormat=dd/MM/yyyy}" Width="110" />
+                            <DataGridTextColumn Header="Départ" Binding="{Binding DepartureDate, StringFormat=dd/MM/yyyy}" Width="110" />
+                            <DataGridTextColumn Header="Heure prévue" Binding="{Binding EstimatedDepartureTime, StringFormat=HH\\:mm}" Width="110" />
+                            <DataGridCheckBoxColumn Header="Départ tardif" Binding="{Binding IsLateCheckOut}" Width="110" />
+                            <DataGridTextColumn Header="Solde folio" Binding="{Binding Balance, StringFormat=N2}" Width="120"
+                                                ElementStyle="{StaticResource AmountCellText}" />
+                            <DataGridCheckBoxColumn Header="Parti" Binding="{Binding CheckedOut}" Width="70" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,12,0,0">
+                        <Button x:Name="PrepareCheckOutButton"
+                                Content="Préparer la note"
+                                Style="{StaticResource SecondaryButton}"
+                                Margin="0,0,10,0"
+                                ToolTip="Pose les nuitées que le night audit n'a pas encore posées et le supplément de départ tardif"
+                                Click="PrepareCheckOutButton_Click" />
+                        <Button x:Name="CheckOutButton"
+                                Content="Enregistrer le départ"
+                                Style="{StaticResource PrimaryButton}"
+                                ToolTip="Refusé tant qu'un folio du séjour n'est pas soldé"
+                                Click="CheckOutButton_Click" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- ================================= Présents ================================= -->
+            <TabItem Header="Clients présents">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <DataGrid x:Name="InHouseGrid"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              SelectionMode="Single"
+                              HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Chambre" Binding="{Binding RoomNumber}" Width="90" />
+                            <DataGridTextColumn Header="Dossier" Binding="{Binding Number}" Width="110" />
+                            <DataGridTextColumn Header="Client" Binding="{Binding CustomerName}" Width="*" />
+                            <DataGridTextColumn Header="Occupant" Binding="{Binding GuestName}" Width="160" />
+                            <DataGridTextColumn Header="Arrivée" Binding="{Binding ArrivalDate, StringFormat=dd/MM/yyyy}" Width="110" />
+                            <DataGridTextColumn Header="Départ" Binding="{Binding DepartureDate, StringFormat=dd/MM/yyyy}" Width="110" />
+                            <DataGridTextColumn Header="Ad." Binding="{Binding Adults}" Width="50" />
+                            <DataGridTextColumn Header="Enf." Binding="{Binding Children}" Width="50" />
+                            <DataGridTextColumn Header="Bébés" Binding="{Binding Infants}" Width="60" />
+                            <DataGridTextColumn Header="Solde" Binding="{Binding Balance, StringFormat=N2}" Width="110"
+                                                ElementStyle="{StaticResource AmountCellText}" />
+                            <DataGridCheckBoxColumn Header="VIP" Binding="{Binding IsVip}" Width="55" />
+                            <DataGridTextColumn Header="Demandes" Binding="{Binding SpecialRequests}" Width="200" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,12,0,0">
+                        <Button x:Name="RoomMoveButton"
+                                Content="Changer de chambre…"
+                                Style="{StaticResource SecondaryButton}"
+                                Margin="0,0,10,0"
+                                ToolTip="Motif obligatoire : l'ancienne chambre passe en sale et l'historique conserve les deux"
+                                Click="RoomMoveButton_Click" />
+                        <Button x:Name="ExtendStayButton"
+                                Content="Prolonger le séjour…"
+                                Style="{StaticResource SecondaryButton}"
+                                ToolTip="Revalide la disponibilité puis repose les tarifs des nuits ajoutées"
+                                Click="ExtendStayButton_Click" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- =============================== Prévisionnel =============================== -->
+            <TabItem Header="Prévisionnel">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Horizon" Style="{StaticResource FilterRowLabelText}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <ComboBox x:Name="ForecastHorizonComboBox" Width="120" SelectionChanged="ForecastHorizonComboBox_SelectionChanged">
+                            <ComboBoxItem Content="7 jours" Tag="7" />
+                            <ComboBoxItem Content="14 jours" Tag="14" IsSelected="True" />
+                            <ComboBoxItem Content="30 jours" Tag="30" />
+                            <ComboBoxItem Content="90 jours" Tag="90" />
+                            <ComboBoxItem Content="365 jours" Tag="365" />
+                        </ComboBox>
+                        <TextBlock x:Name="ForecastSummaryText"
+                                   Style="{StaticResource SubtitleText}"
+                                   VerticalAlignment="Center"
+                                   Margin="20,0,0,0" />
+                    </StackPanel>
+
+                    <DataGrid Grid.Row="1"
+                              x:Name="ForecastGrid"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Date" Binding="{Binding Date, StringFormat=dd/MM/yyyy}" Width="110" />
+                            <DataGridTextColumn Header="Parc" Binding="{Binding PhysicalRooms}" Width="70" />
+                            <DataGridTextColumn Header="OOO" Binding="{Binding OutOfOrderRooms}" Width="65" />
+                            <DataGridTextColumn Header="OOS" Binding="{Binding OutOfServiceRooms}" Width="65" />
+                            <DataGridTextColumn Header="Exploitable" Binding="{Binding SellableRooms}" Width="95" />
+                            <DataGridTextColumn Header="Allotements" Binding="{Binding AllotmentHolds}" Width="100" />
+                            <DataGridTextColumn Header="Vendu" Binding="{Binding SoldRooms}" Width="75" />
+                            <DataGridTextColumn Header="Arrivées" Binding="{Binding Arrivals}" Width="85" />
+                            <DataGridTextColumn Header="Départs" Binding="{Binding Departures}" Width="80" />
+                            <DataGridTextColumn Header="Stay-over" Binding="{Binding StayOvers}" Width="90" />
+                            <DataGridTextColumn Header="Restant" Binding="{Binding RemainingRooms}" Width="80" />
+                            <DataGridTextColumn Header="Surrés." Binding="{Binding OverbookingUsed}" Width="75" />
+                            <DataGridTextColumn Header="Taux %" Binding="{Binding OccupancyPercent, StringFormat=N2}" Width="85"
+                                                ElementStyle="{StaticResource AmountCellText}" />
+                            <DataGridTextColumn Header="CA chambres" Binding="{Binding RoomRevenue, StringFormat=N2}" Width="130"
+                                                ElementStyle="{StaticResource AmountCellText}" />
+                            <DataGridTextColumn Header="ADR" Binding="{Binding Adr, StringFormat=N2}" Width="110"
+                                                ElementStyle="{StaticResource AmountCellText}" />
+                            <DataGridTextColumn Header="RevPAR" Binding="{Binding RevPar, StringFormat=N2}" Width="110"
+                                                ElementStyle="{StaticResource AmountCellText}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
+            <!-- ============================ Inventaire (OOO/OOS) ============================ -->
+            <TabItem Header="Hors service">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="Retirer une chambre de l'exploitation"
+                                       Style="{StaticResource SectionTitleText}" />
+                            <TextBlock Text="Le hors service technique retire toujours la chambre de l'inventaire vendable. Le hors service d'exploitation ne le fait que si la politique de l'unité le prévoit — mais dans les deux cas la chambre cesse d'être proposée à l'affectation."
+                                       Style="{StaticResource CaptionText}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,2,0,10" />
+
+                            <WrapPanel>
+                                <StackPanel Margin="0,0,14,8">
+                                    <TextBlock Text="Chambre" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="BlockRoomComboBox" Width="180" DisplayMemberPath="Number" SelectedValuePath="Id" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,14,8">
+                                    <TextBlock Text="Nature" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="BlockKindComboBox" Width="200">
+                                        <ComboBoxItem Content="Hors service technique (OOO)" Tag="OutOfOrder" IsSelected="True" />
+                                        <ComboBoxItem Content="Hors service exploitation (OOS)" Tag="OutOfService" />
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel Margin="0,0,14,8">
+                                    <TextBlock Text="Catégorie" Style="{StaticResource LabelText}" />
+                                    <ComboBox x:Name="BlockCategoryComboBox" Width="170" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,14,8">
+                                    <TextBlock Text="Du" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="BlockFromDatePicker" Width="140" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,14,8">
+                                    <TextBlock Text="Au (exclu)" Style="{StaticResource LabelText}" />
+                                    <DatePicker x:Name="BlockToDatePicker" Width="140" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,14,8">
+                                    <TextBlock Text="Motif" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="BlockReasonTextBox" Width="280" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,14,8">
+                                    <TextBlock Text="Réf. maintenance" Style="{StaticResource LabelText}" />
+                                    <TextBox x:Name="BlockReferenceTextBox" Width="160" />
+                                </StackPanel>
+                                <Button x:Name="CreateBlockButton"
+                                        Content="Bloquer"
+                                        Style="{StaticResource PrimaryButton}"
+                                        VerticalAlignment="Bottom"
+                                        Margin="0,0,0,8"
+                                        Click="CreateBlockButton_Click" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <DataGrid Grid.Row="1"
+                              x:Name="BlocksGrid"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              SelectionMode="Single"
+                              HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Chambre" Binding="{Binding RoomNumber}" Width="90" />
+                            <DataGridTextColumn Header="Type" Binding="{Binding RoomTypeCode}" Width="80" />
+                            <DataGridTextColumn Header="Nature" Binding="{Binding Kind}" Width="130" />
+                            <DataGridTextColumn Header="Catégorie" Binding="{Binding Category}" Width="130" />
+                            <DataGridTextColumn Header="Du" Binding="{Binding StartDate, StringFormat=dd/MM/yyyy}" Width="110" />
+                            <DataGridTextColumn Header="Au (exclu)" Binding="{Binding EndDate, StringFormat=dd/MM/yyyy}" Width="110" />
+                            <DataGridTextColumn Header="Retour réel" Binding="{Binding ActualReturnDate, StringFormat=dd/MM/yyyy}" Width="110" />
+                            <DataGridTextColumn Header="Nuits" Binding="{Binding Nights}" Width="60" />
+                            <DataGridCheckBoxColumn Header="Retire l'inventaire" Binding="{Binding ReducesSellableInventory}" Width="130" />
+                            <DataGridTextColumn Header="Motif" Binding="{Binding Reason}" Width="*" />
+                            <DataGridTextColumn Header="Réf." Binding="{Binding MaintenanceReference}" Width="120" />
+                            <DataGridTextColumn Header="Statut" Binding="{Binding Status}" Width="100" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,12,0,0">
+                        <CheckBox x:Name="IncludeClosedBlocksCheckBox"
+                                  Content="Afficher les blocages clôturés"
+                                  VerticalAlignment="Center"
+                                  Margin="0,0,16,0"
+                                  Checked="IncludeClosedBlocksCheckBox_Changed"
+                                  Unchecked="IncludeClosedBlocksCheckBox_Changed" />
+                        <Button x:Name="CloseBlockButton"
+                                Content="Remettre en service…"
+                                Style="{StaticResource SecondaryButton}"
+                                Margin="0,0,10,0"
+                                ToolTip="La chambre revient à la vente et repart en SALE : elle sort de travaux, pas de ménage"
+                                Click="CloseBlockButton_Click" />
+                        <Button x:Name="CancelBlockButton"
+                                Content="Annuler le blocage…"
+                                Style="{StaticResource DangerButton}"
+                                Click="CancelBlockButton_Click" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- ============================== Règles de vente ============================== -->
+            <TabItem Header="Règles de vente">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Margin="0,0,0,10">
+                                <TextBlock Text="Restrictions (stop sell, CTA, CTD, durées, délais)"
+                                           Style="{StaticResource SectionTitleText}" />
+                                <TextBlock Text="Une portée vide signifie TOUS. Quand plusieurs règles couvrent la même date, la plus restrictive l'emporte : une fermeture posée sur l'hôtel ne peut pas être contournée par une règle plus fine."
+                                           Style="{StaticResource CaptionText}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,2,0,0" />
+                            </StackPanel>
+
+                            <DataGrid Grid.Row="1"
+                                      x:Name="RestrictionsGrid"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      SelectionMode="Single"
+                                      HeadersVisibility="Column">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Du" Binding="{Binding FromDate, StringFormat=dd/MM/yyyy}" Width="110" />
+                                    <DataGridTextColumn Header="Au" Binding="{Binding ToDate, StringFormat=dd/MM/yyyy}" Width="110" />
+                                    <DataGridTextColumn Header="Type" Binding="{Binding RoomTypeCode}" Width="80" />
+                                    <DataGridTextColumn Header="Tarif" Binding="{Binding RatePlanCode}" Width="90" />
+                                    <DataGridTextColumn Header="Canal" Binding="{Binding ChannelCode}" Width="90" />
+                                    <DataGridCheckBoxColumn Header="Fermé" Binding="{Binding IsClosed}" Width="70" />
+                                    <DataGridCheckBoxColumn Header="CTA" Binding="{Binding IsClosedToArrival}" Width="60" />
+                                    <DataGridCheckBoxColumn Header="CTD" Binding="{Binding IsClosedToDeparture}" Width="60" />
+                                    <DataGridTextColumn Header="MinLOS" Binding="{Binding MinimumStay}" Width="75" />
+                                    <DataGridTextColumn Header="MaxLOS" Binding="{Binding MaximumStay}" Width="75" />
+                                    <DataGridTextColumn Header="J- min" Binding="{Binding MinAdvanceDays}" Width="70" />
+                                    <DataGridTextColumn Header="J- max" Binding="{Binding MaxAdvanceDays}" Width="70" />
+                                    <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive}" Width="65" />
+                                    <DataGridTextColumn Header="Note" Binding="{Binding Notes}" Width="*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Margin="0,0,0,10">
+                                <TextBlock Text="Surréservation autorisée"
+                                           Style="{StaticResource SectionTitleText}" />
+                                <TextBlock Text="Toute vente au-delà de la capacité physique est explicitement marquée sur le dossier, pour que la réception puisse organiser le relogement avant le jour J."
+                                           Style="{StaticResource CaptionText}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,2,0,0" />
+                            </StackPanel>
+
+                            <DataGrid Grid.Row="1"
+                                      x:Name="OverbookingGrid"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      HeadersVisibility="Column">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Type" Binding="{Binding RoomTypeCode}" Width="100" />
+                                    <DataGridTextColumn Header="Du" Binding="{Binding FromDate, StringFormat=dd/MM/yyyy}" Width="110" />
+                                    <DataGridTextColumn Header="Au" Binding="{Binding ToDate, StringFormat=dd/MM/yyyy}" Width="110" />
+                                    <DataGridTextColumn Header="Chambres en plus" Binding="{Binding ExtraRooms}" Width="140" />
+                                    <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive}" Width="70" />
+                                    <DataGridTextColumn Header="Note" Binding="{Binding Notes}" Width="*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ================================ Night audit ================================ -->
+            <TabItem Header="Night audit">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="Passage du night audit" Style="{StaticResource SectionTitleText}" />
+                            <TextBlock Text="La répétition ne fait que les contrôles et n'écrit rien : elle se rejoue autant de fois qu'on veut. Le passage réel pose les nuitées de la journée, et le relancer ne double jamais une écriture."
+                                       Style="{StaticResource CaptionText}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,2,0,10" />
+
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="DryRunNightAuditButton"
+                                        Content="Répétition (aucune écriture)"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Margin="0,0,10,0"
+                                        Click="DryRunNightAuditButton_Click" />
+                                <Button x:Name="RunNightAuditButton"
+                                        Content="Passer le night audit"
+                                        Style="{StaticResource PrimaryButton}"
+                                        Margin="0,0,16,0"
+                                        Click="RunNightAuditButton_Click" />
+                                <CheckBox x:Name="AutoNoShowCheckBox"
+                                          Content="Constater automatiquement les no-shows"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,16,0" />
+                                <Button x:Name="NoShowReportButton"
+                                        Content="Rapport des no-shows"
+                                        Style="{StaticResource GhostButton}"
+                                        Click="NoShowReportButton_Click" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <DataGrid Grid.Row="1"
+                              x:Name="NightAuditFindingsGrid"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridCheckBoxColumn Header="Bloquant" Binding="{Binding IsBlocking}" Width="90" />
+                            <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="200" />
+                            <DataGridTextColumn Header="Constat" Binding="{Binding Message}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <Border Grid.Row="3" Style="{StaticResource SubtleCardBorder}">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <TextBlock x:Name="NightAuditReportText"
+                                       FontFamily="Consolas"
+                                       TextWrapping="NoWrap"
+                                       Style="{StaticResource BodyText}" />
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

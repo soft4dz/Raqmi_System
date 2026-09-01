@@ -1290,15 +1290,18 @@ public partial class LodgingView : UserControl
 
         foreach (var reservation in planningReservations)
         {
-            // Annulations et no-shows ne bloquent pas la chambre : ils
-            // n'encombrent pas le tape chart (la legende n'affiche que les
-            // trois statuts qui y figurent).
-            if (reservation.Status is not (ReservationStatus.Booked or ReservationStatus.CheckedIn or ReservationStatus.CheckedOut))
+            // Seuls les sejours qui TIENNENT la chambre figurent sur le tape chart -
+            // demandes, annulations et no-shows n'encombrent pas le planning. La
+            // definition vient du domaine (Blocks), jamais d'une liste locale de statuts.
+            if (!reservation.Status.Blocks())
             {
                 continue;
             }
 
-            if (!roomRowByRoomId.TryGetValue(reservation.RoomId, out var roomRow))
+            // Une reservation sans chambre affectee (vente au type) n'a pas de ligne sur
+            // le planning par chambre : elle tient l'inventaire, pas une chambre precise.
+            if (reservation.RoomId is not { } planningRoomId
+                || !roomRowByRoomId.TryGetValue(planningRoomId, out var roomRow))
             {
                 continue;
             }
@@ -1477,7 +1480,7 @@ public partial class LodgingView : UserControl
         var current = context;
         var stay = selectedStay;
 
-        if (current is null || stay is null || stay.Status != ReservationStatus.Booked)
+        if (current is null || stay is null || !stay.Status.IsPreArrival())
         {
             return;
         }
@@ -1553,7 +1556,7 @@ public partial class LodgingView : UserControl
         var current = context;
         var stay = selectedStay;
 
-        if (current is null || stay is null || stay.Status != ReservationStatus.Booked)
+        if (current is null || stay is null || !stay.Status.IsPreArrival())
         {
             return;
         }
@@ -1582,7 +1585,7 @@ public partial class LodgingView : UserControl
         var current = context;
         var stay = selectedStay;
 
-        if (current is null || stay is null || stay.Status != ReservationStatus.Booked)
+        if (current is null || stay is null || !stay.Status.IsPreArrival())
         {
             return;
         }
@@ -1862,10 +1865,10 @@ public partial class LodgingView : UserControl
     {
         var stay = selectedStay;
 
-        StayCheckInButton.IsEnabled = canCheckin && stay?.Status == ReservationStatus.Booked;
+        StayCheckInButton.IsEnabled = canCheckin && stay is not null && stay.Status.IsPreArrival();
         StayCheckOutButton.IsEnabled = canCheckin && stay?.Status == ReservationStatus.CheckedIn;
-        StayNoShowButton.IsEnabled = canWrite && stay?.Status == ReservationStatus.Booked;
-        StayCancelButton.IsEnabled = canWrite && stay?.Status == ReservationStatus.Booked;
+        StayNoShowButton.IsEnabled = canWrite && stay is not null && stay.Status.IsPreArrival();
+        StayCancelButton.IsEnabled = canWrite && stay is not null && stay.Status.IsPreArrival();
         StayFolioButton.IsEnabled = stay is not null;
         AddChargeButton.IsEnabled = canCheckin && stay?.Status == ReservationStatus.CheckedIn;
         SearchCustomerButton.IsEnabled = canReadCustomers;
@@ -1898,7 +1901,10 @@ public partial class LodgingView : UserControl
     // sejour rendent le meme mot et la meme couleur.
     private static (string Label, string BackgroundKey, string ForegroundKey) DescribeStatus(ReservationStatus status) => status switch
     {
-        ReservationStatus.Booked => ("Réservée", "StatusSubmittedBackgroundBrush", "StatusSubmittedForegroundBrush"),
+        ReservationStatus.Inquiry => ("Demande", "StatusDraftBackgroundBrush", "StatusDraftForegroundBrush"),
+        ReservationStatus.Option => ("Option", "StatusSubmittedBackgroundBrush", "StatusSubmittedForegroundBrush"),
+        ReservationStatus.Confirmed => ("Confirmée", "StatusSubmittedBackgroundBrush", "StatusSubmittedForegroundBrush"),
+        ReservationStatus.Guaranteed => ("Garantie", "StatusSubmittedBackgroundBrush", "StatusSubmittedForegroundBrush"),
         ReservationStatus.CheckedIn => ("En séjour", "StatusValidatedBackgroundBrush", "StatusValidatedForegroundBrush"),
         ReservationStatus.CheckedOut => ("Terminée", "StatusDraftBackgroundBrush", "StatusDraftForegroundBrush"),
         ReservationStatus.Cancelled => ("Annulée", "StatusRejectedBackgroundBrush", "StatusRejectedForegroundBrush"),

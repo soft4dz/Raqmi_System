@@ -66,6 +66,36 @@ builder.Services.AddAuthorization(options =>
     {
         options.AddPolicy(permission.Key, policy => policy.RequireClaim(SecurityClaimTypes.Permission, permission.Key));
     }
+
+    // CLES FINES DU PMS : la cle historique VAUT la cle fine qui l'a remplacee.
+    //
+    // Le decoupage du module 10 a scinde "lodging.write" et "lodging.checkin" en gestes distincts.
+    // Une installation deja en service a accorde les anciennes cles a ses profils ; exiger les
+    // nouvelles fermerait du jour au lendemain des ecrans qui fonctionnaient, jusqu'a ce que
+    // quelqu'un pense a rejouer le parametrage des roles PERSONNALISES - que le seeder ne touche
+    // pas. La politique accepte donc l'une OU l'autre.
+    //
+    // Trois cles n'ont volontairement PAS d'equivalent historique : change_rate,
+    // override_restriction et overbooking. Elles autorisent des gestes qui n'existaient pas -
+    // changer un prix vendu, passer outre une fermeture, vendre une chambre qui n'existe pas - et
+    // les faire heriter de "lodging.write" reviendrait a les accorder retroactivement a tous ceux
+    // qui tenaient le parametrage. C'est exactement ce que ce decoupage existe pour eviter.
+    foreach (var (fineKey, legacyKey) in new[]
+    {
+        (PermissionCatalog.LodgingReserve, PermissionCatalog.LodgingWrite),
+        (PermissionCatalog.LodgingCancel, PermissionCatalog.LodgingWrite),
+        (PermissionCatalog.LodgingNoShow, PermissionCatalog.LodgingWrite),
+        (PermissionCatalog.LodgingManageRooms, PermissionCatalog.LodgingWrite),
+        (PermissionCatalog.LodgingManageRates, PermissionCatalog.LodgingWrite),
+        (PermissionCatalog.LodgingNightAudit, PermissionCatalog.LodgingWrite),
+        (PermissionCatalog.LodgingRoomMove, PermissionCatalog.LodgingCheckin),
+        (PermissionCatalog.LodgingCheckout, PermissionCatalog.LodgingCheckin)
+    })
+    {
+        options.AddPolicy(
+            fineKey,
+            policy => policy.RequireClaim(SecurityClaimTypes.Permission, fineKey, legacyKey));
+    }
 });
 
 var app = builder.Build();
@@ -162,6 +192,9 @@ api.MapTreasuryEndpoints();
 api.MapBillingEndpoints();
 api.MapTariffsEndpoints();
 api.MapLodgingEndpoints();
+api.MapLodgingInventoryEndpoints();
+api.MapLodgingCatalogEndpoints();
+api.MapLodgingOperationsEndpoints();
 api.MapHousekeepingEndpoints();
 api.MapCrmEndpoints();
 api.MapSettingsEndpoints();
@@ -173,6 +206,7 @@ api.MapApprovalsEndpoints();
 api.MapReportingEndpoints();
 api.MapMaintenanceEndpoints();
 api.MapPilotageEndpoints();
+api.MapKpiEndpoints();
 api.MapHumanResourcesEndpoints();
 api.MapInventoryEndpoints();
 api.MapPurchasingEndpoints();

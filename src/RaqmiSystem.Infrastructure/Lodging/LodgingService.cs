@@ -1,36 +1,47 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using RaqmiSystem.Application.Common;
 using RaqmiSystem.Application.Lodging;
 using RaqmiSystem.Application.Security;
 using RaqmiSystem.Application.Tariffs;
-using RaqmiSystem.Domain.Billing;
 using RaqmiSystem.Domain.Lodging;
-using RaqmiSystem.Domain.Mice;
 using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Infrastructure.Persistence;
-using System.Data;
-using System.Globalization;
 using System.Linq.Expressions;
 using System.Text.Json;
 
 namespace RaqmiSystem.Infrastructure.Lodging;
 
 /// <summary>
-/// Property management service (rooms, reservations, folios, occupancy).
+/// Le PMS hotelier : parc de chambres, inventaire, disponibilite, reservations, sejours, folios,
+/// previsionnel et night audit.
 ///
-/// The central invariant - two non-cancelled/non-no-show reservations of the same room never
-/// overlap - cannot be expressed as a single-row constraint, so it is enforced with the same
-/// atomic-guard pattern as <c>AccountingService</c> / <c>UserAdministrationService</c>: a
-/// Serializable transaction, the check re-run INSIDE that transaction, and serialization
-/// failures surfaced as retryable 409s instead of 500s. Status transitions that read state a
-/// concurrent request could invalidate (check-in creating the folio, check-out asserting a zero
-/// balance, folio lines racing a check-out) use the conditional-claim variant of the same
-/// pattern.
+/// UNE SOURCE DE VERITE, UN SEUL CALCUL. Toutes les operations qui vendent ou tiennent une chambre
+/// passent par <see cref="BuildRoomTypeAvailabilityAsync"/>, qui alimente
+/// <see cref="AvailabilityCalculator"/> avec les memes sources : parc physique, blocages OOO/OOS,
+/// reservations bloquantes, allotements de groupe, autorisations de surreservation. La recherche,
+/// la creation, le walk-in, l'affectation, le changement de chambre, la prolongation, le
+/// changement de type, le previsionnel et - le jour ou ils existeront - le moteur de reservation
+/// directe et le channel manager lisent tous ce meme calcul. Deux chemins qui compteraient
+/// differemment finiraient par ne plus etre d'accord, et l'ecart se paierait en survente
+/// silencieuse.
+///
+/// CONCURRENCE. L'invariant central - deux reservations de la meme chambre ne se chevauchent
+/// jamais - ne s'exprime pas comme une contrainte de ligne : il est tenu avec le meme motif de
+/// garde atomique que <c>AccountingService</c> / <c>UserAdministrationService</c>, une transaction
+/// Serializable, le controle rejoue A L'INTERIEUR de cette transaction, et les echecs de
+/// serialisation remontes en 409 rejouables plutot qu'en 500. Les transitions de statut qui lisent
+/// un etat qu'une requete concurrente pourrait invalider (arrivee ouvrant le folio, depart
+/// affirmant un solde nul, ligne de folio en course avec un depart) utilisent la variante par
+/// claim conditionnel du meme motif.
+///
+/// La classe est decoupee en fichiers partiels par domaine de responsabilite : Rooms, Inventory,
+/// Availability, Reservations, Stay, Folios, Catalog, Operations.
 /// </summary>
-public sealed class LodgingService(
+public sealed partial class LodgingService(
     RaqmiDbContext dbContext,
     IAuditLogWriter auditLogWriter,
-    ITariffResolutionService tariffResolutionService) : ILodgingService
+    ITariffResolutionService tariffResolutionService)
+    : ILodgingService, ILodgingInventoryService, ILodgingCatalogService, ILodgingOperationsService
 {
     private const string RoomTypesEntity = "lodging.room_types";
 
@@ -40,1603 +51,95 @@ public sealed class LodgingService(
 
     private const string FoliosEntity = "lodging.folios";
 
+    private const string RoomBlocksEntity = "lodging.room_blocks";
+
+    private const string RestrictionsEntity = "lodging.rate_restrictions";
+
+    private const string OverbookingEntity = "lodging.overbooking_allowances";
+
+    private const string PoliciesEntity = "lodging.lodging_policies";
+
+    private const string ExtrasEntity = "lodging.extra_items";
+
+    private const string PackagesEntity = "lodging.packages";
+
+    private const string DepositsEntity = "lodging.deposits";
+
+    private const string CancellationPoliciesEntity = "lodging.cancellation_policies";
+
+    private const string YieldRulesEntity = "lodging.yield_rules";
+
+    private const string NightAuditEntity = "lodging.night_audit_runs";
+
     /// <summary>
-    /// Answer given when the atomic claim finds the reservation is no longer in the status the
-    /// request loaded it in, or when the database refused to serialize concurrent transactions.
-    /// Nothing was modified either way.
+    /// Reponse rendue quand le claim atomique constate que le dossier n'est plus dans le statut ou
+    /// la requete l'avait lu, ou quand la base a refuse de serialiser des transactions
+    /// concurrentes. Rien n'a ete modifie dans les deux cas.
     /// </summary>
     private const string ConcurrentReservationMutationRefused =
-        "This reservation was just modified by a concurrent operation, so this change was rolled " +
-        "back and nothing was modified. Reload the reservation and try again.";
+        "Ce dossier vient d'etre modifie par une operation concurrente : le changement a ete annule "
+        + "et rien n'a ete modifie. Rechargez le dossier et reessayez.";
 
     private const string RoomAlreadyReserved =
-        "The room is already reserved over this period by another reservation.";
+        "La chambre est deja reservee sur cette periode par un autre dossier.";
 
     /// <summary>
-    /// Occupancy is computed day by day in memory; an unbounded window would turn one request
-    /// into an arbitrary amount of work.
+    /// L'occupation est calculee jour par jour en memoire ; une fenetre sans borne transformerait
+    /// une requete en travail arbitraire.
     /// </summary>
     private const int MaxOccupancyWindowDays = 366;
 
     /// <summary>
-    /// An availability search resolves one tariff per room type and per night; a window longer
-    /// than a season is not a booking search anymore, it is a batch job.
+    /// Une recherche de disponibilite resout un tarif par type et par nuit ; une fenetre plus
+    /// longue qu'une saison n'est plus une recherche de reservation, c'est un traitement par lot.
     /// </summary>
     private const int MaxAvailabilityWindowNights = 92;
 
+    /// <summary>Le previsionnel va jusqu'a un an : au-dela il ne previent plus rien d'utile.</summary>
+    private const int MaxForecastDays = 365;
+
     /// <summary>
-    /// THE overlap rule of the anti-double-booking invariant as a database-translatable
-    /// expression, in ONE place: a reservation blocks its room over [arrivalDate, departureDate)
-    /// when it is neither Cancelled nor NoShow (<see cref="Reservation.IsBlocking"/>) and its
-    /// own half-open period overlaps it (<see cref="Reservation.PeriodsOverlap"/>). The creation
-    /// guard and the availability search filter through this same expression - they can never
-    /// drift apart and disagree on whether a room is free.
+    /// LA regle de chevauchement de l'invariant anti-double-reservation, sous forme d'expression
+    /// traduisible en SQL, en UN SEUL endroit : un dossier tient sa chambre sur [arrivee, depart)
+    /// quand son statut tient l'inventaire (<see cref="ReservationStatuses.Blocks"/>) et que sa
+    /// propre periode demi-ouverte la recouvre (<see cref="Reservation.PeriodsOverlap"/>).
+    ///
+    /// Une simple DEMANDE (Inquiry) n'y figure pas : elle ne tient rien, sans quoi un formulaire
+    /// web ferait fermer l'hotel. La garde de creation, la recherche de disponibilite et le calcul
+    /// d'inventaire filtrent par cette meme expression - ils ne peuvent pas diverger et se
+    /// contredire sur ce qui est libre.
     /// </summary>
     private static Expression<Func<Reservation, bool>> BlocksPeriod(
         DateOnly arrivalDate,
         DateOnly departureDate)
     {
-        return reservation => reservation.Status != ReservationStatus.Cancelled
+        return reservation => reservation.Status != ReservationStatus.Inquiry
+            && reservation.Status != ReservationStatus.Cancelled
             && reservation.Status != ReservationStatus.NoShow
             && reservation.ArrivalDate < departureDate
             && reservation.DepartureDate > arrivalDate;
     }
 
-    // Room types -----------------------------------------------------------------------------
-
-    public async Task<IReadOnlyCollection<RoomTypeResponse>> ListRoomTypesAsync(
-        string? hotelUnitCode,
-        bool includeInactive,
-        CancellationToken cancellationToken)
+    /// <summary>La meme regle, appliquee en memoire a un dossier deja charge.</summary>
+    private static bool BlocksPeriod(Reservation reservation, DateOnly arrivalDate, DateOnly departureDate)
     {
-        var query = dbContext.Set<RoomType>().AsNoTracking();
-
-        if (!includeInactive)
-        {
-            query = query.Where(roomType => roomType.IsActive);
-        }
-
-        var normalizedUnitCode = NormalizeNullableCode(hotelUnitCode);
-
-        if (normalizedUnitCode is not null)
-        {
-            query = query.Where(roomType => roomType.HotelUnitCode == normalizedUnitCode);
-        }
-
-        var roomTypes = await query
-            .Include(roomType => roomType.Beds)
-            .OrderBy(roomType => roomType.HotelUnitCode)
-            .ThenBy(roomType => roomType.Code)
-            .ToArrayAsync(cancellationToken);
-
-        var activeRoomCounts = await GetActiveRoomCountsAsync(
-            roomTypes.Select(roomType => roomType.HotelUnitCode).Distinct().ToArray(),
-            cancellationToken);
-
-        return roomTypes
-            .Select(roomType => Map(
-                roomType,
-                activeRoomCounts.GetValueOrDefault(ActiveRoomCountKey(roomType.HotelUnitCode, roomType.Code))))
-            .ToArray();
-    }
-
-    public async Task<ApplicationResult<RoomTypeResponse>> GetRoomTypeAsync(
-        Guid id,
-        CancellationToken cancellationToken)
-    {
-        var roomType = await dbContext.Set<RoomType>()
-            .AsNoTracking()
-            .Include(current => current.Beds)
-            .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
-
-        if (roomType is null)
-        {
-            return ApplicationResult<RoomTypeResponse>.NotFound("Room type was not found.");
-        }
-
-        return ApplicationResult<RoomTypeResponse>.Success(
-            Map(roomType, await GetActiveRoomCountAsync(roomType, cancellationToken)));
-    }
-
-    public async Task<ApplicationResult<RoomTypeResponse>> CreateRoomTypeAsync(
-        CreateRoomTypeRequest request,
-        OperationContext context,
-        CancellationToken cancellationToken)
-    {
-        var unitFailure = await RequireActiveHotelUnitAsync<RoomTypeResponse>(
-            request.HotelUnitCode,
-            cancellationToken);
-
-        if (unitFailure.Failure is not null)
-        {
-            return unitFailure.Failure;
-        }
-
-        RoomType roomType;
-
-        try
-        {
-            // La description etait IGNOREE a la creation : la requete la portait, le
-            // constructeur ne la recevait pas. Meme defaut que l'etage et les notes d'une chambre.
-            roomType = new RoomType(
-                unitFailure.UnitCode,
-                request.Code,
-                request.Label,
-                request.Capacity,
-                request.Description);
-        }
-        catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
-        {
-            return ApplicationResult<RoomTypeResponse>.Validation(ex.Message);
-        }
-
-        var bedFailure = ApplyRoomTypeBeds(roomType, request.Beds, request.MaxExtraBeds, request.MaxCots);
-
-        if (bedFailure is not null)
-        {
-            return bedFailure;
-        }
-
-        var exists = await dbContext.Set<RoomType>()
-            .AnyAsync(
-                current => current.HotelUnitCode == roomType.HotelUnitCode && current.Code == roomType.Code,
-                cancellationToken);
-
-        if (exists)
-        {
-            return ApplicationResult<RoomTypeResponse>.Conflict(
-                "A room type with this code already exists in this hotel unit.");
-        }
-
-        roomType.MarkCreated(context.UserName, DateTimeOffset.UtcNow);
-        dbContext.Set<RoomType>().Add(roomType);
-
-        try
-        {
-            await WriteAuditAsync(
-                "lodging.room_type.created",
-                RoomTypesEntity,
-                roomType.Id,
-                context,
-                new { roomType.HotelUnitCode, roomType.Code, roomType.Label, roomType.Capacity },
-                cancellationToken);
-
-            await SaveAsync(cancellationToken);
-        }
-        catch (DbUpdateException ex) when (ex.IsUniqueViolation())
-        {
-            // The exists-check above and this insert are not atomic: a concurrent create with
-            // the same (unit, code) pair loses the race against the alternate key.
-            return ApplicationResult<RoomTypeResponse>.Conflict(
-                "A room type with this code already exists in this hotel unit.");
-        }
-
-        return ApplicationResult<RoomTypeResponse>.Success(
-            Map(roomType, await GetActiveRoomCountAsync(roomType, cancellationToken)));
-    }
-
-    public async Task<ApplicationResult<RoomTypeResponse>> UpdateRoomTypeAsync(
-        Guid id,
-        UpdateRoomTypeRequest request,
-        OperationContext context,
-        CancellationToken cancellationToken)
-    {
-        var roomType = await dbContext.Set<RoomType>()
-            .Include(current => current.Beds)
-            .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
-
-        if (roomType is null)
-        {
-            return ApplicationResult<RoomTypeResponse>.NotFound("Room type was not found.");
-        }
-
-        try
-        {
-            // La description etait ignoree ici aussi : elle n'etait tout simplement pas transmise.
-            roomType.UpdateDetails(request.Label, request.Capacity, request.Description);
-        }
-        catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
-        {
-            return ApplicationResult<RoomTypeResponse>.Validation(ex.Message);
-        }
-
-        var bedFailure = ApplyRoomTypeBeds(roomType, request.Beds, request.MaxExtraBeds, request.MaxCots);
-
-        if (bedFailure is not null)
-        {
-            return bedFailure;
-        }
-
-        roomType.MarkUpdated(context.UserName, DateTimeOffset.UtcNow);
-
-        await WriteAuditAsync(
-            "lodging.room_type.updated",
-            RoomTypesEntity,
-            roomType.Id,
-            context,
-            new { roomType.HotelUnitCode, roomType.Code, roomType.Label, roomType.Capacity },
-            cancellationToken);
-
-        await SaveAsync(cancellationToken);
-
-        return ApplicationResult<RoomTypeResponse>.Success(
-            Map(roomType, await GetActiveRoomCountAsync(roomType, cancellationToken)));
-    }
-
-    public async Task<ApplicationResult<RoomTypeResponse>> SetRoomTypeActiveAsync(
-        Guid id,
-        bool isActive,
-        OperationContext context,
-        CancellationToken cancellationToken)
-    {
-        var roomType = await dbContext.Set<RoomType>()
-            .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
-
-        if (roomType is null)
-        {
-            return ApplicationResult<RoomTypeResponse>.NotFound("Room type was not found.");
-        }
-
-        if (isActive)
-        {
-            roomType.Activate();
-        }
-        else
-        {
-            roomType.Deactivate();
-        }
-
-        roomType.MarkUpdated(context.UserName, DateTimeOffset.UtcNow);
-
-        await WriteAuditAsync(
-            isActive ? "lodging.room_type.activated" : "lodging.room_type.deactivated",
-            RoomTypesEntity,
-            roomType.Id,
-            context,
-            new { roomType.HotelUnitCode, roomType.Code, roomType.IsActive },
-            cancellationToken);
-
-        await SaveAsync(cancellationToken);
-
-        return ApplicationResult<RoomTypeResponse>.Success(
-            Map(roomType, await GetActiveRoomCountAsync(roomType, cancellationToken)));
-    }
-
-    // Rooms ----------------------------------------------------------------------------------
-
-    public async Task<IReadOnlyCollection<RoomResponse>> ListRoomsAsync(
-        string? hotelUnitCode,
-        bool includeInactive,
-        CancellationToken cancellationToken)
-    {
-        var query = dbContext.Set<Room>().AsNoTracking();
-
-        if (!includeInactive)
-        {
-            query = query.Where(room => room.IsActive);
-        }
-
-        var normalizedUnitCode = NormalizeNullableCode(hotelUnitCode);
-
-        if (normalizedUnitCode is not null)
-        {
-            query = query.Where(room => room.HotelUnitCode == normalizedUnitCode);
-        }
-
-        var rooms = await query
-            .Include(room => room.Beds)
-            .OrderBy(room => room.HotelUnitCode)
-            .ThenBy(room => room.Number)
-            .ToArrayAsync(cancellationToken);
-
-        // Le couchage rendu est l'EFFECTIF : celui de la chambre quand elle en declare un, celui de
-        // son type sinon. La resolution se fait ici, en une requete pour tout le lot, pour que
-        // l'ecran n'ait jamais a recomposer l'heritage lui-meme.
-        var types = await LoadRoomTypesForAsync(rooms, cancellationToken);
-
-        return rooms.Select(room => Map(room, FindType(types, room))).ToArray();
-    }
-
-    public async Task<ApplicationResult<RoomResponse>> GetRoomAsync(
-        Guid id,
-        CancellationToken cancellationToken)
-    {
-        var room = await dbContext.Set<Room>()
-            .AsNoTracking()
-            .Include(current => current.Beds)
-            .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
-
-        if (room is null)
-        {
-            return ApplicationResult<RoomResponse>.NotFound("Room was not found.");
-        }
-
-        var singleType = await LoadRoomTypesForAsync([room], cancellationToken);
-
-        return ApplicationResult<RoomResponse>.Success(Map(room, FindType(singleType, room)));
-    }
-
-    public async Task<ApplicationResult<RoomResponse>> CreateRoomAsync(
-        CreateRoomRequest request,
-        OperationContext context,
-        CancellationToken cancellationToken)
-    {
-        var unitFailure = await RequireActiveHotelUnitAsync<RoomResponse>(
-            request.HotelUnitCode,
-            cancellationToken);
-
-        if (unitFailure.Failure is not null)
-        {
-            return unitFailure.Failure;
-        }
-
-        Room room;
-
-        try
-        {
-            // L'etage et les notes etaient jusqu'ici IGNORES a la creation : la requete les
-            // portait, le constructeur ne les recevait pas, et l'utilisateur devait rouvrir la
-            // chambre pour les ressaisir. Ils sont desormais transmis.
-            room = new Room(
-                unitFailure.UnitCode,
-                request.Number,
-                request.RoomTypeCode,
-                request.Floor,
-                request.Notes);
-        }
-        catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
-        {
-            return ApplicationResult<RoomResponse>.Validation(ex.Message);
-        }
-
-        var roomTypeFailure = await RequireActiveRoomTypeAsync<RoomResponse>(
-            room.HotelUnitCode,
-            room.RoomTypeCode,
-            cancellationToken);
-
-        if (roomTypeFailure is not null)
-        {
-            return roomTypeFailure;
-        }
-
-        var bedFailure = await ApplyRoomBedsAsync(room, request.Beds, request.MaxExtraBeds, request.MaxCots, cancellationToken);
-
-        if (bedFailure is not null)
-        {
-            return bedFailure;
-        }
-
-        var exists = await dbContext.Set<Room>()
-            .AnyAsync(
-                current => current.HotelUnitCode == room.HotelUnitCode && current.Number == room.Number,
-                cancellationToken);
-
-        if (exists)
-        {
-            return ApplicationResult<RoomResponse>.Conflict(
-                "A room with this number already exists in this hotel unit.");
-        }
-
-        room.MarkCreated(context.UserName, DateTimeOffset.UtcNow);
-        dbContext.Set<Room>().Add(room);
-
-        try
-        {
-            await WriteAuditAsync(
-                "lodging.room.created",
-                RoomsEntity,
-                room.Id,
-                context,
-                new { room.HotelUnitCode, room.Number, room.RoomTypeCode },
-                cancellationToken);
-
-            await SaveAsync(cancellationToken);
-        }
-        catch (DbUpdateException ex) when (ex.IsUniqueViolation())
-        {
-            return ApplicationResult<RoomResponse>.Conflict(
-                "A room with this number already exists in this hotel unit.");
-        }
-
-        return ApplicationResult<RoomResponse>.Success(Map(room, await FindTypeForAsync(room, cancellationToken)));
-    }
-
-    public async Task<ApplicationResult<RoomResponse>> UpdateRoomAsync(
-        Guid id,
-        UpdateRoomRequest request,
-        OperationContext context,
-        CancellationToken cancellationToken)
-    {
-        var room = await dbContext.Set<Room>()
-            .Include(current => current.Beds)
-            .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
-
-        if (room is null)
-        {
-            return ApplicationResult<RoomResponse>.NotFound("Room was not found.");
-        }
-
-        string normalizedRoomTypeCode;
-
-        try
-        {
-            normalizedRoomTypeCode = RoomType.NormalizeCode(request.RoomTypeCode);
-        }
-        catch (ArgumentException ex)
-        {
-            return ApplicationResult<RoomResponse>.Validation(ex.Message);
-        }
-
-        var roomTypeFailure = await RequireActiveRoomTypeAsync<RoomResponse>(
-            room.HotelUnitCode,
-            normalizedRoomTypeCode,
-            cancellationToken);
-
-        if (roomTypeFailure is not null)
-        {
-            return roomTypeFailure;
-        }
-
-        room.AssignRoomType(normalizedRoomTypeCode);
-
-        // Meme defaut qu'a la creation : l'etage et les notes voyageaient dans la requete mais
-        // n'etaient jamais appliques. L'ecran de parametrage semblait donc perdre la saisie.
-        try
-        {
-            room.UpdateDetails(request.Floor, request.Notes);
-        }
-        catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
-        {
-            return ApplicationResult<RoomResponse>.Validation(ex.Message);
-        }
-
-        var bedFailure = await ApplyRoomBedsAsync(room, request.Beds, request.MaxExtraBeds, request.MaxCots, cancellationToken);
-
-        if (bedFailure is not null)
-        {
-            return bedFailure;
-        }
-
-        room.MarkUpdated(context.UserName, DateTimeOffset.UtcNow);
-
-        await WriteAuditAsync(
-            "lodging.room.updated",
-            RoomsEntity,
-            room.Id,
-            context,
-            new { room.HotelUnitCode, room.Number, room.RoomTypeCode },
-            cancellationToken);
-
-        await SaveAsync(cancellationToken);
-
-        return ApplicationResult<RoomResponse>.Success(Map(room, await FindTypeForAsync(room, cancellationToken)));
-    }
-
-    public async Task<ApplicationResult<RoomResponse>> SetRoomActiveAsync(
-        Guid id,
-        bool isActive,
-        OperationContext context,
-        CancellationToken cancellationToken)
-    {
-        var room = await dbContext.Set<Room>()
-            .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
-
-        if (room is null)
-        {
-            return ApplicationResult<RoomResponse>.NotFound("Room was not found.");
-        }
-
-        if (isActive)
-        {
-            room.Activate();
-        }
-        else
-        {
-            room.Deactivate();
-        }
-
-        room.MarkUpdated(context.UserName, DateTimeOffset.UtcNow);
-
-        await WriteAuditAsync(
-            isActive ? "lodging.room.activated" : "lodging.room.deactivated",
-            RoomsEntity,
-            room.Id,
-            context,
-            new { room.HotelUnitCode, room.Number, room.IsActive },
-            cancellationToken);
-
-        await SaveAsync(cancellationToken);
-
-        return ApplicationResult<RoomResponse>.Success(Map(room, await FindTypeForAsync(room, cancellationToken)));
-    }
-
-    // Reservations ---------------------------------------------------------------------------
-
-    public async Task<IReadOnlyCollection<ReservationResponse>> ListReservationsAsync(
-        DateOnly? from,
-        DateOnly? to,
-        string? hotelUnitCode,
-        ReservationStatus? status,
-        string? customerCode,
-        CancellationToken cancellationToken)
-    {
-        var query = dbContext.Set<Reservation>().AsNoTracking();
-
-        // Overlap semantics: a stay is listed when it touches the [from, to] window, so an
-        // in-house guest who arrived before the window still shows up in it.
-        if (from.HasValue)
-        {
-            query = query.Where(reservation => reservation.DepartureDate > from.Value);
-        }
-
-        if (to.HasValue)
-        {
-            query = query.Where(reservation => reservation.ArrivalDate <= to.Value);
-        }
-
-        var normalizedUnitCode = NormalizeNullableCode(hotelUnitCode);
-
-        if (normalizedUnitCode is not null)
-        {
-            query = query.Where(reservation => reservation.HotelUnitCode == normalizedUnitCode);
-        }
-
-        if (status.HasValue)
-        {
-            query = query.Where(reservation => reservation.Status == status.Value);
-        }
-
-        var normalizedCustomerCode = NormalizeNullableCode(customerCode);
-
-        if (normalizedCustomerCode is not null)
-        {
-            query = query.Where(reservation => reservation.CustomerCode == normalizedCustomerCode);
-        }
-
-        var reservations = await query
-            .OrderBy(reservation => reservation.ArrivalDate)
-            .ThenBy(reservation => reservation.HotelUnitCode)
-            .ThenBy(reservation => reservation.CustomerCode)
-            .ToArrayAsync(cancellationToken);
-
-        var roomNumbers = await LoadRoomNumbersAsync(
-            reservations.Select(reservation => reservation.RoomId).Distinct().ToArray(),
-            cancellationToken);
-
-        return reservations
-            .Select(reservation => Map(reservation, roomNumbers.GetValueOrDefault(reservation.RoomId)))
-            .ToArray();
-    }
-
-    public async Task<ApplicationResult<ReservationResponse>> GetReservationAsync(
-        Guid id,
-        CancellationToken cancellationToken)
-    {
-        var reservation = await dbContext.Set<Reservation>()
-            .AsNoTracking()
-            .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
-
-        if (reservation is null)
-        {
-            return ApplicationResult<ReservationResponse>.NotFound("Reservation was not found.");
-        }
-
-        return ApplicationResult<ReservationResponse>.Success(
-            Map(reservation, await LoadRoomNumberAsync(reservation.RoomId, cancellationToken)));
-    }
-
-    public async Task<ApplicationResult<ReservationResponse>> CreateReservationAsync(
-        CreateReservationRequest request,
-        OperationContext context,
-        CancellationToken cancellationToken)
-    {
-        if (request.DepartureDate <= request.ArrivalDate)
-        {
-            return ApplicationResult<ReservationResponse>.Validation(
-                "The departure date must be after the arrival date (a reservation covers at least one night).");
-        }
-
-        var unitFailure = await RequireActiveHotelUnitAsync<ReservationResponse>(
-            request.HotelUnitCode,
-            cancellationToken);
-
-        if (unitFailure.Failure is not null)
-        {
-            return unitFailure.Failure;
-        }
-
-        var room = await dbContext.Set<Room>()
-            .AsNoTracking()
-            .SingleOrDefaultAsync(current => current.Id == request.RoomId, cancellationToken);
-
-        if (room is null || room.HotelUnitCode != unitFailure.UnitCode)
-        {
-            return ApplicationResult<ReservationResponse>.NotFound("Room was not found in this hotel unit.");
-        }
-
-        if (!room.IsActive)
-        {
-            return ApplicationResult<ReservationResponse>.Validation(
-                "Reservations cannot be taken on an inactive room.");
-        }
-
-        var roomType = await dbContext.Set<RoomType>()
-            .AsNoTracking()
-            .SingleOrDefaultAsync(
-                current => current.HotelUnitCode == room.HotelUnitCode && current.Code == room.RoomTypeCode,
-                cancellationToken);
-
-        if (roomType is null)
-        {
-            return ApplicationResult<ReservationResponse>.NotFound("The room's type was not found.");
-        }
-
-        if (request.GuestCount <= 0)
-        {
-            return ApplicationResult<ReservationResponse>.Validation("Guest count must be strictly positive.");
-        }
-
-        if (request.GuestCount > roomType.Capacity)
-        {
-            return ApplicationResult<ReservationResponse>.Validation(
-                $"Guest count ({request.GuestCount}) exceeds the capacity of room type " +
-                $"'{roomType.Code}' ({roomType.Capacity}).");
-        }
-
-        var normalizedCustomerCode = NormalizeCodeOrEmpty(request.CustomerCode);
-
-        var customer = await dbContext.Set<Customer>()
-            .AsNoTracking()
-            .SingleOrDefaultAsync(current => current.Code == normalizedCustomerCode, cancellationToken);
-
-        if (customer is null)
-        {
-            return ApplicationResult<ReservationResponse>.NotFound("Customer was not found.");
-        }
-
-        if (!customer.IsActive)
-        {
-            return ApplicationResult<ReservationResponse>.Validation(
-                "Reservations cannot be taken for an inactive customer.");
-        }
-
-        // The rate of EVERY night is resolved and frozen into the reservation (same snapshot
-        // discipline as the issuer identity of issued invoices): the arrival night doubles as
-        // the flat snapshot, and the per-night detail is what the folio bills at check-in - so
-        // a stay crossing two rate periods is billed exactly what the availability search
-        // announced, not the arrival rate flattened over every night. Any failed resolution
-        // fails the creation with the resolver's own message - a booking with an unpriced
-        // night is not a booking.
-        var nightlyRates = new List<ReservationNightRate>();
-        ResolvedNightlyRate? arrivalRate = null;
-
-        for (var night = request.ArrivalDate; night < request.DepartureDate; night = night.AddDays(1))
-        {
-            var rateResult = await tariffResolutionService.ResolveAsync(
-                unitFailure.UnitCode,
-                room.RoomTypeCode,
-                night,
-                normalizedCustomerCode,
-                cancellationToken);
-
-            if (!rateResult.Succeeded || rateResult.Value is null)
-            {
-                return MirrorFailure<ResolvedNightlyRate, ReservationResponse>(
-                    rateResult,
-                    "The nightly rate could not be resolved.");
-            }
-
-            arrivalRate ??= rateResult.Value;
-            nightlyRates.Add(new ReservationNightRate(night, rateResult.Value.Amount, rateResult.Value.RatePlanCode));
-        }
-
-        // ANTI-DOUBLE-BOOKING GUARD. The overlap check must run INSIDE a Serializable
-        // transaction together with the insert: checked outside of one, two concurrent creates
-        // both read "the room is free" and both commit. Under PostgreSQL the loser's commit is
-        // refused with a serialization failure; under the SQLite test provider the loser's
-        // write is turned away with "database is locked". Both are surfaced as a retryable 409.
-        try
-        {
-            await using var transaction = await dbContext.Database.BeginTransactionAsync(
-                IsolationLevel.Serializable,
-                cancellationToken);
-
-            var overlapping = await dbContext.Set<Reservation>()
-                .Where(current => current.RoomId == room.Id)
-                .Where(BlocksPeriod(request.ArrivalDate, request.DepartureDate))
-                .AnyAsync(cancellationToken);
-
-            if (overlapping)
-            {
-                return ApplicationResult<ReservationResponse>.Conflict(RoomAlreadyReserved);
-            }
-
-            // Controle d'allotement DANS la meme transaction que le chevauchement : les deux
-            // portent sur la meme question - cette chambre est-elle vendable a ce client - et les
-            // separer laisserait passer une vente entre les deux controles.
-            var allotmentFailure = await EnsureAllotmentRulesAsync(room, request, cancellationToken);
-
-            if (allotmentFailure is not null)
-            {
-                return allotmentFailure;
-            }
-
-            Reservation reservation;
-
-            try
-            {
-                reservation = new Reservation(
-                    unitFailure.UnitCode,
-                    room.Id,
-                    normalizedCustomerCode,
-                    request.ArrivalDate,
-                    request.DepartureDate,
-                    request.GuestCount,
-                    arrivalRate!.Amount,
-                    arrivalRate.RatePlanCode);
-
-                reservation.FreezeNightlyRates(nightlyRates);
-
-                // Rattachement au bloc : c'est lui qui dit si la nuitee CONSOMME l'allotement ou
-                // mange l'inventaire public. Sans lui, une chambre prise sur le bloc serait comptee
-                // deux fois et l'hotel s'interdirait de vendre des chambres pourtant libres.
-                if (request.AllotmentId is { } allotmentId)
-                {
-                    reservation.AttachToAllotment(allotmentId);
-                }
-
-                reservation.SetGuestName(request.GuestName);
-            }
-            catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
-            {
-                return ApplicationResult<ReservationResponse>.Validation(ex.Message);
-            }
-
-            reservation.MarkCreated(context.UserName, DateTimeOffset.UtcNow);
-            dbContext.Set<Reservation>().Add(reservation);
-
-            await WriteAuditAsync(
-                "lodging.reservation.created",
-                ReservationsEntity,
-                reservation.Id,
-                context,
-                new
-                {
-                    reservation.HotelUnitCode,
-                    reservation.RoomId,
-                    RoomNumber = room.Number,
-                    reservation.CustomerCode,
-                    reservation.ArrivalDate,
-                    reservation.DepartureDate,
-                    reservation.GuestCount,
-                    reservation.NightlyRateSnapshot,
-                    reservation.RatePlanCodeSnapshot,
-                    reservation.TotalStayAmount
-                },
-                cancellationToken);
-
-            await SaveAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-
-            return ApplicationResult<ReservationResponse>.Success(Map(reservation, room.Number));
-        }
-        catch (Exception exception) when (exception.IsSerializationFailure())
-        {
-            return ApplicationResult<ReservationResponse>.Conflict(RoomAlreadyReserved);
-        }
-    }
-
-    public async Task<ApplicationResult<ReservationResponse>> CheckInAsync(
-        Guid id,
-        OperationContext context,
-        CancellationToken cancellationToken)
-    {
-        // Serializable transaction + conditional claim: check-in both flips the status and
-        // creates the folio, so a double-click racing itself must produce exactly one folio.
-        // The unique index on folios.reservation_id is the backstop.
-        try
-        {
-            await using var transaction = await dbContext.Database.BeginTransactionAsync(
-                IsolationLevel.Serializable,
-                cancellationToken);
-
-            var reservation = await dbContext.Set<Reservation>()
-                .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
-
-            if (reservation is null)
-            {
-                return ApplicationResult<ReservationResponse>.NotFound("Reservation was not found.");
-            }
-
-            if (reservation.Status != ReservationStatus.Booked)
-            {
-                return ApplicationResult<ReservationResponse>.Conflict(
-                    "Only a booked reservation can be checked in.");
-            }
-
-            var now = DateTimeOffset.UtcNow;
-
-            if (!await TryClaimReservationStatusAsync(reservation.Id, ReservationStatus.Booked, now, cancellationToken))
-            {
-                return ApplicationResult<ReservationResponse>.Conflict(ConcurrentReservationMutationRefused);
-            }
-
-            // The business day follows UTC, consistently with every other UtcNow-based decision
-            // in this codebase (invoice issue year, closing dates).
-            var today = DateOnly.FromDateTime(now.UtcDateTime);
-
-            try
-            {
-                reservation.CheckIn(today, context.UserName, now);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return ApplicationResult<ReservationResponse>.Validation(ex.Message);
-            }
-
-            // The folio opens with one Night line per night of the stay, each at THAT night's
-            // rate frozen at booking time (never re-resolved here): the guest is billed exactly
-            // what the availability search announced, even across a rate-period boundary. A
-            // zero-rate night (e.g. a 100% convention discount) produces no line - a folio line
-            // cannot carry a zero amount, and a free night has nothing to bill.
-            var folio = new Folio(reservation.Id);
-
-            foreach (var nightRate in reservation.GetNightlyRates())
-            {
-                if (nightRate.Amount == 0)
-                {
-                    continue;
-                }
-
-                folio.AddCharge(new FolioCharge(
-                    nightRate.Night,
-                    $"Night of {nightRate.Night:yyyy-MM-dd}",
-                    nightRate.Amount,
-                    ChargeKind.Night));
-            }
-
-            folio.MarkCreated(context.UserName, now);
-            dbContext.Set<Folio>().Add(folio);
-
-            reservation.MarkUpdated(context.UserName, now);
-
-            await WriteAuditAsync(
-                "lodging.reservation.checked_in",
-                ReservationsEntity,
-                reservation.Id,
-                context,
-                new
-                {
-                    reservation.HotelUnitCode,
-                    reservation.RoomId,
-                    FolioId = folio.Id,
-                    NightCount = reservation.Nights,
-                    reservation.NightlyRateSnapshot,
-                    FolioTotal = folio.Balance
-                },
-                cancellationToken);
-
-            await SaveAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-
-            return ApplicationResult<ReservationResponse>.Success(
-                Map(reservation, await LoadRoomNumberAsync(reservation.RoomId, cancellationToken)));
-        }
-        catch (Exception exception) when (exception.IsSerializationFailure())
-        {
-            return ApplicationResult<ReservationResponse>.Conflict(ConcurrentReservationMutationRefused);
-        }
-        catch (DbUpdateException exception) when (exception.IsUniqueViolation())
-        {
-            // ux_folios_reservation_id: a concurrent check-in already opened this stay's folio.
-            return ApplicationResult<ReservationResponse>.Conflict(ConcurrentReservationMutationRefused);
-        }
-    }
-
-    public async Task<ApplicationResult<ReservationResponse>> CheckOutAsync(
-        Guid id,
-        OperationContext context,
-        CancellationToken cancellationToken)
-    {
-        // The zero-balance rule reads the folio, so the read, the check and the status flip must
-        // sit in one Serializable transaction: without it, a charge added concurrently between
-        // the balance read and the commit would let a guest leave with an unsettled folio.
-        try
-        {
-            await using var transaction = await dbContext.Database.BeginTransactionAsync(
-                IsolationLevel.Serializable,
-                cancellationToken);
-
-            var reservation = await dbContext.Set<Reservation>()
-                .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
-
-            if (reservation is null)
-            {
-                return ApplicationResult<ReservationResponse>.NotFound("Reservation was not found.");
-            }
-
-            if (reservation.Status != ReservationStatus.CheckedIn)
-            {
-                return ApplicationResult<ReservationResponse>.Conflict(
-                    "Only a checked-in reservation can be checked out.");
-            }
-
-            var folio = await dbContext.Set<Folio>()
-                .AsNoTracking()
-                .Include(current => current.Charges)
-                .SingleOrDefaultAsync(current => current.ReservationId == reservation.Id, cancellationToken);
-
-            if (folio is null)
-            {
-                return ApplicationResult<ReservationResponse>.Validation(
-                    "The reservation has no folio; it cannot be checked out.");
-            }
-
-            var balance = folio.Balance;
-
-            if (balance != 0)
-            {
-                return ApplicationResult<ReservationResponse>.Validation(
-                    $"Check-out refused: the folio balance is {balance:0.00}, not zero. Record the " +
-                    "payment as a treasury receipt, add a Settlement line referencing it, then check out.");
-            }
-
-            var now = DateTimeOffset.UtcNow;
-
-            if (!await TryClaimReservationStatusAsync(reservation.Id, ReservationStatus.CheckedIn, now, cancellationToken))
-            {
-                return ApplicationResult<ReservationResponse>.Conflict(ConcurrentReservationMutationRefused);
-            }
-
-            try
-            {
-                reservation.CheckOut(context.UserName, now);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return ApplicationResult<ReservationResponse>.Validation(ex.Message);
-            }
-
-            reservation.MarkUpdated(context.UserName, now);
-
-            await WriteAuditAsync(
-                "lodging.reservation.checked_out",
-                ReservationsEntity,
-                reservation.Id,
-                context,
-                new { reservation.HotelUnitCode, reservation.RoomId, FolioBalance = balance },
-                cancellationToken);
-
-            await SaveAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-
-            return ApplicationResult<ReservationResponse>.Success(
-                Map(reservation, await LoadRoomNumberAsync(reservation.RoomId, cancellationToken)));
-        }
-        catch (Exception exception) when (exception.IsSerializationFailure())
-        {
-            return ApplicationResult<ReservationResponse>.Conflict(ConcurrentReservationMutationRefused);
-        }
-    }
-
-    public async Task<ApplicationResult<ReservationResponse>> CancelReservationAsync(
-        Guid id,
-        CancelReservationRequest request,
-        OperationContext context,
-        CancellationToken cancellationToken)
-    {
-        return await ChangeBookedReservationAsync(
-            id,
-            context,
-            "lodging.reservation.cancelled",
-            (reservation, now) => reservation.Cancel(request.Reason, context.UserName, now),
-            reservation => new { reservation.HotelUnitCode, reservation.RoomId, reservation.CancelReason },
-            cancellationToken);
-    }
-
-    public async Task<ApplicationResult<ReservationResponse>> MarkNoShowAsync(
-        Guid id,
-        OperationContext context,
-        CancellationToken cancellationToken)
-    {
-        return await ChangeBookedReservationAsync(
-            id,
-            context,
-            "lodging.reservation.no_show",
-            (reservation, now) => reservation.MarkNoShow(
-                DateOnly.FromDateTime(now.UtcDateTime),
-                context.UserName,
-                now),
-            reservation => new { reservation.HotelUnitCode, reservation.RoomId, reservation.ArrivalDate },
-            cancellationToken);
-    }
-
-    // Folio ----------------------------------------------------------------------------------
-
-    public async Task<ApplicationResult<FolioResponse>> GetFolioAsync(
-        Guid reservationId,
-        CancellationToken cancellationToken)
-    {
-        var reservationExists = await dbContext.Set<Reservation>()
-            .AsNoTracking()
-            .AnyAsync(current => current.Id == reservationId, cancellationToken);
-
-        if (!reservationExists)
-        {
-            return ApplicationResult<FolioResponse>.NotFound("Reservation was not found.");
-        }
-
-        var folio = await dbContext.Set<Folio>()
-            .AsNoTracking()
-            .Include(current => current.Charges)
-            .SingleOrDefaultAsync(current => current.ReservationId == reservationId, cancellationToken);
-
-        if (folio is null)
-        {
-            return ApplicationResult<FolioResponse>.NotFound(
-                "The reservation has no folio yet: the folio is opened at check-in.");
-        }
-
-        return ApplicationResult<FolioResponse>.Success(Map(folio));
-    }
-
-    public async Task<ApplicationResult<FolioResponse>> AddFolioChargeAsync(
-        Guid reservationId,
-        AddFolioChargeRequest request,
-        OperationContext context,
-        CancellationToken cancellationToken)
-    {
-        // A folio line racing a check-out must lose against the already-closed stay rather than
-        // land on a folio whose zero balance was just asserted - hence the same Serializable
-        // transaction + conditional claim as the check-out itself.
-        try
-        {
-            await using var transaction = await dbContext.Database.BeginTransactionAsync(
-                IsolationLevel.Serializable,
-                cancellationToken);
-
-            var reservation = await dbContext.Set<Reservation>()
-                .SingleOrDefaultAsync(current => current.Id == reservationId, cancellationToken);
-
-            if (reservation is null)
-            {
-                return ApplicationResult<FolioResponse>.NotFound("Reservation was not found.");
-            }
-
-            if (reservation.Status != ReservationStatus.CheckedIn)
-            {
-                return ApplicationResult<FolioResponse>.Conflict(
-                    "Folio lines can only be added while the reservation is checked in.");
-            }
-
-            var folio = await dbContext.Set<Folio>()
-                .Include(current => current.Charges)
-                .SingleOrDefaultAsync(current => current.ReservationId == reservation.Id, cancellationToken);
-
-            if (folio is null)
-            {
-                return ApplicationResult<FolioResponse>.Validation(
-                    "The reservation has no folio; nothing can be charged.");
-            }
-
-            var now = DateTimeOffset.UtcNow;
-
-            if (!await TryClaimReservationStatusAsync(reservation.Id, ReservationStatus.CheckedIn, now, cancellationToken))
-            {
-                return ApplicationResult<FolioResponse>.Conflict(ConcurrentReservationMutationRefused);
-            }
-
-            FolioCharge charge;
-
-            try
-            {
-                charge = new FolioCharge(
-                    request.ChargeDate,
-                    request.Label,
-                    request.Amount,
-                    request.Kind,
-                    request.Reference);
-            }
-            catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
-            {
-                return ApplicationResult<FolioResponse>.Validation(ex.Message);
-            }
-
-            folio.AddCharge(charge);
-            folio.MarkUpdated(context.UserName, now);
-
-            await WriteAuditAsync(
-                "lodging.folio.charge_added",
-                FoliosEntity,
-                folio.Id,
-                context,
-                new
-                {
-                    ReservationId = reservation.Id,
-                    charge.ChargeDate,
-                    charge.Label,
-                    charge.Amount,
-                    Kind = charge.Kind.ToString(),
-                    charge.Reference,
-                    NewBalance = folio.Balance
-                },
-                cancellationToken);
-
-            await SaveAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-
-            return ApplicationResult<FolioResponse>.Success(Map(folio));
-        }
-        catch (Exception exception) when (exception.IsSerializationFailure())
-        {
-            return ApplicationResult<FolioResponse>.Conflict(ConcurrentReservationMutationRefused);
-        }
-    }
-
-    // Occupancy ------------------------------------------------------------------------------
-
-    public async Task<ApplicationResult<OccupancyResponse>> GetOccupancyAsync(
-        string hotelUnitCode,
-        DateOnly from,
-        DateOnly to,
-        CancellationToken cancellationToken)
-    {
-        if (to < from)
-        {
-            return ApplicationResult<OccupancyResponse>.Validation(
-                "The from date cannot be after the to date.");
-        }
-
-        if (to.DayNumber - from.DayNumber + 1 > MaxOccupancyWindowDays)
-        {
-            return ApplicationResult<OccupancyResponse>.Validation(
-                $"The occupancy window cannot exceed {MaxOccupancyWindowDays} days.");
-        }
-
-        var normalizedUnitCode = NormalizeCodeOrEmpty(hotelUnitCode);
-
-        var unitExists = await dbContext.Set<HotelUnit>()
-            .AsNoTracking()
-            .AnyAsync(current => current.Code == normalizedUnitCode, cancellationToken);
-
-        if (!unitExists)
-        {
-            return ApplicationResult<OccupancyResponse>.NotFound("Hotel unit was not found.");
-        }
-
-        var totalActiveRooms = await dbContext.Set<Room>()
-            .AsNoTracking()
-            .CountAsync(room => room.HotelUnitCode == normalizedUnitCode && room.IsActive, cancellationToken);
-
-        // A night is occupied when a non-cancelled / non-no-show stay covers it: Booked,
-        // CheckedIn AND CheckedOut all count (the entity's IsBlocking definition). Excluding
-        // CheckedOut would retroactively empty history - a guest who has left still consumed
-        // those nights, and a fully past month must not read as vacant. Filtered in the
-        // database, counted day by day in memory.
-        var reservations = await dbContext.Set<Reservation>()
-            .AsNoTracking()
-            .Where(reservation => reservation.HotelUnitCode == normalizedUnitCode
-                && reservation.Status != ReservationStatus.Cancelled
-                && reservation.Status != ReservationStatus.NoShow
-                && reservation.ArrivalDate <= to
-                && reservation.DepartureDate > from)
-            .Select(reservation => new { reservation.RoomId, reservation.ArrivalDate, reservation.DepartureDate })
-            .ToArrayAsync(cancellationToken);
-
-        var days = new List<OccupancyDayResponse>(to.DayNumber - from.DayNumber + 1);
-
-        for (var day = from; day <= to; day = day.AddDays(1))
-        {
-            var night = day;
-
-            // Distinct rooms, although the anti-double-booking invariant already makes one room
-            // impossible to count twice for the same night: the figure must stay right even if
-            // data predating the invariant exists.
-            var occupiedRooms = reservations
-                .Where(reservation => reservation.ArrivalDate <= night && night < reservation.DepartureDate)
-                .Select(reservation => reservation.RoomId)
-                .Distinct()
-                .Count();
-
-            var ratePercent = totalActiveRooms == 0
-                ? 0m
-                : Math.Round(occupiedRooms * 100m / totalActiveRooms, 2, MidpointRounding.AwayFromZero);
-
-            days.Add(new OccupancyDayResponse(day, totalActiveRooms, occupiedRooms, ratePercent));
-        }
-
-        return ApplicationResult<OccupancyResponse>.Success(
-            new OccupancyResponse(normalizedUnitCode, from, to, days));
-    }
-
-    // Availability ---------------------------------------------------------------------------
-
-    public async Task<ApplicationResult<AvailabilityResponse>> GetAvailabilityAsync(
-        string hotelUnitCode,
-        DateOnly from,
-        DateOnly to,
-        int guests,
-        string? customerCode,
-        CancellationToken cancellationToken)
-    {
-        if (to <= from)
-        {
-            return ApplicationResult<AvailabilityResponse>.Validation(
-                "The to date must be after the from date (an availability search covers at least one night).");
-        }
-
-        var nights = to.DayNumber - from.DayNumber;
-
-        if (nights > MaxAvailabilityWindowNights)
-        {
-            return ApplicationResult<AvailabilityResponse>.Validation(
-                $"The availability window cannot exceed {MaxAvailabilityWindowNights} nights.");
-        }
-
-        if (guests <= 0)
-        {
-            return ApplicationResult<AvailabilityResponse>.Validation("Guest count must be strictly positive.");
-        }
-
-        var normalizedUnitCode = NormalizeCodeOrEmpty(hotelUnitCode);
-
-        var unitExists = await dbContext.Set<HotelUnit>()
-            .AsNoTracking()
-            .AnyAsync(current => current.Code == normalizedUnitCode, cancellationToken);
-
-        if (!unitExists)
-        {
-            return ApplicationResult<AvailabilityResponse>.NotFound("Hotel unit was not found.");
-        }
-
-        // Same customer discipline as the creation the search leads to: quoting convention
-        // rates for a customer who cannot book would announce prices no reservation can honor.
-        var normalizedCustomerCode = NormalizeNullableCode(customerCode);
-
-        if (normalizedCustomerCode is not null)
-        {
-            var customer = await dbContext.Set<Customer>()
-                .AsNoTracking()
-                .SingleOrDefaultAsync(current => current.Code == normalizedCustomerCode, cancellationToken);
-
-            if (customer is null)
-            {
-                return ApplicationResult<AvailabilityResponse>.NotFound("Customer was not found.");
-            }
-
-            if (!customer.IsActive)
-            {
-                return ApplicationResult<AvailabilityResponse>.Validation(
-                    "Reservations cannot be taken for an inactive customer.");
-            }
-        }
-
-        // Candidate rooms: ACTIVE, of a type whose capacity can host the party. Mirrors what
-        // the creation checks (active room, capacity cap) - a listed room must be bookable
-        // as-is once it prices.
-        var candidateRooms = await (
-            from room in dbContext.Set<Room>().AsNoTracking()
-            where room.HotelUnitCode == normalizedUnitCode && room.IsActive
-            join roomType in dbContext.Set<RoomType>().AsNoTracking()
-                on new { Unit = room.HotelUnitCode, Code = room.RoomTypeCode }
-                equals new { Unit = roomType.HotelUnitCode, Code = roomType.Code }
-            where roomType.Capacity >= guests
-            orderby room.Number
-            select new
-            {
-                room.Id,
-                room.Number,
-                RoomTypeCode = roomType.Code,
-                RoomTypeLabel = roomType.Label,
-                roomType.Capacity
-            })
-            .ToArrayAsync(cancellationToken);
-
-        // Rooms taken over the period, through the SAME overlap expression as the creation
-        // guard: what this search calls free is exactly what a creation would accept (up to the
-        // race the creation's Serializable transaction then settles).
-        var occupiedRoomIds = (await dbContext.Set<Reservation>()
-            .AsNoTracking()
-            .Where(reservation => reservation.HotelUnitCode == normalizedUnitCode)
-            .Where(BlocksPeriod(from, to))
-            .Select(reservation => reservation.RoomId)
-            .Distinct()
-            .ToArrayAsync(cancellationToken))
-            .ToHashSet();
-
-        // ALLOTEMENTS : les chambres tenues pour des groupes ne sont PAS vendables au public. On
-        // retire, par type, autant de chambres libres que le bloc en tient encore.
-        //
-        // Le retrait se fait sur le MAXIMUM des nuits de la periode, et non sur la moyenne ou sur
-        // la premiere nuit : une chambre proposee ici doit etre vendable sur TOUTE la periode
-        // demandee. Prendre le maximum est le choix conservateur - il peut cacher une chambre
-        // vendable un soir donne, il ne peut jamais en proposer une qui est promise a un groupe.
-        var freeCandidates = candidateRooms.Where(candidate => !occupiedRoomIds.Contains(candidate.Id)).ToList();
-        var sellableRoomIds = new HashSet<Guid>();
-
-        foreach (var group in freeCandidates.GroupBy(candidate => candidate.RoomTypeCode))
-        {
-            var holds = await GetAllotmentHoldsAsync(normalizedUnitCode, group.Key, from, to, cancellationToken);
-            var peakHold = holds.Count == 0 ? 0 : holds.Values.Max();
-            var sellableCount = Math.Max(0, group.Count() - peakHold);
-
-            foreach (var candidate in group.Take(sellableCount))
-            {
-                sellableRoomIds.Add(candidate.Id);
-            }
-        }
-
-        // One resolution per (room type, night), shared by every room of the type: pricing is
-        // a function of the type, not of the individual room.
-        var rateCache = new Dictionary<(string RoomTypeCode, DateOnly Night), ApplicationResult<ResolvedNightlyRate>>();
-        var rooms = new List<AvailableRoomResponse>();
-
-        foreach (var candidate in candidateRooms)
-        {
-            if (!sellableRoomIds.Contains(candidate.Id))
-            {
-                continue;
-            }
-
-            var nightRates = new List<AvailableNightRateResponse>(nights);
-            ResolvedNightlyRate? arrivalRate = null;
-            string? rateIssue = null;
-
-            for (var night = from; night < to; night = night.AddDays(1))
-            {
-                if (!rateCache.TryGetValue((candidate.RoomTypeCode, night), out var rateResult))
-                {
-                    rateResult = await tariffResolutionService.ResolveAsync(
-                        normalizedUnitCode,
-                        candidate.RoomTypeCode,
-                        night,
-                        normalizedCustomerCode,
-                        cancellationToken);
-
-                    rateCache[(candidate.RoomTypeCode, night)] = rateResult;
-                }
-
-                if (!rateResult.Succeeded || rateResult.Value is null)
-                {
-                    // A free room the tariff module cannot price stays LISTED, flagged with the
-                    // resolver's own message: the operator must see the rate-coverage hole, not
-                    // a room silently missing from the search.
-                    rateIssue =
-                        $"Night of {night.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}: " +
-                        (rateResult.Error ?? "the nightly rate could not be resolved.");
-                    break;
-                }
-
-                arrivalRate ??= rateResult.Value;
-                nightRates.Add(new AvailableNightRateResponse(night, rateResult.Value.Amount, rateResult.Value.RatePlanCode));
-            }
-
-            var hasRate = rateIssue is null;
-
-            rooms.Add(new AvailableRoomResponse(
-                candidate.Id,
-                candidate.Number,
-                candidate.RoomTypeCode,
-                candidate.RoomTypeLabel,
-                candidate.Capacity,
-                hasRate,
-                rateIssue,
-                arrivalRate?.RatePlanCode,
-                arrivalRate?.ConventionCustomerCode,
-                arrivalRate?.DiscountPercent,
-                hasRate ? nightRates.Sum(rate => rate.Amount) : null,
-                nightRates));
-        }
-
-        return ApplicationResult<AvailabilityResponse>.Success(
-            new AvailabilityResponse(normalizedUnitCode, from, to, nights, guests, rooms));
-    }
-
-    // Front desk -----------------------------------------------------------------------------
-
-    public async Task<ApplicationResult<FrontDeskResponse>> GetFrontDeskAsync(
-        string hotelUnitCode,
-        DateOnly date,
-        CancellationToken cancellationToken)
-    {
-        var normalizedUnitCode = NormalizeCodeOrEmpty(hotelUnitCode);
-
-        var unitExists = await dbContext.Set<HotelUnit>()
-            .AsNoTracking()
-            .AnyAsync(current => current.Code == normalizedUnitCode, cancellationToken);
-
-        if (!unitExists)
-        {
-            return ApplicationResult<FrontDeskResponse>.NotFound("Hotel unit was not found.");
-        }
-
-        // Booked stays whose arrival date is reached or past: today's arrivals plus the overdue
-        // ones (no-show candidates the receptionist must deal with first).
-        var expectedArrivals = await dbContext.Set<Reservation>()
-            .AsNoTracking()
-            .Where(reservation => reservation.HotelUnitCode == normalizedUnitCode
-                && reservation.Status == ReservationStatus.Booked
-                && reservation.ArrivalDate <= date)
-            .OrderBy(reservation => reservation.ArrivalDate)
-            .ThenBy(reservation => reservation.CustomerCode)
-            .ToArrayAsync(cancellationToken);
-
-        // Every in-house stay: today's departures, the overdue ones, and the in-house count.
-        var inHouseReservations = await dbContext.Set<Reservation>()
-            .AsNoTracking()
-            .Where(reservation => reservation.HotelUnitCode == normalizedUnitCode
-                && reservation.Status == ReservationStatus.CheckedIn)
-            .OrderBy(reservation => reservation.DepartureDate)
-            .ThenBy(reservation => reservation.CustomerCode)
-            .ToArrayAsync(cancellationToken);
-
-        var arrivals = expectedArrivals.Where(reservation => reservation.ArrivalDate == date).ToArray();
-        var overdueArrivals = expectedArrivals.Where(reservation => reservation.ArrivalDate < date).ToArray();
-        var departures = inHouseReservations.Where(reservation => reservation.DepartureDate == date).ToArray();
-        var overdueDepartures = inHouseReservations.Where(reservation => reservation.DepartureDate < date).ToArray();
-        var inHouseCount = inHouseReservations.Count(reservation => reservation.CoversNight(date));
-
-        // The departure lists carry the folio balance: who still has to pay before leaving.
-        var departureIds = departures.Concat(overdueDepartures)
-            .Select(reservation => reservation.Id)
-            .ToArray();
-
-        var folioBalances = departureIds.Length == 0
-            ? new Dictionary<Guid, decimal>()
-            : (await dbContext.Set<Folio>()
-                .AsNoTracking()
-                .Include(folio => folio.Charges)
-                .Where(folio => departureIds.Contains(folio.ReservationId))
-                .ToArrayAsync(cancellationToken))
-                .ToDictionary(folio => folio.ReservationId, folio => folio.Balance);
-
-        var allListed = arrivals.Concat(overdueArrivals).Concat(departures).Concat(overdueDepartures).ToArray();
-
-        var roomNumbers = await LoadRoomNumbersAsync(
-            allListed.Select(reservation => reservation.RoomId).Distinct().ToArray(),
-            cancellationToken);
-
-        var customerCodes = allListed.Select(reservation => reservation.CustomerCode).Distinct().ToArray();
-
-        var customerNames = customerCodes.Length == 0
-            ? new Dictionary<string, string>()
-            : await dbContext.Set<Customer>()
-                .AsNoTracking()
-                .Where(customer => customerCodes.Contains(customer.Code))
-                .ToDictionaryAsync(customer => customer.Code, customer => customer.Name, cancellationToken);
-
-        // The day's occupancy reuses the exact occupancy logic - one figure, one definition.
-        var occupancyResult = await GetOccupancyAsync(normalizedUnitCode, date, date, cancellationToken);
-
-        if (!occupancyResult.Succeeded || occupancyResult.Value is null)
-        {
-            return MirrorFailure<OccupancyResponse, FrontDeskResponse>(
-                occupancyResult,
-                "The day's occupancy could not be computed.");
-        }
-
-        FrontDeskArrivalResponse MapArrival(Reservation reservation)
-        {
-            return new FrontDeskArrivalResponse(
-                reservation.Id,
-                reservation.CustomerCode,
-                customerNames.GetValueOrDefault(reservation.CustomerCode),
-                reservation.RoomId,
-                roomNumbers.GetValueOrDefault(reservation.RoomId),
+        return reservation.IsBlocking
+            && Reservation.PeriodsOverlap(
                 reservation.ArrivalDate,
                 reservation.DepartureDate,
-                reservation.Nights,
-                reservation.GuestCount,
-                reservation.NightlyRateSnapshot,
-                reservation.RatePlanCodeSnapshot,
-                reservation.TotalStayAmount);
-        }
-
-        FrontDeskDepartureResponse MapDeparture(Reservation reservation)
-        {
-            return new FrontDeskDepartureResponse(
-                reservation.Id,
-                reservation.CustomerCode,
-                customerNames.GetValueOrDefault(reservation.CustomerCode),
-                reservation.RoomId,
-                roomNumbers.GetValueOrDefault(reservation.RoomId),
-                reservation.ArrivalDate,
-                reservation.DepartureDate,
-                reservation.Nights,
-                reservation.GuestCount,
-                folioBalances.TryGetValue(reservation.Id, out var balance) ? balance : null);
-        }
-
-        return ApplicationResult<FrontDeskResponse>.Success(new FrontDeskResponse(
-            normalizedUnitCode,
-            date,
-            arrivals.Select(MapArrival).ToArray(),
-            overdueArrivals.Select(MapArrival).ToArray(),
-            departures.Select(MapDeparture).ToArray(),
-            overdueDepartures.Select(MapDeparture).ToArray(),
-            inHouseCount,
-            occupancyResult.Value.Days.Single()));
+                arrivalDate,
+                departureDate);
     }
 
-    // Shared helpers -------------------------------------------------------------------------
+    // ==================================== Helpers partages ====================================
 
     /// <summary>
-    /// Shared Serializable-transaction + claim skeleton of the two Booked-only transitions
-    /// (cancel, no-show): the domain transition runs only on a row the database just re-asserted
-    /// as Booked, so a concurrent check-in cannot be silently overwritten.
-    /// </summary>
-    private async Task<ApplicationResult<ReservationResponse>> ChangeBookedReservationAsync(
-        Guid id,
-        OperationContext context,
-        string auditAction,
-        Action<Reservation, DateTimeOffset> change,
-        Func<Reservation, object> auditDetails,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            await using var transaction = await dbContext.Database.BeginTransactionAsync(
-                IsolationLevel.Serializable,
-                cancellationToken);
-
-            var reservation = await dbContext.Set<Reservation>()
-                .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
-
-            if (reservation is null)
-            {
-                return ApplicationResult<ReservationResponse>.NotFound("Reservation was not found.");
-            }
-
-            if (reservation.Status != ReservationStatus.Booked)
-            {
-                return ApplicationResult<ReservationResponse>.Conflict(
-                    "This operation is only allowed on a booked reservation.");
-            }
-
-            var now = DateTimeOffset.UtcNow;
-
-            if (!await TryClaimReservationStatusAsync(reservation.Id, ReservationStatus.Booked, now, cancellationToken))
-            {
-                return ApplicationResult<ReservationResponse>.Conflict(ConcurrentReservationMutationRefused);
-            }
-
-            try
-            {
-                change(reservation, now);
-            }
-            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
-            {
-                return ApplicationResult<ReservationResponse>.Validation(ex.Message);
-            }
-
-            reservation.MarkUpdated(context.UserName, now);
-
-            await WriteAuditAsync(
-                auditAction,
-                ReservationsEntity,
-                reservation.Id,
-                context,
-                auditDetails(reservation),
-                cancellationToken);
-
-            await SaveAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-
-            return ApplicationResult<ReservationResponse>.Success(
-                Map(reservation, await LoadRoomNumberAsync(reservation.RoomId, cancellationToken)));
-        }
-        catch (Exception exception) when (exception.IsSerializationFailure())
-        {
-            return ApplicationResult<ReservationResponse>.Conflict(ConcurrentReservationMutationRefused);
-        }
-    }
-
-    /// <summary>
-    /// Atomic form of "this reservation is still in the expected status": the invariant travels
-    /// as the WHERE clause of one conditional UPDATE on the reservation's own row (the
-    /// claim-in-one-statement pattern of <c>AccountingService.TryClaimDraftEntryAsync</c>). The
-    /// single written column, UpdatedAt, is one the caller's mutation stamps anyway with the
-    /// very same timestamp - the claim adds no state, it only needs to be a write.
+    /// Forme atomique de "ce dossier est toujours dans le statut attendu" : l'invariant voyage
+    /// comme clause WHERE d'un UPDATE conditionnel sur la ligne du dossier (le motif
+    /// claim-en-une-instruction de <c>AccountingService.TryClaimDraftEntryAsync</c>). La seule
+    /// colonne ecrite, UpdatedAt, est celle que la mutation de l'appelant estampille de toute
+    /// facon avec le meme horodatage : le claim n'ajoute aucun etat, il a seulement besoin d'etre
+    /// une ecriture.
     /// </summary>
     private async Task<bool> TryClaimReservationStatusAsync(
         Guid reservationId,
@@ -1654,8 +157,31 @@ public sealed class LodgingService(
     }
 
     /// <summary>
-    /// Loads a hotel unit for a mutating operation and refuses missing or inactive ones with a
-    /// clean failure. Returns the normalized code alongside so callers stop re-normalizing.
+    /// Variante du claim pour les gestes de sejour qui n'ont pas UN statut attendu mais une
+    /// FAMILLE (tous les statuts d'avant-arrivee, par exemple) : la clause WHERE porte alors sur
+    /// l'ensemble, et le geste ne s'applique qu'a une ligne que la base vient de reconfirmer.
+    /// </summary>
+    private async Task<bool> TryClaimReservationStatusesAsync(
+        Guid reservationId,
+        IReadOnlyCollection<ReservationStatus> expectedStatuses,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var statuses = expectedStatuses.ToArray();
+
+        var claimedRows = await dbContext.Set<Reservation>()
+            .Where(current => current.Id == reservationId && statuses.Contains(current.Status))
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(current => current.UpdatedAt, now),
+                cancellationToken);
+
+        return claimedRows == 1;
+    }
+
+    /// <summary>
+    /// Charge une unite hoteliere pour une operation ecrivante et refuse proprement celles qui
+    /// manquent ou sont inactives. Rend le code normalise pour que les appelants cessent de le
+    /// renormaliser.
     /// </summary>
     private async Task<(ApplicationResult<T>? Failure, string UnitCode)> RequireActiveHotelUnitAsync<T>(
         string hotelUnitCode,
@@ -1665,7 +191,7 @@ public sealed class LodgingService(
 
         if (string.IsNullOrWhiteSpace(normalizedUnitCode))
         {
-            return (ApplicationResult<T>.Validation("Hotel unit code is required."), string.Empty);
+            return (ApplicationResult<T>.Validation("Le code de l'unite hoteliere est requis."), string.Empty);
         }
 
         var unit = await dbContext.Set<HotelUnit>()
@@ -1674,15 +200,34 @@ public sealed class LodgingService(
 
         if (unit is null)
         {
-            return (ApplicationResult<T>.NotFound("Hotel unit was not found."), normalizedUnitCode);
+            return (ApplicationResult<T>.NotFound("L'unite hoteliere est introuvable."), normalizedUnitCode);
         }
 
         if (!unit.IsActive)
         {
-            return (ApplicationResult<T>.Validation("This operation is not allowed on an inactive hotel unit."), normalizedUnitCode);
+            return (
+                ApplicationResult<T>.Validation("Cette operation n'est pas autorisee sur une unite inactive."),
+                normalizedUnitCode);
         }
 
         return (null, normalizedUnitCode);
+    }
+
+    /// <summary>Verifie l'existence d'une unite pour une operation en LECTURE.</summary>
+    private async Task<ApplicationResult<T>?> RequireHotelUnitAsync<T>(
+        string normalizedUnitCode,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedUnitCode))
+        {
+            return ApplicationResult<T>.Validation("Le code de l'unite hoteliere est requis.");
+        }
+
+        var exists = await dbContext.Set<HotelUnit>()
+            .AsNoTracking()
+            .AnyAsync(current => current.Code == normalizedUnitCode, cancellationToken);
+
+        return exists ? null : ApplicationResult<T>.NotFound("L'unite hoteliere est introuvable.");
     }
 
     private async Task<ApplicationResult<T>?> RequireActiveRoomTypeAsync<T>(
@@ -1699,21 +244,21 @@ public sealed class LodgingService(
         if (roomType is null)
         {
             return ApplicationResult<T>.NotFound(
-                $"Room type '{roomTypeCode}' was not found in hotel unit '{hotelUnitCode}'.");
+                $"Le type de chambre '{roomTypeCode}' est introuvable dans l'unite '{hotelUnitCode}'.");
         }
 
         if (!roomType.IsActive)
         {
             return ApplicationResult<T>.Validation(
-                $"Room type '{roomTypeCode}' is inactive and cannot be used.");
+                $"Le type de chambre '{roomTypeCode}' est inactif et ne peut pas etre utilise.");
         }
 
         return null;
     }
 
     /// <summary>
-    /// Re-types a failed <see cref="ApplicationResult{T}"/> coming from a collaborator (here the
-    /// tariff resolver) without losing its error type or message.
+    /// Re-type un <see cref="ApplicationResult{T}"/> en echec venant d'un collaborateur (ici le
+    /// resolveur tarifaire) sans perdre ni sa nature d'erreur ni son message.
     /// </summary>
     private static ApplicationResult<TTarget> MirrorFailure<TSource, TTarget>(
         ApplicationResult<TSource> source,
@@ -1729,11 +274,16 @@ public sealed class LodgingService(
         };
     }
 
-    private async Task<string?> LoadRoomNumberAsync(Guid roomId, CancellationToken cancellationToken)
+    private async Task<string?> LoadRoomNumberAsync(Guid? roomId, CancellationToken cancellationToken)
     {
+        if (roomId is not { } id)
+        {
+            return null;
+        }
+
         return await dbContext.Set<Room>()
             .AsNoTracking()
-            .Where(room => room.Id == roomId)
+            .Where(room => room.Id == id)
             .Select(room => room.Number)
             .SingleOrDefaultAsync(cancellationToken);
     }
@@ -1753,506 +303,21 @@ public sealed class LodgingService(
             .ToDictionaryAsync(room => room.Id, room => room.Number, cancellationToken);
     }
 
-    // Nombre de chambres ACTIVES rattachees a chaque type de l'unite. Ce n'est pas
-    // une propriete de l'entite mais une donnee d'ecran : le parametrage montre ce
-    // que la desactivation d'un type bloquerait. Calcule a la projection, donc
-    // toujours exact - aucun compteur denormalise a maintenir.
-    private async Task<Dictionary<string, int>> GetActiveRoomCountsAsync(
-        IReadOnlyCollection<string> hotelUnitCodes,
+    private async Task<Dictionary<string, string>> LoadCustomerNamesAsync(
+        IReadOnlyCollection<string> customerCodes,
         CancellationToken cancellationToken)
     {
-        if (hotelUnitCodes.Count == 0)
+        if (customerCodes.Count == 0)
         {
-            return [];
+            return new Dictionary<string, string>(StringComparer.Ordinal);
         }
 
-        var counts = await dbContext.Set<Room>()
+        var codes = customerCodes.Distinct().ToArray();
+
+        return await dbContext.Set<Domain.Billing.Customer>()
             .AsNoTracking()
-            .Where(room => hotelUnitCodes.Contains(room.HotelUnitCode) && room.IsActive)
-            .GroupBy(room => new { room.HotelUnitCode, room.RoomTypeCode })
-            .Select(group => new { group.Key.HotelUnitCode, group.Key.RoomTypeCode, Count = group.Count() })
-            .ToArrayAsync(cancellationToken);
-
-        // Le code de type n'est unique QUE dans son unite : la cle combine les deux.
-        return counts.ToDictionary(
-            row => ActiveRoomCountKey(row.HotelUnitCode, row.RoomTypeCode),
-            row => row.Count,
-            StringComparer.Ordinal);
-    }
-
-    private async Task<int> GetActiveRoomCountAsync(
-        RoomType roomType,
-        CancellationToken cancellationToken)
-    {
-        return await dbContext.Set<Room>()
-            .AsNoTracking()
-            .CountAsync(
-                room => room.HotelUnitCode == roomType.HotelUnitCode
-                    && room.RoomTypeCode == roomType.Code
-                    && room.IsActive,
-                cancellationToken);
-    }
-
-    private static string ActiveRoomCountKey(string hotelUnitCode, string roomTypeCode)
-    {
-        return $"{hotelUnitCode}/{roomTypeCode}";
-    }
-
-
-
-    // ======================= Allotements : le calcul partage =======================
-
-    /// <summary>
-    /// Chambres encore TENUES par des allotements, nuit par nuit, pour un couple (unite, type),
-    /// deduction faite de celles deja prises sur ces blocs.
-    ///
-    /// C'est le calcul PARTAGE par la recherche de disponibilite et par le garde de creation, et
-    /// c'est volontaire : les deux chemins doivent appliquer exactement la meme regle. Si la
-    /// recherche cachait des chambres que la creation accepte encore, l'hotel survendrait ; si elle
-    /// en montrait que la creation refuse, l'operateur buterait sur un mur invisible. Un seul
-    /// calcul, donc un seul endroit a corriger le jour ou la regle change.
-    /// </summary>
-    private async Task<Dictionary<DateOnly, int>> GetAllotmentHoldsAsync(
-        string hotelUnitCode,
-        string roomTypeCode,
-        DateOnly from,
-        DateOnly to,
-        CancellationToken cancellationToken)
-    {
-        var holds = new Dictionary<DateOnly, int>();
-
-        var allotments = await dbContext.Set<RoomAllotment>()
-            .AsNoTracking()
-            .Where(allotment => allotment.HotelUnitCode == hotelUnitCode
-                && allotment.RoomTypeCode == roomTypeCode)
-            .Where(allotment => allotment.Status == RoomAllotmentStatus.Draft
-                || allotment.Status == RoomAllotmentStatus.Confirmed)
-            .Where(allotment => allotment.ArrivalDate < to && allotment.DepartureDate > from)
-            .ToListAsync(cancellationToken);
-
-        if (allotments.Count == 0)
-        {
-            return holds;
-        }
-
-        var allotmentIds = allotments.Select(allotment => allotment.Id).ToList();
-
-        var picked = await dbContext.Set<Reservation>()
-            .AsNoTracking()
-            .Where(reservation => reservation.AllotmentId != null
-                && allotmentIds.Contains(reservation.AllotmentId.Value))
-            .Where(BlocksPeriod(from, to))
-            .Select(reservation => new
-            {
-                AllotmentId = reservation.AllotmentId!.Value,
-                reservation.ArrivalDate,
-                reservation.DepartureDate
-            })
-            .ToListAsync(cancellationToken);
-
-        // La date d'observation decide si un bloc a passe sa date de release. La disponibilite
-        // d'une meme nuit peut donc changer d'un jour a l'autre sans qu'aucune reservation n'ait
-        // bouge : c'est exactement l'objet d'un release, mais il faut le savoir.
-        var asOf = DateOnly.FromDateTime(DateTime.Today);
-
-        for (var night = from; night < to; night = night.AddDays(1))
-        {
-            var total = 0;
-
-            foreach (var allotment in allotments)
-            {
-                if (!allotment.IsHoldingOn(night, asOf))
-                {
-                    continue;
-                }
-
-                var takenThatNight = picked.Count(entry =>
-                    entry.AllotmentId == allotment.Id
-                    && entry.ArrivalDate <= night
-                    && night < entry.DepartureDate);
-
-                // Solde calcule PAR BLOC : un bloc sur-consomme ne vient pas compenser le solde
-                // d'un autre, ce qui reviendrait a rendre a la vente des chambres encore promises.
-                total += Math.Max(0, allotment.RoomsHeld - takenThatNight);
-            }
-
-            if (total > 0)
-            {
-                holds[night] = total;
-            }
-        }
-
-        return holds;
-    }
-
-    /// <summary>
-    /// Controle d'allotement a la creation d'une reservation. Appele DANS la transaction
-    /// Serializable, avec le controle de chevauchement : hors transaction, deux ventes simultanees
-    /// liraient toutes deux "il reste de la place" et entameraient toutes deux le bloc.
-    /// </summary>
-    private async Task<ApplicationResult<ReservationResponse>?> EnsureAllotmentRulesAsync(
-        Room room,
-        CreateReservationRequest request,
-        CancellationToken cancellationToken)
-    {
-        if (request.AllotmentId is { } allotmentId)
-        {
-            return await EnsureBlockHasRoomAsync(room, request, allotmentId, cancellationToken);
-        }
-
-        // VENTE PUBLIQUE : elle ne doit pas entamer ce qui est tenu pour un groupe.
-        var holds = await GetAllotmentHoldsAsync(
-            room.HotelUnitCode,
-            room.RoomTypeCode,
-            request.ArrivalDate,
-            request.DepartureDate,
-            cancellationToken);
-
-        if (holds.Count == 0)
-        {
-            return null;
-        }
-
-        var activeRoomsOfType = await dbContext.Set<Room>()
-            .CountAsync(
-                current => current.HotelUnitCode == room.HotelUnitCode
-                    && current.RoomTypeCode == room.RoomTypeCode
-                    && current.IsActive,
-                cancellationToken);
-
-        var blocking = dbContext.Set<Reservation>()
-            .Where(BlocksPeriod(request.ArrivalDate, request.DepartureDate));
-
-        var occupied = await (
-            from reservation in blocking
-            join current in dbContext.Set<Room>() on reservation.RoomId equals current.Id
-            where current.HotelUnitCode == room.HotelUnitCode
-                && current.RoomTypeCode == room.RoomTypeCode
-            select new { reservation.ArrivalDate, reservation.DepartureDate })
-            .ToListAsync(cancellationToken);
-
-        for (var night = request.ArrivalDate; night < request.DepartureDate; night = night.AddDays(1))
-        {
-            if (!holds.TryGetValue(night, out var held) || held == 0)
-            {
-                continue;
-            }
-
-            var occupiedThatNight = occupied.Count(entry =>
-                entry.ArrivalDate <= night && night < entry.DepartureDate);
-
-            // Le "- 1" est la chambre qu'on est en train de prendre. Elle est encore libre a cet
-            // instant : le controle de chevauchement vient de le verifier.
-            var remainingFree = activeRoomsOfType - occupiedThatNight - 1;
-
-            if (remainingFree < held)
-            {
-                return ApplicationResult<ReservationResponse>.Conflict(
-                    $"La nuit du {night:yyyy-MM-dd}, {held} chambre(s) de type {room.RoomTypeCode} sont tenues "
-                    + "pour un groupe. Prendre celle-ci entamerait l'allotement : reservez sur le bloc, "
-                    + "ou liberez-le d'abord.");
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>Verifie qu'un bloc a encore de la place, nuit par nuit, avant d'y prendre une chambre.</summary>
-    private async Task<ApplicationResult<ReservationResponse>?> EnsureBlockHasRoomAsync(
-        Room room,
-        CreateReservationRequest request,
-        Guid allotmentId,
-        CancellationToken cancellationToken)
-    {
-        var allotment = await dbContext.Set<RoomAllotment>()
-            .AsNoTracking()
-            .FirstOrDefaultAsync(current => current.Id == allotmentId, cancellationToken);
-
-        if (allotment is null)
-        {
-            return ApplicationResult<ReservationResponse>.NotFound("L'allotement est introuvable.");
-        }
-
-        if (!allotment.IsOpen)
-        {
-            return ApplicationResult<ReservationResponse>.Conflict(
-                "Cet allotement est cloture : il ne tient plus de chambres.");
-        }
-
-        if (allotment.HotelUnitCode != room.HotelUnitCode || allotment.RoomTypeCode != room.RoomTypeCode)
-        {
-            return ApplicationResult<ReservationResponse>.Validation(
-                $"L'allotement {allotment.Reference} porte sur le type {allotment.RoomTypeCode} de l'unite "
-                + $"{allotment.HotelUnitCode} : cette chambre n'en fait pas partie.");
-        }
-
-        if (request.ArrivalDate < allotment.ArrivalDate || request.DepartureDate > allotment.DepartureDate)
-        {
-            return ApplicationResult<ReservationResponse>.Validation(
-                $"L'allotement {allotment.Reference} couvre du {allotment.ArrivalDate:yyyy-MM-dd} au "
-                + $"{allotment.DepartureDate:yyyy-MM-dd} : le sejour demande en sort.");
-        }
-
-        var taken = await dbContext.Set<Reservation>()
-            .AsNoTracking()
-            .Where(reservation => reservation.AllotmentId == allotmentId)
-            .Where(BlocksPeriod(request.ArrivalDate, request.DepartureDate))
-            .Select(reservation => new { reservation.ArrivalDate, reservation.DepartureDate })
-            .ToListAsync(cancellationToken);
-
-        for (var night = request.ArrivalDate; night < request.DepartureDate; night = night.AddDays(1))
-        {
-            var takenThatNight = taken.Count(entry =>
-                entry.ArrivalDate <= night && night < entry.DepartureDate);
-
-            if (takenThatNight >= allotment.RoomsHeld)
-            {
-                return ApplicationResult<ReservationResponse>.Conflict(
-                    $"L'allotement {allotment.Reference} tient {allotment.RoomsHeld} chambre(s), toutes prises "
-                    + $"la nuit du {night:yyyy-MM-dd}. Agrandissez le bloc ou vendez hors bloc.");
-            }
-        }
-
-        return null;
-    }
-
-    // ============================ Couchage : application et controle ============================
-
-    /// <summary>
-    /// Applique le couchage standard d'un type et ses couchages d'appoint. Le refus d'une
-    /// composition dont le total ne correspond pas a la capacite vient du domaine : c'est la seule
-    /// garantie que la recherche de disponibilite et le couchage affiche racontent la meme chose.
-    /// </summary>
-    private static ApplicationResult<RoomTypeResponse>? ApplyRoomTypeBeds(
-        RoomType roomType,
-        IReadOnlyCollection<BedCompositionLine>? beds,
-        int maxExtraBeds,
-        int maxCots)
-    {
-        try
-        {
-            roomType.SetExtraSleeping(maxExtraBeds, maxCots);
-
-            if (beds is not null)
-            {
-                roomType.ReplaceBeds(beds.Select(line => new RoomTypeBed(ParseBedType(line.BedType), line.Quantity)));
-            }
-        }
-        catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
-        {
-            return ApplicationResult<RoomTypeResponse>.Validation(ex.Message);
-        }
-
-        return null;
-    }
-
-
-    /// <summary>
-    /// Applique le couchage propre a une chambre et ses couchages d'appoint. Rend un echec
-    /// applicatif plutot qu'une exception : une composition incoherente est une erreur de saisie,
-    /// pas un incident technique.
-    /// </summary>
-    private async Task<ApplicationResult<RoomResponse>?> ApplyRoomBedsAsync(
-        Room room,
-        IReadOnlyCollection<BedCompositionLine>? beds,
-        int? maxExtraBeds,
-        int? maxCots,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            room.SetExtraSleeping(maxExtraBeds, maxCots);
-        }
-        catch (ArgumentOutOfRangeException ex)
-        {
-            return ApplicationResult<RoomResponse>.Validation(ex.Message);
-        }
-
-        if (beds is null)
-        {
-            return null;
-        }
-
-        var roomType = await FindTypeForAsync(room, cancellationToken);
-
-        if (roomType is null)
-        {
-            return ApplicationResult<RoomResponse>.Validation(
-                "Le type de chambre est introuvable : impossible de controler le couchage.");
-        }
-
-        try
-        {
-            room.ReplaceBeds(
-                beds.Select(line => new RoomBed(ParseBedType(line.BedType), line.Quantity)),
-                roomType.Capacity);
-        }
-        catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
-        {
-            return ApplicationResult<RoomResponse>.Validation(ex.Message);
-        }
-
-        return null;
-    }
-
-    private async Task<RoomType?> FindTypeForAsync(Room room, CancellationToken cancellationToken)
-    {
-        return await dbContext.Set<RoomType>()
-            .AsNoTracking()
-            .Include(roomType => roomType.Beds)
-            .FirstOrDefaultAsync(
-                roomType => roomType.HotelUnitCode == room.HotelUnitCode && roomType.Code == room.RoomTypeCode,
-                cancellationToken);
-    }
-
-    private static BedType ParseBedType(string value)
-    {
-        if (Enum.TryParse<BedType>(value, ignoreCase: true, out var parsed) && Enum.IsDefined(parsed))
-        {
-            return parsed;
-        }
-
-        throw new ArgumentException($"Nature de couchage inconnue : {value}.", nameof(value));
-    }
-
-    private static RoomTypeResponse Map(RoomType roomType, int activeRoomCount)
-    {
-        return new RoomTypeResponse(
-            roomType.Id,
-            roomType.HotelUnitCode,
-            roomType.Code,
-            roomType.Label,
-            roomType.Capacity,
-            roomType.Description,
-            roomType.IsActive,
-            activeRoomCount,
-            roomType.Beds
-                .OrderBy(bed => bed.BedType)
-                .Select(bed => new BedCompositionLine(bed.BedType.ToString(), bed.Quantity))
-                .ToList(),
-            roomType.DeclaredSleeps,
-            roomType.MaxExtraBeds,
-            roomType.MaxCots,
-            roomType.MaxOccupancy,
-            roomType.CreatedAt,
-            roomType.CreatedBy,
-            roomType.UpdatedAt,
-            roomType.UpdatedBy);
-    }
-
-    /// <summary>
-    /// Projette une chambre avec son couchage EFFECTIF. <paramref name="roomType"/> peut etre nul
-    /// quand le type est introuvable - la chambre reste alors affichable, sans composition heritee,
-    /// plutot que de disparaitre de la liste pour un referentiel incomplet.
-    /// </summary>
-    private static RoomResponse Map(Room room, RoomType? roomType)
-    {
-        var beds = room.OverridesBeds
-            ? room.Beds
-                .OrderBy(bed => bed.BedType)
-                .Select(bed => new BedCompositionLine(bed.BedType.ToString(), bed.Quantity))
-                .ToList()
-            : roomType?.Beds
-                .OrderBy(bed => bed.BedType)
-                .Select(bed => new BedCompositionLine(bed.BedType.ToString(), bed.Quantity))
-                .ToList() ?? [];
-
-        return new RoomResponse(
-            room.Id,
-            room.HotelUnitCode,
-            room.Number,
-            room.RoomTypeCode,
-            room.Floor,
-            room.Notes,
-            room.IsActive,
-            beds,
-            room.OverridesBeds,
-            room.MaxExtraBeds ?? roomType?.MaxExtraBeds ?? 0,
-            room.MaxCots ?? roomType?.MaxCots ?? 0,
-            room.CreatedAt,
-            room.CreatedBy,
-            room.UpdatedAt,
-            room.UpdatedBy);
-    }
-
-    /// <summary>Charge les types couvrant un lot de chambres, couchage compris.</summary>
-    private async Task<IReadOnlyList<RoomType>> LoadRoomTypesForAsync(
-        IReadOnlyCollection<Room> rooms,
-        CancellationToken cancellationToken)
-    {
-        if (rooms.Count == 0)
-        {
-            return [];
-        }
-
-        var unitCodes = rooms.Select(room => room.HotelUnitCode).Distinct().ToList();
-
-        return await dbContext.Set<RoomType>()
-            .AsNoTracking()
-            .Include(roomType => roomType.Beds)
-            .Where(roomType => unitCodes.Contains(roomType.HotelUnitCode))
-            .ToListAsync(cancellationToken);
-    }
-
-    private static RoomType? FindType(IReadOnlyList<RoomType> types, Room room)
-    {
-        return types.FirstOrDefault(type =>
-            type.HotelUnitCode == room.HotelUnitCode && type.Code == room.RoomTypeCode);
-    }
-
-    private static ReservationResponse Map(Reservation reservation, string? roomNumber)
-    {
-        return new ReservationResponse(
-            reservation.Id,
-            reservation.HotelUnitCode,
-            reservation.RoomId,
-            roomNumber,
-            reservation.CustomerCode,
-            reservation.ArrivalDate,
-            reservation.DepartureDate,
-            reservation.Nights,
-            reservation.GuestCount,
-            reservation.Status,
-            reservation.NightlyRateSnapshot,
-            reservation.RatePlanCodeSnapshot,
-            reservation.CancelReason,
-            reservation.CheckedInAt,
-            reservation.CheckedInBy,
-            reservation.CheckedOutAt,
-            reservation.CheckedOutBy,
-            reservation.CancelledAt,
-            reservation.CancelledBy,
-            reservation.NoShowAt,
-            reservation.NoShowBy,
-            reservation.CreatedAt,
-            reservation.CreatedBy,
-            reservation.UpdatedAt,
-            reservation.UpdatedBy);
-    }
-
-    private static FolioResponse Map(Folio folio)
-    {
-        var charges = folio.Charges
-            .OrderBy(charge => charge.LineNumber)
-            .Select(charge => new FolioChargeResponse(
-                charge.Id,
-                charge.LineNumber,
-                charge.ChargeDate,
-                charge.Label,
-                charge.Amount,
-                charge.Kind,
-                charge.Reference))
-            .ToArray();
-
-        return new FolioResponse(
-            folio.Id,
-            folio.ReservationId,
-            folio.Balance,
-            charges,
-            folio.CreatedAt,
-            folio.CreatedBy,
-            folio.UpdatedAt,
-            folio.UpdatedBy);
+            .Where(customer => codes.Contains(customer.Code))
+            .ToDictionaryAsync(customer => customer.Code, customer => customer.Name, cancellationToken);
     }
 
     private static string NormalizeCodeOrEmpty(string code)
@@ -2266,10 +331,10 @@ public sealed class LodgingService(
     }
 
     /// <summary>
-    /// Explicit flush after the audit write. AuditLogWriter.WriteAsync already calls
-    /// SaveChangesAsync internally (persisting the pending entity changes together with the
-    /// audit row), so this call is usually a no-op - it exists so persistence never silently
-    /// depends on the audit writer's internals.
+    /// Vidange explicite apres l'ecriture d'audit. AuditLogWriter.WriteAsync appelle deja
+    /// SaveChangesAsync en interne (persistant les changements en attente en meme temps que la
+    /// ligne d'audit), de sorte que cet appel est habituellement sans effet - il existe pour que la
+    /// persistance ne depende jamais silencieusement des details du writer d'audit.
     /// </summary>
     private async Task SaveAsync(CancellationToken cancellationToken)
     {

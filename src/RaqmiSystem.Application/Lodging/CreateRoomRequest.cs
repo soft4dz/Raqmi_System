@@ -1,4 +1,4 @@
-﻿namespace RaqmiSystem.Application.Lodging;
+namespace RaqmiSystem.Application.Lodging;
 
 /// <summary>
 /// Creation d'une chambre. <paramref name="Beds"/> n'est a renseigner que si la chambre S'ECARTE de
@@ -13,4 +13,12 @@ public sealed record CreateRoomRequest(
     string? Notes = null,
     IReadOnlyCollection<BedCompositionLine>? Beds = null,
     int? MaxExtraBeds = null,
-    int? MaxCots = null);
+    int? MaxCots = null,
+    string? Building = null,
+    string? Wing = null,
+    string? InternalCode = null,
+    string? View = null,
+    IReadOnlyCollection<string>? Amenities = null,
+    bool IsAccessible = false,
+    bool IsSmoking = false,
+    int DisplayOrder = 0);

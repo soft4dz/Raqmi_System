@@ -18,4 +18,18 @@ internal static class SecurityContextExtensions
             userName,
             httpContext.Connection.RemoteIpAddress?.ToString());
     }
+
+    /// <summary>
+    /// L'appelant detient-il cette permission ?
+    ///
+    /// SERT AUX LEVIERS OPTIONNELS, PAS AU CONTROLE D'ACCES. L'acces a une route reste tenu par
+    /// RequireAuthorization ; ce test-ci sert aux drapeaux qu'une requete peut demander mais que
+    /// tout le monde n'a pas le droit d'activer - la surreservation, la levee d'une restriction.
+    /// Sans lui, un poste de reception vendrait au-dela de la capacite en cochant une case, alors
+    /// que la meme case est legitime pour un responsable d'unite.
+    /// </summary>
+    public static bool HasPermission(this ClaimsPrincipal user, string permissionKey)
+    {
+        return user.HasClaim(SecurityClaimTypes.Permission, permissionKey);
+    }
 }

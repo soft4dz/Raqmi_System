@@ -42,7 +42,7 @@ public sealed class LodgingServiceTests
             CancellationToken.None);
 
         Assert.True(result.Succeeded, result.Error);
-        Assert.Equal(ReservationStatus.Booked, result.Value!.Status);
+        Assert.Equal(ReservationStatus.Confirmed, result.Value!.Status);
         Assert.Equal(NightlyRate, result.Value.NightlyRateSnapshot);
         Assert.Equal("STD", result.Value.RatePlanCodeSnapshot);
         Assert.Equal(3, result.Value.Nights);
@@ -88,7 +88,7 @@ public sealed class LodgingServiceTests
 
         Assert.False(result.Succeeded);
         Assert.Equal(ApplicationErrorType.Validation, result.ErrorType);
-        Assert.Contains("capacity", result.Error);
+        Assert.Contains("depasse ce que le type", result.Error);
     }
 
     [Fact]
@@ -132,7 +132,7 @@ public sealed class LodgingServiceTests
     }
 
     [Fact]
-    public async Task Check_in_opens_the_folio_with_one_night_line_per_night_at_the_frozen_rate()
+    public async Task Check_in_opens_the_folio_and_pose_la_nuit_d_arrivee()
     {
         await using var harness = await HarnessAsync();
 
@@ -147,19 +147,19 @@ public sealed class LodgingServiceTests
         var folio = await harness.Service.GetFolioAsync(created.Value.Id, CancellationToken.None);
         Assert.True(folio.Succeeded, folio.Error);
 
-        Assert.Equal(3, folio.Value!.Charges.Count);
-        Assert.All(folio.Value.Charges, charge =>
-        {
-            Assert.Equal(ChargeKind.Night, charge.Kind);
-            Assert.Equal(NightlyRate, charge.Amount);
-        });
+        // L'ARRIVEE NE POSE QUE LA NUIT D'ARRIVEE. Les nuits suivantes appartiennent a leur
+        // propre journee d'exploitation et sont posees par le night audit, nuit apres nuit ; le
+        // depart rattrape ce qui manquerait. Poser tout le sejour a l'arrivee rattacherait trois
+        // nuitees a la meme journee et fausserait toute recette journaliere.
+        var nightLine = Assert.Single(folio.Value!.Charges);
+        Assert.Equal(ChargeKind.Night, nightLine.Kind);
+        Assert.Equal(NightlyRate, nightLine.Amount);
+        Assert.Equal(today, nightLine.ChargeDate);
+        Assert.Equal(NightlyRate, folio.Value.Balance);
 
-        // One line per night, dated night by night, never including the departure day.
-        Assert.Equal(
-            new[] { today, today.AddDays(1), today.AddDays(2) },
-            folio.Value.Charges.OrderBy(charge => charge.LineNumber).Select(charge => charge.ChargeDate).ToArray());
-
-        Assert.Equal(3 * NightlyRate, folio.Value.Balance);
+        // La cle de geste est ce qui rend le posting idempotent : c'est elle que le night audit
+        // retrouvera pour ne pas reposer cette nuit.
+        Assert.NotNull(nightLine.SourceReference);
 
         // A second check-in of the same stay is a state conflict, not a second folio.
         var again = await harness.Service.CheckInAsync(created.Value.Id, Context, CancellationToken.None);
@@ -182,7 +182,7 @@ public sealed class LodgingServiceTests
 
         Assert.False(result.Succeeded);
         Assert.Equal(ApplicationErrorType.Validation, result.ErrorType);
-        Assert.Contains("before its arrival date", result.Error);
+        Assert.Contains("avant sa date d'arrivee", result.Error);
 
         // The refusal left no folio behind.
         Assert.Equal(0, await harness.DbContext.Set<Folio>().CountAsync());
@@ -220,7 +220,7 @@ public sealed class LodgingServiceTests
 
         Assert.False(result.Succeeded);
         Assert.Equal(ApplicationErrorType.Validation, result.ErrorType);
-        Assert.Contains("departure date has passed", result.Error);
+        Assert.Contains("date de depart est passee", result.Error);
         Assert.Equal(0, await harness.DbContext.Set<Folio>().CountAsync());
     }
 
@@ -241,7 +241,7 @@ public sealed class LodgingServiceTests
         var refused = await harness.Service.CheckOutAsync(reservationId, Context, CancellationToken.None);
         Assert.False(refused.Succeeded);
         Assert.Equal(ApplicationErrorType.Validation, refused.ErrorType);
-        Assert.Contains("not zero", refused.Error);
+        Assert.Contains("ne sont pas soldes", refused.Error);
 
         // The normal path: the payment goes through treasury, then a Settlement line
         // referencing the receipt brings the folio to zero.
@@ -328,21 +328,21 @@ public sealed class LodgingServiceTests
         var d1 = new DateOnly(2030, 8, 1);
 
         // Room 101, Booked over [d1, d1+2): occupies the nights of d1 and d1+1.
-        var booked = new Reservation(UnitCode, harness.RoomId, CustomerCode, d1, d1.AddDays(2), 1, NightlyRate, "STD");
+        var booked = TestReservations.Create(UnitCode, harness.RoomId, CustomerCode, d1, d1.AddDays(2), 1, NightlyRate, "STD");
 
         // Room 102, CheckedIn over [d1+1, d1+3): occupies the nights of d1+1 and d1+2.
-        var checkedIn = new Reservation(UnitCode, room102.Id, CustomerCode, d1.AddDays(1), d1.AddDays(3), 1, NightlyRate, "STD");
+        var checkedIn = TestReservations.Create(UnitCode, room102.Id, CustomerCode, d1.AddDays(1), d1.AddDays(3), 1, NightlyRate, "STD");
         checkedIn.CheckIn(d1.AddDays(1), "receptionist", DateTimeOffset.UtcNow);
 
         // Room 101 again, CheckedOut over [d1+2, d1+3): a PAST stay whose guest has left. It
         // still occupied the night of d1+2 - historical occupancy must not be retroactively
         // under-counted once guests check out.
-        var checkedOut = new Reservation(UnitCode, harness.RoomId, CustomerCode, d1.AddDays(2), d1.AddDays(3), 1, NightlyRate, "STD");
+        var checkedOut = TestReservations.Create(UnitCode, harness.RoomId, CustomerCode, d1.AddDays(2), d1.AddDays(3), 1, NightlyRate, "STD");
         checkedOut.CheckIn(d1.AddDays(2), "receptionist", DateTimeOffset.UtcNow);
         checkedOut.CheckOut("receptionist", DateTimeOffset.UtcNow);
 
         // Room 101 again, Cancelled over the whole window: must not count anywhere.
-        var cancelled = new Reservation(UnitCode, harness.RoomId, CustomerCode, d1, d1.AddDays(5), 1, NightlyRate, "STD");
+        var cancelled = TestReservations.Create(UnitCode, harness.RoomId, CustomerCode, d1, d1.AddDays(5), 1, NightlyRate, "STD");
         cancelled.Cancel("Cancelled for the occupancy test.", "receptionist", DateTimeOffset.UtcNow);
 
         harness.DbContext.Set<Reservation>().AddRange(booked, checkedIn, checkedOut, cancelled);
@@ -582,14 +582,25 @@ public sealed class LodgingServiceTests
         var checkedIn = await harness.Service.CheckInAsync(created.Value.Id, Context, CancellationToken.None);
         Assert.True(checkedIn.Succeeded, checkedIn.Error);
 
+        // LE DEPART RATTRAPE LES NUITS NON POSEES. Le night audit n'a pas tourne dans ce test :
+        // sans rattrapage, le client partirait en n'ayant paye que sa premiere nuit. C'est
+        // exactement l'ecart que ce test existe pour interdire.
+        var caughtUp = await harness.Service.CheckOutAsync(created.Value.Id, Context, CancellationToken.None);
+        Assert.False(caughtUp.Succeeded);
+        Assert.Contains("ne sont pas soldes", caughtUp.Error);
+
         var folio = await harness.Service.GetFolioAsync(created.Value.Id, CancellationToken.None);
         Assert.True(folio.Succeeded, folio.Error);
 
-        // The folio bills the announced total, night by night at the announced rates.
+        // Le folio facture le total annonce, nuit par nuit, aux tarifs annonces.
         Assert.Equal(announcedRoom.TotalStayAmount, folio.Value!.Balance);
         Assert.Equal(
             announcedRoom.NightlyRates.OrderBy(rate => rate.Night).Select(rate => rate.Amount).ToArray(),
-            folio.Value.Charges.OrderBy(charge => charge.ChargeDate).Select(charge => charge.Amount).ToArray());
+            folio.Value.Charges
+                .Where(charge => charge.Kind == ChargeKind.Night)
+                .OrderBy(charge => charge.ChargeDate)
+                .Select(charge => charge.Amount)
+                .ToArray());
     }
 
     // Front desk -----------------------------------------------------------------------------
@@ -611,35 +622,35 @@ public sealed class LodgingServiceTests
         var day = new DateOnly(2030, 9, 10);
 
         // Arrival of the day: Booked, arriving on the 10th (room 101).
-        var arrivingToday = new Reservation(
+        var arrivingToday = TestReservations.Create(
             UnitCode, harness.RoomId, CustomerCode, day, day.AddDays(2), 2, NightlyRate, "STD");
 
         // Overdue arrival: Booked, should have arrived on the 8th - a no-show candidate (102).
-        var overdueArrival = new Reservation(
+        var overdueArrival = TestReservations.Create(
             UnitCode, rooms[0].Id, CustomerCode, day.AddDays(-2), day.AddDays(1), 1, NightlyRate, "STD");
 
         // Departure of the day: CheckedIn, leaving on the 10th, folio NOT settled (103).
-        var departingToday = new Reservation(
+        var departingToday = TestReservations.Create(
             UnitCode, rooms[1].Id, CustomerCode, day.AddDays(-2), day, 2, NightlyRate, "STD");
         departingToday.CheckIn(day.AddDays(-2), "receptionist", DateTimeOffset.UtcNow);
 
-        var departingFolio = new Folio(departingToday.Id);
+        var departingFolio = new Folio(departingToday.Id, UnitCode, TestReservations.NextNumber());
         departingFolio.AddCharge(new FolioCharge(day.AddDays(-2), "Night", NightlyRate, ChargeKind.Night));
         departingFolio.AddCharge(new FolioCharge(day.AddDays(-1), "Night", NightlyRate, ChargeKind.Night));
         departingFolio.AddCharge(new FolioCharge(
             day.AddDays(-1), "Acompte", -NightlyRate, ChargeKind.Settlement, "REC-0100"));
 
         // Overdue departure: CheckedIn, should have left on the 9th, folio unpaid (104).
-        var overdueDeparture = new Reservation(
+        var overdueDeparture = TestReservations.Create(
             UnitCode, rooms[2].Id, CustomerCode, day.AddDays(-3), day.AddDays(-1), 1, NightlyRate, "STD");
         overdueDeparture.CheckIn(day.AddDays(-3), "receptionist", DateTimeOffset.UtcNow);
 
-        var overdueFolio = new Folio(overdueDeparture.Id);
+        var overdueFolio = new Folio(overdueDeparture.Id, UnitCode, TestReservations.NextNumber());
         overdueFolio.AddCharge(new FolioCharge(day.AddDays(-3), "Night", NightlyRate, ChargeKind.Night));
         overdueFolio.AddCharge(new FolioCharge(day.AddDays(-2), "Night", NightlyRate, ChargeKind.Night));
 
         // In house: CheckedIn, sleeping the night of the 10th, leaving later (105).
-        var inHouse = new Reservation(
+        var inHouse = TestReservations.Create(
             UnitCode, rooms[3].Id, CustomerCode, day.AddDays(-1), day.AddDays(2), 2, NightlyRate, "STD");
         inHouse.CheckIn(day.AddDays(-1), "receptionist", DateTimeOffset.UtcNow);
 

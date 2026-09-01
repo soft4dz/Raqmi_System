@@ -1,0 +1,418 @@
+<UserControl x:Class="RaqmiSystem.Desktop.Views.KpiView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontFamily="{StaticResource AppFontFamily}">
+
+    <!-- Bibliotheque KPI (modules 24 / 25.4) : le tableau de bord d'indicateurs, le comparatif
+         inter-unites, les alertes et le parametrage (seuils, rattachement de comptes,
+         instantanes). Ecran pilote par le serveur : la vue ne recalcule RIEN, elle met en forme
+         les valeurs, ecarts, tendances et verdicts renvoyes par /api/v1/kpis. Chaque chiffre
+         porte en infobulle sa formule et ce qu'il compte exactement - c'est ce qui rend un
+         indicateur discutable plutot qu'a croire sur parole. -->
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ==================== En-tete et selecteur de periode ==================== -->
+        <Border Style="{StaticResource CardBorder}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="14" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel>
+                    <TextBlock Text="Bibliothèque KPI"
+                               Style="{StaticResource PageTitleText}" />
+                    <TextBlock Text="Indicateurs hôteliers standardisés, calculés sur les transactions officielles : où en sommes-nous, pourquoi, où faut-il agir."
+                               Style="{StaticResource SubtitleText}"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="230" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="Du" Style="{StaticResource LabelText}" />
+                        <DatePicker x:Name="FromDatePicker"
+                                    ToolTip="Début de la période analysée (le mois courant par défaut)" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Au" Style="{StaticResource LabelText}" />
+                        <DatePicker x:Name="ToDatePicker"
+                                    ToolTip="Fin de la période analysée" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="4">
+                        <TextBlock Text="Périmètre" Style="{StaticResource LabelText}" />
+                        <ComboBox x:Name="UnitComboBox"
+                                  ToolTip="Groupe entier, ou une unité hôtelière" />
+                    </StackPanel>
+
+                    <TextBlock x:Name="PeriodSummaryTextBlock"
+                               Grid.Column="5"
+                               Style="{StaticResource CaptionText}"
+                               VerticalAlignment="Bottom"
+                               Margin="12,0,12,6"
+                               TextWrapping="Wrap" />
+
+                    <Button x:Name="RefreshButton"
+                            Grid.Column="6"
+                            Content="Actualiser"
+                            Style="{StaticResource SecondaryButton}"
+                            ToolTip="Recharger les indicateurs sur la période et le périmètre sélectionnés"
+                            VerticalAlignment="Bottom"
+                            Click="RefreshButton_Click" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- ======================== Tuiles de tete ======================== -->
+        <!-- Les dix indicateurs de premier niveau de la direction, dans l'ordre du catalogue.
+             La liste est courte par decision : un tableau de bord qui montre tout ne montre
+             rien. -->
+        <ItemsControl x:Name="HeadlineItemsControl" Grid.Row="2">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <UniformGrid Columns="5" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Style="{StaticResource SubtleCardBorder}"
+                            Margin="0,0,10,10"
+                            ToolTip="{Binding Tooltip}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Label}"
+                                       Style="{StaticResource MetricLabelText}" />
+                            <TextBlock Text="{Binding ValueText}"
+                                       Style="{StaticResource MetricValueText}"
+                                       Margin="0,4,0,0" />
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <TextBlock Text="{Binding TrendText}"
+                                           Foreground="{Binding TrendBrush}"
+                                           Style="{StaticResource CaptionText}"
+                                           Margin="0,0,8,0" />
+                                <TextBlock Text="{Binding HealthText}"
+                                           Foreground="{Binding HealthBrush}"
+                                           Style="{StaticResource CaptionText}"
+                                           FontWeight="SemiBold" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- ======================== Les quatre volets ======================== -->
+        <TabControl x:Name="KpiTabs" Grid.Row="4">
+
+            <!-- ============================ Bibliotheque ============================ -->
+            <TabItem Header="Bibliothèque">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock x:Name="HiddenByPermissionTextBlock"
+                                   Style="{StaticResource CaptionText}"
+                                   Margin="0,8,0,0"
+                                   Visibility="Collapsed" />
+                        <ItemsControl x:Name="SectionsItemsControl">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,12,0,0">
+                                        <TextBlock Text="{Binding Label}"
+                                                   Style="{StaticResource SectionTitleText}" />
+                                        <DataGrid ItemsSource="{Binding Rows}"
+                                                  AutoGenerateColumns="False"
+                                                  IsReadOnly="True"
+                                                  HeadersVisibility="Column"
+                                                  CanUserAddRows="False"
+                                                  Margin="0,6,0,0">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Indicateur" Binding="{Binding Name}" Width="2.2*" />
+                                                <DataGridTextColumn Header="Valeur" Binding="{Binding ValueText}" Width="*" />
+                                                <DataGridTextColumn Header="N-1" Binding="{Binding PreviousText}" Width="*" />
+                                                <DataGridTextColumn Header="Var. N-1" Binding="{Binding VariationText}" Width="0.8*" />
+                                                <DataGridTextColumn Header="Budget" Binding="{Binding BudgetText}" Width="*" />
+                                                <DataGridTextColumn Header="Objectif" Binding="{Binding TargetText}" Width="*" />
+                                                <DataGridTextColumn Header="État" Binding="{Binding HealthText}" Width="0.9*">
+                                                    <DataGridTextColumn.ElementStyle>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{Binding HealthBrush}" />
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                        </Style>
+                                                    </DataGridTextColumn.ElementStyle>
+                                                </DataGridTextColumn>
+                                                <DataGridTextColumn Header="Donnée" Binding="{Binding QualityText}" Width="1.4*">
+                                                    <DataGridTextColumn.ElementStyle>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="ToolTip" Value="{Binding QualityTooltip}" />
+                                                        </Style>
+                                                    </DataGridTextColumn.ElementStyle>
+                                                </DataGridTextColumn>
+                                            </DataGrid.Columns>
+                                            <DataGrid.RowStyle>
+                                                <Style TargetType="DataGridRow">
+                                                    <Setter Property="ToolTip" Value="{Binding Tooltip}" />
+                                                </Style>
+                                            </DataGrid.RowStyle>
+                                        </DataGrid>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ============================ Comparatif ============================ -->
+            <TabItem Header="Comparatif inter-unités">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="Les mêmes colonnes pour tous les établissements : des taux et des ratios comparables entre hôtels de tailles différentes. La ligne Groupe sert de référence. Aucune note globale : un score composite supposerait des pondérations que la direction n'a pas fixées."
+                                   Style="{StaticResource CaptionText}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,8,0,0" />
+                        <DataGrid x:Name="ComparisonDataGrid"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  HeadersVisibility="Column"
+                                  CanUserAddRows="False"
+                                  Margin="0,8,0,0" />
+                        <TextBlock Text="Classements"
+                                   Style="{StaticResource SectionTitleText}"
+                                   Margin="0,16,0,0" />
+                        <DataGrid x:Name="RankingsDataGrid"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  HeadersVisibility="Column"
+                                  CanUserAddRows="False"
+                                  Margin="0,6,0,0">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Lecture" Binding="{Binding KindLabel}" Width="1.4*" />
+                                <DataGridTextColumn Header="Indicateur" Binding="{Binding KpiName}" Width="1.6*" />
+                                <DataGridTextColumn Header="Unité" Binding="{Binding UnitName}" Width="1.4*" />
+                                <DataGridTextColumn Header="Valeur" Binding="{Binding ValueText}" Width="*" />
+                                <DataGridTextColumn Header="Détail" Binding="{Binding Explanation}" Width="3*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ============================== Alertes ============================== -->
+            <TabItem Header="Alertes">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="Une alerte existe tant qu'une valeur est hors des bornes configurées, et disparaît d'elle-même quand la situation se redresse. Le responsable indiqué est celui du seuil ; le suivi de l'action appartient au module Validations."
+                                   Style="{StaticResource CaptionText}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,8,0,0" />
+                        <TextBlock x:Name="NoAlertTextBlock"
+                                   Text="Aucune alerte sur la période : aucune valeur ne franchit de borne configurée."
+                                   Style="{StaticResource CaptionText}"
+                                   Margin="0,10,0,0"
+                                   Visibility="Collapsed" />
+                        <DataGrid x:Name="AlertsDataGrid"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  HeadersVisibility="Column"
+                                  CanUserAddRows="False"
+                                  Margin="0,8,0,0">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Gravité" Binding="{Binding SeverityLabel}" Width="0.9*">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{Binding SeverityBrush}" />
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Indicateur" Binding="{Binding KpiName}" Width="1.6*" />
+                                <DataGridTextColumn Header="Périmètre" Binding="{Binding ScopeLabel}" Width="1.2*" />
+                                <DataGridTextColumn Header="Valeur" Binding="{Binding ValueText}" Width="*" />
+                                <DataGridTextColumn Header="Borne" Binding="{Binding ThresholdText}" Width="*" />
+                                <DataGridTextColumn Header="Responsable" Binding="{Binding OwnerRole}" Width="1.2*" />
+                                <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="3*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ============================ Parametrage ============================ -->
+            <!-- Volet visible avec kpi.admin seulement : fixer les bornes, rattacher les
+                 comptes et cloturer un instantane sont des actes de gouvernance. Le grisage
+                 n'est qu'un confort - le refus fait autorite cote serveur. -->
+            <TabItem x:Name="AdminTabItem" Header="Paramétrage">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+
+                        <TextBlock Text="Seuils et objectifs"
+                                   Style="{StaticResource SectionTitleText}"
+                                   Margin="0,10,0,0" />
+                        <TextBlock Text="Deux bornes, trois états : favorable au-delà de la borne favorable, critique au-delà de la borne critique, vigilance entre les deux. Une règle sans unité vaut pour le groupe ; une règle d'unité la remplace entièrement."
+                                   Style="{StaticResource CaptionText}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,0" />
+
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="1.6*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="1.4*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Indicateur" Style="{StaticResource LabelText}" />
+                                <ComboBox x:Name="ThresholdKpiComboBox" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Périmètre" Style="{StaticResource LabelText}" />
+                                <ComboBox x:Name="ThresholdUnitComboBox" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="Favorable" Style="{StaticResource LabelText}" />
+                                <TextBox x:Name="ThresholdFavorableTextBox" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="6">
+                                <TextBlock Text="Critique" Style="{StaticResource LabelText}" />
+                                <TextBox x:Name="ThresholdCriticalTextBox" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="8">
+                                <TextBlock Text="Objectif" Style="{StaticResource LabelText}" />
+                                <TextBox x:Name="ThresholdTargetTextBox" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="10">
+                                <TextBlock Text="Responsable" Style="{StaticResource LabelText}" />
+                                <TextBox x:Name="ThresholdOwnerTextBox" />
+                            </StackPanel>
+                            <Button x:Name="SaveThresholdButton"
+                                    Grid.Column="12"
+                                    Content="Enregistrer"
+                                    Style="{StaticResource PrimaryButton}"
+                                    VerticalAlignment="Bottom"
+                                    Click="SaveThresholdButton_Click" />
+                        </Grid>
+
+                        <DataGrid x:Name="ThresholdsDataGrid"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  HeadersVisibility="Column"
+                                  CanUserAddRows="False"
+                                  Margin="0,8,0,0">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Indicateur" Binding="{Binding KpiName}" Width="2*" />
+                                <DataGridTextColumn Header="Périmètre" Binding="{Binding ScopeLabel}" Width="1.2*" />
+                                <DataGridTextColumn Header="Favorable" Binding="{Binding FavorableText}" Width="*" />
+                                <DataGridTextColumn Header="Critique" Binding="{Binding CriticalText}" Width="*" />
+                                <DataGridTextColumn Header="Objectif" Binding="{Binding TargetText}" Width="*" />
+                                <DataGridTextColumn Header="Responsable" Binding="{Binding OwnerRole}" Width="1.2*" />
+                                <DataGridTextColumn Header="Active" Binding="{Binding ActiveLabel}" Width="0.7*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <TextBlock Text="Rattachement des comptes (GOP / EBE)"
+                                   Style="{StaticResource SectionTitleText}"
+                                   Margin="0,18,0,0" />
+                        <TextBlock Text="Rattache un préfixe de compte du plan comptable à un groupe de gestion. Sans au moins une règle, GOP, EBE et marges répondent « donnée manquante » : le moteur ne devine jamais un plan comptable. Le préfixe le plus long l'emporte, ce qui permet d'écrire des exceptions."
+                                   Style="{StaticResource CaptionText}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,0" />
+
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="2.4*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Préfixe" Style="{StaticResource LabelText}" />
+                                <TextBox x:Name="MappingPrefixTextBox"
+                                         ToolTip="Début du code de compte : « 70 » couvre 70, 701, 7011…" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Groupe de gestion" Style="{StaticResource LabelText}" />
+                                <ComboBox x:Name="MappingGroupComboBox" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="Intitulé" Style="{StaticResource LabelText}" />
+                                <TextBox x:Name="MappingLabelTextBox" />
+                            </StackPanel>
+                            <Button x:Name="SaveMappingButton"
+                                    Grid.Column="6"
+                                    Content="Enregistrer"
+                                    Style="{StaticResource PrimaryButton}"
+                                    VerticalAlignment="Bottom"
+                                    Click="SaveMappingButton_Click" />
+                        </Grid>
+
+                        <DataGrid x:Name="MappingsDataGrid"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  HeadersVisibility="Column"
+                                  CanUserAddRows="False"
+                                  Margin="0,8,0,0">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Préfixe" Binding="{Binding AccountPrefix}" Width="*" />
+                                <DataGridTextColumn Header="Groupe" Binding="{Binding GroupLabel}" Width="2*" />
+                                <DataGridTextColumn Header="Intitulé" Binding="{Binding Label}" Width="2.4*" />
+                                <DataGridTextColumn Header="Active" Binding="{Binding ActiveLabel}" Width="0.7*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <TextBlock Text="Historisation"
+                                   Style="{StaticResource SectionTitleText}"
+                                   Margin="0,18,0,0" />
+                        <TextBlock Text="Poser les instantanés conserve les valeurs de la période affichée ; les clôturer les fige pour de bon — un chiffre clôturé n'est plus jamais réécrit par un recalcul, et une divergence ultérieure est signalée, jamais corrigée en silence."
+                                   Style="{StaticResource CaptionText}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,0" />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,12">
+                            <Button x:Name="CaptureSnapshotsButton"
+                                    Content="Poser les instantanés de la période"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Click="CaptureSnapshotsButton_Click" />
+                            <Button x:Name="CloseSnapshotsButton"
+                                    Content="Clôturer les instantanés de la période"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Margin="10,0,0,0"
+                                    Click="CloseSnapshotsButton_Click" />
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

@@ -40,6 +40,47 @@ public sealed class RatePlanConfiguration : IEntityTypeConfiguration<RatePlan>
         builder.Property(plan => plan.IsActive)
             .HasColumnName("is_active");
 
+        // Conditions commerciales du plan (passe PMS). Elles ne changent pas le PRIX - qui reste
+        // porte par les periodes tarifaires - mais ce que le prix comprend et ce qu'il exige.
+        builder.Property(plan => plan.CurrencyCode)
+            .HasColumnName("currency_code")
+            .HasMaxLength(3)
+            .IsRequired();
+
+        builder.Property(plan => plan.Board)
+            .HasColumnName("board")
+            .HasConversion<string>()
+            .HasMaxLength(30)
+            .IsRequired();
+
+        builder.Property(plan => plan.CancellationPolicyCode)
+            .HasColumnName("cancellation_policy_code")
+            .HasMaxLength(40);
+
+        builder.Property(plan => plan.RequiredGuarantee)
+            .HasColumnName("required_guarantee")
+            .HasConversion<string>()
+            .HasMaxLength(40)
+            .IsRequired();
+
+        builder.Property(plan => plan.DepositPercent)
+            .HasColumnName("deposit_percent")
+            .HasPrecision(5, 2);
+
+        builder.Property(plan => plan.IsRefundable).HasColumnName("is_refundable");
+
+        builder.Property(plan => plan.MarketSegmentCode)
+            .HasColumnName("market_segment_code")
+            .HasMaxLength(40);
+
+        builder.Property(plan => plan.ChannelCode)
+            .HasColumnName("channel_code")
+            .HasMaxLength(40);
+
+        builder.Property(plan => plan.ValidFrom).HasColumnName("valid_from");
+        builder.Property(plan => plan.ValidTo).HasColumnName("valid_to");
+        builder.Property(plan => plan.DisplayOrder).HasColumnName("display_order");
+
         builder.HasIndex(plan => plan.Code)
             .IsUnique()
             .HasDatabaseName("ux_rate_plans_code");

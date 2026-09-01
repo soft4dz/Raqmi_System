@@ -62,6 +62,20 @@ public sealed class AuthenticationEndpointTests : IClassFixture<RaqmiApiFactory>
             PermissionCatalog.SettingsRead,
             PermissionCatalog.LodgingRead,
             PermissionCatalog.LodgingCheckin,
+            // Module 10 : les gestes de comptoir du PMS. La reception vend, affecte, enregistre
+            // arrivees et departs, deplace un client de chambre, constate un no-show, annule et
+            // passe le night audit de sa nuit.
+            //
+            // Elle n'a PAS lodging.change_rate, lodging.override_restriction, lodging.overbooking,
+            // lodging.manage_rooms ni lodging.manage_rates : ces cinq cles engagent au-dela de la
+            // nuit en cours - changer un prix vendu, lever une fermeture decidee ailleurs, vendre
+            // une chambre qui n'existe pas, reecrire le parametrage.
+            PermissionCatalog.LodgingReserve,
+            PermissionCatalog.LodgingCheckout,
+            PermissionCatalog.LodgingRoomMove,
+            PermissionCatalog.LodgingNoShow,
+            PermissionCatalog.LodgingCancel,
+            PermissionCatalog.LodgingNightAudit,
             // Module 10.2: the front desk posts minibar consumption onto a folio at check-out,
             // which is a housekeeping write. It never gets housekeeping.inspect - signing a room
             // off is the floor supervisor act.
@@ -220,7 +234,12 @@ public sealed class AuthenticationEndpointTests : IClassFixture<RaqmiApiFactory>
             // Module 29: same reasoning as maintenance.read - direction checks that the fleet is
             // up to date and that no workstation runs a stale build, without going through the
             // system administrator.
-            PermissionCatalog.SyncRead
+            PermissionCatalog.SyncRead,
+            // Bibliotheque KPI: reading indicators needs NO new key (dashboard.read plus the
+            // source-module keys above), but setting the alert thresholds, mapping the chart of
+            // accounts onto the GOP groups and closing a snapshot are governance acts - the same
+            // family as budget.approve, so the key sits with direction.
+            PermissionCatalog.KpiAdmin
         };
 
         Assert.Equal(expectedPermissions.Order(), body.Permissions.Order());

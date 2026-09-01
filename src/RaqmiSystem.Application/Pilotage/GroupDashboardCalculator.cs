@@ -333,11 +333,20 @@ public sealed class GroupDashboardCalculator
         {
             var night = day;
 
-            occupiedNights += blockingStays
+            var covering = blockingStays
                 .Where(stay => stay.ArrivalDate <= night && night < stay.DepartureDate)
-                .Select(stay => stay.RoomId)
+                .ToArray();
+
+            // Les chambres AFFECTEES ne comptent qu'une fois ; les sejours vendus par type et pas
+            // encore affectes comptent tout de meme, un par un. Ils consomment bien une chambre,
+            // ils n'ont simplement pas encore de numero - les ignorer ferait lire comme libre un
+            // inventaire deja vendu.
+            occupiedNights += covering
+                .Where(stay => stay.RoomId is not null)
+                .Select(stay => stay.RoomId!.Value)
                 .Distinct()
-                .Count();
+                .Count()
+                + covering.Count(stay => stay.RoomId is null);
         }
 
         return occupiedNights;

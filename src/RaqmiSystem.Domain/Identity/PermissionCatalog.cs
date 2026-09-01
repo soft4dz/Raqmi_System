@@ -41,6 +41,23 @@ public static class PermissionCatalog
     public const string LodgingRead = "lodging.read";
     public const string LodgingWrite = "lodging.write";
     public const string LodgingCheckin = "lodging.checkin";
+
+    // ----------------------------- Module 10 : PMS, cles fines -----------------------------
+    // Les trois cles ci-dessus restent en place et gardent leur sens : elles portent le
+    // parametrage general et le comptoir. Les cles ci-dessous decoupent les gestes qui ENGAGENT
+    // - la vente, le prix, la survente, la levee d'une fermeture, la cloture de la journee - pour
+    // qu'ils ne soient pas donnes en bloc a quiconque tient la reception.
+    public const string LodgingReserve = "lodging.reserve";
+    public const string LodgingCheckout = "lodging.checkout";
+    public const string LodgingChangeRate = "lodging.change_rate";
+    public const string LodgingRoomMove = "lodging.room_move";
+    public const string LodgingOverrideRestriction = "lodging.override_restriction";
+    public const string LodgingOverbooking = "lodging.overbooking";
+    public const string LodgingNoShow = "lodging.noshow";
+    public const string LodgingCancel = "lodging.cancel";
+    public const string LodgingManageRooms = "lodging.manage_rooms";
+    public const string LodgingManageRates = "lodging.manage_rates";
+    public const string LodgingNightAudit = "lodging.night_audit";
     public const string HousekeepingRead = "housekeeping.read";
     public const string HousekeepingWrite = "housekeeping.write";
     public const string HousekeepingInspect = "housekeeping.inspect";
@@ -69,6 +86,18 @@ public static class PermissionCatalog
     public const string PurchasingReceive = "purchasing.receive";
     public const string KitchenRead = "kitchen.read";
     public const string KitchenWrite = "kitchen.write";
+
+    /// <summary>
+    /// Parametrer la bibliotheque KPI. La LECTURE des indicateurs ne cree AUCUNE cle nouvelle :
+    /// elle exige <see cref="DashboardRead"/> pour entrer dans le module, puis les cles des
+    /// modules sources de chaque indicateur (voir <c>KpiCatalog</c>) - un ratio ne doit jamais
+    /// servir de chemin detourne vers une donnee que l'utilisateur n'a pas le droit de lire.
+    /// Seule l'ECRITURE en a besoin, parce qu'elle recouvre trois actes que personne ne pouvait
+    /// poser jusqu'ici : fixer les bornes d'alerte, rattacher les comptes du plan comptable aux
+    /// groupes de gestion qui construisent le GOP, et cloturer un instantane - ce dernier etant
+    /// irreversible par construction.
+    /// </summary>
+    public const string KpiAdmin = "kpi.admin";
 
     public static IReadOnlyCollection<PermissionDefinition> All { get; } = new[]
     {
@@ -110,7 +139,18 @@ public static class PermissionCatalog
         new PermissionDefinition(TariffsWrite, "Gerer les tarifs", "exploitation", "Creer et modifier les plans tarifaires, definir le plan par defaut, gerer les periodes de tarif et les conventions clients."),
         new PermissionDefinition(LodgingRead, "Lire l'hebergement", "exploitation", "Consulter les types de chambre, les chambres, les reservations, les folios et l'occupation."),
         new PermissionDefinition(LodgingWrite, "Gerer l'hebergement", "exploitation", "Gerer les types de chambre et les chambres, creer, annuler et constater le no-show des reservations."),
-        new PermissionDefinition(LodgingCheckin, "Operer le comptoir", "exploitation", "Effectuer les operations du comptoir : check-in, check-out et ajout de lignes de folio."),
+        new PermissionDefinition(LodgingCheckin, "Operer le comptoir", "exploitation", "Effectuer les operations du comptoir : enregistrer une arrivee, tenir les folios et les acomptes."),
+        new PermissionDefinition(LodgingReserve, "Vendre l'hebergement", "exploitation", "Creer une reservation ou un walk-in, affecter une chambre, prolonger un sejour."),
+        new PermissionDefinition(LodgingCheckout, "Enregistrer les departs", "exploitation", "Enregistrer un depart : il exige un solde nul sur tous les folios du sejour."),
+        new PermissionDefinition(LodgingChangeRate, "Modifier le tarif d'un sejour", "exploitation", "Surclasser ou declasser un sejour en facturant l'ecart, et faire reposer les tarifs a venir."),
+        new PermissionDefinition(LodgingRoomMove, "Changer un client de chambre", "exploitation", "Deplacer un sejour vers une autre chambre, avec motif obligatoire."),
+        new PermissionDefinition(LodgingOverrideRestriction, "Passer outre une restriction", "exploitation", "Vendre malgre un stop sell, un CTA, un CTD ou une duree de sejour imposee."),
+        new PermissionDefinition(LodgingOverbooking, "Vendre en surreservation", "exploitation", "Vendre au-dela de la capacite physique, dans la limite autorisee pour la periode."),
+        new PermissionDefinition(LodgingNoShow, "Constater les no-shows", "exploitation", "Constater une non-presentation et declencher la penalite prevue par la politique figee."),
+        new PermissionDefinition(LodgingCancel, "Annuler une reservation", "exploitation", "Annuler un dossier avec motif et appliquer la penalite prevue par la politique figee."),
+        new PermissionDefinition(LodgingManageRooms, "Gerer le parc de chambres", "exploitation", "Creer et modifier les types et les chambres, et poser les blocages hors service (OOO/OOS)."),
+        new PermissionDefinition(LodgingManageRates, "Gerer les regles de vente PMS", "exploitation", "Parametrer restrictions, surreservation, extras, forfaits, politiques d'annulation et regles de yield."),
+        new PermissionDefinition(LodgingNightAudit, "Passer le night audit", "exploitation", "Executer le night audit d'une journee d'exploitation : controles, posting des nuitees et rapport."),
         new PermissionDefinition(HousekeepingRead, "Lire le housekeeping", "exploitation", "Consulter le tableau des chambres, les taches de nettoyage, le planning des equipes, la carte minibar et les consommations."),
         new PermissionDefinition(HousekeepingWrite, "Gerer le housekeeping", "exploitation", "Planifier et affecter les taches de nettoyage, declarer l'etat des chambres, gerer la carte minibar et enregistrer les consommations."),
         new PermissionDefinition(HousekeepingInspect, "Controler les chambres", "exploitation", "Rendre le verdict de controle sur une chambre nettoyee : accepter la chambre ou la refuser avec motif."),
@@ -138,6 +178,7 @@ public static class PermissionCatalog
         new PermissionDefinition(PurchasingApprove, "Approuver les bons de commande", "exploitation", "Approuver un bon de commande : allouer son numero definitif et figer ses lignes - l'acte qui engage la depense."),
         new PermissionDefinition(PurchasingReceive, "Receptionner les marchandises", "exploitation", "Enregistrer une reception (totale ou partielle) contre un bon de commande approuve et generer l'entree en stock correspondante."),
         new PermissionDefinition(KitchenRead, "Lire la cuisine", "exploitation", "Consulter les fiches techniques, leur cout matiere, les points de controle HACCP et les releves de temperature."),
-        new PermissionDefinition(KitchenWrite, "Gerer la cuisine", "exploitation", "Creer et modifier les fiches techniques et leurs ingredients, administrer les points de controle et leurs seuils, enregistrer les releves de temperature HACCP.")
+        new PermissionDefinition(KitchenWrite, "Gerer la cuisine", "exploitation", "Creer et modifier les fiches techniques et leurs ingredients, administrer les points de controle et leurs seuils, enregistrer les releves de temperature HACCP."),
+        new PermissionDefinition(KpiAdmin, "Parametrer la bibliotheque KPI", "reporting", "Fixer les seuils et objectifs des indicateurs, rattacher les comptes du plan comptable aux groupes de gestion du resultat, et cloturer les instantanes historises.")
     };
 }

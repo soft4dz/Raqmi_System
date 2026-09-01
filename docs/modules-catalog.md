@@ -96,6 +96,50 @@ Le tableau ci-dessus transcrit fidelement le catalogue de l'ancien produit Elect
 conserve tel quel comme releve d'origine. Lorsque la reprise s'ecarte volontairement de la source,
 l'ecart est consigne ici plutot que d'etre efface du tableau.
 
+### Module 10 - le PMS hotelier, complete
+
+Le catalogue source annonce pour le module 10 : PMS avance, reservations et folios, channel manager,
+booking engine, yield management. Le depot livrait jusqu'ici un noyau volontairement etroit -
+chambres, reservation sur UNE chambre nommee, folio unique pose a l'arrivee. Ce noyau etait correct
+mais il ne suffisait pas a faire tourner une reception.
+
+Cette passe le complete. Le detail vit dans `docs/modules/pms-hebergement.md` ; l'essentiel tient en
+quelques points.
+
+CE QUI STRUCTURE TOUT : une seule source de verite pour l'inventaire. Un calcul unique et pur
+(`AvailabilityCalculator`) alimente par cinq sources - parc, blocages OOO/OOS, nuitees vendues,
+allotements de groupe, surreservation autorisee - et appele par TOUS les chemins qui vendent ou
+tiennent une chambre. Deux endroits qui compteraient les chambres finiraient toujours par ne plus
+etre d'accord, et l'ecart se paierait en survente silencieuse.
+
+LIVRE :
+- inventaire : hors service technique (OOO) et d'exploitation (OOS) dates et motives, politique
+  d'unite decidant si le second retire ou non l'inventaire commercial ;
+- vente PAR TYPE avec affectation differee de la chambre, walk-in, statuts demande / option /
+  confirmee / garantie ;
+- regles de vente : stop sell, CTA, CTD, MinLOS, MaxLOS, delais de reservation, combinees par la
+  plus restrictive ;
+- surreservation datee, par type, tracee sur le dossier qui franchit la capacite physique ;
+- gestes de sejour : affectation, changement de chambre avec historique complet, prolongation,
+  surclassement et declassement deduits du RANG des types, arrivee anticipee et depart tardif ;
+- argent : folios multiples (client / societe / agence / groupe), transfert de ligne par
+  contre-passation, extras, forfaits a ventilation equilibree, acomptes, politiques d'annulation
+  FIGEES dans le dossier ;
+- exploitation : date metier hoteliere, night audit idempotent, previsionnel avec ADR et RevPAR,
+  planning graphique, tableaux d'arrivees, de departs et de clients presents, balayage des no-shows ;
+- douze permissions fines, les cles historiques valant les cles qu'elles ont remplacees.
+
+NON LIVRE, et il vaut mieux le lire ici que le decouvrir en production :
+- **channel manager** : l'interface `IChannelManagerProvider` et son registre existent, aucun
+  connecteur OTA n'est ecrit. La frontiere est posee - un fournisseur publie ce que le PMS a calcule
+  et rejoue ce que le canal a vendu, il ne calcule jamais d'inventaire ;
+- **moteur de reservation directe** : rien n'est livre. La conception l'oblige deja a passer par
+  `ILodgingService`, donc un second moteur de disponibilite est exclu par construction ;
+- **deversement comptable automatique des ecritures PMS** : les lignes de folio portent leur TVA,
+  leur journee d'exploitation et leur nature, elles sont pretes ; le deversement appartient au
+  module Comptabilite, qui possede le plan comptable, et le doubler ici creerait une seconde source
+  d'ecritures.
+
 ### Module 29 - "Synchronisation multi-postes" livre en supervision seule
 
 Dans le produit d'origine, chaque poste portait sa PROPRE base SQLite locale et l'API centrale etait

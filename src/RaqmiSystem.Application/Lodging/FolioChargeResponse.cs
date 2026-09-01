@@ -9,4 +9,11 @@ public sealed record FolioChargeResponse(
     string Label,
     decimal Amount,
     ChargeKind Kind,
-    string? Reference);
+    string? Reference,
+    decimal Quantity = 1m,
+    decimal? VatRate = null,
+    decimal AmountExclVat = 0m,
+    decimal VatAmount = 0m,
+    string? ExtraCode = null,
+    string? SourceReference = null,
+    DateOnly? BusinessDate = null);

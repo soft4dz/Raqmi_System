@@ -1,4 +1,4 @@
-﻿namespace RaqmiSystem.Application.Lodging;
+namespace RaqmiSystem.Application.Lodging;
 
 /// <summary>
 /// Une chambre et son couchage EFFECTIF.
@@ -23,4 +23,14 @@ public sealed record RoomResponse(
     DateTimeOffset CreatedAt,
     string CreatedBy,
     DateTimeOffset? UpdatedAt,
-    string? UpdatedBy);
+    string? UpdatedBy,
+    string? Building = null,
+    string? Wing = null,
+    string? InternalCode = null,
+    string? View = null,
+    IReadOnlyCollection<string>? Amenities = null,
+    bool IsAccessible = false,
+    bool IsSmoking = false,
+    int DisplayOrder = 0,
+    string? RoomTypeLabel = null,
+    int Capacity = 0);

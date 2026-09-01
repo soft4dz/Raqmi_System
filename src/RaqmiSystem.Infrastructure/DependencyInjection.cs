@@ -6,6 +6,7 @@ using RaqmiSystem.Application.Accounting;
 using RaqmiSystem.Application.Approvals;
 using RaqmiSystem.Application.Billing;
 using RaqmiSystem.Application.Budgeting;
+using RaqmiSystem.Application.Channels;
 using RaqmiSystem.Application.Closing;
 using RaqmiSystem.Application.Crm;
 using RaqmiSystem.Application.Housekeeping;
@@ -19,6 +20,7 @@ using RaqmiSystem.Application.Mice;
 using RaqmiSystem.Application.Sync;
 using RaqmiSystem.Application.Organization;
 using RaqmiSystem.Application.Purchasing;
+using RaqmiSystem.Application.Kpi;
 using RaqmiSystem.Application.Pilotage;
 using RaqmiSystem.Application.Receivables;
 using RaqmiSystem.Application.Reporting;
@@ -32,6 +34,7 @@ using RaqmiSystem.Infrastructure.Approvals;
 using RaqmiSystem.Infrastructure.Audit;
 using RaqmiSystem.Infrastructure.Billing;
 using RaqmiSystem.Infrastructure.Budgeting;
+using RaqmiSystem.Infrastructure.Channels;
 using RaqmiSystem.Infrastructure.Closing;
 using RaqmiSystem.Infrastructure.Crm;
 using RaqmiSystem.Infrastructure.Housekeeping;
@@ -46,6 +49,7 @@ using RaqmiSystem.Infrastructure.Sync;
 using RaqmiSystem.Infrastructure.Organization;
 using RaqmiSystem.Infrastructure.Persistence;
 using RaqmiSystem.Infrastructure.Purchasing;
+using RaqmiSystem.Infrastructure.Kpi;
 using RaqmiSystem.Infrastructure.Pilotage;
 using RaqmiSystem.Infrastructure.Receivables;
 using RaqmiSystem.Infrastructure.Reporting;
@@ -94,7 +98,20 @@ public static class DependencyInjection
         services.AddScoped<IReceivablesService, ReceivablesService>();
         services.AddScoped<ITariffService, TariffService>();
         services.AddScoped<ITariffResolutionService, TariffResolutionService>();
-        services.AddScoped<ILodgingService, LodgingService>();
+        // Le PMS expose quatre contrats - coeur, inventaire, referentiels, exploitation - mais UNE
+        // seule implementation, enregistree une fois et partagee : ces quatre faces travaillent sur
+        // le meme DbContext et le meme calcul de disponibilite, et deux instances par requete
+        // ouvriraient deux suivis de changements sur les memes entites.
+        services.AddScoped<LodgingService>();
+        services.AddScoped<ILodgingService>(provider => provider.GetRequiredService<LodgingService>());
+        services.AddScoped<ILodgingInventoryService>(provider => provider.GetRequiredService<LodgingService>());
+        services.AddScoped<ILodgingCatalogService>(provider => provider.GetRequiredService<LodgingService>());
+        services.AddScoped<ILodgingOperationsService>(provider => provider.GetRequiredService<LodgingService>());
+
+        // L'annuaire des connecteurs de distribution. Il est enregistre VIDE : aucun fournisseur
+        // n'est livre, et c'est delibere - la couche existe pour que le PMS reste la seule source
+        // de verite de l'inventaire le jour ou un connecteur arrivera.
+        services.AddSingleton<IChannelManagerRegistry, ChannelManagerRegistry>();
 
         // Housekeeping depends on ILodgingService so a minibar consumption and the folio
         // line it bills are written by the SAME folio code path, inside its transaction -
@@ -110,6 +127,13 @@ public static class DependencyInjection
         services.AddScoped<IPayrollService, PayrollService>();
         services.AddScoped<IReportingService, ReportingService>();
         services.AddScoped<IBackupService, BackupService>();
+
+        // Bibliotheque KPI : le chargeur de faits (seul point de contact avec les entites des
+        // autres modules), la lecture (calcul a la demande, aucune ecriture) et le parametrage
+        // (seuils, rattachement de comptes, instantanes - audite).
+        services.AddScoped<KpiFactLoader>();
+        services.AddScoped<IKpiService, KpiService>();
+        services.AddScoped<IKpiAdministrationService, KpiAdministrationService>();
 
         // Module Pilotage : deux lecteurs d'agregation pure (aucune table, aucune ecriture).
         services.AddScoped<IGroupDashboardService, GroupDashboardService>();

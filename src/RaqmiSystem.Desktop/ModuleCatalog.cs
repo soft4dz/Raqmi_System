@@ -42,11 +42,11 @@ public sealed record ModuleCatalogEntry(
 public static class ModuleCatalog
 {
     // Totaux attendus - garde de coherence verifiee au chargement du type.
-    public const int ExpectedTotal = 49;
-    public const int ExpectedAvailable = 29;
+    public const int ExpectedTotal = 50;
+    public const int ExpectedAvailable = 31;
     public const int ExpectedApiReady = 0;
     public const int ExpectedPartial = 0;
-    public const int ExpectedPlanned = 20;
+    public const int ExpectedPlanned = 19;
 
     // Libelles affiches des groupes fonctionnels (ordre d'apparition).
     public static class Groups
@@ -85,14 +85,22 @@ public static class ModuleCatalog
 
     static ModuleCatalog()
     {
-        // Garde de coherence : le tableau de verite du depot compte 49 modules,
-        // repartis en 29 Disponible / 0 API prete / 0 Partiel / 20 Planifie.
+        // Garde de coherence : le tableau de verite du depot compte 50 modules,
+        // repartis en 31 Disponible / 0 API prete / 0 Partiel / 19 Planifie.
         // Plus aucun module partiel : le 10.6 (Groupes & MICE) a recu son volet
         // groupes - allotements et rooming lists - qui manquait a l'appel.
         // La vague E1 fait passer trois modules d'exploitation de Planifie a
         // Disponible : Stocks (11), Cuisine (11.5) et Achats (12).
         // Le module 29 passe Disponible en supervision seule, et change de nom au
         // passage : il tient un registre des postes, il ne synchronise rien.
+        // La bibliotheque KPI (onglet 29) fait passer le 25.4 (Comparatif inter-unites)
+        // de Planifie a Disponible : tableau de bord d'indicateurs, comparatif et alertes.
+        // Le PMS front office (10.1, onglet 30) ajoute la 50e ligne, et c'est la premiere fois
+        // que ce catalogue compte plus de modules que le tableau source. C'est assume : le
+        // module 10 a desormais DEUX ecrans, le parametrage et la vente d'un cote,
+        // l'exploitation quotidienne de l'autre, et une entree ne pouvant porter qu'un seul
+        // onglet, le second ecran serait sinon absent de la barre laterale - donc introuvable
+        // pour une reception qui ne connait pas la bande d'onglets.
         // Toute edition qui casse ces totaux doit etre volontaire et reportee ici.
         EnsureCount("total", Entries.Count, ExpectedTotal);
         EnsureCount("Disponible", CountOf(ModuleStatus.Disponible), ExpectedAvailable);
@@ -147,6 +155,13 @@ public static class ModuleCatalog
         new ModuleCatalogEntry("10", Groups.Exploitation, "Hébergement & occupation",
             "Types de chambre, réservations, folios et taux d'occupation",
             "P1", ModuleStatus.Disponible, PermissionCatalog.LodgingRead, 15),
+        // Le PMS front office complete le module 10 plutot que de le remplacer : le 10 tient le
+        // parametrage du parc et la vente, celui-ci tient l'exploitation quotidienne - planning,
+        // arrivees, departs, presents, previsionnel, hors service et night audit. Deux ecrans, un
+        // seul moteur : tout ce qui touche a l'inventaire vient du meme calcul serveur.
+        new ModuleCatalogEntry("10.1", Groups.Exploitation, "PMS front office",
+            "Planning, arrivées, départs, clients présents, prévisionnel, hors service et night audit",
+            "P1", ModuleStatus.Disponible, PermissionCatalog.LodgingRead, 30),
         new ModuleCatalogEntry("10.2", Groups.Exploitation, "Housekeeping & chambres",
             "Planning des équipes, inspection, minibar",
             "P2", ModuleStatus.Disponible, PermissionCatalog.HousekeepingRead, 21),
@@ -267,8 +282,8 @@ public static class ModuleCatalog
             "Règles d'alerte et préférences de diffusion",
             "P2", ModuleStatus.Planifie),
         new ModuleCatalogEntry("25.4", Groups.Pilotage, "Comparatif inter-unités",
-            "Classement des unités et comparaisons N/N-1",
-            "P2", ModuleStatus.Planifie),
+            "Bibliothèque KPI, classement des unités et comparaisons N/N-1",
+            "P2", ModuleStatus.Disponible, PermissionCatalog.DashboardRead, 29),
 
         // ------------------------------------------------------------ Spécifique
         new ModuleCatalogEntry("26", Groups.Specifique, "PortMaster",

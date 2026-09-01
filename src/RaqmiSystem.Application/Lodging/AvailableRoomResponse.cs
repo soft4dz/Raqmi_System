@@ -1,22 +1,15 @@
 namespace RaqmiSystem.Application.Lodging;
 
 /// <summary>
-/// One room free over the searched period.
+/// Une chambre physique libre sur la periode cherchee.
 ///
 /// <para>
-/// <see cref="HasRate"/> separates two very different situations the operator must both see:
-/// a bookable room with its full per-night pricing, and a free room the tariff module cannot
-/// price (a rate-coverage hole). The second stays VISIBLE - hiding it would disguise a
-/// tariff-setup mistake as full occupancy - but carries <see cref="RateIssue"/> (the resolver's
-/// own message, naming the first unpriced night) instead of a total, and cannot be booked as-is.
-/// </para>
-///
-/// <para>
-/// <see cref="RatePlanCode"/>, <see cref="ConventionCustomerCode"/> and
-/// <see cref="DiscountPercent"/> describe the ARRIVAL night's resolution (the same figures a
-/// reservation freezes as its flat snapshot); <see cref="NightlyRates"/> carries the plan night
-/// by night when it varies. On a room without a rate, the nights resolved before the hole are
-/// still listed so the operator sees exactly where coverage stops.
+/// <see cref="HasRate"/> separe deux situations tres differentes que l'operateur doit toutes deux
+/// voir : une chambre vendable avec son prix nuit par nuit, et une chambre libre que le module
+/// Tarifs ne sait pas chiffrer (un trou de couverture tarifaire). La seconde reste VISIBLE -
+/// la cacher deguiserait une erreur de parametrage en occupation complete - mais porte
+/// <see cref="RateIssue"/> (le message du resolveur, nommant la premiere nuit sans prix) au lieu
+/// d'un total, et ne peut pas etre vendue en l'etat.
 /// </para>
 /// </summary>
 public sealed record AvailableRoomResponse(
@@ -31,4 +24,10 @@ public sealed record AvailableRoomResponse(
     string? ConventionCustomerCode,
     decimal? DiscountPercent,
     decimal? TotalStayAmount,
-    IReadOnlyCollection<AvailableNightRateResponse> NightlyRates);
+    IReadOnlyCollection<AvailableNightRateResponse> NightlyRates,
+    string? Floor = null,
+    string? Building = null,
+    string? View = null,
+    bool IsAccessible = false,
+    bool IsSmoking = false,
+    string? HousekeepingStatus = null);

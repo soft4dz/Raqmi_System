@@ -78,7 +78,15 @@ public sealed class SecuritySeeder(
             // Module 29 - registre des postes. Meme logique que maintenance.read : direction
             // verifie que le parc est a jour et qu'aucun poste ne tourne sur une version
             // perimee, sans avoir a passer par l'administrateur systeme.
-            PermissionCatalog.SyncRead
+            PermissionCatalog.SyncRead,
+            // Bibliotheque KPI. La LECTURE des indicateurs n'exige aucune cle nouvelle : elle
+            // passe par dashboard.read, deja detenu ici, puis par les cles des modules sources
+            // de chaque indicateur - direction lit donc exactement les familles qu'elle a le
+            // droit de lire ailleurs, ni plus ni moins. kpi.admin est autre chose : fixer les
+            // bornes d'alerte, c'est fixer l'aune a laquelle les unites sont jugees, et cloturer
+            // un instantane, c'est figer pour de bon le chiffre communique. Les deux relevent de
+            // la gouvernance, comme budget.approve juste au-dessus.
+            PermissionCatalog.KpiAdmin
         ],
         [RoleCatalog.ExploitationControl] =
         [
@@ -114,6 +122,22 @@ public sealed class SecuritySeeder(
             PermissionCatalog.LodgingRead,
             PermissionCatalog.LodgingWrite,
             PermissionCatalog.LodgingCheckin,
+            // Module 10 - PMS. Ce profil tient l'exploitation de bout en bout : il vend, il
+            // encaisse, il deplace, il surclasse, il assume la surreservation et il passe le
+            // night audit. Les cles fines sont donnees ENSEMBLE ici parce que c'est le role qui
+            // repond de l'inventaire de ses hotels ; elles sont separees justement pour pouvoir
+            // ne pas les donner ailleurs.
+            PermissionCatalog.LodgingReserve,
+            PermissionCatalog.LodgingCheckout,
+            PermissionCatalog.LodgingChangeRate,
+            PermissionCatalog.LodgingRoomMove,
+            PermissionCatalog.LodgingOverrideRestriction,
+            PermissionCatalog.LodgingOverbooking,
+            PermissionCatalog.LodgingNoShow,
+            PermissionCatalog.LodgingCancel,
+            PermissionCatalog.LodgingManageRooms,
+            PermissionCatalog.LodgingManageRates,
+            PermissionCatalog.LodgingNightAudit,
             PermissionCatalog.HousekeepingRead,
             PermissionCatalog.HousekeepingWrite,
             PermissionCatalog.HousekeepingInspect,
@@ -142,8 +166,18 @@ public sealed class SecuritySeeder(
             // EN PLUS de mice.write - sans quoi mice.write serait un chemin detourne vers
             // l'inventaire chambres et vers la facturation.
             PermissionCatalog.MiceRead,
-            PermissionCatalog.MiceWrite
+            PermissionCatalog.MiceWrite,
+            // Bibliotheque KPI. Le controle d'exploitation est le role qui tient reellement le
+            // parametrage : c'est lui qui construit le rattachement des comptes du plan comptable
+            // aux groupes de gestion avec le comptable (il detient deja accounting.write et
+            // accounting.post), et lui qui pose les instantanes au moment des clotures qu'il
+            // conduit deja (closing.close, closing.reopen).
+            PermissionCatalog.KpiAdmin
         ],
+        // NOTE - kpi.admin n'est PAS accorde a unit.manager, et ce n'est pas un oubli : un
+        // directeur d'unite ne fixe pas l'aune a laquelle son etablissement est juge, pas plus
+        // qu'il n'approuve son propre budget (budget.approve lui est deja refuse pour la meme
+        // raison). Il lit tous les indicateurs auxquels ses cles de module lui donnent droit.
         [RoleCatalog.UnitManager] =
         [
             PermissionCatalog.UnitsRead,
@@ -165,6 +199,22 @@ public sealed class SecuritySeeder(
             PermissionCatalog.LodgingRead,
             PermissionCatalog.LodgingWrite,
             PermissionCatalog.LodgingCheckin,
+            // Module 10 - PMS. Ce profil tient l'exploitation de bout en bout : il vend, il
+            // encaisse, il deplace, il surclasse, il assume la surreservation et il passe le
+            // night audit. Les cles fines sont donnees ENSEMBLE ici parce que c'est le role qui
+            // repond de l'inventaire de ses hotels ; elles sont separees justement pour pouvoir
+            // ne pas les donner ailleurs.
+            PermissionCatalog.LodgingReserve,
+            PermissionCatalog.LodgingCheckout,
+            PermissionCatalog.LodgingChangeRate,
+            PermissionCatalog.LodgingRoomMove,
+            PermissionCatalog.LodgingOverrideRestriction,
+            PermissionCatalog.LodgingOverbooking,
+            PermissionCatalog.LodgingNoShow,
+            PermissionCatalog.LodgingCancel,
+            PermissionCatalog.LodgingManageRooms,
+            PermissionCatalog.LodgingManageRates,
+            PermissionCatalog.LodgingNightAudit,
             PermissionCatalog.HousekeepingRead,
             PermissionCatalog.HousekeepingWrite,
             PermissionCatalog.HousekeepingInspect,
@@ -201,6 +251,21 @@ public sealed class SecuritySeeder(
             PermissionCatalog.SettingsRead,
             PermissionCatalog.LodgingRead,
             PermissionCatalog.LodgingCheckin,
+            // Module 10 - PMS, cote comptoir. La reception vend, affecte, enregistre les arrivees
+            // et les departs, deplace un client de chambre, constate un no-show, annule et passe
+            // le night audit de sa nuit - ce sont ses gestes quotidiens.
+            //
+            // Elle N'A PAS lodging.change_rate, lodging.override_restriction,
+            // lodging.overbooking, lodging.manage_rooms ni lodging.manage_rates. Ces cinq-la
+            // engagent au-dela de la nuit en cours : elles changent un prix vendu, levent une
+            // fermeture decidee ailleurs, vendent une chambre qui n'existe pas, ou reecrivent le
+            // parametrage. C'est exactement la ligne que le decoupage des cles existe pour tenir.
+            PermissionCatalog.LodgingReserve,
+            PermissionCatalog.LodgingCheckout,
+            PermissionCatalog.LodgingRoomMove,
+            PermissionCatalog.LodgingNoShow,
+            PermissionCatalog.LodgingCancel,
+            PermissionCatalog.LodgingNightAudit,
             // The front desk needs housekeeping.write to post minibar consumption onto a folio
             // at check-out - the same act as any other extra it already records. It does NOT
             // get housekeeping.inspect: signing a room off is the floor supervisor act.

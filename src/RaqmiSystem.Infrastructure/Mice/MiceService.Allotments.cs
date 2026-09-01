@@ -430,7 +430,7 @@ public sealed partial class MiceService
 
         var occupied = (await dbContext.Set<Reservation>()
             .AsNoTracking()
-            .Where(reservation => candidateIds.Contains(reservation.RoomId))
+            .Where(reservation => reservation.RoomId != null && candidateIds.Contains(reservation.RoomId.Value))
             .Where(reservation => reservation.Status != ReservationStatus.Cancelled
                 && reservation.Status != ReservationStatus.NoShow
                 && reservation.ArrivalDate < departure

@@ -442,7 +442,7 @@ public sealed class CrmServiceTests
         await EarnAsync(harness, 1_500);
 
         await AddStayAsync(harness, new DateOnly(2030, 4, 1), new DateOnly(2030, 4, 4), ReservationStatus.CheckedOut);
-        await AddStayAsync(harness, new DateOnly(2030, 6, 1), new DateOnly(2030, 6, 3), ReservationStatus.Booked);
+        await AddStayAsync(harness, new DateOnly(2030, 6, 1), new DateOnly(2030, 6, 3), ReservationStatus.Confirmed);
         await AddStayAsync(harness, new DateOnly(2030, 3, 1), new DateOnly(2030, 3, 2), ReservationStatus.Cancelled);
 
         await RecordScoreAsync(harness, CustomerCode, new DateOnly(2030, 4, 5), 9);
@@ -624,7 +624,7 @@ public sealed class CrmServiceTests
         // The reservations are written straight through the DbContext: the 360 view only READS
         // them, and going through the lodging service would couple this test to - and incidentally
         // test - the booking rules of another module.
-        var reservation = new Reservation(
+        var reservation = TestReservations.Create(
             UnitCode,
             harness.RoomId,
             CustomerCode,

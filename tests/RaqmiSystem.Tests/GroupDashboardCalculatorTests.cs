@@ -111,7 +111,7 @@ public sealed class GroupDashboardCalculatorTests
             ],
             [
                 // Booked, nights of 1 and 2 August (departure night excluded).
-                new GroupStayFact(ManarCode, RoomOne, From, To, ReservationStatus.Booked),
+                new GroupStayFact(ManarCode, RoomOne, From, To, ReservationStatus.Confirmed),
                 // CheckedOut still blocks: nights of 2 and 3 August.
                 new GroupStayFact(ManarCode, RoomTwo, From.AddDays(1), To.AddDays(1), ReservationStatus.CheckedOut),
                 new GroupStayFact(ManarCode, RoomOne, To, To.AddDays(2), ReservationStatus.Cancelled),

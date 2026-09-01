@@ -745,6 +745,12 @@ public partial class MainWindow : Window
             case 28:
                 await MiceView.LoadAsync();
                 break;
+            case 29:
+                await KpiView.LoadAsync();
+                break;
+            case 30:
+                await PmsView.LoadAsync();
+                break;
             default:
                 // Les onglets 0 a 4 vivent dans MainWindow et sont charges a la
                 // connexion : rien a faire, et rien a retenir non plus.
@@ -926,6 +932,8 @@ public partial class MainWindow : Window
         SyncView.Initialize(context);
         MiceView.Initialize(context);
         GroupDashboardView.Initialize(context);
+        KpiView.Initialize(context);
+        PmsView.Initialize(context);
         DecCockpitView.Initialize(context);
         HousekeepingView.Initialize(context);
         HumanResourcesView.Initialize(context);
@@ -1020,6 +1028,7 @@ public partial class MainWindow : Window
         BackupView.ResetState();
         SyncView.ResetState();
         MiceView.ResetState();
+        PmsView.ResetState();
 
         // Remis a zero pour que la prochaine session batte immediatement : le registre doit
         // refleter le NOUVEL utilisateur du poste sans attendre cinq minutes.

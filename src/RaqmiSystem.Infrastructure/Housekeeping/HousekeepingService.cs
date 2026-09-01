@@ -88,15 +88,21 @@ public sealed class HousekeepingService(
 
         var stays = await dbContext.Set<Reservation>()
             .AsNoTracking()
-            .Where(reservation => roomIds.Contains(reservation.RoomId)
+            .Where(reservation => reservation.RoomId != null
+                && roomIds.Contains(reservation.RoomId.Value)
                 && reservation.Status != ReservationStatus.Cancelled
                 && reservation.Status != ReservationStatus.NoShow
                 && reservation.ArrivalDate < nextDay
                 && reservation.DepartureDate >= date)
             .ToArrayAsync(cancellationToken);
 
+        // Le regroupement porte sur les sejours AFFECTES : depuis que le PMS vend par type, un
+        // dossier peut n'avoir aucune chambre, et une feuille de menage ne s'ecrit que pour une
+        // chambre reelle. Les dossiers sans chambre sont ecartes ici, ils reviendront quand la
+        // reception aura affecte.
         var staysByRoom = stays
-            .GroupBy(reservation => reservation.RoomId)
+            .Where(reservation => reservation.RoomId is not null)
+            .GroupBy(reservation => reservation.RoomId!.Value)
             .ToDictionary(group => group.Key, group => group.ToArray());
 
         var tasks = await dbContext.Set<HousekeepingTask>()
@@ -411,15 +417,21 @@ public sealed class HousekeepingService(
 
         var stays = await dbContext.Set<Reservation>()
             .AsNoTracking()
-            .Where(reservation => roomIds.Contains(reservation.RoomId)
+            .Where(reservation => reservation.RoomId != null
+                && roomIds.Contains(reservation.RoomId.Value)
                 && reservation.Status != ReservationStatus.Cancelled
                 && reservation.Status != ReservationStatus.NoShow
                 && reservation.ArrivalDate < nextDay
                 && reservation.DepartureDate >= serviceDate)
             .ToArrayAsync(cancellationToken);
 
+        // Le regroupement porte sur les sejours AFFECTES : depuis que le PMS vend par type, un
+        // dossier peut n'avoir aucune chambre, et une feuille de menage ne s'ecrit que pour une
+        // chambre reelle. Les dossiers sans chambre sont ecartes ici, ils reviendront quand la
+        // reception aura affecte.
         var staysByRoom = stays
-            .GroupBy(reservation => reservation.RoomId)
+            .Where(reservation => reservation.RoomId is not null)
+            .GroupBy(reservation => reservation.RoomId!.Value)
             .ToDictionary(group => group.Key, group => group.ToArray());
 
         var existing = await dbContext.Set<HousekeepingTask>()

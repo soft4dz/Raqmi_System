@@ -11,6 +11,7 @@ using RaqmiSystem.Domain.HumanResources;
 using RaqmiSystem.Domain.Identity;
 using RaqmiSystem.Domain.Inventory;
 using RaqmiSystem.Domain.Kitchen;
+using RaqmiSystem.Domain.Kpi;
 using RaqmiSystem.Domain.Lodging;
 using RaqmiSystem.Domain.Mice;
 using RaqmiSystem.Domain.Organization;
@@ -88,6 +89,56 @@ public sealed class RaqmiDbContext(DbContextOptions<RaqmiDbContext> options) : D
     public DbSet<Folio> Folios => Set<Folio>();
 
     public DbSet<FolioCharge> FolioCharges => Set<FolioCharge>();
+
+    // ----------------------------- Module 10 : socle PMS hotelier -----------------------------
+    // Ces tables portent l'inventaire et les regles de vente. Elles sont lues par la recherche de
+    // disponibilite, par le garde de creation de reservation, par le forecast et - le jour ou ils
+    // existeront - par le moteur de reservation directe et le channel manager. C'est deliberement
+    // le MEME calcul pour tous : deux logiques d'inventaire independantes finissent toujours par
+    // ne plus etre d'accord, et l'hotel survend en silence.
+
+    /// <summary>Blocages de chambres : hors service technique (OOO) et d'exploitation (OOS).</summary>
+    public DbSet<RoomBlock> RoomBlocks => Set<RoomBlock>();
+
+    /// <summary>Regles d'exploitation par unite : heures de comptoir, ECI/LCO, inventaire.</summary>
+    public DbSet<LodgingPolicy> LodgingPolicies => Set<LodgingPolicy>();
+
+    /// <summary>Restrictions de vente : stop sell, CTA, CTD, MinLOS, MaxLOS, delais.</summary>
+    public DbSet<RateRestriction> RateRestrictions => Set<RateRestriction>();
+
+    /// <summary>Autorisations de surreservation, par type et par periode.</summary>
+    public DbSet<OverbookingAllowance> OverbookingAllowances => Set<OverbookingAllowance>();
+
+    /// <summary>Journal metier des sejours : ce qui a change, quand et par qui.</summary>
+    public DbSet<ReservationEvent> ReservationEvents => Set<ReservationEvent>();
+
+    /// <summary>Historique des chambres occupees par un sejour (changements de chambre compris).</summary>
+    public DbSet<StayRoomAssignment> StayRoomAssignments => Set<StayRoomAssignment>();
+
+    /// <summary>Referentiel des extras vendables.</summary>
+    public DbSet<ExtraItem> ExtraItems => Set<ExtraItem>();
+
+    /// <summary>Extras attaches a un sejour, a leurs conditions de vente figees.</summary>
+    public DbSet<ReservationExtra> ReservationExtras => Set<ReservationExtra>();
+
+    /// <summary>Forfaits et leur ventilation interne.</summary>
+    public DbSet<Package> Packages => Set<Package>();
+
+    public DbSet<PackageComponent> PackageComponents => Set<PackageComponent>();
+
+    /// <summary>Acomptes attaches aux reservations.</summary>
+    public DbSet<Deposit> Deposits => Set<Deposit>();
+
+    /// <summary>Politiques d'annulation et leurs paliers.</summary>
+    public DbSet<CancellationPolicy> CancellationPolicies => Set<CancellationPolicy>();
+
+    public DbSet<CancellationPolicyRule> CancellationPolicyRules => Set<CancellationPolicyRule>();
+
+    /// <summary>Regles de revenue management.</summary>
+    public DbSet<YieldRule> YieldRules => Set<YieldRule>();
+
+    /// <summary>Passages de night audit.</summary>
+    public DbSet<NightAuditRun> NightAuditRuns => Set<NightAuditRun>();
 
     public DbSet<RoomCondition> RoomConditions => Set<RoomCondition>();
 
@@ -190,6 +241,17 @@ public sealed class RaqmiDbContext(DbContextOptions<RaqmiDbContext> options) : D
     public DbSet<Workstation> Workstations => Set<Workstation>();
 
     public DbSet<WorkstationFailure> WorkstationFailures => Set<WorkstationFailure>();
+
+    // ------------------------------ Bibliotheque KPI ------------------------------
+    // Les trois seules tables du module : bornes de pilotage, rattachement des comptes aux
+    // groupes de gestion, et valeurs historisees. AUCUNE donnee d'exploitation : les
+    // indicateurs sont toujours calcules sur les transactions des autres modules, jamais
+    // stockes comme une seconde base metier.
+    public DbSet<KpiThreshold> KpiThresholds => Set<KpiThreshold>();
+
+    public DbSet<KpiAccountMapping> KpiAccountMappings => Set<KpiAccountMapping>();
+
+    public DbSet<KpiSnapshot> KpiSnapshots => Set<KpiSnapshot>();
 
     /// <summary>
     /// Singleton row holding the global configuration (see

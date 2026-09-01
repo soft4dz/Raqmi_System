@@ -1799,7 +1799,7 @@ public sealed class CrmService(
             stayed.Length == 0 ? null : stayed.Max(reservation => reservation.DepartureDate),
             stayed.Sum(reservation => reservation.TotalStayAmount),
             reservations.Count(reservation =>
-                reservation.Status == ReservationStatus.Booked && reservation.ArrivalDate >= today),
+                reservation.Status.IsPreArrival() && reservation.ArrivalDate >= today),
             reservations.Count(reservation => reservation.Status == ReservationStatus.Cancelled),
             reservations.Count(reservation => reservation.Status == ReservationStatus.NoShow));
     }
