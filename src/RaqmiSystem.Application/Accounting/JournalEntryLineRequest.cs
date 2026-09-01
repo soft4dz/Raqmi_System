@@ -8,4 +8,5 @@ public sealed record JournalEntryLineRequest(
     string AccountCode,
     string Label,
     decimal Debit,
-    decimal Credit);
+    decimal Credit,
+    Guid? PartyId = null);

@@ -475,8 +475,7 @@ public sealed class AccountingService(
         if (periodFailure is not null) return periodFailure;
 
         var referenceFailure = await ValidateReferencesAsync(
-            entry.JournalCode,
-            DistinctAccountCodes(entry),
+            entry,
             cancellationToken);
 
         if (referenceFailure is not null)
@@ -562,8 +561,7 @@ public sealed class AccountingService(
             }
 
             var referenceFailure = await ValidateReferencesAsync(
-                entry.JournalCode,
-                DistinctAccountCodes(entry),
+                entry,
                 cancellationToken);
 
             if (referenceFailure is not null)
@@ -639,8 +637,7 @@ public sealed class AccountingService(
             // capture time: an account or a journal may have been deactivated while the entry sat in
             // the drafts.
             var referenceFailure = await ValidateReferencesAsync(
-                entry.JournalCode,
-                DistinctAccountCodes(entry),
+                entry,
                 cancellationToken);
 
             if (referenceFailure is not null)
@@ -676,6 +673,16 @@ public sealed class AccountingService(
         catch (Exception exception) when (exception.IsSerializationFailure())
         {
             return ApplicationResult<JournalEntryResponse>.Conflict(ConcurrentEntryMutationRefused);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return ApplicationResult<JournalEntryResponse>.Conflict(
+                "The journal sequence changed concurrently. Reload and retry posting.");
+        }
+        catch (DbUpdateException exception) when (exception.IsUniqueViolation())
+        {
+            return ApplicationResult<JournalEntryResponse>.Conflict(
+                "A concurrent posting allocated the same journal sequence. Reload and retry.");
         }
     }
 
@@ -979,26 +986,25 @@ public sealed class AccountingService(
     /// when everything checks out, otherwise the failure to hand straight back to the caller.
     /// </summary>
     private async Task<ApplicationResult<JournalEntryResponse>?> ValidateReferencesAsync(
-        string journalCode,
-        IReadOnlyCollection<string> accountCodes,
+        JournalEntry entry,
         CancellationToken cancellationToken)
     {
         var journal = await dbContext.Set<AccountingJournal>()
             .AsNoTracking()
-            .SingleOrDefaultAsync(current => current.Code == journalCode, cancellationToken);
+            .SingleOrDefaultAsync(current => current.Code == entry.JournalCode, cancellationToken);
 
         if (journal is null)
         {
-            return ApplicationResult<JournalEntryResponse>.NotFound($"Journal '{journalCode}' was not found.");
+            return ApplicationResult<JournalEntryResponse>.NotFound($"Journal '{entry.JournalCode}' was not found.");
         }
 
         if (!journal.IsActive)
         {
             return ApplicationResult<JournalEntryResponse>.Validation(
-                $"Journal '{journalCode}' is inactive and cannot receive entries.");
+                $"Journal '{entry.JournalCode}' is inactive and cannot receive entries.");
         }
 
-        var codes = accountCodes.ToArray();
+        var codes = DistinctAccountCodes(entry).ToArray();
 
         var accounts = await dbContext.Set<ChartAccount>()
             .AsNoTracking()
@@ -1024,6 +1030,15 @@ public sealed class AccountingService(
                 $"Inactive chart accounts cannot be used: {string.Join(", ", inactive)}.");
         }
 
+        var partyIds = entry.Lines.Where(x => x.PartyId.HasValue).Select(x => x.PartyId!.Value).Distinct().ToArray();
+        if (partyIds.Length > 0)
+        {
+            var activePartyCount = await dbContext.AccountingParties.AsNoTracking()
+                .CountAsync(x => partyIds.Contains(x.Id) && x.IsActive, cancellationToken);
+            if (activePartyCount != partyIds.Length)
+                return ApplicationResult<JournalEntryResponse>.Validation("Every referenced accounting party must exist and be active.");
+        }
+
         return null;
     }
 
@@ -1038,7 +1053,7 @@ public sealed class AccountingService(
     private static List<JournalEntryLine> BuildLines(IReadOnlyCollection<JournalEntryLineRequest> requests)
     {
         return requests
-            .Select(line => new JournalEntryLine(line.AccountCode, line.Label, line.Debit, line.Credit))
+            .Select(line => new JournalEntryLine(line.AccountCode, line.Label, line.Debit, line.Credit, line.PartyId))
             .ToList();
     }
 
@@ -1081,7 +1096,8 @@ public sealed class AccountingService(
                 line.AccountCode,
                 line.Label,
                 line.Debit,
-                line.Credit))
+                line.Credit,
+                line.PartyId))
             .ToArray();
 
         return new JournalEntryResponse(

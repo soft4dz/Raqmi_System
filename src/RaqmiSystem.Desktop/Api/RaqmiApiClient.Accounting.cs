@@ -308,6 +308,25 @@ public sealed partial class RaqmiApiClient
 
     // ==================================== Requetes ==================================
 
+    public async Task<IReadOnlyCollection<FiscalYearResponse>> GetFiscalYearsAsync(string apiBaseUrl,CancellationToken cancellationToken=default)
+    { EnsureAuthenticated(); var response=await SendAsync(apiBaseUrl,HttpMethod.Get,"/api/v1/accounting/fiscal-years",null,true,cancellationToken);return await ReadResponseAsync<IReadOnlyCollection<FiscalYearResponse>>(response,cancellationToken); }
+    public async Task<FiscalYearResponse> CreateFiscalYearAsync(string apiBaseUrl,CreateFiscalYearRequest request,CancellationToken cancellationToken=default)
+    { EnsureAuthenticated();var response=await SendAsync(apiBaseUrl,HttpMethod.Post,"/api/v1/accounting/fiscal-years",request,true,cancellationToken);return await ReadResponseAsync<FiscalYearResponse>(response,cancellationToken); }
+    public async Task<IReadOnlyCollection<AccountingPeriodResponse>> GetAccountingPeriodsAsync(string apiBaseUrl,Guid yearId,CancellationToken cancellationToken=default)
+    { EnsureAuthenticated();var response=await SendAsync(apiBaseUrl,HttpMethod.Get,$"/api/v1/accounting/fiscal-years/{yearId}/periods",null,true,cancellationToken);return await ReadResponseAsync<IReadOnlyCollection<AccountingPeriodResponse>>(response,cancellationToken); }
+    public async Task<AccountingPeriodResponse> CloseAccountingPeriodAsync(string apiBaseUrl,Guid id,CancellationToken cancellationToken=default)
+    { EnsureAuthenticated();var response=await SendAsync(apiBaseUrl,HttpMethod.Post,$"/api/v1/accounting/periods/{id}/close",null,true,cancellationToken);return await ReadResponseAsync<AccountingPeriodResponse>(response,cancellationToken); }
+    public async Task<IReadOnlyCollection<PartyResponse>> GetAccountingPartiesAsync(string apiBaseUrl,CancellationToken cancellationToken=default)
+    { EnsureAuthenticated();var response=await SendAsync(apiBaseUrl,HttpMethod.Get,"/api/v1/accounting/parties",null,true,cancellationToken);return await ReadResponseAsync<IReadOnlyCollection<PartyResponse>>(response,cancellationToken); }
+    public async Task<PartyResponse> CreateAccountingPartyAsync(string apiBaseUrl,CreatePartyRequest request,CancellationToken cancellationToken=default)
+    { EnsureAuthenticated();var response=await SendAsync(apiBaseUrl,HttpMethod.Post,"/api/v1/accounting/parties",request,true,cancellationToken);return await ReadResponseAsync<PartyResponse>(response,cancellationToken); }
+    public async Task<IReadOnlyCollection<GeneralLedgerRow>> GetGeneralLedgerAsync(string apiBaseUrl,string accountCode,DateOnly? from,DateOnly? to,CancellationToken cancellationToken=default)
+    { EnsureAuthenticated();var q=new List<string>();AppendAccountingDate(q,"from",from);AppendAccountingDate(q,"to",to);var response=await SendAsync(apiBaseUrl,HttpMethod.Get,BuildAccountingPath($"/api/v1/accounting/general-ledger/{Uri.EscapeDataString(accountCode)}",q),null,true,cancellationToken);return await ReadResponseAsync<IReadOnlyCollection<GeneralLedgerRow>>(response,cancellationToken); }
+    public async Task<IReadOnlyCollection<AuxiliaryBalanceRow>> GetAuxiliaryBalanceAsync(string apiBaseUrl,DateOnly? from,DateOnly? to,PartyKind? kind,CancellationToken cancellationToken=default)
+    { EnsureAuthenticated();var q=new List<string>();AppendAccountingDate(q,"from",from);AppendAccountingDate(q,"to",to);if(kind.HasValue)q.Add("kind="+Uri.EscapeDataString(kind.Value.ToString()));var response=await SendAsync(apiBaseUrl,HttpMethod.Get,BuildAccountingPath("/api/v1/accounting/auxiliary-balance",q),null,true,cancellationToken);return await ReadResponseAsync<IReadOnlyCollection<AuxiliaryBalanceRow>>(response,cancellationToken); }
+    public async Task<ReconciliationResponse> CreateReconciliationAsync(string apiBaseUrl,CreateReconciliationRequest request,CancellationToken cancellationToken=default)
+    { EnsureAuthenticated();var response=await SendAsync(apiBaseUrl,HttpMethod.Post,"/api/v1/accounting/reconciliations",request,true,cancellationToken);return await ReadResponseAsync<ReconciliationResponse>(response,cancellationToken); }
+
     private static string BuildAccountingPath(string basePath, List<string> query)
     {
         return query.Count == 0

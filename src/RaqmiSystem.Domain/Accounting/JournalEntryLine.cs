@@ -17,12 +17,13 @@ public sealed class JournalEntryLine
     {
     }
 
-    public JournalEntryLine(string accountCode, string label, decimal debit, decimal credit)
+    public JournalEntryLine(string accountCode, string label, decimal debit, decimal credit, Guid? partyId = null)
     {
         AccountCode = ChartAccount.NormalizeCode(accountCode);
         Label = RequireValue(label, nameof(label), MaxLabelLength);
         Debit = RequireAmount(debit, nameof(debit));
         Credit = RequireAmount(credit, nameof(credit));
+        PartyId = partyId;
 
         if (Debit > 0 && Credit > 0)
         {
@@ -54,6 +55,8 @@ public sealed class JournalEntryLine
 
     public decimal Credit { get; private set; }
 
+    public Guid? PartyId { get; private set; }
+
     internal void SetLineNumber(int lineNumber)
     {
         LineNumber = lineNumber;
@@ -68,7 +71,7 @@ public sealed class JournalEntryLine
     /// </summary>
     internal JournalEntryLine Reverse()
     {
-        return new JournalEntryLine(AccountCode, Label, Credit, Debit);
+        return new JournalEntryLine(AccountCode, Label, Credit, Debit, PartyId);
     }
 
     private static string RequireValue(string value, string argumentName, int maxLength)

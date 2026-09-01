@@ -37,6 +37,7 @@ internal static class AccountingEndpoints
         core.MapPost("/parties", async (CreatePartyRequest r,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.CreatePartyAsync(r,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.AccountingWrite);
         core.MapPost("/reconciliations", async (CreateReconciliationRequest r,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.ReconcileAsync(r,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.AccountingReconcile);
         core.MapGet("/general-ledger/{accountCode}", async (string accountCode,DateOnly? from,DateOnly? to,IAccountingCoreService s,CancellationToken ct)=>Results.Ok(await s.GetGeneralLedgerAsync(accountCode,from,to,ct))).RequireAuthorization(PermissionCatalog.AccountingRead);
+        core.MapGet("/auxiliary-balance", async (DateOnly? from,DateOnly? to,PartyKind? kind,IAccountingCoreService s,CancellationToken ct)=>Results.Ok(await s.GetAuxiliaryBalanceAsync(from,to,kind,ct))).RequireAuthorization(PermissionCatalog.AccountingRead);
         core.MapPost("/scf/seed", async (IAccountingCoreService s,HttpContext h,CancellationToken ct)=>Results.Ok(new{inserted=await s.SeedScfAsync(h.ToOperationContext(),ct)})).RequireAuthorization(PermissionCatalog.AccountingAdmin);
     }
 

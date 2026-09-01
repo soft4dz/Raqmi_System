@@ -116,6 +116,12 @@ public partial class AccountingView : UserControl
         ResetAccountForm();
         ResetNewEntryForm();
         ShowEntryDetail(null);
+        PartyKindComboBox.ItemsSource = Enum.GetValues<PartyKind>();
+        PartyKindComboBox.SelectedItem = PartyKind.Customer;
+        FiscalYearStartDatePicker.SelectedDate = new DateTime(DateTime.Today.Year, 1, 1);
+        FiscalYearEndDatePicker.SelectedDate = new DateTime(DateTime.Today.Year, 12, 31);
+        LedgerFromDatePicker.SelectedDate = new DateTime(DateTime.Today.Year, 1, 1);
+        LedgerToDatePicker.SelectedDate = DateTime.Today;
         UpdateActionState();
     }
 
@@ -1123,6 +1129,48 @@ public partial class AccountingView : UserControl
 
         button.IsEnabled = isEnabled;
         button.ToolTip = isEnabled ? originalToolTips[button] : disabledHint;
+    }
+
+    private async void RefreshFiscalYearsButton_Click(object sender, RoutedEventArgs e) => await RefreshFiscalYearsAsync();
+    private async Task RefreshFiscalYearsAsync()
+    {
+        if (context is not { } active) return;
+        await active.RunAsync(async () => { FiscalYearsDataGrid.ItemsSource = await active.ApiClient.GetFiscalYearsAsync(active.ApiBaseUrl); active.SetStatus("Exercices actualisés."); });
+    }
+    private async void CreateFiscalYearButton_Click(object sender,RoutedEventArgs e)
+    {
+        if(context is not { } active || SelectedDate(FiscalYearStartDatePicker) is not { } start || SelectedDate(FiscalYearEndDatePicker) is not { } end)return;
+        await active.RunAsync(async()=>{await active.ApiClient.CreateFiscalYearAsync(active.ApiBaseUrl,new CreateFiscalYearRequest(FiscalYearCodeTextBox.Text,start,end));await RefreshFiscalYearsAsync();active.SetStatus("Exercice et périodes créés.");});
+    }
+    private async void FiscalYearsDataGrid_SelectionChanged(object sender,SelectionChangedEventArgs e)
+    {
+        if(context is not { } active || FiscalYearsDataGrid.SelectedItem is not FiscalYearResponse year)return;
+        await active.RunAsync(async()=>AccountingPeriodsDataGrid.ItemsSource=await active.ApiClient.GetAccountingPeriodsAsync(active.ApiBaseUrl,year.Id));
+    }
+    private async void ClosePeriodButton_Click(object sender,RoutedEventArgs e)
+    {
+        if(context is not { } active || AccountingPeriodsDataGrid.SelectedItem is not AccountingPeriodResponse period)return;
+        await active.RunAsync(async()=>{await active.ApiClient.CloseAccountingPeriodAsync(active.ApiBaseUrl,period.Id);AccountingPeriodsDataGrid.ItemsSource=await active.ApiClient.GetAccountingPeriodsAsync(active.ApiBaseUrl,period.FiscalYearId);active.SetStatus("Période clôturée.");});
+    }
+    private async void CreatePartyButton_Click(object sender,RoutedEventArgs e)
+    {
+        if(context is not { } active || PartyKindComboBox.SelectedItem is not PartyKind kind)return;
+        await active.RunAsync(async()=>{await active.ApiClient.CreateAccountingPartyAsync(active.ApiBaseUrl,new CreatePartyRequest(PartyCodeTextBox.Text,PartyNameTextBox.Text,kind));AccountingPartiesDataGrid.ItemsSource=await active.ApiClient.GetAccountingPartiesAsync(active.ApiBaseUrl);active.SetStatus("Tiers créé.");});
+    }
+    private async void RefreshAuxiliaryBalanceButton_Click(object sender,RoutedEventArgs e)
+    {
+        if(context is not { } active)return;
+        await active.RunAsync(async()=>{AccountingPartiesDataGrid.ItemsSource=await active.ApiClient.GetAccountingPartiesAsync(active.ApiBaseUrl);AuxiliaryBalanceDataGrid.ItemsSource=await active.ApiClient.GetAuxiliaryBalanceAsync(active.ApiBaseUrl,SelectedDate(BalanceFromDatePicker),SelectedDate(BalanceToDatePicker),null);active.SetStatus("Balance auxiliaire actualisée.");});
+    }
+    private async void RefreshGeneralLedgerButton_Click(object sender,RoutedEventArgs e)
+    {
+        if(context is not { } active || string.IsNullOrWhiteSpace(LedgerAccountCodeTextBox.Text))return;
+        await active.RunAsync(async()=>{GeneralLedgerDataGrid.ItemsSource=await active.ApiClient.GetGeneralLedgerAsync(active.ApiBaseUrl,LedgerAccountCodeTextBox.Text.Trim(),SelectedDate(LedgerFromDatePicker),SelectedDate(LedgerToDatePicker));active.SetStatus("Grand livre actualisé.");});
+    }
+    private async void ReconcileButton_Click(object sender,RoutedEventArgs e)
+    {
+        if(context is not { } active || !Guid.TryParse(ReconcilePartyIdTextBox.Text,out var partyId) || !Guid.TryParse(ReconcileDebitLineIdTextBox.Text,out var debitId) || !Guid.TryParse(ReconcileCreditLineIdTextBox.Text,out var creditId) || !decimal.TryParse(ReconcileAmountTextBox.Text,NumberStyles.Number,CultureInfo.CurrentCulture,out var amount))return;
+        await active.RunAsync(async()=>{var request=new CreateReconciliationRequest(ReconcileCodeTextBox.Text,partyId,[new(debitId,amount)],[new(creditId,amount)]);await active.ApiClient.CreateReconciliationAsync(active.ApiBaseUrl,request);active.SetStatus("Lettrage enregistré.");});
     }
 
     // ==================================== Formats ====================================

@@ -35,4 +35,15 @@ public sealed class AccountingCoreTests
         Assert.Equal(1,sequence.Next());
         Assert.Equal(2,sequence.Next());
     }
+
+    [Fact]
+    public void Reversal_preserves_the_auxiliary_party()
+    {
+        var party=Guid.NewGuid();
+        var entry=new JournalEntry(new DateOnly(2026,1,15),"VE","Facture");
+        entry.ReplaceLines([new("411000","Client",100m,0m,party),new("706000","Vente",0m,100m)]);
+        entry.Post("tester",DateTimeOffset.UtcNow);
+        var reversal=entry.CreateReversal(null,null,"tester",DateTimeOffset.UtcNow);
+        Assert.Equal(party,reversal.Lines.Single(x=>x.AccountCode=="411000").PartyId);
+    }
 }

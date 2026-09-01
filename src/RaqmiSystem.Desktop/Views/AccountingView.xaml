@@ -1022,6 +1022,38 @@
                     </Border>
                 </Grid>
             </TabItem>
+            <TabItem Header="Exercices, tiers et livres">
+                <TabControl Style="{StaticResource SectionTabControl}">
+                    <TabItem Header="Exercices / clôture">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="12"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                            <WrapPanel>
+                                <TextBox x:Name="FiscalYearCodeTextBox" Width="110" Tag="Code (2026)" Margin="0,0,8,0"/>
+                                <DatePicker x:Name="FiscalYearStartDatePicker" Width="140" Margin="0,0,8,0"/>
+                                <DatePicker x:Name="FiscalYearEndDatePicker" Width="140" Margin="0,0,8,0"/>
+                                <Button Content="Créer l'exercice" Style="{StaticResource PrimaryButton}" Click="CreateFiscalYearButton_Click" Margin="0,0,8,0"/>
+                                <Button Content="Actualiser" Style="{StaticResource SecondaryButton}" Click="RefreshFiscalYearsButton_Click"/>
+                            </WrapPanel>
+                            <Grid Grid.Row="2"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <DataGrid x:Name="FiscalYearsDataGrid" AutoGenerateColumns="True" IsReadOnly="True" SelectionChanged="FiscalYearsDataGrid_SelectionChanged"/>
+                                <Grid Grid.Column="2"><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><DataGrid x:Name="AccountingPeriodsDataGrid" AutoGenerateColumns="True" IsReadOnly="True"/><Button Grid.Row="1" Content="Clôturer la période sélectionnée" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" Margin="0,10,0,0" Click="ClosePeriodButton_Click"/></Grid>
+                            </Grid>
+                        </Grid>
+                    </TabItem>
+                    <TabItem Header="Tiers / balance auxiliaire">
+                        <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="12"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                            <WrapPanel><TextBox x:Name="PartyCodeTextBox" Width="120" Tag="Code tiers" Margin="0,0,8,0"/><TextBox x:Name="PartyNameTextBox" Width="220" Tag="Nom du tiers" Margin="0,0,8,0"/><ComboBox x:Name="PartyKindComboBox" Width="130" Margin="0,0,8,0"/><Button Content="Créer le tiers" Style="{StaticResource PrimaryButton}" Click="CreatePartyButton_Click" Margin="0,0,8,0"/><Button Content="Charger la balance" Style="{StaticResource SecondaryButton}" Click="RefreshAuxiliaryBalanceButton_Click"/></WrapPanel>
+                            <Grid Grid.Row="2"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="1.4*"/></Grid.ColumnDefinitions><DataGrid x:Name="AccountingPartiesDataGrid" AutoGenerateColumns="True" IsReadOnly="True"/><DataGrid x:Name="AuxiliaryBalanceDataGrid" Grid.Column="2" AutoGenerateColumns="True" IsReadOnly="True"/></Grid>
+                        </Grid>
+                    </TabItem>
+                    <TabItem Header="Grand livre">
+                        <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="12"/><RowDefinition Height="*"/></Grid.RowDefinitions><WrapPanel><TextBox x:Name="LedgerAccountCodeTextBox" Width="150" Tag="Compte" Margin="0,0,8,0"/><DatePicker x:Name="LedgerFromDatePicker" Width="140" Margin="0,0,8,0"/><DatePicker x:Name="LedgerToDatePicker" Width="140" Margin="0,0,8,0"/><Button Content="Charger" Style="{StaticResource PrimaryButton}" Click="RefreshGeneralLedgerButton_Click"/></WrapPanel><DataGrid x:Name="GeneralLedgerDataGrid" Grid.Row="2" AutoGenerateColumns="True" IsReadOnly="True"/></Grid>
+                    </TabItem>
+                    <TabItem Header="Lettrage">
+                        <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="12"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="Saisissez un tiers, une ligne débit et une ligne crédit déjà comptabilisées. Les contrôles de solde et de tiers restent exclusivement côté serveur." Style="{StaticResource BusinessRuleText}"/><WrapPanel Grid.Row="2"><TextBox x:Name="ReconcileCodeTextBox" Width="100" Tag="Code" Margin="0,0,8,0"/><TextBox x:Name="ReconcilePartyIdTextBox" Width="260" Tag="ID tiers" Margin="0,0,8,0"/><TextBox x:Name="ReconcileDebitLineIdTextBox" Width="260" Tag="ID ligne débit" Margin="0,0,8,0"/><TextBox x:Name="ReconcileCreditLineIdTextBox" Width="260" Tag="ID ligne crédit" Margin="0,0,8,0"/><TextBox x:Name="ReconcileAmountTextBox" Width="110" Tag="Montant" Margin="0,0,8,0"/><Button Content="Lettrer" Style="{StaticResource PrimaryButton}" Click="ReconcileButton_Click"/></WrapPanel></Grid>
+                    </TabItem>
+                </TabControl>
+            </TabItem>
         </TabControl>
     </Grid>
 </UserControl>

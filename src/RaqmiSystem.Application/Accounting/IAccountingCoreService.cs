@@ -13,6 +13,7 @@ public sealed record ReconcileAllocationRequest(Guid JournalEntryLineId, decimal
 public sealed record CreateReconciliationRequest(string Code, Guid PartyId, IReadOnlyCollection<ReconcileAllocationRequest> Debits, IReadOnlyCollection<ReconcileAllocationRequest> Credits);
 public sealed record ReconciliationResponse(Guid Id, string Code, Guid PartyId, decimal MatchedAmount, ReconciliationStatus Status);
 public sealed record GeneralLedgerRow(DateOnly Date, string JournalCode, Guid EntryId, string Label, string? Reference, decimal Debit, decimal Credit, decimal RunningBalance);
+public sealed record AuxiliaryBalanceRow(Guid PartyId, string PartyCode, string PartyName, PartyKind Kind, decimal Debit, decimal Credit, decimal Balance, decimal Reconciled, decimal Outstanding);
 
 public interface IAccountingCoreService
 {
@@ -25,5 +26,6 @@ public interface IAccountingCoreService
     Task<ApplicationResult<PartyResponse>> CreatePartyAsync(CreatePartyRequest request, OperationContext context, CancellationToken ct);
     Task<ApplicationResult<ReconciliationResponse>> ReconcileAsync(CreateReconciliationRequest request, OperationContext context, CancellationToken ct);
     Task<IReadOnlyCollection<GeneralLedgerRow>> GetGeneralLedgerAsync(string accountCode, DateOnly? from, DateOnly? to, CancellationToken ct);
+    Task<IReadOnlyCollection<AuxiliaryBalanceRow>> GetAuxiliaryBalanceAsync(DateOnly? from, DateOnly? to, PartyKind? kind, CancellationToken ct);
     Task<int> SeedScfAsync(OperationContext context, CancellationToken ct);
 }

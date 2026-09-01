@@ -28,8 +28,8 @@ Les routes existantes couvrent comptes, journaux, brouillons, comptabilisation, 
 
 ## Persistance
 
-La migration `AccountingScfCore` ajoute `fiscal_years`, `periods`, `parties`, `journal_sequences`, `reconciliations`, `reconciliation_allocations`, le numéro définitif des pièces et la contrainte d'équilibre des écritures comptabilisées.
+Les migrations `AccountingScfCore` et `AccountingAuxiliaryLedger` ajoutent `fiscal_years`, `periods`, `parties`, `journal_sequences`, `reconciliations`, `reconciliation_allocations`, le rattachement tiers des lignes, le numéro définitif des pièces et la contrainte d'équilibre des écritures comptabilisées.
 
 ## Limites connues
 
-Le seed livré est un socle SCF minimal destiné à être enrichi par import/paramétrage. Il ne prétend pas remplacer la nomenclature détaillée validée par le commissaire aux comptes de chaque établissement. Les écritures d'ouverture automatiques et les états fiscaux ne font pas partie de ce lot.
+Le seed livré est un socle SCF minimal destiné à être enrichi par import/paramétrage. Il ne prétend pas remplacer la nomenclature détaillée validée par le commissaire aux comptes de chaque établissement. Les écritures d'ouverture automatiques et les états fiscaux ne font pas partie de ce lot. Le scénario PostgreSQL conteneurisé nécessite un moteur Docker actif ; le test HTTP SQLite conserve les mêmes transactions, contraintes et jetons de concurrence mais ne remplace pas la validation des verrous PostgreSQL en CI.

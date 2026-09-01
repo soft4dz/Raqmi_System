@@ -66,6 +66,8 @@ public sealed class JournalEntryLineConfiguration : IEntityTypeConfiguration<Jou
             .HasColumnName("credit")
             .HasPrecision(18, 2);
 
+        builder.Property(line => line.PartyId).HasColumnName("party_id");
+
         builder.HasIndex(line => line.JournalEntryId)
             .HasDatabaseName("ix_journal_entry_lines_journal_entry_id");
 
@@ -80,6 +82,11 @@ public sealed class JournalEntryLineConfiguration : IEntityTypeConfiguration<Jou
             .WithMany()
             .HasPrincipalKey(account => account.Code)
             .HasForeignKey(line => line.AccountCode)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<AccountingParty>()
+            .WithMany()
+            .HasForeignKey(line => line.PartyId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }
