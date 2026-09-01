@@ -33,6 +33,66 @@ jobs:
       - name: Test
         run: dotnet test tests/RaqmiSystem.Tests/RaqmiSystem.Tests.csproj --configuration Release --no-restore --verbosity normal
 
+  postgres-integration:
+    name: PostgreSQL integration gate
+    runs-on: ubuntu-latest
+
+    # Gate PostgreSQL reel (lot 2.4 du plan de reorganisation, risque R10) : la suite principale
+    # tourne sur SQLite/InMemory et ne voit ni les migrations Npgsql, ni les contraintes, ni
+    # l'isolation Serializable du vrai fournisseur. Ce job les joue contre un conteneur
+    # PostgreSQL jetable : migrations depuis zero et depuis N-1, garde anti-derive du modele EF
+    # (une entite modifiee sans migration rend ce job rouge), contraintes et concurrence.
+    # Seuls les tests de la collection « Postgres » (trait Category=Postgres) sont executes ici ;
+    # sans RAQMI_TEST_POSTGRES ils sont marques Skipped, ce qui laisse build-core inchange.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          # Memes identifiants que docker-compose.yml : un developpeur qui lit le job retrouve
+          # exactement ce que tests/run-postgres-tests.ps1 fait sur son poste.
+          POSTGRES_DB: raqmi_system
+          POSTGRES_USER: raqmi
+          POSTGRES_PASSWORD: change-me
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U raqmi -d raqmi_system"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      # Chaine ADMINISTRATIVE : la fixture cree ses propres bases raqmi_test_* et les supprime ;
+      # raqmi_system n'est qu'un point d'entree. Le role du conteneur est superutilisateur, donc
+      # autorise a CREATE DATABASE.
+      RAQMI_TEST_POSTGRES: "Host=localhost;Port=5432;Database=raqmi_system;Username=raqmi;Password=change-me"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # Le manifeste .config/dotnet-tools.json epingle dotnet-ef : le restaurer ici garantit que
+      # l'outil que la doc prescrit (dotnet ef database update / migrations add) se resout
+      # toujours en CI, et le laisse disponible pour un diagnostic dans ce job.
+      - name: Restore dotnet tools
+        run: dotnet tool restore
+
+      - name: Restore tests
+        run: dotnet restore tests/RaqmiSystem.Tests/RaqmiSystem.Tests.csproj
+
+      - name: Build tests
+        run: dotnet build tests/RaqmiSystem.Tests/RaqmiSystem.Tests.csproj --configuration Release --no-restore
+
+      - name: PostgreSQL integration tests
+        run: >-
+          dotnet test tests/RaqmiSystem.Tests/RaqmiSystem.Tests.csproj
+          --configuration Release --no-build --verbosity normal
+          --filter "Category=Postgres"
+
   build-desktop:
     name: Build WPF desktop
     runs-on: windows-latest
