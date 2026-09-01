@@ -9,6 +9,13 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
+    <!-- Tests sur PostgreSQL reel (dossier Postgres/, collection « Postgres », trait Category=Postgres).
+         Les deux paquets arrivent deja en transitif par RaqmiSystem.Infrastructure ; ils sont
+         declares ici parce que le code de test les utilise DIRECTEMENT (NpgsqlConnection,
+         PostgresException, UseNpgsql) et qu'une dependance de compilation ne doit pas reposer
+         sur ce qu'un autre projet expose par hasard. Versions : Directory.Packages.props. -->
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio">
