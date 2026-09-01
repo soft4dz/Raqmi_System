@@ -324,6 +324,24 @@ public sealed class SecuritySeeder(
         ]
     };
 
+    /// <summary>
+    /// Les grants reellement seedes : chaque liste historique ci-dessus, completee des cles
+    /// cibles que ses cles historiques COUVRENT (PermissionRegistry). C'est une equivalence
+    /// stricte, pas une extension : un role recoit une cle cible si et seulement si l'une de ses
+    /// cles historiques la couvre, et il garde ses cles historiques - le client WPF et les routes
+    /// non retaguees les evaluent encore. Les roles PERSONNALISES ne sont pas touches ici : ils
+    /// font l'objet du rapport de migration (IPermissionMigrationReportService) avant toute
+    /// modification, par la personne qui en repond.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, string[]> EffectiveRolePermissions =
+        RolePermissions.ToDictionary(
+            pair => pair.Key,
+            pair => pair.Value
+                .Concat(pair.Value.SelectMany(PermissionRegistry.TargetKeysCoveredBy))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray(),
+            StringComparer.Ordinal);
+
     public async Task SeedAsync(CancellationToken cancellationToken)
     {
         await SeedPermissionsAsync(cancellationToken);
@@ -368,9 +386,16 @@ public sealed class SecuritySeeder(
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Creates the missing system roles and grants each one the keys of its effective list.
+    /// Idempotent on an already-seeded database: Role.GrantPermission skips a grant that exists,
+    /// so re-running after the catalog grew (a new target key, for instance) only adds the
+    /// missing rows - which is exactly how an installation in service picks up the target keys
+    /// without a migration.
+    /// </summary>
     private async Task SeedRolesAsync(CancellationToken cancellationToken)
     {
-        foreach (var roleName in RolePermissions.Keys)
+        foreach (var roleName in EffectiveRolePermissions.Keys)
         {
             var role = await dbContext.Roles
                 .Include(currentRole => currentRole.Permissions)
@@ -383,11 +408,13 @@ public sealed class SecuritySeeder(
                 await dbContext.SaveChangesAsync(cancellationToken);
             }
 
+            var permissionKeys = EffectiveRolePermissions[roleName];
+
             var permissionMap = await dbContext.Permissions
-                .Where(permission => RolePermissions[roleName].Contains(permission.Key))
+                .Where(permission => permissionKeys.Contains(permission.Key))
                 .ToDictionaryAsync(permission => permission.Key, cancellationToken);
 
-            foreach (var permissionKey in RolePermissions[roleName])
+            foreach (var permissionKey in permissionKeys)
             {
                 if (permissionMap.TryGetValue(permissionKey, out var permission))
                 {

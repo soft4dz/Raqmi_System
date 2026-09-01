@@ -41,7 +41,7 @@ internal static class ReceivablesEndpoints
             var result = await service.GetAgingBalanceAsync(reportDate, customerCode, cancellationToken);
 
             return Results.Ok(result);
-        }).RequireAuthorization(PermissionCatalog.ReceivablesRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceReceivableRead);
     }
 
     private static void MapReminderEndpoints(RouteGroupBuilder api)
@@ -77,7 +77,7 @@ internal static class ReceivablesEndpoints
                 cancellationToken);
 
             return Results.Ok(result);
-        }).RequireAuthorization(PermissionCatalog.ReceivablesRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceReceivableRead);
 
         reminders.MapGet("/{id:guid}", async (
             Guid id,
@@ -86,7 +86,7 @@ internal static class ReceivablesEndpoints
         {
             var result = await service.GetReminderAsync(id, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.ReceivablesRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceReceivableRead);
 
         reminders.MapPost("", async (
             CreateReminderRequest request,
@@ -99,7 +99,7 @@ internal static class ReceivablesEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/receivables/reminders/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.ReceivablesWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceReceivableRemind);
     }
 
     private static void MapCustomerRiskEndpoints(RouteGroupBuilder api)
@@ -114,7 +114,7 @@ internal static class ReceivablesEndpoints
         {
             var result = await service.GetCustomerRiskAsync(code, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.ReceivablesRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceReceivableRead);
     }
 
     private static bool TryParseLevel(string? level, out ReminderLevel? parsedLevel, out string error)

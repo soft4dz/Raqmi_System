@@ -46,6 +46,18 @@ internal static class SecurityEndpoints
             return Results.Ok(roles);
         }).RequireAuthorization(PermissionCatalog.UsersRead);
 
+        // Rapport de migration des roles PERSONNALISES vers le modele domaine.ressource.action
+        // (lot 2.1). Lecture seule ; il precede toute modification d'un role personnalise, que le
+        // seeder ne touche jamais. Protege par roles.read : c'est un etat des roles, pas des
+        // utilisateurs - et roles.read vaut admin.role.read par le registre.
+        security.MapGet("/permission-migration-report", async (
+            IPermissionMigrationReportService service,
+            CancellationToken cancellationToken) =>
+        {
+            var report = await service.BuildAsync(cancellationToken);
+            return Results.Ok(report);
+        }).RequireAuthorization(PermissionCatalog.RolesRead);
+
         MapUserEndpoints(security);
 
         return api;

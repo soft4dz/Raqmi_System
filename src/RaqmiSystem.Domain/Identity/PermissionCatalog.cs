@@ -103,7 +103,145 @@ public static class PermissionCatalog
     /// </summary>
     public const string KpiAdmin = "kpi.admin";
 
-    public static IReadOnlyCollection<PermissionDefinition> All { get; } = new[]
+    // ============================ Modele cible domaine.ressource.action ============================
+    // Lot 2.1 de la reorganisation fonctionnelle. Chaque constante ci-dessous est une cle CIBLE
+    // decrite dans PermissionRegistry (domaine, ressource, action, cles historiques couvertes).
+    // Les 83 constantes historiques ci-dessus restent intactes et valides : une cle historique
+    // vaut les cles cibles qu'elle couvre, au moins une version durant (voir docs/security.md).
+    // Le client WPF et le garde de readiness referencent les constantes historiques par nom ;
+    // rien ici ne les remplace, tout s'y ajoute.
+
+    // 02 Administration & Socle ERP
+    public const string AdminUserRead = "admin.user.read";
+    public const string AdminUserCreate = "admin.user.create";
+    public const string AdminUserUpdate = "admin.user.update";
+    public const string AdminUserDeactivate = "admin.user.deactivate";
+    public const string AdminRoleRead = "admin.role.read";
+    public const string AdminRoleUpdate = "admin.role.update";
+    public const string AdminSecuritySeed = "admin.security.seed";
+    public const string AdminUnitRead = "admin.unit.read";
+    public const string AdminUnitManage = "admin.unit.manage";
+    public const string AdminSettingsRead = "admin.settings.read";
+    public const string AdminSettingsUpdate = "admin.settings.update";
+
+    // 03 Finance & Comptabilite
+    public const string FinanceRevenueRead = "finance.revenue.read";
+    public const string FinanceRevenueRecord = "finance.revenue.record";
+    public const string FinanceRevenueValidate = "finance.revenue.validate";
+    public const string FinanceTreasuryRead = "finance.treasury.read";
+    public const string FinanceBankAccountManage = "finance.bank_account.manage";
+    public const string FinanceReceiptManage = "finance.receipt.manage";
+    public const string FinancePaymentOrderManage = "finance.payment_order.manage";
+    public const string FinancePaymentOrderApprove = "finance.payment_order.approve";
+    public const string FinanceAccountingRead = "finance.accounting.read";
+    public const string FinanceChartManage = "finance.chart.manage";
+    public const string FinanceEntryManage = "finance.entry.manage";
+    public const string FinancePartyManage = "finance.party.manage";
+    public const string FinanceEntryPost = "finance.entry.post";
+    public const string FinanceEntryReverse = "finance.entry.reverse";
+    public const string FinancePartyReconcile = "finance.party.reconcile";
+    public const string FinancePeriodClose = "finance.period.close";
+    public const string FinanceAccountingAdmin = "finance.accounting.admin";
+    public const string FinanceBudgetRead = "finance.budget.read";
+    public const string FinanceBudgetManage = "finance.budget.manage";
+    public const string FinanceBudgetApprove = "finance.budget.approve";
+    public const string FinanceReceivableRead = "finance.receivable.read";
+    public const string FinanceReceivableRemind = "finance.receivable.remind";
+
+    // 04 Commercial, Clients & CRM
+    public const string CrmCustomerRead = "crm.customer.read";
+    public const string CrmCustomerManage = "crm.customer.manage";
+    public const string CrmGuestRead = "crm.guest.read";
+    public const string CrmGuestManage = "crm.guest.manage";
+    public const string CrmLoyaltyPost = "crm.loyalty.post";
+
+    // 05 Facturation & Ventes
+    public const string BillingInvoiceRead = "billing.invoice.read";
+    public const string BillingInvoiceManage = "billing.invoice.manage";
+    public const string BillingInvoiceIssue = "billing.invoice.issue";
+
+    // 06 PMS / Hebergement (dont la cloture journaliere)
+    public const string LodgingFrontOfficeRead = "lodging.front_office.read";
+    public const string LodgingReservationCreate = "lodging.reservation.create";
+    public const string LodgingReservationCancel = "lodging.reservation.cancel";
+    public const string LodgingReservationNoshow = "lodging.reservation.noshow";
+    public const string LodgingRoomManage = "lodging.room.manage";
+    public const string LodgingRateManage = "lodging.rate.manage";
+    public const string LodgingNightAuditExecute = "lodging.night_audit.execute";
+    public const string LodgingCheckinExecute = "lodging.checkin.execute";
+    public const string LodgingCheckoutExecute = "lodging.checkout.execute";
+    public const string LodgingStayMove = "lodging.stay.move";
+    public const string LodgingFolioManage = "lodging.folio.manage";
+    public const string LodgingStayChangeRate = "lodging.stay.change_rate";
+    public const string LodgingRestrictionOverride = "lodging.restriction.override";
+    public const string LodgingReservationOverbook = "lodging.reservation.overbook";
+    public const string LodgingClosingRead = "lodging.closing.read";
+    public const string LodgingClosingClose = "lodging.closing.close";
+    public const string LodgingClosingReopen = "lodging.closing.reopen";
+
+    // 07 Revenue Management & Distribution
+    public const string RevenueRateRead = "revenue.rate.read";
+    public const string RevenueRateManage = "revenue.rate.manage";
+
+    // 08 Housekeeping
+    public const string HousekeepingTaskRead = "housekeeping.task.read";
+    public const string HousekeepingTaskManage = "housekeeping.task.manage";
+    public const string HousekeepingRoomInspect = "housekeeping.room.inspect";
+
+    // 09 Groupes, MICE & Evenementiel
+    public const string MiceEventRead = "mice.event.read";
+    public const string MiceEventManage = "mice.event.manage";
+
+    // 10 F&B / Restauration
+    public const string FnbKitchenRead = "fnb.kitchen.read";
+    public const string FnbKitchenManage = "fnb.kitchen.manage";
+
+    // 11 Stocks & Economat
+    public const string InventoryStockRead = "inventory.stock.read";
+    public const string InventoryItemManage = "inventory.item.manage";
+    public const string InventoryMovementRecord = "inventory.movement.record";
+    public const string InventoryCountManage = "inventory.count.manage";
+    public const string InventoryCountValidate = "inventory.count.validate";
+
+    // 12 Achats & Fournisseurs
+    public const string PurchasingOrderRead = "purchasing.order.read";
+    public const string PurchasingSupplierManage = "purchasing.supplier.manage";
+    public const string PurchasingOrderManage = "purchasing.order.manage";
+    public const string PurchasingOrderApprove = "purchasing.order.approve";
+    public const string PurchasingReceiptExecute = "purchasing.receipt.execute";
+
+    // 13 Ressources Humaines & Paie (hr.payroll.close, deja au format cible, est sa propre cible)
+    public const string HrEmployeeRead = "hr.employee.read";
+    public const string HrEmployeeManage = "hr.employee.manage";
+    public const string HrTimeManage = "hr.time.manage";
+    public const string HrPayrollProcess = "hr.payroll.process";
+
+    // Workflow (service transversal rendu dans 01 Mon Espace, configure dans 02)
+    public const string WorkflowRequestRead = "workflow.request.read";
+    public const string WorkflowCircuitManage = "workflow.circuit.manage";
+    public const string WorkflowRequestDecide = "workflow.request.decide";
+
+    // 20 Pilotage, KPI & BI
+    public const string PilotageDashboardRead = "pilotage.dashboard.read";
+    public const string PilotageReportExecute = "pilotage.report.execute";
+    public const string PilotageReportExport = "pilotage.report.export";
+    public const string PilotageKpiAdmin = "pilotage.kpi.admin";
+
+    // Audit (service transversal) et 22 Administration Systeme
+    public const string AuditLogRead = "audit.log.read";
+    public const string SystemBackupRead = "system.backup.read";
+    public const string SystemBackupExecute = "system.backup.execute";
+    public const string SystemWorkstationRead = "system.workstation.read";
+
+    /// <summary>
+    /// Toutes les permissions seedees et dotees d'une politique : les 83 definitions historiques,
+    /// puis les cles cibles du registre qui n'y figurent pas deja (hr.payroll.close est dans les
+    /// deux, une seule fois ici). L'ordre est stable : historique d'abord, registre ensuite.
+    /// </summary>
+    public static IReadOnlyCollection<PermissionDefinition> All => AllDefinitions;
+
+    /// <summary>Les 83 definitions historiques, dans leur ordre d'origine.</summary>
+    public static IReadOnlyCollection<PermissionDefinition> Legacy { get; } = new[]
     {
         new PermissionDefinition(UsersRead, "Lire les utilisateurs", "security", "Consulter les utilisateurs et profils."),
         new PermissionDefinition(UsersWrite, "Gerer les utilisateurs", "security", "Creer, modifier, activer ou desactiver les utilisateurs."),
@@ -189,4 +327,19 @@ public static class PermissionCatalog
         new PermissionDefinition(KitchenWrite, "Gerer la cuisine", "exploitation", "Creer et modifier les fiches techniques et leurs ingredients, administrer les points de controle et leurs seuils, enregistrer les releves de temperature HACCP."),
         new PermissionDefinition(KpiAdmin, "Parametrer la bibliotheque KPI", "reporting", "Fixer les seuils et objectifs des indicateurs, rattacher les comptes du plan comptable aux groupes de gestion du resultat, et cloturer les instantanes historises.")
     };
+
+    // Declare APRES Legacy : les initialiseurs statiques s'executent dans l'ordre du texte, et
+    // BuildAll lit Legacy.
+    private static readonly PermissionDefinition[] AllDefinitions = BuildAll();
+
+    private static PermissionDefinition[] BuildAll()
+    {
+        var legacyKeys = Legacy.Select(definition => definition.Key).ToHashSet(StringComparer.Ordinal);
+
+        var targets = PermissionRegistry.All
+            .Where(target => !legacyKeys.Contains(target.Key))
+            .Select(target => new PermissionDefinition(target.Key, target.Name, target.Prefix, target.Description));
+
+        return Legacy.Concat(targets).ToArray();
+    }
 }

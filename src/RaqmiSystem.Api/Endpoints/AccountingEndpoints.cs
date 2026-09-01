@@ -12,6 +12,13 @@ namespace RaqmiSystem.Api.Endpoints;
 /// behind its own key (accounting.post): capture is a draft anyone in the accounting team may
 /// prepare, while posting is what actually engages the accounts and can no longer be undone
 /// except by another posted entry.
+///
+/// Depuis le lot 2.1 les routes portent les cles CIBLES du registre (PermissionRegistry) :
+/// finance.accounting.read, finance.chart.manage (plan et journaux), finance.entry.manage
+/// (brouillons), finance.party.manage, finance.entry.post, finance.entry.reverse,
+/// finance.party.reconcile, finance.period.close et finance.accounting.admin. Chaque politique
+/// accepte encore la cle historique qui la couvre : accounting.write, composite, vaut les trois
+/// cles manage - mais une seule d'entre elles ne vaut jamais accounting.write.
 /// </summary>
 internal static class AccountingEndpoints
 {
@@ -28,17 +35,17 @@ internal static class AccountingEndpoints
     private static void MapAccountingCoreEndpoints(RouteGroupBuilder api)
     {
         var core = api.MapGroup("/accounting").WithTags("SCF accounting core");
-        core.MapGet("/fiscal-years", async (IAccountingCoreService s, CancellationToken ct) => Results.Ok(await s.ListFiscalYearsAsync(ct))).RequireAuthorization(PermissionCatalog.AccountingRead);
-        core.MapPost("/fiscal-years", async (CreateFiscalYearRequest r,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.CreateFiscalYearAsync(r,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.AccountingAdmin);
-        core.MapGet("/fiscal-years/{id:guid}/periods", async (Guid id,IAccountingCoreService s,CancellationToken ct)=>Results.Ok(await s.ListPeriodsAsync(id,ct))).RequireAuthorization(PermissionCatalog.AccountingRead);
-        core.MapPost("/fiscal-years/{id:guid}/close", async (Guid id,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.CloseFiscalYearAsync(id,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.AccountingClose);
-        core.MapPost("/periods/{id:guid}/close", async (Guid id,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.ClosePeriodAsync(id,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.AccountingClose);
-        core.MapGet("/parties", async (IAccountingCoreService s,CancellationToken ct)=>Results.Ok(await s.ListPartiesAsync(ct))).RequireAuthorization(PermissionCatalog.AccountingRead);
-        core.MapPost("/parties", async (CreatePartyRequest r,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.CreatePartyAsync(r,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.AccountingWrite);
-        core.MapPost("/reconciliations", async (CreateReconciliationRequest r,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.ReconcileAsync(r,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.AccountingReconcile);
-        core.MapGet("/general-ledger/{accountCode}", async (string accountCode,DateOnly? from,DateOnly? to,IAccountingCoreService s,CancellationToken ct)=>Results.Ok(await s.GetGeneralLedgerAsync(accountCode,from,to,ct))).RequireAuthorization(PermissionCatalog.AccountingRead);
-        core.MapGet("/auxiliary-balance", async (DateOnly? from,DateOnly? to,PartyKind? kind,IAccountingCoreService s,CancellationToken ct)=>Results.Ok(await s.GetAuxiliaryBalanceAsync(from,to,kind,ct))).RequireAuthorization(PermissionCatalog.AccountingRead);
-        core.MapPost("/scf/seed", async (IAccountingCoreService s,HttpContext h,CancellationToken ct)=>Results.Ok(new{inserted=await s.SeedScfAsync(h.ToOperationContext(),ct)})).RequireAuthorization(PermissionCatalog.AccountingAdmin);
+        core.MapGet("/fiscal-years", async (IAccountingCoreService s, CancellationToken ct) => Results.Ok(await s.ListFiscalYearsAsync(ct))).RequireAuthorization(PermissionCatalog.FinanceAccountingRead);
+        core.MapPost("/fiscal-years", async (CreateFiscalYearRequest r,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.CreateFiscalYearAsync(r,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.FinanceAccountingAdmin);
+        core.MapGet("/fiscal-years/{id:guid}/periods", async (Guid id,IAccountingCoreService s,CancellationToken ct)=>Results.Ok(await s.ListPeriodsAsync(id,ct))).RequireAuthorization(PermissionCatalog.FinanceAccountingRead);
+        core.MapPost("/fiscal-years/{id:guid}/close", async (Guid id,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.CloseFiscalYearAsync(id,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.FinancePeriodClose);
+        core.MapPost("/periods/{id:guid}/close", async (Guid id,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.ClosePeriodAsync(id,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.FinancePeriodClose);
+        core.MapGet("/parties", async (IAccountingCoreService s,CancellationToken ct)=>Results.Ok(await s.ListPartiesAsync(ct))).RequireAuthorization(PermissionCatalog.FinanceAccountingRead);
+        core.MapPost("/parties", async (CreatePartyRequest r,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.CreatePartyAsync(r,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.FinancePartyManage);
+        core.MapPost("/reconciliations", async (CreateReconciliationRequest r,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.ReconcileAsync(r,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.FinancePartyReconcile);
+        core.MapGet("/general-ledger/{accountCode}", async (string accountCode,DateOnly? from,DateOnly? to,IAccountingCoreService s,CancellationToken ct)=>Results.Ok(await s.GetGeneralLedgerAsync(accountCode,from,to,ct))).RequireAuthorization(PermissionCatalog.FinanceAccountingRead);
+        core.MapGet("/auxiliary-balance", async (DateOnly? from,DateOnly? to,PartyKind? kind,IAccountingCoreService s,CancellationToken ct)=>Results.Ok(await s.GetAuxiliaryBalanceAsync(from,to,kind,ct))).RequireAuthorization(PermissionCatalog.FinanceAccountingRead);
+        core.MapPost("/scf/seed", async (IAccountingCoreService s,HttpContext h,CancellationToken ct)=>Results.Ok(new{inserted=await s.SeedScfAsync(h.ToOperationContext(),ct)})).RequireAuthorization(PermissionCatalog.FinanceAccountingAdmin);
     }
 
     private static void MapChartAccountEndpoints(RouteGroupBuilder api)
@@ -58,7 +65,7 @@ internal static class AccountingEndpoints
                 .ToArray();
 
             return Results.Ok(payload);
-        }).RequireAuthorization(PermissionCatalog.AccountingRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceAccountingRead);
 
         var accounts = api.MapGroup("/accounting/accounts")
             .WithTags("Chart of accounts");
@@ -84,7 +91,7 @@ internal static class AccountingEndpoints
                 cancellationToken);
 
             return Results.Ok(result);
-        }).RequireAuthorization(PermissionCatalog.AccountingRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceAccountingRead);
 
         accounts.MapGet("/{code}", async (
             string code,
@@ -93,7 +100,7 @@ internal static class AccountingEndpoints
         {
             var result = await service.GetAccountAsync(code, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.AccountingRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceAccountingRead);
 
         accounts.MapPost("", async (
             CreateChartAccountRequest request,
@@ -106,7 +113,7 @@ internal static class AccountingEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/accounting/accounts/{result.Value.Code}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.AccountingWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceChartManage);
 
         accounts.MapPut("/{code}", async (
             string code,
@@ -117,7 +124,7 @@ internal static class AccountingEndpoints
         {
             var result = await service.UpdateAccountAsync(code, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.AccountingWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceChartManage);
 
         accounts.MapPost("/{code}/activate", async (
             string code,
@@ -127,7 +134,7 @@ internal static class AccountingEndpoints
         {
             var result = await service.SetAccountActiveAsync(code, true, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.AccountingWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceChartManage);
 
         accounts.MapPost("/{code}/deactivate", async (
             string code,
@@ -137,7 +144,7 @@ internal static class AccountingEndpoints
         {
             var result = await service.SetAccountActiveAsync(code, false, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.AccountingWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceChartManage);
     }
 
     private static void MapJournalEndpoints(RouteGroupBuilder api)
@@ -152,7 +159,7 @@ internal static class AccountingEndpoints
         {
             var result = await service.ListJournalsAsync(includeInactive == true, cancellationToken);
             return Results.Ok(result);
-        }).RequireAuthorization(PermissionCatalog.AccountingRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceAccountingRead);
 
         journals.MapGet("/{code}", async (
             string code,
@@ -161,7 +168,7 @@ internal static class AccountingEndpoints
         {
             var result = await service.GetJournalAsync(code, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.AccountingRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceAccountingRead);
 
         journals.MapPost("", async (
             CreateAccountingJournalRequest request,
@@ -174,7 +181,7 @@ internal static class AccountingEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/accounting/journals/{result.Value.Code}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.AccountingWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceChartManage);
 
         journals.MapPut("/{code}", async (
             string code,
@@ -185,7 +192,7 @@ internal static class AccountingEndpoints
         {
             var result = await service.UpdateJournalAsync(code, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.AccountingWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceChartManage);
 
         journals.MapPost("/{code}/activate", async (
             string code,
@@ -195,7 +202,7 @@ internal static class AccountingEndpoints
         {
             var result = await service.SetJournalActiveAsync(code, true, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.AccountingWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceChartManage);
 
         journals.MapPost("/{code}/deactivate", async (
             string code,
@@ -205,7 +212,7 @@ internal static class AccountingEndpoints
         {
             var result = await service.SetJournalActiveAsync(code, false, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.AccountingWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceChartManage);
     }
 
     private static void MapJournalEntryEndpoints(RouteGroupBuilder api)
@@ -241,7 +248,7 @@ internal static class AccountingEndpoints
                 cancellationToken);
 
             return Results.Ok(result);
-        }).RequireAuthorization(PermissionCatalog.AccountingRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceAccountingRead);
 
         entries.MapGet("/{id:guid}", async (
             Guid id,
@@ -250,7 +257,7 @@ internal static class AccountingEndpoints
         {
             var result = await service.GetEntryAsync(id, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.AccountingRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceAccountingRead);
 
         entries.MapPost("", async (
             CreateJournalEntryRequest request,
@@ -263,7 +270,7 @@ internal static class AccountingEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/accounting/entries/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.AccountingWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceEntryManage);
 
         entries.MapPut("/{id:guid}/lines", async (
             Guid id,
@@ -274,7 +281,7 @@ internal static class AccountingEndpoints
         {
             var result = await service.UpdateEntryLinesAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.AccountingWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceEntryManage);
 
         entries.MapPost("/{id:guid}/cancel", async (
             Guid id,
@@ -285,7 +292,7 @@ internal static class AccountingEndpoints
         {
             var result = await service.CancelEntryAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.AccountingWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceEntryManage);
 
         entries.MapPost("/{id:guid}/post", async (
             Guid id,
@@ -295,7 +302,7 @@ internal static class AccountingEndpoints
         {
             var result = await service.PostEntryAsync(id, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.AccountingPost);
+        }).RequireAuthorization(PermissionCatalog.FinanceEntryPost);
 
         // Returns the NEW (reversing) entry, not the corrected one. Behind accounting.post
         // because a reversal posts an entry of its own.
@@ -311,7 +318,7 @@ internal static class AccountingEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/accounting/entries/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.AccountingReverse);
+        }).RequireAuthorization(PermissionCatalog.FinanceEntryReverse);
     }
 
     private static void MapTrialBalanceEndpoints(RouteGroupBuilder api)
@@ -333,7 +340,7 @@ internal static class AccountingEndpoints
             var result = await service.GetTrialBalanceAsync(from, to, cancellationToken);
 
             return Results.Ok(result);
-        }).RequireAuthorization(PermissionCatalog.AccountingRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceAccountingRead);
     }
 
     private static bool TryParseStatus(string? status, out EntryStatus? parsedStatus, out string error)

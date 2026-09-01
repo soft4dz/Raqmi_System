@@ -48,7 +48,7 @@ internal static class PurchasingEndpoints
         {
             var result = await service.ListSuppliersAsync(search, includeInactive == true, cancellationToken);
             return Results.Ok(result);
-        }).RequireAuthorization(PermissionCatalog.PurchasingRead);
+        }).RequireAuthorization(PermissionCatalog.PurchasingOrderRead);
 
         suppliers.MapGet("/{code}", async (
             string code,
@@ -57,7 +57,7 @@ internal static class PurchasingEndpoints
         {
             var result = await service.GetSupplierAsync(code, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.PurchasingRead);
+        }).RequireAuthorization(PermissionCatalog.PurchasingOrderRead);
 
         suppliers.MapPost("", async (
             CreateSupplierRequest request,
@@ -70,7 +70,7 @@ internal static class PurchasingEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/purchasing/suppliers/{result.Value.Code}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.PurchasingWrite);
+        }).RequireAuthorization(PermissionCatalog.PurchasingSupplierManage);
 
         suppliers.MapPut("/{code}", async (
             string code,
@@ -81,7 +81,7 @@ internal static class PurchasingEndpoints
         {
             var result = await service.UpdateSupplierAsync(code, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.PurchasingWrite);
+        }).RequireAuthorization(PermissionCatalog.PurchasingSupplierManage);
 
         suppliers.MapPost("/{code}/activate", async (
             string code,
@@ -91,7 +91,7 @@ internal static class PurchasingEndpoints
         {
             var result = await service.SetSupplierActiveAsync(code, true, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.PurchasingWrite);
+        }).RequireAuthorization(PermissionCatalog.PurchasingSupplierManage);
 
         suppliers.MapPost("/{code}/deactivate", async (
             string code,
@@ -101,7 +101,7 @@ internal static class PurchasingEndpoints
         {
             var result = await service.SetSupplierActiveAsync(code, false, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.PurchasingWrite);
+        }).RequireAuthorization(PermissionCatalog.PurchasingSupplierManage);
     }
 
     private static void MapPurchaseOrderEndpoints(RouteGroupBuilder api)
@@ -137,7 +137,7 @@ internal static class PurchasingEndpoints
                 cancellationToken);
 
             return Results.Ok(result);
-        }).RequireAuthorization(PermissionCatalog.PurchasingRead);
+        }).RequireAuthorization(PermissionCatalog.PurchasingOrderRead);
 
         orders.MapGet("/{id:guid}", async (
             Guid id,
@@ -146,7 +146,7 @@ internal static class PurchasingEndpoints
         {
             var result = await service.GetOrderAsync(id, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.PurchasingRead);
+        }).RequireAuthorization(PermissionCatalog.PurchasingOrderRead);
 
         // Un bon de commande nait en brouillon : SANS numero, lignes modifiables. Le numero
         // definitif n'est alloue qu'a l'approbation, pour qu'un brouillon abandonne ne brule
@@ -162,7 +162,7 @@ internal static class PurchasingEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/purchasing/orders/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.PurchasingWrite);
+        }).RequireAuthorization(PermissionCatalog.PurchasingOrderManage);
 
         // Reecriture des lignes : refusee (409) des que la commande est approuvee - les lignes
         // sont figees, c'est le document envoye au fournisseur.
@@ -175,7 +175,7 @@ internal static class PurchasingEndpoints
         {
             var result = await service.UpdateOrderLinesAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.PurchasingWrite);
+        }).RequireAuthorization(PermissionCatalog.PurchasingOrderManage);
 
         // Acte engageant : alloue "BC-{annee}-{seq:D6}" et fige les lignes. Droit dedie.
         orders.MapPost("/{id:guid}/approve", async (
@@ -186,7 +186,7 @@ internal static class PurchasingEndpoints
         {
             var result = await service.ApproveOrderAsync(id, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.PurchasingApprove);
+        }).RequireAuthorization(PermissionCatalog.PurchasingOrderApprove);
 
         // Une livraison : quantites recues MAINTENANT, ligne par ligne, cumulees cote serveur.
         // Autant de receptions que necessaire pour completer la commande ; la sur-reception est
@@ -200,7 +200,7 @@ internal static class PurchasingEndpoints
         {
             var result = await service.ReceiveOrderAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.PurchasingReceive);
+        }).RequireAuthorization(PermissionCatalog.PurchasingReceiptExecute);
 
         // Annulation motivee, impossible des qu'une seule unite est entree en stock : la
         // commande est alors la piece justificative de mouvements de stock reels.
@@ -213,7 +213,7 @@ internal static class PurchasingEndpoints
         {
             var result = await service.CancelOrderAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.PurchasingWrite);
+        }).RequireAuthorization(PermissionCatalog.PurchasingOrderManage);
     }
 
     private static bool TryParseStatus(string? status, out PurchaseOrderStatus? parsedStatus, out string error)

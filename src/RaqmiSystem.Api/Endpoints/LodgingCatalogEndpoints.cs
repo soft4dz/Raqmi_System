@@ -39,7 +39,7 @@ internal static class LodgingCatalogEndpoints
 
             var result = await service.ListExtrasAsync(hotelUnitCode, includeInactive == true, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         extras.MapPost("", async (
             SaveExtraItemRequest request,
@@ -52,7 +52,7 @@ internal static class LodgingCatalogEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/lodging/extras/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRates);
+        }).RequireAuthorization(PermissionCatalog.LodgingRateManage);
 
         extras.MapPut("/{id:guid}", async (
             Guid id,
@@ -63,7 +63,7 @@ internal static class LodgingCatalogEndpoints
         {
             var result = await service.UpdateExtraAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRates);
+        }).RequireAuthorization(PermissionCatalog.LodgingRateManage);
 
         extras.MapPost("/{id:guid}/activate", async (
             Guid id,
@@ -73,7 +73,7 @@ internal static class LodgingCatalogEndpoints
         {
             var result = await service.SetExtraActiveAsync(id, true, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRates);
+        }).RequireAuthorization(PermissionCatalog.LodgingRateManage);
 
         extras.MapPost("/{id:guid}/deactivate", async (
             Guid id,
@@ -83,7 +83,7 @@ internal static class LodgingCatalogEndpoints
         {
             var result = await service.SetExtraActiveAsync(id, false, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRates);
+        }).RequireAuthorization(PermissionCatalog.LodgingRateManage);
     }
 
     private static void MapPackageEndpoints(RouteGroupBuilder api)
@@ -103,7 +103,7 @@ internal static class LodgingCatalogEndpoints
 
             var result = await service.ListPackagesAsync(hotelUnitCode, includeInactive == true, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         packages.MapPost("", async (
             SavePackageRequest request,
@@ -116,7 +116,7 @@ internal static class LodgingCatalogEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/lodging/packages/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRates);
+        }).RequireAuthorization(PermissionCatalog.LodgingRateManage);
 
         packages.MapPut("/{id:guid}", async (
             Guid id,
@@ -127,7 +127,7 @@ internal static class LodgingCatalogEndpoints
         {
             var result = await service.UpdatePackageAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRates);
+        }).RequireAuthorization(PermissionCatalog.LodgingRateManage);
 
         packages.MapPost("/{id:guid}/activate", async (
             Guid id,
@@ -137,7 +137,7 @@ internal static class LodgingCatalogEndpoints
         {
             var result = await service.SetPackageActiveAsync(id, true, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRates);
+        }).RequireAuthorization(PermissionCatalog.LodgingRateManage);
 
         packages.MapPost("/{id:guid}/deactivate", async (
             Guid id,
@@ -147,7 +147,7 @@ internal static class LodgingCatalogEndpoints
         {
             var result = await service.SetPackageActiveAsync(id, false, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRates);
+        }).RequireAuthorization(PermissionCatalog.LodgingRateManage);
     }
 
     private static void MapCancellationPolicyEndpoints(RouteGroupBuilder api)
@@ -171,7 +171,7 @@ internal static class LodgingCatalogEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         policies.MapPost("", async (
             SaveCancellationPolicyRequest request,
@@ -184,7 +184,7 @@ internal static class LodgingCatalogEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/lodging/cancellation-policies/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRates);
+        }).RequireAuthorization(PermissionCatalog.LodgingRateManage);
 
         policies.MapPut("/{id:guid}", async (
             Guid id,
@@ -195,7 +195,7 @@ internal static class LodgingCatalogEndpoints
         {
             var result = await service.UpdateCancellationPolicyAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRates);
+        }).RequireAuthorization(PermissionCatalog.LodgingRateManage);
 
         policies.MapPost("/{id:guid}/activate", async (
             Guid id,
@@ -205,7 +205,7 @@ internal static class LodgingCatalogEndpoints
         {
             var result = await service.SetCancellationPolicyActiveAsync(id, true, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRates);
+        }).RequireAuthorization(PermissionCatalog.LodgingRateManage);
 
         policies.MapPost("/{id:guid}/deactivate", async (
             Guid id,
@@ -215,7 +215,7 @@ internal static class LodgingCatalogEndpoints
         {
             var result = await service.SetCancellationPolicyActiveAsync(id, false, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRates);
+        }).RequireAuthorization(PermissionCatalog.LodgingRateManage);
     }
 
     private static void MapYieldRuleEndpoints(RouteGroupBuilder api)
@@ -235,7 +235,7 @@ internal static class LodgingCatalogEndpoints
 
             var result = await service.ListYieldRulesAsync(hotelUnitCode, includeInactive == true, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         rules.MapPost("", async (
             SaveYieldRuleRequest request,
@@ -248,7 +248,7 @@ internal static class LodgingCatalogEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/lodging/yield-rules/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRates);
+        }).RequireAuthorization(PermissionCatalog.LodgingRateManage);
 
         rules.MapPut("/{id:guid}", async (
             Guid id,
@@ -259,7 +259,7 @@ internal static class LodgingCatalogEndpoints
         {
             var result = await service.UpdateYieldRuleAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRates);
+        }).RequireAuthorization(PermissionCatalog.LodgingRateManage);
 
         rules.MapPost("/{id:guid}/activate", async (
             Guid id,
@@ -269,7 +269,7 @@ internal static class LodgingCatalogEndpoints
         {
             var result = await service.SetYieldRuleActiveAsync(id, true, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRates);
+        }).RequireAuthorization(PermissionCatalog.LodgingRateManage);
 
         rules.MapPost("/{id:guid}/deactivate", async (
             Guid id,
@@ -279,6 +279,6 @@ internal static class LodgingCatalogEndpoints
         {
             var result = await service.SetYieldRuleActiveAsync(id, false, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRates);
+        }).RequireAuthorization(PermissionCatalog.LodgingRateManage);
     }
 }

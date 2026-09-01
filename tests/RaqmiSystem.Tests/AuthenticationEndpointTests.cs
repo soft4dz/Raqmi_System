@@ -93,7 +93,7 @@ public sealed class AuthenticationEndpointTests : IClassFixture<RaqmiApiFactory>
             // ordering and the kitchen are not front-office acts.
         };
 
-        Assert.Equal(expectedPermissions.Order(), body.User.Permissions.Order());
+        Assert.Equal(WithTargetKeys(expectedPermissions), body.User.Permissions.Order());
     }
 
     [Fact]
@@ -242,7 +242,25 @@ public sealed class AuthenticationEndpointTests : IClassFixture<RaqmiApiFactory>
             PermissionCatalog.KpiAdmin
         };
 
-        Assert.Equal(expectedPermissions.Order(), body.Permissions.Order());
+        Assert.Equal(WithTargetKeys(expectedPermissions), body.Permissions.Order());
+    }
+
+    /// <summary>
+    /// Lot 2.1 : le seeder accorde a chaque role systeme, EN PLUS de ses cles historiques, les
+    /// cles cibles domaine.ressource.action qu'elles couvrent (equivalence stricte,
+    /// PermissionRegistry). Les listes historiques ci-dessus restent l'instantane de reference
+    /// du role - inchangees - et le jeton est attendu avec exactement ces cles plus leurs cibles,
+    /// rien d'autre : une cle cible qu'aucune cle historique du role ne couvre serait une
+    /// extension silencieuse.
+    /// </summary>
+    private static IOrderedEnumerable<string> WithTargetKeys(IEnumerable<string> historicalPermissions)
+    {
+        var historical = historicalPermissions.ToArray();
+
+        return historical
+            .Concat(historical.SelectMany(PermissionRegistry.TargetKeysCoveredBy))
+            .Distinct(StringComparer.Ordinal)
+            .Order();
     }
 
     private sealed record MeResponse(

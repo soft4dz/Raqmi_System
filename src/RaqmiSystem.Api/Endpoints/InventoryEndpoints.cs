@@ -20,7 +20,10 @@ namespace RaqmiSystem.Api.Endpoints;
 /// unit.manager ; inventory.validate pour direction et exploitation.control seulement - valider
 /// un inventaire fige des ajustements de stock, c'est un acte de controle, separe de la saisie
 /// quotidienne du magasinier (system.administrator recoit tout via le catch-all de
-/// PermissionCatalog.All). Program.cs enregistre une policy par cle du catalogue, et
+/// PermissionCatalog.All). Depuis le lot 2.1 les routes portent les cles CIBLES du registre -
+/// inventory.stock.read, inventory.item.manage, inventory.movement.record,
+/// inventory.count.manage, inventory.count.validate - et chaque politique accepte encore la cle
+/// historique qui la couvre (PermissionRegistry). Program.cs enregistre une policy par cle du catalogue, et
 /// DependencyInjection.cs sert les TROIS contrats depuis la meme classe - IInventoryService,
 /// IStockOperationService et IStockCostProvider -> InventoryService, ces deux derniers etant
 /// CONSOMMES par les modules Achats et Cuisine de la meme vague. Schema "inventory" cree par la
@@ -28,11 +31,18 @@ namespace RaqmiSystem.Api.Endpoints;
 /// </summary>
 internal static class InventoryEndpoints
 {
-    private const string Read = PermissionCatalog.InventoryRead;
+    private const string Read = PermissionCatalog.InventoryStockRead;
 
-    private const string Write = PermissionCatalog.InventoryWrite;
+    // inventory.write est composite dans le registre : le referentiel, les mouvements et la saisie
+    // d'inventaire sont trois gestes, et chaque route porte le sien. Un profil qui ne detient que
+    // la cle historique garde l'acces aux trois (la politique de chaque cle cible l'accepte).
+    private const string ManageItems = PermissionCatalog.InventoryItemManage;
 
-    private const string Validate = PermissionCatalog.InventoryValidate;
+    private const string RecordMovements = PermissionCatalog.InventoryMovementRecord;
+
+    private const string ManageCounts = PermissionCatalog.InventoryCountManage;
+
+    private const string Validate = PermissionCatalog.InventoryCountValidate;
 
     public static RouteGroupBuilder MapInventoryEndpoints(this RouteGroupBuilder api)
     {
@@ -80,7 +90,7 @@ internal static class InventoryEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/inventory/warehouses/{result.Value.Code}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(Write);
+        }).RequireAuthorization(ManageItems);
 
         warehouses.MapPut("/{code}", async (
             string code,
@@ -91,7 +101,7 @@ internal static class InventoryEndpoints
         {
             var result = await service.UpdateWarehouseAsync(code, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(Write);
+        }).RequireAuthorization(ManageItems);
 
         warehouses.MapPost("/{code}/activate", async (
             string code,
@@ -101,7 +111,7 @@ internal static class InventoryEndpoints
         {
             var result = await service.SetWarehouseActiveAsync(code, true, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(Write);
+        }).RequireAuthorization(ManageItems);
 
         warehouses.MapPost("/{code}/deactivate", async (
             string code,
@@ -111,7 +121,7 @@ internal static class InventoryEndpoints
         {
             var result = await service.SetWarehouseActiveAsync(code, false, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(Write);
+        }).RequireAuthorization(ManageItems);
     }
 
     private static void MapItemEndpoints(RouteGroupBuilder api)
@@ -140,7 +150,7 @@ internal static class InventoryEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/inventory/items/{result.Value.Code}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(Write);
+        }).RequireAuthorization(ManageItems);
 
         items.MapPut("/{code}", async (
             string code,
@@ -151,7 +161,7 @@ internal static class InventoryEndpoints
         {
             var result = await service.UpdateItemAsync(code, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(Write);
+        }).RequireAuthorization(ManageItems);
 
         items.MapPost("/{code}/activate", async (
             string code,
@@ -161,7 +171,7 @@ internal static class InventoryEndpoints
         {
             var result = await service.SetItemActiveAsync(code, true, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(Write);
+        }).RequireAuthorization(ManageItems);
 
         items.MapPost("/{code}/deactivate", async (
             string code,
@@ -171,7 +181,7 @@ internal static class InventoryEndpoints
         {
             var result = await service.SetItemActiveAsync(code, false, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(Write);
+        }).RequireAuthorization(ManageItems);
     }
 
     private static void MapMovementEndpoints(RouteGroupBuilder api)
@@ -219,7 +229,7 @@ internal static class InventoryEndpoints
         {
             var result = await service.CreateMovementAsync(request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(Write);
+        }).RequireAuthorization(RecordMovements);
 
         var transfers = api.MapGroup("/inventory/transfers")
             .WithTags("Inventory");
@@ -232,7 +242,7 @@ internal static class InventoryEndpoints
         {
             var result = await service.TransferAsync(request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(Write);
+        }).RequireAuthorization(RecordMovements);
     }
 
     private static void MapStockEndpoints(RouteGroupBuilder api)
@@ -289,7 +299,7 @@ internal static class InventoryEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/inventory/counts/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(Write);
+        }).RequireAuthorization(ManageCounts);
 
         counts.MapPut("/{id:guid}/lines", async (
             Guid id,
@@ -300,7 +310,7 @@ internal static class InventoryEndpoints
         {
             var result = await service.ReplaceCountLinesAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(Write);
+        }).RequireAuthorization(ManageCounts);
 
         // Acte engageant : genere les mouvements d'ajustement puis fige l'inventaire pour
         // toujours. Droit distinct de l'ecriture (separation des taches : le magasinier compte,

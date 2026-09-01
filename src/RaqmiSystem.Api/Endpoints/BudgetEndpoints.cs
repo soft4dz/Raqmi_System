@@ -37,7 +37,7 @@ internal static class BudgetEndpoints
 
             var result = await service.ListPlansAsync(year, hotelUnitCode, parsedStatus, cancellationToken);
             return Results.Ok(result);
-        }).RequireAuthorization(PermissionCatalog.BudgetRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceBudgetRead);
 
         plans.MapGet("/{id:guid}", async (
             Guid id,
@@ -46,7 +46,7 @@ internal static class BudgetEndpoints
         {
             var result = await service.GetPlanAsync(id, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.BudgetRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceBudgetRead);
 
         plans.MapPost("", async (
             CreateBudgetPlanRequest request,
@@ -59,7 +59,7 @@ internal static class BudgetEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/budget/plans/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.BudgetWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceBudgetManage);
 
         plans.MapPut("/{id:guid}", async (
             Guid id,
@@ -70,7 +70,7 @@ internal static class BudgetEndpoints
         {
             var result = await service.UpdatePlanAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.BudgetWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceBudgetManage);
 
         plans.MapPut("/{id:guid}/lines", async (
             Guid id,
@@ -81,7 +81,7 @@ internal static class BudgetEndpoints
         {
             var result = await service.ReplacePlanLinesAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.BudgetWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceBudgetManage);
 
         plans.MapPost("/{id:guid}/lines", async (
             Guid id,
@@ -92,7 +92,7 @@ internal static class BudgetEndpoints
         {
             var result = await service.SetPlanLineAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.BudgetWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceBudgetManage);
 
         plans.MapDelete("/{id:guid}/lines/{lineId:guid}", async (
             Guid id,
@@ -103,7 +103,7 @@ internal static class BudgetEndpoints
         {
             var result = await service.RemovePlanLineAsync(id, lineId, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.BudgetWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceBudgetManage);
 
         // Approval is a distinct engaging act, not an edit: it freezes the budget the direction
         // will be measured against, so it carries its own permission key.
@@ -115,7 +115,7 @@ internal static class BudgetEndpoints
         {
             var result = await service.ApprovePlanAsync(id, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.BudgetApprove);
+        }).RequireAuthorization(PermissionCatalog.FinanceBudgetApprove);
 
         plans.MapPost("/{id:guid}/close", async (
             Guid id,
@@ -125,7 +125,7 @@ internal static class BudgetEndpoints
         {
             var result = await service.ClosePlanAsync(id, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.BudgetApprove);
+        }).RequireAuthorization(PermissionCatalog.FinanceBudgetApprove);
     }
 
     private static void MapBudgetVarianceEndpoints(RouteGroupBuilder api)
@@ -157,7 +157,7 @@ internal static class BudgetEndpoints
 
             var result = await service.GetVarianceAsync(year.Value, hotelUnitCode, month, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.BudgetRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceBudgetRead);
     }
 
     private static bool TryParseStatus(string? status, out BudgetStatus? parsedStatus, out string error)
