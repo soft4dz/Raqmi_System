@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="fr" data-theme="clair" data-profil="reception">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette — shell de navigation Raqmi System</title>
+<!--
+  Maquette autonome pour VALIDATION HUMAINE du shell de navigation a quatre niveaux
+  (docs/design/navigation-shell.md). Elle sert a trancher sur ecran, pas a etre integree :
+  aucune dependance reseau, aucune police externe, donnees fictives.
+
+  Ce qu'elle montre : barre laterale des 22 domaines avec leurs icones (les SVG reprennent
+  les geometries ModuleGroupIcon.* de RaqmiTheme.xaml), fil d'Ariane, un ecran type avec
+  sous-onglets, le portail Mon Espace (apercu phase 4), les badges de maturite, deux profils
+  commutables (Reception / Direction generale) et les deux themes (clair / sombre) de
+  ThemePalette. Les couleurs sont celles du theme WPF, clef par clef.
+-->
+<style>
+  /* ============ Palette : les brushes de RaqmiTheme.xaml / ThemePalette.Sombre ============ */
+  :root, [data-theme="clair"] {
+    --structure:#071525; --structure-elevated:#0C2135; --header-fg:#FFFFFF; --header-muted:#9FC3DC;
+    --app-bg:#F4F7FA; --surface:#FFFFFF; --surface-subtle:#EEF4F8; --surface-hover:#E4EDF4;
+    --panel-border:#DCE6EF; --field-border:#7A8FA3; --border-strong:#B9CCDD;
+    --text:#0F2337; --text-2:#4A6A87; --text-muted:#5B6C7E; --text-label:#475569; --placeholder:#5C7188;
+    --accent:#0AA3AD; --accent-hover:#0DB6C1; --accent-pressed:#088790;
+    --accent-action:#07767D; --accent-action-hover:#08838B; --accent-action-fg:#FFFFFF;
+    --accent-soft:#E1F4F5; --accent-selection:rgba(10,163,173,.18);
+    --primary:#073B78; --secondary:#145CAB; --danger:#C0392B;
+    --focus:#073B78; --focus-on-filled:#FFFFFF; --focus-on-dark:#FFFFFF;
+    --disabled-bg:#E5EBF1; --disabled-fg:#576C82;
+    --module-active:rgba(10,163,173,.10);
+    --row-hover:#F0F6FA; --row-alt:#FAFCFE; --grid-header-fg:#5B7591;
+    --shadow:rgba(7,21,37,.07);
+    --mat-planned-bg:#E8EEF4; --mat-planned-fg:#46617B; --mat-planned-accent:#7798B5;
+    --mat-preview-bg:#FBEBC8; --mat-preview-fg:#8A5A08; --mat-preview-accent:#BF8B16;
+    --mat-functional-bg:#DDF2F4; --mat-functional-fg:#096B73; --mat-functional-accent:#0AA3AD;
+    --mat-ready-bg:#DCF3E5; --mat-ready-fg:#14713C; --mat-ready-accent:#1F9D57;
+    --status-available-bg:#DCF3E5; --status-available-fg:#14713C;
+    --status-planned-bg:#E8EEF4; --status-planned-fg:#46617B;
+    --status-submitted-bg:#FCEFC7; --status-submitted-fg:#92600A;
+    --status-validated-bg:#DBF2E3; --status-validated-fg:#187A41;
+  }
+  [data-theme="sombre"] {
+    --structure:#050F1C; --structure-elevated:#0C1B2B; --header-fg:#EAF2F9; --header-muted:#8FB0CA;
+    --app-bg:#0E1826; --surface:#152233; --surface-subtle:#1B2B3E; --surface-hover:#22344A;
+    --panel-border:#26374D; --field-border:#62748D; --border-strong:#4B6E93;
+    --text:#E6EEF7; --text-2:#AFC3D6; --text-muted:#98AFC6; --text-label:#C2D2E1; --placeholder:#8DA4BC;
+    --accent:#22C4CE; --accent-hover:#3ED5DE; --accent-pressed:#16A8B1;
+    --accent-action:#2FCBD6; --accent-action-hover:#4CDAE3; --accent-action-fg:#062227;
+    --accent-soft:#0E3B40; --accent-selection:rgba(34,196,206,.24);
+    --primary:#5B9BE8; --secondary:#6FAEF0; --danger:#F4776A;
+    --focus:#7FB6F5; --focus-on-filled:#08222A; --focus-on-dark:#EAF2F9;
+    --disabled-bg:#1C2938; --disabled-fg:#8195AB;
+    --module-active:rgba(34,196,206,.15);
+    --row-hover:#1B2B3E; --row-alt:#182637; --grid-header-fg:#9CB3C9;
+    --shadow:rgba(0,0,0,.35);
+    --mat-planned-bg:#212F3F; --mat-planned-fg:#A8BCD0; --mat-planned-accent:#506D91;
+    --mat-preview-bg:#3A2D12; --mat-preview-fg:#EFC15C; --mat-preview-accent:#E5B23A;
+    --mat-functional-bg:#0E3439; --mat-functional-fg:#4FD3DC; --mat-functional-accent:#22C4CE;
+    --mat-ready-bg:#11321F; --mat-ready-fg:#68D397; --mat-ready-accent:#3FBF74;
+    --status-available-bg:#11321F; --status-available-fg:#68D397;
+    --status-planned-bg:#212F3F; --status-planned-fg:#A8BCD0;
+    --status-submitted-bg:#3B2E11; --status-submitted-fg:#F5C761;
+    --status-validated-bg:#11321F; --status-validated-fg:#68D397;
+  }
+
+  /* ============ Base ============ */
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; }
+  body {
+    font-family: Manrope, "Noto Kufi Arabic", "Segoe UI", sans-serif;
+    font-size:13px; color:var(--text); background:var(--app-bg);
+    display:flex; flex-direction:column; min-height:100vh;
+  }
+  button { font:inherit; color:inherit; cursor:pointer; border:0; background:none; }
+  button:focus-visible, [tabindex]:focus-visible, input:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+  svg.ic { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+  svg.ic.thin { stroke-width:1.4; }
+
+  /* ============ Barre de la maquette (hors produit) ============ */
+  .maquette-bar {
+    background:var(--structure-elevated); color:var(--header-fg); font-size:12px;
+    padding:8px 24px; display:flex; flex-wrap:wrap; gap:18px; align-items:center;
+    border-bottom:1px solid rgba(255,255,255,.08);
+  }
+  .maquette-bar strong { color:var(--header-muted); font-weight:600; letter-spacing:.02em; text-transform:uppercase; font-size:10.5px; }
+  .maquette-bar .grp { display:flex; align-items:center; gap:6px; }
+  .maquette-bar .seg { display:inline-flex; border:1px solid rgba(255,255,255,.22); border-radius:15px; overflow:hidden; }
+  .maquette-bar .seg button { padding:5px 12px; color:var(--header-fg); font-weight:600; font-size:12px; }
+  .maquette-bar .seg button[aria-pressed="true"] { background:var(--accent); color:#062227; }
+  .maquette-bar .note { margin-left:auto; color:var(--header-muted); }
+
+  /* ============ En-tete ============ */
+  header.entete {
+    height:76px; background:var(--structure); color:var(--header-fg);
+    display:flex; align-items:center; padding:0 24px; gap:12px;
+  }
+  .marque { width:42px; height:42px; border-radius:11px; background:rgba(255,255,255,.10);
+    display:grid; place-items:center; font-weight:600; font-size:20px; color:var(--header-fg); }
+  .entete h1 { font-size:21px; font-weight:600; margin:0; line-height:1.15; }
+  .entete .signature { font-size:12px; color:var(--header-muted); }
+  .entete .session { margin-left:auto; display:flex; align-items:center; gap:14px; font-size:12px; color:var(--header-muted); }
+  .entete .session b { color:var(--header-fg); font-weight:600; }
+  .entete .ghost { border:1px solid rgba(255,255,255,.25); border-radius:8px; padding:6px 10px; color:var(--header-fg); font-size:12px; display:inline-flex; gap:8px; align-items:center; }
+  .entete .ghost:focus-visible { outline-color:var(--focus-on-dark); }
+
+  /* ============ Corps : barre laterale + contenu ============ */
+  .app { flex:1; display:grid; grid-template-columns:248px 1fr; gap:20px; padding:24px; min-height:0; }
+  .app.racine { grid-template-columns:1fr; }
+  .app.racine aside { display:none; }
+  .carte { background:var(--surface); border:1px solid var(--panel-border); border-radius:10px; }
+  aside { padding:18px 14px; display:flex; flex-direction:column; min-height:0; }
+  .etiquette { font-size:11px; font-weight:600; color:var(--text-muted); margin:0 0 10px 14px; }
+
+  .nav-btn {
+    width:100%; height:40px; display:flex; align-items:center; gap:10px; padding:0 10px 0 14px;
+    border-radius:6px; color:var(--text-2); font-size:13px; text-align:left; position:relative;
+  }
+  .nav-btn:hover { background:var(--surface-subtle); }
+  .nav-btn[aria-current="page"] { background:var(--module-active); color:var(--text); font-weight:600; }
+  .nav-btn[aria-current="page"]::before { content:""; position:absolute; left:0; top:9px; bottom:9px; width:3px; border-radius:1.5px; background:var(--accent); }
+
+  .recherche { position:relative; margin-top:12px; }
+  .recherche input {
+    width:100%; min-height:34px; padding:0 32px; border:1px solid var(--field-border); border-radius:8px;
+    background:var(--surface); color:var(--text); font:inherit;
+  }
+  .recherche input::placeholder { color:var(--placeholder); }
+  .recherche svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--placeholder); }
+
+  .domaines { margin-top:14px; overflow:auto; flex:1; padding-right:4px; }
+  .domaine { margin-bottom:2px; }
+  .dom-tete {
+    width:100%; height:36px; display:grid; grid-template-columns:auto 1fr auto auto auto; align-items:center; gap:0;
+    padding:0 10px; border-radius:6px; color:var(--text); font-size:12.5px; font-weight:600; text-align:left;
+  }
+  .dom-tete:hover { background:var(--surface-subtle); }
+  .dom-tete svg.ic { color:var(--text-muted); margin-right:10px; }
+  .dom-tete .nom { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dom-tete .compteur { background:var(--surface-subtle); color:var(--text-2); font-size:10.5px; font-weight:400; border-radius:8px; padding:1px 7px; margin-left:8px; }
+  .dom-tete .chevron { width:9px; height:7px; margin-left:8px; color:var(--text-muted); transition:transform .12s; transform:rotate(-90deg); }
+  .dom-tete[aria-expanded="true"] .chevron { transform:rotate(0); }
+  .dom-tete.inactif { color:var(--disabled-fg); cursor:default; }
+  .dom-tete.inactif svg.ic { color:var(--disabled-fg); }
+  .point { width:7px; height:7px; border-radius:50%; margin-left:8px; display:inline-block; }
+  .point.preview { background:var(--mat-preview-accent); }
+  .point.planned { background:var(--mat-planned-accent); }
+  .ecrans { margin:2px 0 8px; }
+  .ecrans .nav-btn { height:34px; margin-left:8px; width:calc(100% - 8px); font-size:12.5px; margin-bottom:2px; }
+  .epingle { border-top:1px solid var(--panel-border); margin-top:10px; padding-top:8px; }
+  .epingle:empty { display:none; }
+  .session-strip { border-top:1px solid var(--panel-border); margin-top:10px; padding:10px 8px 0; display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-2); }
+  .session-strip .dot { width:7px; height:7px; border-radius:50%; background:var(--accent); }
+  .session-strip .etiquette { margin:0 4px 0 0; }
+
+  /* ============ Fil d'Ariane ============ */
+  .ariane { height:32px; display:flex; align-items:center; gap:6px; font-size:12.5px; margin-bottom:12px; }
+  .ariane[hidden] { display:none; }
+  .ariane svg.ic { color:var(--text-2); }
+  .ariane button { color:var(--text-2); font-weight:600; padding:3px 6px; border-radius:5px; }
+  .ariane button:hover { background:var(--surface-subtle); color:var(--text); }
+  .ariane .courant { color:var(--text); font-weight:600; padding:3px 6px; }
+  .ariane .sep { width:9px; height:7px; color:var(--text-muted); transform:rotate(-90deg); }
+  .ariane .badge { margin-left:auto; }
+
+  /* ============ Badges de maturite ============ */
+  .badge { display:inline-flex; align-items:center; border-radius:9px; padding:2.5px 9px; font-size:10.5px; font-weight:600; white-space:nowrap; }
+  .badge.planned { background:var(--mat-planned-bg); color:var(--mat-planned-fg); }
+  .badge.preview { background:var(--mat-preview-bg); color:var(--mat-preview-fg); }
+  .badge.functional { background:var(--mat-functional-bg); color:var(--mat-functional-fg); }
+  .badge.ready { background:var(--mat-ready-bg); color:var(--mat-ready-fg); }
+  .badge.dispo { background:var(--status-available-bg); color:var(--status-available-fg); }
+  .badge.planifie { background:var(--status-planned-bg); color:var(--status-planned-fg); }
+  .badge.soumise { background:var(--status-submitted-bg); color:var(--status-submitted-fg); }
+  .badge.validee { background:var(--status-validated-bg); color:var(--status-validated-fg); }
+
+  /* ============ Ecran type ============ */
+  main { min-width:0; display:flex; flex-direction:column; }
+  .ecran { padding:20px; flex:1; display:flex; flex-direction:column; gap:16px; }
+  .ecran-tete { display:flex; align-items:flex-start; gap:12px; }
+  .ecran-tete h2 { font-size:21px; font-weight:600; margin:0; }
+  .ecran-tete .sous { font-size:12.5px; color:var(--text-2); margin-top:4px; }
+  .ecran-tete .actions { margin-left:auto; display:flex; gap:8px; }
+  .btn { min-height:36px; padding:7px 15px; border-radius:8px; font-weight:600; font-size:13px; display:inline-flex; align-items:center; gap:8px; }
+  .btn.secondaire { background:var(--surface); border:1px solid var(--panel-border); color:var(--primary); }
+  .btn.secondaire:hover { background:var(--surface-subtle); }
+  .btn.primaire { background:var(--accent-action); color:var(--accent-action-fg); padding:7px 18px; }
+  .btn.primaire:hover { background:var(--accent-action-hover); }
+  .btn.primaire:focus-visible { outline-color:var(--focus-on-filled); outline-offset:-3px; }
+  .btn.fantome { min-height:34px; padding:6px 12px; color:var(--secondary); }
+  .btn.fantome:hover { background:var(--surface-subtle); }
+
+  .onglets { display:flex; border-bottom:1px solid var(--panel-border); }
+  .onglet { padding:9px 18px; font-size:13px; font-weight:600; color:var(--text-2); border-radius:6px 6px 0 0; position:relative; }
+  .onglet:hover { background:var(--surface-subtle); }
+  .onglet[aria-selected="true"] { color:var(--primary); }
+  .onglet[aria-selected="true"]::after { content:""; position:absolute; left:0; right:0; bottom:-1px; height:2.5px; background:var(--accent); }
+
+  .filtres { background:var(--surface-subtle); border:1px solid var(--panel-border); border-radius:8px; padding:12px 16px; display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap; }
+  .champ { display:flex; flex-direction:column; gap:6px; }
+  .champ label { font-size:12px; font-weight:600; color:var(--text-label); }
+  .champ input { min-height:34px; padding:0 10px; border:1px solid var(--field-border); border-radius:8px; background:var(--surface); color:var(--text); font:inherit; width:180px; }
+  .filtres .actions { margin-left:auto; display:flex; gap:8px; }
+
+  .grille { border:1px solid var(--panel-border); border-radius:8px; overflow:hidden; position:relative; min-height:230px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; font-weight:600; color:var(--grid-header-fg); font-size:12px; height:40px; padding:0 12px; border-bottom:1px solid var(--panel-border); background:var(--surface); }
+  td { height:40px; padding:0 12px; border-bottom:1px solid var(--panel-border); }
+  tr:nth-child(even) td { background:var(--row-alt); }
+  tbody tr:hover td { background:var(--row-hover); }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .vide { position:absolute; inset:40px 0 0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; pointer-events:none; }
+  .vide svg { width:32px; height:32px; stroke-width:1.3; color:var(--text-muted); margin-bottom:6px; }
+  .vide .titre { font-size:14px; font-weight:600; color:var(--text-2); }
+  .vide .indice { font-size:12px; color:var(--text-muted); text-align:center; }
+
+  /* ============ Mon Espace ============ */
+  .portail { display:flex; flex-direction:column; gap:20px; }
+  .bandeau { padding:22px 24px; display:flex; align-items:flex-start; gap:16px; }
+  .bandeau h2 { font-size:26px; font-weight:600; margin:0; }
+  .bandeau .date { font-size:13px; color:var(--text-2); margin-top:7px; }
+  .bandeau .sous { font-size:12.5px; color:var(--text-2); margin-top:2px; }
+  .bandeau .droite { margin-left:auto; text-align:right; font-size:12.5px; color:var(--text-2); }
+  .bandeau .droite b { display:block; color:var(--text); font-size:14px; font-weight:600; }
+  .bandeau .liens { display:flex; gap:4px; margin-top:12px; }
+  .tuiles { display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:14px; }
+  .tuile { padding:16px 18px; display:flex; flex-direction:column; gap:10px; min-height:110px; }
+  .tuile .titre { font-size:13.5px; font-weight:600; }
+  .tuile .valeur { font-size:27px; font-weight:600; }
+  .tuile .legende { font-size:11.5px; color:var(--text-muted); }
+  .tuile.vide-portail { grid-column:1 / -1; align-items:center; justify-content:center; text-align:center; min-height:150px; }
+  .tuile.vide-portail svg { width:32px; height:32px; stroke-width:1.3; color:var(--text-muted); }
+  .section-titre { font-size:11px; font-weight:600; color:var(--text-muted); margin:0 0 12px; }
+  .raccourcis { display:flex; gap:8px; flex-wrap:wrap; }
+  .puce { border:1px solid var(--panel-border); background:var(--surface); border-radius:15px; padding:6px 14px; font-size:12.5px; font-weight:600; color:var(--text-2); display:inline-flex; gap:8px; align-items:center; }
+  .puce:hover { background:var(--surface-subtle); border-color:var(--border-strong); }
+  .puce[aria-pressed="true"] { background:var(--accent-action); border-color:var(--accent-action); color:var(--accent-action-fg); }
+
+  .produit { padding:22px; }
+  .avancement { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin:14px 0 8px; }
+  .stat .lib { display:flex; align-items:center; gap:7px; font-size:11.5px; font-weight:600; color:var(--text-2); }
+  .stat .val { font-size:27px; font-weight:600; margin:2px 0 0 15px; }
+  .stat .pt { width:8px; height:8px; border-radius:50%; }
+  .barre { display:flex; gap:3px; height:10px; margin-top:12px; }
+  .barre span { border-radius:5px; }
+  .legende-barre { font-size:12.5px; color:var(--text-2); margin-top:12px; }
+  .catalogue { display:grid; grid-template-columns:repeat(2, 1fr); gap:4px 24px; margin-top:16px; }
+  .cat-ligne { display:grid; grid-template-columns:auto auto 1fr auto; align-items:center; gap:10px; height:36px; padding:0 8px; border-radius:6px; font-size:12.5px; }
+  .cat-ligne:hover { background:var(--surface-subtle); }
+  .cat-ligne .id { color:var(--text-muted); font-size:11px; font-weight:600; width:18px; }
+  .cat-ligne svg.ic { color:var(--accent-pressed); }
+  .cat-ligne.attenue svg.ic { color:var(--text-muted); }
+  .cat-ligne .cadenas { width:12px; height:12px; color:var(--text-muted); stroke-width:1.3; margin-right:6px; }
+  .cat-ligne .droite { display:flex; align-items:center; gap:6px; }
+  .cat-ligne .ecrans-nb { font-size:11px; color:var(--text-muted); }
+
+  @media (max-width: 980px) { .app { grid-template-columns:220px 1fr; } .catalogue { grid-template-columns:1fr; } .avancement { grid-template-columns:repeat(2,1fr); } }
+</style>
+</head>
+<body>
+
+<div class="maquette-bar" role="region" aria-label="Commandes de la maquette">
+  <strong>Maquette</strong>
+  <div class="grp"><span>Profil</span>
+    <span class="seg" role="group" aria-label="Profil">
+      <button type="button" data-profil="reception" aria-pressed="true">Réception</button>
+      <button type="button" data-profil="direction" aria-pressed="false">Direction générale</button>
+    </span>
+  </div>
+  <div class="grp"><span>Thème</span>
+    <span class="seg" role="group" aria-label="Thème">
+      <button type="button" data-theme="clair" aria-pressed="true">Clair</button>
+      <button type="button" data-theme="sombre" aria-pressed="false">Sombre</button>
+    </span>
+  </div>
+  <div class="grp"><span>Domaines sans écran ouvrable</span>
+    <span class="seg" role="group" aria-label="Domaines sans écran">
+      <button type="button" data-vides="masques" aria-pressed="true">Masqués (décision validée)</button>
+      <button type="button" data-vides="grises" aria-pressed="false">Grisés (comparaison)</button>
+    </span>
+  </div>
+  <span class="note">Données fictives · ne pas intégrer · voir docs/design/navigation-shell.md</span>
+</div>
+
+<header class="entete">
+  <div class="marque" aria-hidden="true">Q</div>
+  <div>
+    <h1>Raqmi System</h1>
+    <div class="signature">Un système. Toute votre entreprise.</div>
+  </div>
+  <div class="session">
+    <span id="entete-session"></span>
+    <button type="button" class="ghost" title="Basculer l'apparence (par poste)" id="btn-theme">
+      <svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8,2.2 A5.8,5.8 0 1 0 8.01,2.2 M8,2.2 V13.8 A5.8,5.8 0 0 0 8,2.2 Z"/></svg>
+      <span id="lbl-theme">Sombre</span>
+    </button>
+    <button type="button" class="ghost" title="Raccourcis clavier (F1)">F1</button>
+  </div>
+</header>
+
+<div class="app" id="app">
+  <aside class="carte" id="sidebar" aria-label="Modules"></aside>
+  <main>
+    <nav class="ariane" id="ariane" aria-label="Fil d'Ariane" hidden></nav>
+    <section class="carte ecran" id="ecran"></section>
+  </main>
+</div>
+
+<script>
+/* ======================= Icones : geometries ModuleGroupIcon.* du theme ======================= */
+const ICONES = {
+  MonEspace: "M8,1.8 A6.2,6.2 0 1 0 8.01,1.8 M8,5 A2,2 0 1 0 8.01,5 M4.3,12.6 A4.2,4.2 0 0 1 11.7,12.6",
+  Administration: "M5.6,1.8 H10.4 V5.4 H5.6 Z M8,5.4 V8 M3.6,8 H12.4 M3.6,8 V10.4 M12.4,8 V10.4 M1.4,10.4 H5.8 V14.2 H1.4 Z M10.2,10.4 H14.6 V14.2 H10.2 Z",
+  Finance: "M1.5,4.5 H14.5 V11.5 H1.5 Z M8,5.9 A2.1,2.1 0 1 0 8.01,5.9 M3.9,8 H4.1 M11.9,8 H12.1",
+  Commercial: "M1.5,3.4 H14.5 V12.6 H1.5 Z M5.2,6 A1.5,1.5 0 1 0 5.21,6 M3.4,11.2 A1.9,1.9 0 0 1 7,11.2 M9,6.6 H12.2 M9,9.4 H12.2",
+  Facturation: "M3,1.8 H13 V14.2 L10.5,12.7 L8,14.2 L5.5,12.7 L3,14.2 Z M5.6,5.4 H10.4 M5.6,8.2 H8.8",
+  Hebergement: "M1.6,3.2 V13.6 M1.6,6.4 H12.8 A1.6,1.6 0 0 1 14.4,8 V13.6 M1.6,11.2 H14.4 M5.2,6.4 V11.2",
+  Revenue: "M1.8,12.4 L6.2,8 L9.2,11 L14.2,6 M10.6,6 H14.2 V9.6",
+  Housekeeping: "M13.6,2.4 L8.6,7.4 M7.75,6.55 L3.1,8.7 L7.3,12.9 L9.45,8.25 Z M8.6,7.4 L5.2,10.8",
+  Evenementiel: "M2.2,3.6 H13.8 V14 H2.2 Z M2.2,7 H13.8 M5.4,1.8 V4.8 M10.6,1.8 V4.8 M5,10.4 H8.4",
+  Restauration: "M2.6,11.2 A5.4,5.4 0 0 1 13.4,11.2 M8,4 V5.8 M1.4,11.2 H14.6 M3.6,13.6 H12.4",
+  Stocks: "M1.6,8.4 H8 V14.2 H1.6 Z M8,8.4 H14.4 V14.2 H8 Z M4.8,2.6 H11.2 V8.4 H4.8 Z",
+  Achats: "M2.4,5.4 L8,2.6 L13.6,5.4 V10.6 L8,13.4 L2.4,10.6 Z M2.4,5.4 L8,8.2 L13.6,5.4 M8,8.2 V13.4",
+  RessourcesHumaines: "M5.6,6 A2.2,2.2 0 1 0 5.61,6 M1.9,13.8 V12.6 A3.4,3.4 0 0 1 5.3,9.2 H6 A3.4,3.4 0 0 1 9.4,12.6 V13.8 M11.2,6.2 A1.8,1.8 0 1 0 11.21,6.2 M11.6,9.4 A3.2,3.2 0 0 1 14.2,12.5 V13.8",
+  Maintenance: "M9.8,4.2 A0.7,0.7 0 0 0 9.8,5.1 L10.9,6.2 A0.7,0.7 0 0 0 11.8,6.2 L14.3,3.7 A4,4 0 0 1 9,9 L4.4,13.6 A1.4,1.4 0 0 1 2.4,11.6 L7,7 A4,4 0 0 1 12.3,1.7 Z",
+  Qualite: "M5.8,3 H3 V14.2 H13 V3 H10.2 M5.8,1.8 H10.2 V4.2 H5.8 Z M5.6,9.2 L7.4,11 L10.6,7.4",
+  Juridique: "M8,2.4 V13.6 M4.6,13.6 H11.4 M2.6,5 H13.4 M2.6,5 L1.2,9 H4 Z M13.4,5 L12,9 H14.8 Z",
+  Documentaire: "M1.8,13.2 V3.8 H6 L7.4,5.8 H14.2 V13.2 Z",
+  Marina: "M2.2,11.2 H13.8 L12.2,14.2 H3.8 Z M8,1.8 V11.2 M8,3.2 L12.6,9.4 H8",
+  Parking: "M1.6,12 V8.6 L3.6,4.6 H12.4 L14.4,8.6 V12 M1.6,8.6 H14.4 M4.4,10.7 A1.3,1.3 0 1 0 4.41,10.7 M11.6,10.7 A1.3,1.3 0 1 0 11.61,10.7",
+  Pilotage: "M2.2,11.5 A5.8,5.8 0 0 1 13.8,11.5 M8,11.5 L10.9,7.7 M3.4,8.6 L4.3,9.3 M8,5.7 V6.8",
+  Integrations: "M4.4,6.4 H11.6 V9.4 A3.6,3.6 0 0 1 4.4,9.4 Z M6,2.8 V6.4 M10,2.8 V6.4 M8,13 V14.6",
+  Systeme: "M8,5.5 A2.5,2.5 0 1 0 8.01,5.5 M8,1.4 V3 M8,13 V14.6 M1.4,8 H3 M13,8 H14.6 M3.6,3.6 L4.7,4.7 M11.3,11.3 L12.4,12.4 M12.4,3.6 L11.3,4.7 M4.7,11.3 L3.6,12.4",
+  /* utilitaires du shell (MainWindow.xaml / RaqmiTheme.xaml) */
+  Recherche: "M6.5,2.6 A3.9,3.9 0 1 0 6.51,2.6 M9.3,9.3 L13.4,13.4",
+  Chevron: "M0.6,1.6 L4.5,5.5 L8.4,1.6",
+  Cadenas: "M3.4,5.4 V4 A2.6,2.6 0 0 1 8.6,4 V5.4 M2.2,5.4 H9.8 V10.6 H2.2 Z",
+  Corbeille: "M2,9 L4,3 H12 L14,9 V13 H2 Z M2,9 H5.5 L6.8,11 H9.2 L10.5,9 H14",
+  Actualiser: "M13.2,8 A5.2,5.2 0 1 1 11.7,4.3 M11.9,1.8 V4.6 H9.1",
+  Plus: "M8,3 V13 M3,8 H13",
+};
+const svg = (cle, classes = "ic", vb = "0 0 16 16") =>
+  `<svg class="${classes}" viewBox="${vb}" aria-hidden="true" focusable="false"><path d="${ICONES[cle]}"/></svg>`;
+
+/* ======================= Maturite : quatre niveaux, libelles a source unique ======================= */
+const MATURITE = {
+  Planned:          { cls: "planned",    libelle: "Planifié",                 aide: "Périmètre et dépendances documentés, aucun engagement de disponibilité." },
+  TechnicalPreview: { cls: "preview",    libelle: "Aperçu technique",         aide: "Noyau technique ou parcours incomplet, données non critiques." },
+  Functional:       { cls: "functional", libelle: "Fonctionnel",              aide: "Parcours annoncé utilisable : Domain, API, PostgreSQL, RBAC, Desktop, tests, documentation." },
+  ProductionReady:  { cls: "ready",      libelle: "Prêt pour la production",  aide: "PostgreSQL réel, E2E, smoke WPF, sécurité et exploitation validés." },
+};
+const badge = (m, extra = "") => `<span class="badge ${MATURITE[m].cls} ${extra}" title="${MATURITE[m].aide}">${MATURITE[m].libelle}</span>`;
+
+/* ======================= Les 22 domaines et leurs ecrans ouvrables (phase 1) =======================
+   nom = libelle historique de la carte (un seul vocabulaire) ; module / sousModules = chemin cible ;
+   perm = permission de lecture qui ouvre l'ecran. */
+const DOMAINES = [
+  { id:"01", cle:"MonEspace", nom:"Mon Espace", maturite:"Planned", ecrans:[
+      { nom:"Validations", module:"Mes validations", sousModules:["En attente de ma décision","Historique"], perm:"approvals.read" } ] },
+  { id:"02", cle:"Administration", nom:"Administration & Socle ERP", maturite:"Functional", ecrans:[
+      { nom:"Unités hôtelières", module:"Organisation", sousModules:["Unités"], perm:"units.read" },
+      { nom:"Administration & utilisateurs", module:"Utilisateurs", sousModules:["Comptes"], perm:"users.read" },
+      { nom:"Paramétrage global", module:"Paramétrage", sousModules:["Établissement","Poste de travail","Santé du système"], perm:"settings.read" } ] },
+  { id:"03", cle:"Finance", nom:"Finance & Comptabilité", maturite:"Functional", ecrans:[
+      { nom:"Recettes journalières", module:"Recettes", sousModules:["CA journalier"], perm:"revenue.read" },
+      { nom:"Trésorerie", module:"Trésorerie", sousModules:["Encaissements","Ordres de paiement","Comptes bancaires"], perm:"treasury.read" },
+      { nom:"Comptabilité SCF", module:"Comptabilité", sousModules:["Comptabilité générale","Exercices","Comptabilité auxiliaire","États comptables"], perm:"accounting.read" },
+      { nom:"Budget & prévisions", module:"Budget", sousModules:["Plan budgétaire","Réalisé et écarts"], perm:"budget.read" },
+      { nom:"Créances & recouvrement", module:"Créances", sousModules:["Balance âgée","Relances","Risque client"], perm:"receivables.read" } ] },
+  { id:"04", cle:"Commercial", nom:"Commercial, Clients & CRM", maturite:"Functional", ecrans:[
+      { nom:"Clients", module:"Clients", sousModules:["Fichier clients"], perm:"customers.read" },
+      { nom:"CRM & expérience client", module:"CRM", sousModules:["Fiche client 360°","Contacts et historique","Segmentation","Fidélité","Campagnes","Satisfaction et NPS"], perm:"crm.read" } ] },
+  { id:"05", cle:"Facturation", nom:"Facturation & Ventes", maturite:"Functional", ecrans:[
+      { nom:"Facturation", module:"Factures", sousModules:["Factures"], perm:"invoices.read" } ] },
+  { id:"06", cle:"Hebergement", nom:"PMS / Hébergement", maturite:"Functional", ecrans:[
+      { nom:"Hébergement & occupation", module:"Réservations & folios", sousModules:["Réservations","Folios","Inventaire","Planning"], perm:"lodging.read" },
+      { nom:"PMS front office", module:"Front Office", sousModules:["Arrivées","Départs","Clients présents","Planning","Prévisionnel","Hors service","Night audit"], perm:"lodging.read" },
+      { nom:"Clôture journalière", module:"Contrôle", sousModules:["Clôture journalière"], perm:"closing.read" } ] },
+  { id:"07", cle:"Revenue", nom:"Revenue Management & Distribution", maturite:"TechnicalPreview", ecrans:[
+      { nom:"Tarifs & conventions", module:"Tarification", sousModules:["Plans tarifaires","Périodes","Conventions"], perm:"tariffs.read" } ] },
+  { id:"08", cle:"Housekeeping", nom:"Housekeeping", maturite:"Functional", ecrans:[
+      { nom:"Housekeeping & chambres", module:"Housekeeping", sousModules:["États des chambres","Planning et affectations","Minibar"], perm:"housekeeping.read" } ] },
+  { id:"09", cle:"Evenementiel", nom:"Groupes, MICE & Événementiel", maturite:"Functional", ecrans:[
+      { nom:"Groupes & MICE", module:"Groupes & événements", sousModules:["Salles","Événements","Groupes"], perm:"mice.read" } ] },
+  { id:"10", cle:"Restauration", nom:"F&B / Restauration", maturite:"TechnicalPreview", ecrans:[
+      { nom:"Cuisine & HACCP", module:"Cuisine", sousModules:["Fiches techniques","Hygiène"], perm:"kitchen.read" } ] },
+  { id:"11", cle:"Stocks", nom:"Stocks & Économat", maturite:"Functional", ecrans:[
+      { nom:"Stocks & consommations", module:"Stocks", sousModules:["Stock courant","Mouvements","Articles & magasins","Inventaires"], perm:"inventory.read" } ] },
+  { id:"12", cle:"Achats", nom:"Achats & Fournisseurs", maturite:"TechnicalPreview", ecrans:[
+      { nom:"Achats & approvisionnements", module:"Achats", sousModules:["Commandes","Réception","Fournisseurs"], perm:"purchasing.read" } ] },
+  { id:"13", cle:"RessourcesHumaines", nom:"Ressources Humaines & Paie", maturite:"Functional", ecrans:[
+      { nom:"RH & paie", module:"RH & paie", sousModules:["Personnel","Temps et absences","Paie","Référentiel RH"], perm:"hr.read" } ] },
+  { id:"14", cle:"Maintenance", nom:"Maintenance & Patrimoine", maturite:"Planned", ecrans:[] },
+  { id:"15", cle:"Qualite", nom:"Qualité, Audit & Contrôle interne", maturite:"TechnicalPreview", ecrans:[
+      { nom:"Journal d'audit", module:"Audit", sousModules:["Journal d'audit"], perm:"audit.read" } ] },
+  { id:"16", cle:"Juridique", nom:"Juridique & Conformité", maturite:"Planned", ecrans:[] },
+  { id:"17", cle:"Documentaire", nom:"GED / Gestion documentaire", maturite:"Planned", ecrans:[] },
+  { id:"18", cle:"Marina", nom:"PortMaster / Marina", maturite:"Planned", ecrans:[] },
+  { id:"19", cle:"Parking", nom:"Parking & Contrôle d'accès", maturite:"Planned", ecrans:[] },
+  { id:"20", cle:"Pilotage", nom:"Pilotage, KPI & BI", maturite:"Functional", ecrans:[
+      { nom:"Tableau de bord", module:"Dashboards", sousModules:["Unité"], perm:"dashboard.read" },
+      { nom:"Tableau de bord PDG", module:"Dashboards", sousModules:["Groupe"], perm:"dashboard.read" },
+      { nom:"Cockpit DEC", module:"Dashboards", sousModules:["Exploitation"], perm:"dashboard.read" },
+      { nom:"Bibliothèque KPI", module:"KPI Engine", sousModules:["Bibliothèque KPI","Analyse inter-unités","Alertes","Paramétrage"], perm:"dashboard.read" },
+      { nom:"Rapports", module:"BI", sousModules:["Rapports"], perm:"reports.read" } ] },
+  { id:"21", cle:"Integrations", nom:"Intégrations & Matériels", maturite:"TechnicalPreview", ecrans:[] },
+  { id:"22", cle:"Systeme", nom:"Administration Système", maturite:"Functional", epingle:true, ecrans:[
+      { nom:"Sauvegarde", module:"Maintenance", sousModules:["Sauvegarde"], perm:"maintenance.read" },
+      { nom:"Postes & erreurs", module:"Diagnostic", sousModules:["Postes"], perm:"sync.read" } ] },
+];
+
+/* ======================= Profils (03-cartographie-cible.md, 3.5) ======================= */
+const PROFILS = {
+  reception: {
+    nom:"Réception", utilisateur:"Nadia B.", unite:"HTL-01 · Alger centre", role:"Réception (à créer en phase 2)",
+    permissions:["lodging.read","customers.read","crm.read","housekeeping.read"],
+    defaut:{ domaine:"06", ecran:"PMS front office", onglet:0 },
+    validations:0, taches:0,
+  },
+  direction: {
+    nom:"Direction générale", utilisateur:"Karim M.", unite:"Groupe · 4 unités", role:"direction",
+    permissions:["dashboard.read","reports.read","accounting.read","treasury.read","budget.read","receivables.read","revenue.read",
+                 "lodging.read","closing.read","kitchen.read","inventory.read","hr.read","audit.read","approvals.read"],
+    defaut:{ domaine:"20", ecran:"Tableau de bord PDG", onglet:0 },
+    validations:2, taches:0,
+  },
+};
+
+/* ======================= Etat ======================= */
+const etat = {
+  profil:"reception", theme:"clair", vides:"masques",
+  racine:false, courant:null,           // { domaine, ecran, onglet }
+  deroules:new Set(),                    // memorise "par poste" : ici, le temps de la page
+};
+
+const domaine = id => DOMAINES.find(d => d.id === id);
+const ecransOuvrables = d => d.ecrans.filter(e => PROFILS[etat.profil].permissions.includes(e.perm));
+const estOuvrable = d => ecransOuvrables(d).length > 0;
+
+function appliquerProfil(p) {
+  etat.profil = p;
+  etat.deroules.clear();
+  const def = PROFILS[p].defaut;
+  ouvrir(def.domaine, def.ecran, def.onglet);
+}
+function ouvrir(idDomaine, nomEcran, onglet = 0) {
+  etat.racine = false;
+  etat.courant = { domaine:idDomaine, ecran:nomEcran, onglet };
+  etat.deroules.add(idDomaine);   // ouvrir un ecran deroule son domaine sans replier les autres
+  rendre();
+}
+function allerRacine() { etat.racine = true; etat.courant = null; rendre(); }
+
+/* ======================= Rendu : barre laterale ======================= */
+function rendreSidebar() {
+  const aside = document.getElementById("sidebar");
+  const prof = PROFILS[etat.profil];
+  const listes = DOMAINES.filter(d => !d.epingle);
+  const epingles = DOMAINES.filter(d => d.epingle);
+
+  const ligneDomaine = d => {
+    const ouvrables = ecransOuvrables(d);
+    if (ouvrables.length === 0) {
+      if (etat.vides !== "grises" || d.id === "01") return "";
+      return `<div class="domaine"><div class="dom-tete inactif" title="${d.id} · ${d.nom} — aucun écran ouvrable pour votre profil (${MATURITE[d.maturite].libelle})">
+        ${svg(d.cle, "ic thin")}<span class="nom">${d.nom}</span><span></span><span class="compteur">0</span><span></span></div></div>`;
+    }
+    const deroule = etat.deroules.has(d.id);
+    const point = d.maturite === "TechnicalPreview" ? `<span class="point preview" title="Aperçu technique — noyau technique ou parcours incomplet" role="img" aria-label="Aperçu technique"></span>` : "<span></span>";
+    return `<div class="domaine">
+      <button type="button" class="dom-tete" aria-expanded="${deroule}" data-toggle="${d.id}"
+              aria-label="Domaine ${d.nom}, ${ouvrables.length} écran${ouvrables.length > 1 ? "s" : ""}" title="${d.id} · ${d.nom}">
+        ${svg(d.cle, "ic thin")}<span class="nom">${d.nom}</span>${point}<span class="compteur">${ouvrables.length}</span>${svg("Chevron", "chevron", "0 0 9 7")}
+      </button>
+      <div class="ecrans" ${deroule ? "" : "hidden"}>
+        ${ouvrables.map(e => {
+          const actif = !etat.racine && etat.courant && etat.courant.domaine === d.id && etat.courant.ecran === e.nom;
+          return `<button type="button" class="nav-btn" data-open="${d.id}|${e.nom}" ${actif ? 'aria-current="page"' : ""}
+                    aria-label="Ouvrir ${e.nom}${actif ? ", écran affiché" : ""}" title="${e.module} › ${e.sousModules[0]}">${e.nom}</button>`;
+        }).join("")}
+      </div></div>`;
+  };
+
+  aside.innerHTML = `
+    <p class="etiquette">Modules</p>
+    <button type="button" class="nav-btn" id="btn-racine" ${etat.racine ? 'aria-current="page"' : ""} aria-label="Mon Espace, accueil" title="Mon Espace (Alt+Origine)">
+      ${svg("MonEspace")}<span>Mon Espace</span>
+    </button>
+    <div class="recherche">${svg("Recherche")}<input type="search" placeholder="Rechercher un écran…  (Ctrl+K)" aria-label="Rechercher un écran"></div>
+    <div class="domaines">${listes.map(ligneDomaine).join("")}</div>
+    <div class="epingle">${epingles.map(ligneDomaine).join("")}</div>
+    <div class="session-strip"><span class="etiquette">Session</span><span class="dot"></span><span>Prêt. Connecté en tant que ${prof.utilisateur}.</span></div>`;
+
+  aside.querySelector("#btn-racine").addEventListener("click", allerRacine);
+  aside.querySelectorAll("[data-toggle]").forEach(b => b.addEventListener("click", () => {
+    const id = b.dataset.toggle;
+    etat.deroules.has(id) ? etat.deroules.delete(id) : etat.deroules.add(id);
+    rendreSidebar();
+  }));
+  aside.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => {
+    const [id, nom] = b.dataset.open.split("|");
+    ouvrir(id, nom, 0);
+  }));
+}
+
+/* ======================= Rendu : fil d'Ariane ======================= */
+function rendreAriane() {
+  const nav = document.getElementById("ariane");
+  if (etat.racine || !etat.courant) { nav.hidden = true; nav.innerHTML = ""; return; }
+  const d = domaine(etat.courant.domaine);
+  const e = d.ecrans.find(x => x.nom === etat.courant.ecran);
+  const sousModule = e.sousModules[etat.courant.onglet] || e.sousModules[0];
+  const segments = [
+    { lib:d.nom, aide:`Remonter à ${d.nom}` , action:() => { etat.deroules.add(d.id); rendreSidebar(); document.querySelector(`[data-toggle="${d.id}"]`)?.focus(); } },
+    { lib:e.module, aide:`Remonter à ${e.module}`, action:() => ouvrir(d.id, e.nom, 0) },
+  ];
+  const sep = svg("Chevron", "sep", "0 0 9 7");
+  nav.hidden = false;
+  nav.innerHTML = `${svg(d.cle)}${segments.map((s, i) => `<button type="button" data-seg="${i}" aria-label="${s.aide}">${s.lib}</button>${sep}`).join("")}
+    <span class="courant" aria-current="page">${sousModule}</span>
+    ${d.maturite === "TechnicalPreview" ? badge(d.maturite) : ""}`;
+  nav.querySelectorAll("[data-seg]").forEach(b => b.addEventListener("click", () => segments[+b.dataset.seg].action()));
+}
+
+/* ======================= Rendu : ecran type ======================= */
+const LIGNES_FICTIVES = {
+  "Arrivées": { colonnes:["Réservation","Client","Chambre","Nuits","Statut","Montant dû"],
+    lignes:[["RSV-2026-0412","A. Benali","204 · Double vue mer","2","validee|Confirmée","18 500,00"],
+            ["RSV-2026-0415","S. Haddad","117 · Twin","1","validee|Confirmée","9 200,00"],
+            ["RSV-2026-0418","Agence Sahel Tours","305–308 · Groupe","3","soumise|Option","0,00"],
+            ["RSV-2026-0421","M. Cherif","212 · Suite","4","validee|Garantie","61 000,00"]] },
+  "Groupe": { colonnes:["Unité","Occupation","ADR","RevPAR","CA du jour","Recette validée"],
+    lignes:[["HTL-01 · Alger centre","78 %","12 400,00","9 672,00","1 215 300,00","validee|Validée"],
+            ["HTL-02 · Oran","64 %","9 800,00","6 272,00","742 100,00","validee|Validée"],
+            ["HTL-03 · Tipaza","91 %","15 100,00","13 741,00","1 604 800,00","soumise|Soumise"],
+            ["HTL-04 · Constantine","52 %","8 900,00","4 628,00","498 700,00","validee|Validée"]] },
+};
+function rendreEcran() {
+  const sec = document.getElementById("ecran");
+  if (etat.racine || !etat.courant) { rendrePortail(sec); return; }
+  const d = domaine(etat.courant.domaine);
+  const e = d.ecrans.find(x => x.nom === etat.courant.ecran);
+  const idx = Math.min(etat.courant.onglet, e.sousModules.length - 1);
+  const ongletCourant = e.sousModules[idx];
+  const donnees = LIGNES_FICTIVES[ongletCourant];
+  const plusieurs = e.sousModules.length > 1;
+
+  sec.innerHTML = `
+    <div class="ecran-tete">
+      <div><h2>${e.module}</h2><div class="sous">${d.nom} — ${plusieurs ? "sous-modules : " + e.sousModules.join(", ") : e.sousModules[0]}.</div></div>
+      <div class="actions">
+        <button type="button" class="btn secondaire" title="Actualiser (F5)">${svg("Actualiser")}Actualiser</button>
+        <button type="button" class="btn secondaire">Exporter CSV</button>
+      </div>
+    </div>
+    ${plusieurs ? `<div class="onglets" role="tablist" aria-label="Sous-modules de ${e.module}">
+      ${e.sousModules.map((s, i) => `<button type="button" class="onglet" role="tab" aria-selected="${i === idx}" data-onglet="${i}">${s}</button>`).join("")}
+    </div>` : ""}
+    <div class="filtres">
+      <div class="champ"><label for="f-date">Date métier</label><input id="f-date" type="text" value="01/09/2026"></div>
+      <div class="champ"><label for="f-rech">Recherche</label><input id="f-rech" type="text" placeholder="Nom, réservation, chambre…"></div>
+      <div class="actions">
+        <button type="button" class="btn fantome" title="Ctrl+N">${svg("Plus")}Nouveau</button>
+        <button type="button" class="btn primaire" title="Ctrl+S">Enregistrer</button>
+      </div>
+    </div>
+    <div class="grille">
+      <table>
+        <thead><tr>${(donnees ? donnees.colonnes : ["Référence","Libellé","Unité","Date","Statut","Montant"]).map((c, i, a) => `<th class="${i === a.length - 1 ? "num" : ""}">${c}</th>`).join("")}</tr></thead>
+        <tbody>${donnees ? donnees.lignes.map(l => `<tr>${l.map((c, i, a) => {
+            if (c.includes("|")) { const [cls, lib] = c.split("|"); return `<td><span class="badge ${cls}">${lib}</span></td>`; }
+            return `<td class="${i === a.length - 1 ? "num" : ""}">${c}</td>`; }).join("")}</tr>`).join("") : ""}</tbody>
+      </table>
+      ${donnees ? "" : `<div class="vide" aria-live="polite">${svg("Corbeille")}<div class="titre">Aucun élément pour « ${ongletCourant} »</div>
+        <div class="indice">Choisissez une date métier ou créez un élément avec « Nouveau » (Ctrl+N).</div></div>`}
+    </div>`;
+  sec.querySelectorAll("[data-onglet]").forEach(b => b.addEventListener("click", () => { etat.courant.onglet = +b.dataset.onglet; rendreAriane(); rendreEcran(); }));
+}
+
+/* ======================= Rendu : portail Mon Espace (apercu phase 4) ======================= */
+function rendrePortail(sec) {
+  const prof = PROFILS[etat.profil];
+  const compte = { Planned:0, TechnicalPreview:0, Functional:0, ProductionReady:0 };
+  DOMAINES.forEach(d => compte[d.maturite]++);
+  const total = DOMAINES.length;
+  const tuiles = [];
+  if (prof.validations > 0) tuiles.push(`<div class="carte tuile"><div class="titre">Mes validations</div><div class="valeur">${prof.validations}</div><div class="legende">en attente de votre décision · <span class="badge preview">Aperçu technique</span></div></div>`);
+  const tuilesHtml = tuiles.length ? tuiles.join("") :
+    `<div class="carte tuile vide-portail">${svg("Corbeille")}<div class="titre">Rien à traiter</div><div class="legende">Vos validations, tâches et notifications apparaîtront ici à mesure que les services de Mon Espace seront livrés (phase 4).</div></div>`;
+  const recents = etat.profil === "reception"
+    ? [["06","PMS front office","Arrivées"],["06","Hébergement & occupation","Folios"],["04","CRM & expérience client","Fiche client 360°"]]
+    : [["20","Tableau de bord PDG","Groupe"],["03","Trésorerie","Ordres de paiement"],["03","Budget & prévisions","Réalisé et écarts"]];
+
+  sec.innerHTML = `<div class="portail">
+    <div class="carte bandeau">
+      <div>
+        <h2>Bonjour, ${prof.utilisateur}</h2>
+        <div class="date">Lundi 1<sup>er</sup> septembre 2026 · date métier 01/09/2026</div>
+        <div class="sous">Votre espace : ce qui vous attend, où vous en étiez, et où en est le produit.</div>
+        <div class="liens">
+          <button type="button" class="btn fantome">Mon profil</button>
+          <button type="button" class="btn fantome">Mes préférences</button>
+          <button type="button" class="btn fantome">Ma sécurité</button>
+        </div>
+      </div>
+      <div class="droite"><b>${prof.unite}</b>${prof.role}<br><span class="badge planned" title="Le portail Mon Espace est planifié (phase 4) : cet aperçu montre son gabarit, pas des données.">Planifié · aperçu phase 4</span></div>
+    </div>
+
+    <div><p class="section-titre">À traiter</p><div class="tuiles">${tuilesHtml}</div></div>
+
+    <div><p class="section-titre">Derniers écrans ouverts</p><div class="raccourcis">
+      ${recents.map(([id, ecr, ong]) => { const d = domaine(id); const e = d.ecrans.find(x => x.nom === ecr); const i = Math.max(0, e.sousModules.indexOf(ong));
+        return `<button type="button" class="puce" data-recent="${id}|${ecr}|${i}">${svg(d.cle)}${ong}<span style="font-weight:400;color:var(--text-muted)">· ${e.module}</span></button>`; }).join("")}
+    </div></div>
+
+    <div class="carte produit">
+      <p class="section-titre" style="margin:0">Où en est le produit ? — maturité des 22 domaines</p>
+      <div class="avancement">
+        ${["Functional","TechnicalPreview","Planned","ProductionReady"].map(m => `<div class="stat"><div class="lib"><span class="pt" style="background:var(--mat-${MATURITE[m].cls}-accent)"></span>${MATURITE[m].libelle}</div><div class="val">${compte[m]}</div></div>`).join("")}
+      </div>
+      <div class="barre" aria-hidden="true">
+        ${["Functional","TechnicalPreview","Planned"].map(m => `<span style="flex:${compte[m]};background:var(--mat-${MATURITE[m].cls}-accent)"></span>`).join("")}
+      </div>
+      <div class="legende-barre">${compte.Functional} domaines fonctionnels sur ${total} ; aucun n'est prêt pour la production tant que les tests PostgreSQL réels, le smoke WPF et l'E2E ne sont pas industrialisés. Les 50 modules gardent leur statut propre (31 disponibles, 19 planifiés) : les deux échelles ne s'additionnent pas.</div>
+      <div class="catalogue">
+        ${DOMAINES.map(d => {
+          const ouvrables = ecransOuvrables(d);
+          const verrou = d.ecrans.length > 0 && ouvrables.length === 0;
+          const attenue = d.ecrans.length === 0 || verrou;
+          return `<div class="cat-ligne ${attenue ? "attenue" : ""}" title="${d.id} · ${d.nom}${verrou ? " — Accès non autorisé pour votre profil" : ""}">
+            <span class="id">${d.id}</span>${svg(d.cle)}<span>${d.nom}</span>
+            <span class="droite">${verrou ? svg("Cadenas", "cadenas", "0 0 12 12") : ""}<span class="ecrans-nb">${d.ecrans.length ? ouvrables.length + "/" + d.ecrans.length + " écran" + (d.ecrans.length > 1 ? "s" : "") : "—"}</span>${badge(d.maturite)}</span>
+          </div>`; }).join("")}
+      </div>
+    </div>
+  </div>`;
+  sec.querySelectorAll("[data-recent]").forEach(b => b.addEventListener("click", () => { const [id, ecr, i] = b.dataset.recent.split("|"); ouvrir(id, ecr, +i); }));
+}
+
+/* ======================= Rendu global ======================= */
+function rendre() {
+  const prof = PROFILS[etat.profil];
+  document.documentElement.dataset.profil = etat.profil;
+  document.documentElement.dataset.theme = etat.theme;
+  document.getElementById("app").classList.toggle("racine", etat.racine);
+  document.getElementById("entete-session").innerHTML = `<b>${prof.utilisateur}</b> · ${prof.nom} · ${prof.unite}`;
+  document.getElementById("lbl-theme").textContent = etat.theme === "clair" ? "Sombre" : "Clair";
+  document.querySelectorAll(".maquette-bar [data-profil]").forEach(b => b.setAttribute("aria-pressed", b.dataset.profil === etat.profil));
+  document.querySelectorAll(".maquette-bar [data-theme]").forEach(b => b.setAttribute("aria-pressed", b.dataset.theme === etat.theme));
+  document.querySelectorAll(".maquette-bar [data-vides]").forEach(b => b.setAttribute("aria-pressed", b.dataset.vides === etat.vides));
+  rendreSidebar(); rendreAriane(); rendreEcran();
+}
+
+document.querySelectorAll(".maquette-bar [data-profil]").forEach(b => b.addEventListener("click", () => appliquerProfil(b.dataset.profil)));
+document.querySelectorAll(".maquette-bar [data-theme]").forEach(b => b.addEventListener("click", () => { etat.theme = b.dataset.theme; rendre(); }));
+document.querySelectorAll(".maquette-bar [data-vides]").forEach(b => b.addEventListener("click", () => { etat.vides = b.dataset.vides; rendre(); }));
+document.getElementById("btn-theme").addEventListener("click", () => { etat.theme = etat.theme === "clair" ? "sombre" : "clair"; rendre(); });
+document.addEventListener("keydown", ev => {
+  if (ev.altKey && ev.key === "Home") { ev.preventDefault(); allerRacine(); }
+  if (ev.ctrlKey && ev.key.toLowerCase() === "k") { ev.preventDefault(); if (etat.racine) { const d = PROFILS[etat.profil].defaut; ouvrir(d.domaine, d.ecran, d.onglet); } document.querySelector("#sidebar input")?.focus(); }
+});
+
+appliquerProfil("reception");
+</script>
+</body>
+</html>

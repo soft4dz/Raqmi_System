@@ -1,6 +1,8 @@
 # Charte UI — Raqmi System Desktop
 
-> **Statut** : document de référence du gardien du design. Version du 30/08/2026.
+> **Statut** : document de référence du gardien du design. Version du 30/08/2026, révisée le
+> 01/09/2026 (navigation à quatre niveaux, icônes des 22 domaines, badges de maturité — vague 1 de
+> la réorganisation fonctionnelle ; spécification détaillée dans `docs/design/`).
 >
 > **Règle fondatrice** : cette charte **décrit l'existant** du client WPF (`src/RaqmiSystem.Desktop/`).
 > Chaque règle est observée dans le code réel et citée avec sa référence. Quand deux écrans
@@ -113,7 +115,7 @@ cela que changer la densité repeint les grilles déjà affichées, contrairemen
 recevoir une valeur dans `ThemePalette.Sombre`, sinon il garde sa valeur claire — une carte
 blanche au milieu d'un écran de nuit. `ThemeManager.VerifierCouverture` lève une assertion en
 Debug si la table et le thème divergent, dans un sens comme dans l'autre. Les deux palettes
-couvrent aujourd'hui **69 brushes sur 69**.
+couvrent aujourd'hui **82 brushes sur 82** (70 historiques + 12 brushes de maturité des domaines).
 
 **Ce que le mode sombre n'est pas** : une inversion. Chaque valeur est posée pour son rôle —
 les surfaces s'éclaircissent avec l'élévation au lieu de s'assombrir, les accents s'éclaircissent
@@ -139,6 +141,27 @@ Chaque statut = fond doux + texte foncé contrasté de la même teinte (`RaqmiTh
 Statuts d'avancement des modules (accueil) : quatre paires fond/texte à contraste ≥ 4,5:1
 (`ModuleStatusAvailable/Api/Partial/Planned…`, `RaqmiTheme.xaml:100-107`) et leurs versions
 saturées pour la barre segmentée (`ModuleProgress…`, `RaqmiTheme.xaml:109-112`).
+
+#### Badges de maturité des domaines
+
+La maturité d'un domaine fonctionnel (`FunctionalMaturity`, quatre niveaux calculés depuis la
+readiness, jamais saisis — § 4.2) a ses propres brushes (`Maturity<Niveau>Background/Foreground/
+AccentBrush`) et ses styles nommés `MaturityBadge.<Niveau>` (`Border` : fond doux, coins 9, texte
+10,5 SemiBold hérité par `TextElement.Foreground`) et `MaturityDot.<Niveau>` (`Ellipse` 7 px) :
+
+| Niveau | Libellé | Fond | Texte | Accent | Sens |
+|---|---|---:|---:|---:|---|
+| `Planned` | « Planifié » | `#E8EEF4` | `#46617B` | `#7798B5` | Ardoise : non engagé |
+| `TechnicalPreview` | « Aperçu technique » | `#FBEBC8` | `#8A5A08` | `#BF8B16` | Ambre : attention, parcours incomplet |
+| `Functional` | « Fonctionnel » | `#DDF2F4` | `#096B73` | `#0AA3AD` | Teal de marque : en service |
+| `ProductionReady` | « Prêt pour la production » | `#DCF3E5` | `#14713C` | `#1F9D57` | Vert : accompli, homologué |
+
+Le vert est **réservé au dernier niveau** : un domaine seulement Fonctionnel ne peut pas l'obtenir,
+et un bandeau sans vert dit la vérité (§ 4.3). Contraste 5,0 à 5,5:1 en clair, 7,0 à 8,0:1 en
+sombre ; les accents tiennent 3:1 sur `SurfaceBrush`, pas sur `AppBackgroundBrush` — comme les
+`ModuleProgress…`, ils se posent sur une carte. Les libellés viennent d'une source unique
+(`FunctionalMaturityDisplay`, sur le modèle de `ModuleCatalog.StatusLabel`). Où et quand le badge
+s'affiche : `docs/design/navigation-shell.md`, § 6.
 
 ### 1.3 Typographie
 
@@ -176,6 +199,13 @@ saturées pour la barre segmentée (`ModuleProgress…`, `RaqmiTheme.xaml:109-11
   automatiquement les états actif/désactivé.
 - Icônes utilitaires du thème (flèche de ComboBox, coche de CheckBox, flèche de tri, cadenas
   `ModuleCardLockIcon`) : même langage au trait.
+- **Une icône par domaine fonctionnel** : les 22 domaines de `FunctionalArchitectureCatalog` ont
+  chacun leur `PathGeometry` `ModuleGroupIcon.<IconKey>` (sept reprises des familles historiques,
+  quinze dessinées pour la réorganisation), même boîte, même trait, un seul motif, contrôlées à
+  16 px dans les deux thèmes. Les clés de famille qui ne portent plus de domaine (`Socle`,
+  `Exploitation`, `Controle`, `Conformite`, `Specifique`) restent déclarées : le catalogue
+  historique les cite. Inventaire, descriptions et règles d'ajout : `docs/design/icones-domaines.md`.
+  Un cercle s'écrit `M cx,(cy−r) A r,r 0 1 0 cx+0.01,(cy−r)` (départ au sommet).
 
 ### 1.5 Langue
 
@@ -258,9 +288,52 @@ plusieurs sections internes (au moins deux grilles indépendantes avec leurs pro
 utilise des sous-onglets **visibles** avec les styles locaux `SectionTabItem` /
 `SectionTabControl` : onglet souligné d'un indicateur accent de 2,5 px, texte `PrimaryBrush` à
 l'état sélectionné. **Référence : `TreasuryView.xaml:11-87`** (trois sections : encaissements,
-ordres de paiement, comptes bancaires). *Note : la vue Comptabilité (« AccountingView »),
-parfois citée comme seconde référence, n'existe pas encore dans le dépôt — à sa création, elle
-devra reprendre ce même gabarit `SectionTabControl` plutôt que d'en inventer un.*
+ordres de paiement, comptes bancaires). `AccountingView.xaml` reprend ce gabarit et montre le
+second niveau admis : un `SectionTabControl` imbriqué dans l'onglet « Exercices, tiers et livres ».
+
+**Nom des sous-onglets** (règle unique, vague 1) : quand un module couvre plusieurs sous-modules
+de la cartographie cible dans la même vue, les sous-onglets portent **les noms des sous-modules
+cibles** ; quand la vue ne couvre qu'un sous-module, ils portent les noms de ses écrans. Jamais plus
+de deux niveaux d'onglets, jamais un nom que la cartographie ne connaît pas, jamais une action en
+guise d'onglet (« Nouvelle réservation » est un bouton `New…Button`, pas un onglet). Inventaire des
+sous-onglets actuels et correspondance : `docs/design/navigation-shell.md`, § 4.
+
+### 2.5 Navigation à quatre niveaux
+
+La navigation cible est un arbre `Domaine → Module → Sous-module → Écran` posé sur les 22 domaines
+de `FunctionalArchitectureCatalog` (`src/RaqmiSystem.Application/Navigation/`, identifiants stables
+`01`…`22`). Ce que le shell en montre, et les règles qui ne se discutent pas écran par écran :
+
+1. **Barre latérale = domaines, dans l'ordre `01`…`22`**, une section repliable par domaine
+   (`ModuleNavGroup`), l'icône du domaine en en-tête, `22 Administration Système` épinglée en pied.
+   Elle **ne liste que les écrans ouvrables** par le profil (écran existant **et** permission de
+   lecture) ; un domaine sans écran ouvrable n'y apparaît pas. Le sommaire complet — cadenas,
+   modules planifiés, maturité — est l'accueil. Le masquage reste un confort, jamais une sécurité
+   (§ 3.9). L'état déroulé est mémorisé **par poste**, comme le thème et la densité.
+2. **Fil d'Ariane** au-dessus de chaque vue, posé par la fenêtre (jamais par la vue) : icône du
+   domaine, puis `Domaine › Module › Sous-module › Écran`, ancêtres cliquables en
+   `TextSecondaryBrush`, segment courant en `TextPrimaryBrush`, segments absents omis. Il suit les
+   sous-onglets de la vue et affiche le chemin **cible** même quand un onglet relève d'un autre
+   domaine que celui par lequel on est entré (cas transitoires listés dans la spécification).
+3. **Sous-onglets nommés comme les sous-modules cibles** (§ 2.4).
+4. **Un seul chemin de navigation** (`NavigateToModule`) et **un seul vocabulaire** : le libellé
+   d'un écran est le même dans la barre latérale, sur la carte de l'accueil, dans le fil d'Ariane et
+   dans la recherche.
+5. **Maturité affichée là où elle informe, tue là où elle bruite** : badge complet dans l'en-tête de
+   domaine de l'accueil et le bandeau d'avancement ; point discret dans la barre latérale et badge
+   dans le fil d'Ariane **seulement** sous `Functional`. La carte module garde son statut de module.
+6. **`01 Mon Espace` est la racine** : première ligne de la barre latérale, `Alt+Origine`. Accueil-
+   catalogue aujourd'hui, portail personnel en phase 4 (tuiles alimentées par des projections
+   serveur, aucune donnée métier propre) ; le catalogue devient alors un écran « Où en est le
+   produit ? », jamais supprimé.
+7. **Accessibilité** : en-tête de domaine = `ToggleButton` (Espace/Entrée), noms
+   `AutomationProperties` sur en-têtes (« Domaine …, n écrans »), lignes (« Ouvrir … »), segments
+   (« Remonter à … ») et points de maturité ; ordre de tabulation en-tête → barre latérale → fil
+   d'Ariane → vue → bandeau de session ; raccourcis inchangés (§ 3.13, `F1`).
+
+Spécification complète (densités, mémorisation, recherche, états vides, profils, liste
+d'intégration) : `docs/design/navigation-shell.md` ; maquette de validation :
+`docs/design/maquette-shell.html`.
 
 ---
 
@@ -483,33 +556,56 @@ Trois garanties tiennent par construction, à ne pas défaire :
 
 ### 4.1 Source unique de vérité
 
-`ModuleCatalog.cs` est la source unique des 49 modules de l'ERP : ordre fonctionnel, groupe,
-description, priorité (P0/P1/P2), statut, clé de permission, index d'onglet
-(`ModuleCatalog.cs:38-98`). L'accueil est entièrement piloté par ces données : **un seul gabarit
-de carte** (`ModuleCatalogCard`, `RaqmiTheme.xaml:1330-1526`), aucune carte écrite en dur
-(`MainWindow.xaml:549-555`).
+**La taxonomie est `FunctionalArchitectureCatalog`**
+(`src/RaqmiSystem.Application/Navigation/FunctionalArchitectureCatalog.cs`) : les 22 domaines,
+leur identifiant stable (`01`…`22`), leur nom, leur clé d'icône, leur maturité et le rattachement
+de chacune des 50 entrées historiques par son numéro d'ordre (`LegacyModuleOrders`). Elle ne
+dépend ni de WPF ni des `TabIndex` ; deux gardes statiques (`ExpectedDomainCount = 22`,
+`ExpectedLegacyModuleCount = 50`) et `FunctionalArchitectureCatalogTests` la verrouillent. Toute
+surface qui groupe, ordonne ou nomme un domaine — accueil, barre latérale, fil d'Ariane, filtre de
+domaine, documentation — lit ce catalogue et rien d'autre.
 
-### 4.2 Comment un module change de statut
+`ModuleCatalog.cs` reste, **pendant la transition**, la source des 50 entrées (nom, description,
+priorité, statut de module, clé de permission, index d'onglet) ; `ModuleTile` joint les deux
+(`FunctionalDomainId`, `FunctionalMaturity`, `GroupIconKey` = icône du domaine). Le lot 1.1 du plan
+de migration remplace ce couple par l'arbre `DomainNode → ModuleNode → SubmoduleNode → ScreenNode`
+généré depuis une définition unique, les `TabIndex` étant conservés par un adaptateur.
 
-Les statuts sont : `Disponible` (écran utilisable maintenant), `ApiPrete` (backend livré et
-testé, écran à venir), `Partiel` (couverture partielle, précisée par `StatusNote` en info-bulle),
-`Planifie` (`ModuleCatalog.cs:6-18`). Livrer un module = **une seule édition cohérente** :
+L'accueil est entièrement piloté par ces données : **un seul gabarit de carte**
+(`ModuleCatalogCard`), aucune carte écrite en dur.
 
-1. passer son entrée au nouveau statut, renseigner `PermissionKey` et `TabIndex` (l'index de
-   l'onglet dans `MainTabs` — et l'enregistrer dans `SidebarButtonForTab`,
-   `EnsureModuleTabLoadedAsync` et `ApplyModulePermissions` de `MainWindow.xaml.cs`) ;
-2. **mettre à jour les constantes de garde** `ExpectedTotal / ExpectedAvailable /
-   ExpectedApiReady / ExpectedPartial / ExpectedPlanned` (`ModuleCatalog.cs:44-49`) — le
-   constructeur statique vérifie les totaux par `Debug.Assert` : il arrête le développeur en
-   Debug, sans jamais fermer l'application chez le client en Release
-   (`ModuleCatalog.cs:86-96` et `292-303`).
+### 4.2 Statuts à quatre niveaux, calculés
+
+Deux échelles coexistent, et ne s'additionnent pas :
+
+- **Statut d'un module** (`ModuleStatus`, transitoire) : `Disponible` (écran utilisable
+  maintenant), `ApiPrete`, `Partiel` (précisé par `StatusNote`), `Planifie`. Il est saisi dans
+  `ModuleCatalog` et gardé par les constantes `ExpectedTotal / ExpectedAvailable / ExpectedApiReady /
+  ExpectedPartial / ExpectedPlanned` (le constructeur statique vérifie les totaux par
+  `Debug.Assert`) et par `tools/check-module-readiness.ps1`.
+- **Maturité d'un domaine** (`FunctionalMaturity`) : `Planned`, `TechnicalPreview`, `Functional`,
+  `ProductionReady`. Elle est **calculée** depuis les preuves de readiness (Domain, Application, API,
+  PostgreSQL, RBAC, Desktop, tests, documentation, smoke — `docs/reorganisation/07-plan-migration.md`,
+  modèle de readiness), **jamais saisie à la main** ; la valeur portée aujourd'hui par le catalogue
+  est la maturité initiale de `03-cartographie-cible.md` § 3.6, et elle descendra au niveau de chaque
+  `ScreenNode` avec le catalogue hiérarchique. Aucun domaine n'est `ProductionReady` tant que les
+  tests PostgreSQL réels, le smoke WPF et l'E2E ne sont pas industrialisés.
+
+Livrer un écran = **une seule édition cohérente** : entrée `ModuleCatalog` (statut, `PermissionKey`,
+`TabIndex` enregistré dans `EnsureModuleTabLoadedAsync` et `ApplyModulePermissions`), constantes de
+garde recalculées, numéro d'ordre rattaché à son domaine dans `FunctionalArchitectureCatalog`, fiche
+de readiness mise à jour — la maturité suit, on ne la retouche pas.
 
 ### 4.3 Règle d'honnêteté des statuts
 
 **Un statut qui ment au dirigeant est un défaut grave.** Le bandeau d'avancement est « la réponse
-directe à “où en est le produit ?” » (`MainWindow.xaml.cs:228-229`) ; les quatre statuts restent
-distincts dans la légende car les additionner surestimerait le travail fait
-(`MainWindow.xaml.cs:251-256`). En pratique :
+directe à “où en est le produit ?” » ; les statuts restent distincts dans la légende car les
+additionner surestimerait le travail fait, et les deux échelles (modules, domaines) sont montrées
+côte à côte sans jamais être fusionnées. En pratique :
+
+- la maturité d'un domaine n'est jamais relevée « pour faire avancer la barre » : `Functional`
+  exige le parcours annoncé utilisable de bout en bout, `ProductionReady` les preuves d'exploitation ;
+  le vert des badges est réservé à ce dernier niveau (§ 1.2) ;
 
 - un module dont l'écran ne tient pas la promesse du libellé n'est **pas** cliquable : pas de
   `TabIndex`, statut `Partiel` + note explicative (cas Dashboard PDG / Cockpit DEC,
@@ -533,8 +629,11 @@ justification écrite bloque la livraison.
    aucune référence à `MainWindow` ni à une autre vue.
 2. **Enregistrement** — entrée `ModuleCatalog` mise à jour (statut, `PermissionKey`,
    `TabIndex`) **et** constantes de garde recalculées ; onglet ajouté à
-   `EnsureModuleTabLoadedAsync`, `SidebarButtonForTab`, `ApplyModulePermissions` ; icône sidebar
-   en `Path` au trait 16×16.
+   `EnsureModuleTabLoadedAsync`, `SidebarButtonForTab`, `ApplyModulePermissions` ; numéro d'ordre
+   rattaché à son domaine dans `FunctionalArchitectureCatalog` (l'icône est celle du domaine,
+   `ModuleGroupIcon.<IconKey>` — pas d'icône par écran) ; sous-onglets nommés comme les
+   sous-modules cibles (§ 2.4) ; chemin `Domaine › Module › Sous-module › Écran` renseigné pour le
+   fil d'Ariane (§ 2.5).
 3. **Aucune couleur en dur** — tout passe par les brushes de `RaqmiTheme.xaml` ; aucun hexa dans
    le XAML ou le code-behind de la vue.
 4. **Typographie** — styles nommés du thème uniquement (`PageTitleText`, `LabelText`…) ;
@@ -601,8 +700,16 @@ justification écrite bloque la livraison.
   confirmée, `ApplyPermissionHint`.
 - `src/RaqmiSystem.Desktop/Views/UsersView.xaml(.cs)` — protocole des secrets, `SetActionState`,
   garde-fous miroir du serveur.
-- `src/RaqmiSystem.Desktop/ModuleCatalog.cs` — catalogue des 49 modules et constantes de garde.
+- `src/RaqmiSystem.Application/Navigation/FunctionalArchitectureCatalog.cs` — les 22 domaines
+  fonctionnels : identifiants stables, icône, maturité, rattachement des 50 entrées historiques.
+- `src/RaqmiSystem.Desktop/ModuleCatalog.cs` — catalogue transitoire des 50 entrées et constantes
+  de garde.
+- `src/RaqmiSystem.Desktop/ThemePalette.cs` — la palette sombre, clé par clé (82 brushes).
 - `src/RaqmiSystem.Desktop/DailyRevenueStatusDisplay.cs` — libellés français à source unique.
+- `docs/design/navigation-shell.md` — spécification du shell à quatre niveaux (barre latérale, fil
+  d'Ariane, sous-onglets, accueil, badges, états vides, accessibilité, profils).
+- `docs/design/icones-domaines.md` — inventaire des icônes des 22 domaines.
+- `docs/design/maquette-shell.html` — maquette autonome pour validation (deux profils, deux thèmes).
 - `src/RaqmiSystem.Desktop/CsvExportHelper.cs` — exports CSV : UTF-8 BOM, culture invariante,
   anti-injection de formule.
 - `assets/brand/raqmi-system/README.md` — identité de marque (symbole, palette, typographies,
