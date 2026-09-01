@@ -27,7 +27,7 @@ internal static class BillingEndpoints
         {
             var result = await service.ListCustomersAsync(search, includeInactive == true, cancellationToken);
             return Results.Ok(result);
-        }).RequireAuthorization(PermissionCatalog.CustomersRead);
+        }).RequireAuthorization(PermissionCatalog.CrmCustomerRead);
 
         customers.MapGet("/{code}", async (
             string code,
@@ -36,7 +36,7 @@ internal static class BillingEndpoints
         {
             var result = await service.GetCustomerAsync(code, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.CustomersRead);
+        }).RequireAuthorization(PermissionCatalog.CrmCustomerRead);
 
         customers.MapPost("", async (
             CreateCustomerRequest request,
@@ -49,7 +49,7 @@ internal static class BillingEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/billing/customers/{result.Value.Code}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.CustomersWrite);
+        }).RequireAuthorization(PermissionCatalog.CrmCustomerManage);
 
         customers.MapPut("/{code}", async (
             string code,
@@ -60,7 +60,7 @@ internal static class BillingEndpoints
         {
             var result = await service.UpdateCustomerAsync(code, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.CustomersWrite);
+        }).RequireAuthorization(PermissionCatalog.CrmCustomerManage);
 
         customers.MapPost("/{code}/activate", async (
             string code,
@@ -70,7 +70,7 @@ internal static class BillingEndpoints
         {
             var result = await service.SetCustomerActiveAsync(code, true, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.CustomersWrite);
+        }).RequireAuthorization(PermissionCatalog.CrmCustomerManage);
 
         customers.MapPost("/{code}/deactivate", async (
             string code,
@@ -80,7 +80,7 @@ internal static class BillingEndpoints
         {
             var result = await service.SetCustomerActiveAsync(code, false, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.CustomersWrite);
+        }).RequireAuthorization(PermissionCatalog.CrmCustomerManage);
     }
 
     private static void MapInvoiceEndpoints(RouteGroupBuilder api)
@@ -116,7 +116,7 @@ internal static class BillingEndpoints
                 cancellationToken);
 
             return Results.Ok(result);
-        }).RequireAuthorization(PermissionCatalog.InvoicesRead);
+        }).RequireAuthorization(PermissionCatalog.BillingInvoiceRead);
 
         invoices.MapGet("/{id:guid}", async (
             Guid id,
@@ -125,7 +125,7 @@ internal static class BillingEndpoints
         {
             var result = await service.GetInvoiceAsync(id, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.InvoicesRead);
+        }).RequireAuthorization(PermissionCatalog.BillingInvoiceRead);
 
         invoices.MapPost("", async (
             CreateInvoiceRequest request,
@@ -138,7 +138,7 @@ internal static class BillingEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/billing/invoices/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.InvoicesWrite);
+        }).RequireAuthorization(PermissionCatalog.BillingInvoiceManage);
 
         invoices.MapPut("/{id:guid}/lines", async (
             Guid id,
@@ -149,7 +149,7 @@ internal static class BillingEndpoints
         {
             var result = await service.UpdateInvoiceLinesAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.InvoicesWrite);
+        }).RequireAuthorization(PermissionCatalog.BillingInvoiceManage);
 
         invoices.MapPost("/{id:guid}/issue", async (
             Guid id,
@@ -159,7 +159,7 @@ internal static class BillingEndpoints
         {
             var result = await service.IssueInvoiceAsync(id, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.InvoicesIssue);
+        }).RequireAuthorization(PermissionCatalog.BillingInvoiceIssue);
 
         invoices.MapPost("/{id:guid}/pay", async (
             Guid id,
@@ -169,7 +169,7 @@ internal static class BillingEndpoints
         {
             var result = await service.MarkInvoicePaidAsync(id, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.InvoicesWrite);
+        }).RequireAuthorization(PermissionCatalog.BillingInvoiceManage);
 
         invoices.MapPost("/{id:guid}/cancel", async (
             Guid id,
@@ -180,7 +180,7 @@ internal static class BillingEndpoints
         {
             var result = await service.CancelInvoiceAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.InvoicesWrite);
+        }).RequireAuthorization(PermissionCatalog.BillingInvoiceManage);
     }
 
     private static bool TryParseStatus(string? status, out InvoiceStatus? parsedStatus, out string error)

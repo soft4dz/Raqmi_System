@@ -105,6 +105,7 @@ email/SMTP infrastructure in this repository yet). It is never written to the au
 | GET /api/v1/me | Authenticated |
 | GET /api/v1/security/permissions | users.read |
 | GET /api/v1/security/roles | users.read |
+| GET /api/v1/security/permission-migration-report | roles.read (ou admin.role.read) |
 | GET /api/v1/security/users | users.read |
 | GET /api/v1/security/users/{id} | users.read |
 | POST /api/v1/security/users | users.write |
@@ -119,6 +120,118 @@ email/SMTP infrastructure in this repository yet). It is never written to the au
 | POST /api/v1/audit/purge | security.seed |
 | GET /api/v1/revenue/sample-summary | revenue.read |
 
+Les routes des domaines P0 (Finance, PMS, Achats/Stocks, RH) exigent depuis le lot 2.1 la clé cible
+`domaine.ressource.action` correspondante ; la clé historique reste acceptée (voir ci-dessous).
+
+## Modèle de permissions `domaine.ressource.action`
+
+Lot 2.1 de la réorganisation fonctionnelle (`docs/reorganisation/07-plan-migration.md`, phase 2). La
+table de correspondance est le code : `src/RaqmiSystem.Domain/Identity/PermissionRegistry.cs`.
+
+### Principe
+
+- Chaque clé cible s'écrit `préfixe.ressource.action` (`finance.entry.post`) et porte l'identifiant
+  stable de son domaine fonctionnel (`"03"`), sa ressource, son action, une description et la liste des
+  **clés historiques qui la couvrent**.
+- Les 83 clés historiques restent dans `PermissionCatalog`, avec leur valeur et leur constante : le
+  client WPF et le garde de readiness les référencent par nom. Le registre s'y ajoute (92 constantes
+  nouvelles ; `hr.payroll.close`, déjà au format cible, est sa propre cible).
+- Conventions d'action : `read` consulter ; `manage` créer, modifier, activer ou désactiver un
+  référentiel ou un document en brouillon (le `write` historique) ; puis un verbe propre pour chaque
+  acte qui engage l'établissement — `post`, `close`, `reverse`, `approve`, `issue`, `validate`,
+  `execute`, `decide`, `reconcile`, `inspect`, `process`, `export`, `record`, `remind`, `overbook`,
+  `override`, `move`, `change_rate`, `seed`, `admin`.
+- Une politique d'autorisation par clé du catalogue, générée dans `Program.cs` à partir de
+  `PermissionRegistry.AcceptedClaims` ; `SecurityContextExtensions.HasPermission` (leviers optionnels
+  comme la surréservation) applique la même règle. Le JWT ne change pas : un claim `permission` par
+  clé détenue, aucun claim dérivé.
+
+### Règle d'équivalence
+
+| Clé demandée par la route | Claims acceptés | Exemple |
+|---|---|---|
+| Clé cible | elle-même **ou** une clé historique qui la couvre | `finance.entry.post` ← `accounting.post` |
+| Clé historique **1:1** (ne couvre qu'une cible) | exactement la politique de sa cible | `accounting.post` ↔ `finance.entry.post` |
+| Clé historique **composite** (couvre plusieurs cibles) | elle-même seulement | `users.write` n'est satisfaite ni par `admin.user.create` seule ni par les trois clés fines |
+
+Une clé historique vaut donc toutes les clés fines qu'elle couvre ; une clé fine seule ne vaut jamais
+la clé composite. C'est ce qui interdit l'extension silencieuse : sur une route restée sur
+`users.write` (le socle n'est pas dans le lot P0), un rôle qui ne détient que `admin.user.create` reçoit
+403. Les huit alias PMS que `Program.cs` déclarait un par un (`lodging.reserve` acceptait
+`lodging.write`, `lodging.checkout` acceptait `lodging.checkin`…) sont exprimés comme des couvertures
+ordinaires — `lodging.write` et `lodging.reserve` couvrent tous deux `lodging.reservation.create` — avec
+le même effet ; `lodging.change_rate`, `lodging.override_restriction` et `lodging.overbooking` n'héritent
+toujours de rien.
+
+### Mappings composites (1:n)
+
+| Clé historique | Clés cibles couvertes |
+|---|---|
+| `users.write` | `admin.user.create`, `admin.user.update`, `admin.user.deactivate` |
+| `accounting.write` | `finance.chart.manage`, `finance.entry.manage`, `finance.party.manage` |
+| `treasury.write` | `finance.bank_account.manage`, `finance.receipt.manage`, `finance.payment_order.manage` |
+| `lodging.write` | `lodging.reservation.create`, `lodging.reservation.cancel`, `lodging.reservation.noshow`, `lodging.room.manage`, `lodging.rate.manage`, `lodging.night_audit.execute` |
+| `lodging.checkin` | `lodging.checkin.execute`, `lodging.checkout.execute`, `lodging.stay.move`, `lodging.folio.manage` |
+| `inventory.write` | `inventory.item.manage`, `inventory.movement.record`, `inventory.count.manage` |
+| `purchasing.write` | `purchasing.supplier.manage`, `purchasing.order.manage` |
+| `hr.write` | `hr.employee.manage`, `hr.time.manage` |
+
+### Alias 1:1
+
+| Préfixe historique | Clés cibles (domaine) |
+|---|---|
+| `users.read`, `roles.*`, `security.seed`, `units.*`, `settings.*` | `admin.user.read`, `admin.role.read`, `admin.role.update`, `admin.security.seed`, `admin.unit.read`, `admin.unit.manage`, `admin.settings.read`, `admin.settings.update` (02) |
+| `revenue.*` | `finance.revenue.read`, `finance.revenue.record`, `finance.revenue.validate` (03) |
+| `treasury.read`, `treasury.approve` | `finance.treasury.read`, `finance.payment_order.approve` (03) |
+| `accounting.read/post/reverse/reconcile/close/admin` | `finance.accounting.read`, `finance.entry.post`, `finance.entry.reverse`, `finance.party.reconcile`, `finance.period.close`, `finance.accounting.admin` (03) |
+| `budget.*`, `receivables.*` | `finance.budget.read`, `finance.budget.manage`, `finance.budget.approve`, `finance.receivable.read`, `finance.receivable.remind` (03) |
+| `customers.*`, `crm.*` | `crm.customer.read`, `crm.customer.manage`, `crm.guest.read`, `crm.guest.manage`, `crm.loyalty.post` (04) |
+| `invoices.*` | `billing.invoice.read`, `billing.invoice.manage`, `billing.invoice.issue` (05) |
+| `lodging.read`, clés fines PMS, `closing.*` | `lodging.front_office.read`, `lodging.reservation.create/cancel/noshow/overbook`, `lodging.room.manage`, `lodging.rate.manage`, `lodging.night_audit.execute`, `lodging.checkout.execute`, `lodging.stay.move`, `lodging.stay.change_rate`, `lodging.restriction.override`, `lodging.closing.read/close/reopen` (06) |
+| `tariffs.*` | `revenue.rate.read`, `revenue.rate.manage` (07) |
+| `housekeeping.*` | `housekeeping.task.read`, `housekeeping.task.manage`, `housekeeping.room.inspect` (08) |
+| `mice.*` | `mice.event.read`, `mice.event.manage` (09) |
+| `kitchen.*` | `fnb.kitchen.read`, `fnb.kitchen.manage` (10) |
+| `inventory.read`, `inventory.validate` | `inventory.stock.read`, `inventory.count.validate` (11) |
+| `purchasing.read/approve/receive` | `purchasing.order.read`, `purchasing.order.approve`, `purchasing.receipt.execute` (12) |
+| `hr.read`, `hr.payroll`, `hr.payroll.close` | `hr.employee.read`, `hr.payroll.process`, `hr.payroll.close` (13) |
+| `approvals.*` | `workflow.request.read`, `workflow.request.decide` (01), `workflow.circuit.manage` (02) |
+| `dashboard.read`, `reports.*`, `kpi.admin` | `pilotage.dashboard.read`, `pilotage.report.execute`, `pilotage.report.export`, `pilotage.kpi.admin` (20) |
+| `audit.read`, `maintenance.*`, `sync.read` | `audit.log.read`, `system.backup.read`, `system.backup.execute`, `system.workstation.read` (22) |
+
+### Rôles système
+
+`SecuritySeeder` accorde à chaque rôle système une clé cible **si et seulement si** l'une de ses clés
+historiques la couvre — équivalence stricte, aucune extension, et les clés historiques restent
+accordées. Les clés cibles sont des lignes de `security.permissions` insérées par le seeder sur une base
+déjà en service (aucune migration de schéma) ; un second passage ne change rien. La règle
+`RoleCatalog.ApprovalDeciderRoles` tient sur `approvals.decide` et sur `workflow.request.decide`.
+
+### Rôles personnalisés : rapport puis migration
+
+Le seeder ne touche jamais un rôle personnalisé (risque R02). Procédure :
+
+1. `GET /api/v1/security/permission-migration-report` (`roles.read`) : pour chaque rôle non système,
+   les clés historiques détenues, les clés cibles déjà détenues et les **clés cibles manquantes**
+   (strictement celles que ses clés historiques couvrent).
+2. Accorder les clés manquantes au rôle, sans retirer les clés historiques.
+3. Vérifier `IsMigrated = true` dans le rapport.
+
+Ne pas retirer les clés historiques d'un rôle personnalisé tant que le client WPF évalue
+`PermissionCatalog.<ConstanteHistorique>` pour ses boutons (`HasPermission`) : le serveur accepterait la
+clé cible, l'écran resterait en lecture seule. Le garde anti-verrouillage de l'administration des
+utilisateurs raisonne aussi sur `users.write` ; il suivra le retag du socle.
+
+### Règle de retrait
+
+Une clé historique ne peut être retirée du catalogue, des politiques et des rôles qu'après **une version
+de compatibilité** complète pendant laquelle elle était marquée obsolète, avec une **télémétrie d'usage
+nulle** sur cette version (aucun JWT émis ne la portait, aucune route ne l'exigeait, aucun rôle
+personnalisé ne la détenait d'après le rapport). Le retrait est un lot dédié qui met à jour le registre,
+le client WPF, le garde de readiness et cette page. Les tests `RbacPermissionRegistryTests`,
+`RbacPolicyMatrixTests`, `SecuritySeederTests` et `PermissionCatalogTests` fixent l'état courant.
+
 ## Next security tasks
 
-- Add full permission matrix by module.
+- Retaguer les domaines hors P0 (socle, CRM, MICE, Housekeeping, F&B, Pilotage, Système) vers les clés
+  cibles, puis faire évaluer les clés cibles par le client WPF.

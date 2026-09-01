@@ -25,7 +25,7 @@ internal static class ClosingEndpoints
 
             var result = await service.ListAsync(from, to, hotelUnitCode, cancellationToken);
             return Results.Ok(result);
-        }).RequireAuthorization(PermissionCatalog.ClosingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingClosingRead);
 
         closing.MapGet("/{businessDate}/{unitCode}", async (
             DateOnly businessDate,
@@ -35,7 +35,7 @@ internal static class ClosingEndpoints
         {
             var result = await service.GetAsync(businessDate, unitCode, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.ClosingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingClosingRead);
 
         closing.MapPost("/close", async (
             CloseBusinessDayRequest request,
@@ -50,7 +50,7 @@ internal static class ClosingEndpoints
                     $"/api/v1/closing/daily/{result.Value.BusinessDate:yyyy-MM-dd}/{result.Value.HotelUnitCode}",
                     result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.ClosingClose);
+        }).RequireAuthorization(PermissionCatalog.LodgingClosingClose);
 
         closing.MapPost("/{id:guid}/reopen", async (
             Guid id,
@@ -61,7 +61,7 @@ internal static class ClosingEndpoints
         {
             var result = await service.ReopenAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.ClosingReopen);
+        }).RequireAuthorization(PermissionCatalog.LodgingClosingReopen);
 
         return api;
     }

@@ -17,14 +17,25 @@ namespace RaqmiSystem.Api.Endpoints;
 ///   <item>hr.payroll.close - validate then CLOSE a period, which locks the month for good.</item>
 /// </list>
 /// Closing has its own permission for the same reason closing.reopen does: it is irreversible.
+///
+/// Depuis le lot 2.1 les routes portent les cles CIBLES du registre (PermissionRegistry) :
+/// hr.employee.read, hr.employee.manage (personnes et contrats), hr.time.manage (pointages et
+/// absences), hr.payroll.process et hr.payroll.close - cette derniere etait deja au format
+/// cible. Chaque politique accepte encore la cle historique qui la couvre : hr.write, composite,
+/// vaut les deux cles manage, et aucune des deux ne vaut hr.write.
 /// </summary>
 internal static class HumanResourcesEndpoints
 {
-    private const string HrRead = PermissionCatalog.HrRead;
+    private const string HrRead = PermissionCatalog.HrEmployeeRead;
 
-    private const string HrWrite = PermissionCatalog.HrWrite;
+    // hr.write est composite dans le registre : gerer les personnes (departements, postes, dossiers,
+    // contrats) et gerer le temps (pointages, absences) sont deux gestes, et chaque route porte le
+    // sien. Un profil qui ne detient que la cle historique garde l'acces aux deux.
+    private const string HrEmployeeWrite = PermissionCatalog.HrEmployeeManage;
 
-    private const string HrPayroll = PermissionCatalog.HrPayroll;
+    private const string HrTimeWrite = PermissionCatalog.HrTimeManage;
+
+    private const string HrPayroll = PermissionCatalog.HrPayrollProcess;
 
     private const string HrPayrollClose = PermissionCatalog.HrPayrollClose;
 
@@ -68,7 +79,7 @@ internal static class HumanResourcesEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/hr/departments/{result.Value.Code}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrEmployeeWrite);
 
         departments.MapPut("/{code}", async (
             string code,
@@ -84,7 +95,7 @@ internal static class HumanResourcesEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrEmployeeWrite);
 
         departments.MapPost("/{code}/activate", async (
             string code,
@@ -99,7 +110,7 @@ internal static class HumanResourcesEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrEmployeeWrite);
 
         departments.MapPost("/{code}/deactivate", async (
             string code,
@@ -114,7 +125,7 @@ internal static class HumanResourcesEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrEmployeeWrite);
     }
 
     private static void MapPositionEndpoints(RouteGroupBuilder api)
@@ -149,7 +160,7 @@ internal static class HumanResourcesEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/hr/positions/{result.Value.Code}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrEmployeeWrite);
 
         positions.MapPut("/{code}", async (
             string code,
@@ -165,7 +176,7 @@ internal static class HumanResourcesEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrEmployeeWrite);
 
         positions.MapPost("/{code}/activate", async (
             string code,
@@ -180,7 +191,7 @@ internal static class HumanResourcesEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrEmployeeWrite);
 
         positions.MapPost("/{code}/deactivate", async (
             string code,
@@ -195,7 +206,7 @@ internal static class HumanResourcesEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrEmployeeWrite);
     }
 
     private static void MapEmployeeEndpoints(RouteGroupBuilder api)
@@ -239,7 +250,7 @@ internal static class HumanResourcesEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/hr/employees/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrEmployeeWrite);
 
         employees.MapPut("/{id:guid}", async (
             Guid id,
@@ -255,7 +266,7 @@ internal static class HumanResourcesEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrEmployeeWrite);
 
         employees.MapPost("/{id:guid}/suspend", async (
             Guid id,
@@ -270,7 +281,7 @@ internal static class HumanResourcesEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrEmployeeWrite);
 
         employees.MapPost("/{id:guid}/reactivate", async (
             Guid id,
@@ -285,7 +296,7 @@ internal static class HumanResourcesEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrEmployeeWrite);
 
         employees.MapPost("/{id:guid}/terminate", async (
             Guid id,
@@ -301,7 +312,7 @@ internal static class HumanResourcesEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrEmployeeWrite);
     }
 
     private static void MapContractEndpoints(RouteGroupBuilder api)
@@ -335,7 +346,7 @@ internal static class HumanResourcesEndpoints
                     $"/api/v1/hr/employees/{employeeId}/contracts/{result.Value.Id}",
                     result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrEmployeeWrite);
 
         contracts.MapPut("/{contractId:guid}", async (
             Guid employeeId,
@@ -353,7 +364,7 @@ internal static class HumanResourcesEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrEmployeeWrite);
 
         contracts.MapPost("/{contractId:guid}/end", async (
             Guid employeeId,
@@ -371,7 +382,7 @@ internal static class HumanResourcesEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrEmployeeWrite);
     }
 
     private static void MapTimeEndpoints(RouteGroupBuilder api)
@@ -419,7 +430,7 @@ internal static class HumanResourcesEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrTimeWrite);
 
         timeEntries.MapPost("/{id:guid}/validate", async (
             Guid id,
@@ -433,7 +444,7 @@ internal static class HumanResourcesEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrTimeWrite);
     }
 
     private static void MapAbsenceEndpoints(RouteGroupBuilder api)
@@ -466,7 +477,7 @@ internal static class HumanResourcesEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/hr/absences/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrTimeWrite);
 
         absences.MapPost("/{id:guid}/approve", async (
             Guid id,
@@ -482,7 +493,7 @@ internal static class HumanResourcesEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrTimeWrite);
 
         absences.MapPost("/{id:guid}/reject", async (
             Guid id,
@@ -498,7 +509,7 @@ internal static class HumanResourcesEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrTimeWrite);
 
         absences.MapPost("/{id:guid}/cancel", async (
             Guid id,
@@ -514,7 +525,7 @@ internal static class HumanResourcesEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(HrWrite);
+        }).RequireAuthorization(HrTimeWrite);
     }
 
     private static void MapPayrollParameterEndpoints(RouteGroupBuilder api)

@@ -37,6 +37,11 @@ var jwtOptions = JwtOptions.FromConfiguration(
 
 builder.Services.AddRaqmiInfrastructure(builder.Configuration, jwtOptions);
 
+// Rapport de migration RBAC (lot 2.1) : lecture seule, enregistre ici a cote des politiques
+// d'autorisation qu'il sert a preparer. A rapatrier dans AddRaqmiInfrastructure avec le prochain
+// lot qui touche DependencyInjection.cs.
+builder.Services.AddScoped<IPermissionMigrationReportService, PermissionMigrationReportService>();
+
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
@@ -62,39 +67,31 @@ builder.Services
 
 builder.Services.AddAuthorization(options =>
 {
+    // UNE POLITIQUE PAR CLE DU CATALOGUE, historique ou cible, et la liste des claims qui la
+    // satisfont vient du registre (PermissionRegistry.AcceptedClaims) :
+    //
+    // - cle cible : elle-meme OU une cle historique qui la couvre. Une installation en service
+    //   a accorde les cles historiques a ses profils ; exiger la cle cible fermerait du jour au
+    //   lendemain des ecrans qui fonctionnaient, jusqu'a ce que quelqu'un pense a rejouer le
+    //   parametrage des roles PERSONNALISES - que le seeder ne touche pas ;
+    // - cle historique 1:1 : elle-meme OU sa cle cible (meme liste que la cible) ;
+    // - cle historique composite (users.write, lodging.write, accounting.write...) : elle-meme
+    //   SEULEMENT. Une cle fine ne vaut jamais la cle large, sinon elle serait un chemin
+    //   detourne vers tout ce que la cle large ouvre encore sur les routes non retaguees.
+    //
+    // Les huit alias PMS declares ici un par un avant le registre (lodging.reserve acceptait
+    // lodging.write, lodging.checkout acceptait lodging.checkin...) en sont un cas particulier :
+    // ils sont exprimes dans le registre comme des couvertures, avec le meme effet. Les trois
+    // cles fines qui n'avaient volontairement pas d'alias (change_rate, override_restriction,
+    // overbooking) n'en ont toujours pas - les faire heriter de lodging.write reviendrait a
+    // accorder retroactivement des gestes qui n'existaient pas quand la cle a ete donnee.
     foreach (var permission in PermissionCatalog.All)
     {
-        options.AddPolicy(permission.Key, policy => policy.RequireClaim(SecurityClaimTypes.Permission, permission.Key));
-    }
+        var acceptedClaims = PermissionRegistry.AcceptedClaims(permission.Key);
 
-    // CLES FINES DU PMS : la cle historique VAUT la cle fine qui l'a remplacee.
-    //
-    // Le decoupage du module 10 a scinde "lodging.write" et "lodging.checkin" en gestes distincts.
-    // Une installation deja en service a accorde les anciennes cles a ses profils ; exiger les
-    // nouvelles fermerait du jour au lendemain des ecrans qui fonctionnaient, jusqu'a ce que
-    // quelqu'un pense a rejouer le parametrage des roles PERSONNALISES - que le seeder ne touche
-    // pas. La politique accepte donc l'une OU l'autre.
-    //
-    // Trois cles n'ont volontairement PAS d'equivalent historique : change_rate,
-    // override_restriction et overbooking. Elles autorisent des gestes qui n'existaient pas -
-    // changer un prix vendu, passer outre une fermeture, vendre une chambre qui n'existe pas - et
-    // les faire heriter de "lodging.write" reviendrait a les accorder retroactivement a tous ceux
-    // qui tenaient le parametrage. C'est exactement ce que ce decoupage existe pour eviter.
-    foreach (var (fineKey, legacyKey) in new[]
-    {
-        (PermissionCatalog.LodgingReserve, PermissionCatalog.LodgingWrite),
-        (PermissionCatalog.LodgingCancel, PermissionCatalog.LodgingWrite),
-        (PermissionCatalog.LodgingNoShow, PermissionCatalog.LodgingWrite),
-        (PermissionCatalog.LodgingManageRooms, PermissionCatalog.LodgingWrite),
-        (PermissionCatalog.LodgingManageRates, PermissionCatalog.LodgingWrite),
-        (PermissionCatalog.LodgingNightAudit, PermissionCatalog.LodgingWrite),
-        (PermissionCatalog.LodgingRoomMove, PermissionCatalog.LodgingCheckin),
-        (PermissionCatalog.LodgingCheckout, PermissionCatalog.LodgingCheckin)
-    })
-    {
         options.AddPolicy(
-            fineKey,
-            policy => policy.RequireClaim(SecurityClaimTypes.Permission, fineKey, legacyKey));
+            permission.Key,
+            policy => policy.RequireClaim(SecurityClaimTypes.Permission, acceptedClaims));
     }
 });
 

@@ -29,7 +29,7 @@ internal static class LodgingOperationsEndpoints
 
             var result = await service.GetBusinessDateAsync(hotelUnitCode, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         lodging.MapGet("/forecast", async (
             string? hotelUnitCode,
@@ -50,7 +50,7 @@ internal static class LodgingOperationsEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         lodging.MapGet("/tape-chart", async (
             string? hotelUnitCode,
@@ -73,7 +73,7 @@ internal static class LodgingOperationsEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         lodging.MapGet("/arrivals", async (
             string? hotelUnitCode,
@@ -88,7 +88,7 @@ internal static class LodgingOperationsEndpoints
 
             var result = await service.GetArrivalsAsync(hotelUnitCode, date, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         lodging.MapGet("/departures", async (
             string? hotelUnitCode,
@@ -103,7 +103,7 @@ internal static class LodgingOperationsEndpoints
 
             var result = await service.GetDeparturesAsync(hotelUnitCode, date, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         lodging.MapGet("/in-house", async (
             string? hotelUnitCode,
@@ -117,7 +117,7 @@ internal static class LodgingOperationsEndpoints
 
             var result = await service.GetInHouseAsync(hotelUnitCode, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         // Le rapport des non-presentations se LIT sans droit particulier : c'est une liste de
         // candidats. L'appliquer bascule des dossiers et declenche des penalites - d'ou la route
@@ -142,7 +142,7 @@ internal static class LodgingOperationsEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         lodging.MapPost("/no-shows/apply", async (
             string? hotelUnitCode,
@@ -164,7 +164,7 @@ internal static class LodgingOperationsEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingNoShow);
+        }).RequireAuthorization(PermissionCatalog.LodgingReservationNoshow);
 
         var nightAudit = api.MapGroup("/lodging/night-audit").WithTags("NightAudit");
 
@@ -182,7 +182,7 @@ internal static class LodgingOperationsEndpoints
 
             var result = await service.ListNightAuditRunsAsync(hotelUnitCode, from, to, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         nightAudit.MapPost("/run", async (
             RunNightAuditRequest request,
@@ -192,7 +192,7 @@ internal static class LodgingOperationsEndpoints
         {
             var result = await service.RunNightAuditAsync(request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingNightAudit);
+        }).RequireAuthorization(PermissionCatalog.LodgingNightAuditExecute);
 
         return api;
     }

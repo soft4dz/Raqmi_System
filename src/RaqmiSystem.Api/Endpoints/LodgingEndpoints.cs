@@ -81,7 +81,7 @@ internal static class LodgingEndpoints
             // permission affiche l'inventaire normal plutot que de refuser la recherche, parce
             // qu'une recherche doit toujours repondre quelque chose.
             var overbooking = allowOverbooking == true
-                && httpContext.User.HasPermission(PermissionCatalog.LodgingOverbooking);
+                && httpContext.User.HasPermission(PermissionCatalog.LodgingReservationOverbook);
 
             var result = await service.SearchAvailabilityAsync(
                 new AvailabilitySearchRequest(
@@ -101,7 +101,7 @@ internal static class LodgingEndpoints
                 cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
     }
 
     private static void MapFrontDeskEndpoints(RouteGroupBuilder api)
@@ -127,7 +127,7 @@ internal static class LodgingEndpoints
 
             var result = await service.GetFrontDeskAsync(hotelUnitCode, date.Value, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
     }
 
     private static void MapRoomTypeEndpoints(RouteGroupBuilder api)
@@ -143,7 +143,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.ListRoomTypesAsync(hotelUnitCode, includeInactive == true, cancellationToken);
             return Results.Ok(result);
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         roomTypes.MapGet("/{id:guid}", async (
             Guid id,
@@ -152,7 +152,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.GetRoomTypeAsync(id, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         roomTypes.MapPost("", async (
             CreateRoomTypeRequest request,
@@ -165,7 +165,7 @@ internal static class LodgingEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/lodging/room-types/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRooms);
+        }).RequireAuthorization(PermissionCatalog.LodgingRoomManage);
 
         roomTypes.MapPut("/{id:guid}", async (
             Guid id,
@@ -176,7 +176,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.UpdateRoomTypeAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRooms);
+        }).RequireAuthorization(PermissionCatalog.LodgingRoomManage);
 
         roomTypes.MapPost("/{id:guid}/activate", async (
             Guid id,
@@ -186,7 +186,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.SetRoomTypeActiveAsync(id, true, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRooms);
+        }).RequireAuthorization(PermissionCatalog.LodgingRoomManage);
 
         roomTypes.MapPost("/{id:guid}/deactivate", async (
             Guid id,
@@ -196,7 +196,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.SetRoomTypeActiveAsync(id, false, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRooms);
+        }).RequireAuthorization(PermissionCatalog.LodgingRoomManage);
     }
 
     private static void MapRoomEndpoints(RouteGroupBuilder api)
@@ -212,7 +212,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.ListRoomsAsync(hotelUnitCode, includeInactive == true, cancellationToken);
             return Results.Ok(result);
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         rooms.MapGet("/{id:guid}", async (
             Guid id,
@@ -221,7 +221,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.GetRoomAsync(id, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         rooms.MapPost("", async (
             CreateRoomRequest request,
@@ -234,7 +234,7 @@ internal static class LodgingEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/lodging/rooms/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRooms);
+        }).RequireAuthorization(PermissionCatalog.LodgingRoomManage);
 
         rooms.MapPut("/{id:guid}", async (
             Guid id,
@@ -245,7 +245,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.UpdateRoomAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRooms);
+        }).RequireAuthorization(PermissionCatalog.LodgingRoomManage);
 
         rooms.MapPost("/{id:guid}/activate", async (
             Guid id,
@@ -255,7 +255,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.SetRoomActiveAsync(id, true, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRooms);
+        }).RequireAuthorization(PermissionCatalog.LodgingRoomManage);
 
         rooms.MapPost("/{id:guid}/deactivate", async (
             Guid id,
@@ -265,7 +265,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.SetRoomActiveAsync(id, false, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingManageRooms);
+        }).RequireAuthorization(PermissionCatalog.LodgingRoomManage);
     }
 
     private static void MapReservationEndpoints(RouteGroupBuilder api)
@@ -301,7 +301,7 @@ internal static class LodgingEndpoints
                 cancellationToken);
 
             return Results.Ok(result);
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         reservations.MapGet("/{id:guid}", async (
             Guid id,
@@ -310,7 +310,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.GetReservationAsync(id, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         reservations.MapGet("/{id:guid}/detail", async (
             Guid id,
@@ -319,7 +319,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.GetReservationDetailAsync(id, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         reservations.MapPost("", async (
             CreateReservationRequest request,
@@ -333,9 +333,9 @@ internal static class LodgingEndpoints
             var effective = request with
             {
                 AllowOverbooking = request.AllowOverbooking
-                    && httpContext.User.HasPermission(PermissionCatalog.LodgingOverbooking),
+                    && httpContext.User.HasPermission(PermissionCatalog.LodgingReservationOverbook),
                 OverrideRestrictions = request.OverrideRestrictions
-                    && httpContext.User.HasPermission(PermissionCatalog.LodgingOverrideRestriction)
+                    && httpContext.User.HasPermission(PermissionCatalog.LodgingRestrictionOverride)
             };
 
             var result = await service.CreateReservationAsync(effective, httpContext.ToOperationContext(), cancellationToken);
@@ -343,7 +343,7 @@ internal static class LodgingEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/lodging/reservations/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingReserve);
+        }).RequireAuthorization(PermissionCatalog.LodgingReservationCreate);
 
         reservations.MapPost("/walk-in", async (
             WalkInRequest request,
@@ -354,9 +354,9 @@ internal static class LodgingEndpoints
             var effective = request with
             {
                 AllowOverbooking = request.AllowOverbooking
-                    && httpContext.User.HasPermission(PermissionCatalog.LodgingOverbooking),
+                    && httpContext.User.HasPermission(PermissionCatalog.LodgingReservationOverbook),
                 OverrideRestrictions = request.OverrideRestrictions
-                    && httpContext.User.HasPermission(PermissionCatalog.LodgingOverrideRestriction)
+                    && httpContext.User.HasPermission(PermissionCatalog.LodgingRestrictionOverride)
             };
 
             var result = await service.CreateWalkInAsync(effective, httpContext.ToOperationContext(), cancellationToken);
@@ -364,7 +364,7 @@ internal static class LodgingEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/lodging/reservations/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingReserve);
+        }).RequireAuthorization(PermissionCatalog.LodgingReservationCreate);
 
         reservations.MapPut("/{id:guid}", async (
             Guid id,
@@ -375,7 +375,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.UpdateReservationAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingReserve);
+        }).RequireAuthorization(PermissionCatalog.LodgingReservationCreate);
 
         reservations.MapPost("/{id:guid}/status", async (
             Guid id,
@@ -386,7 +386,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.ChangeReservationStatusAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingReserve);
+        }).RequireAuthorization(PermissionCatalog.LodgingReservationCreate);
 
         reservations.MapPost("/{id:guid}/guarantee", async (
             Guid id,
@@ -397,7 +397,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.SetGuaranteeAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingReserve);
+        }).RequireAuthorization(PermissionCatalog.LodgingReservationCreate);
 
         reservations.MapPost("/{id:guid}/assign-room", async (
             Guid id,
@@ -408,7 +408,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.AssignRoomAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingReserve);
+        }).RequireAuthorization(PermissionCatalog.LodgingReservationCreate);
 
         reservations.MapPost("/{id:guid}/check-in", async (
             Guid id,
@@ -418,7 +418,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.CheckInAsync(id, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingCheckin);
+        }).RequireAuthorization(PermissionCatalog.LodgingCheckinExecute);
 
         reservations.MapPost("/{id:guid}/prepare-check-out", async (
             Guid id,
@@ -428,7 +428,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.PrepareCheckOutAsync(id, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingCheckout);
+        }).RequireAuthorization(PermissionCatalog.LodgingCheckoutExecute);
 
         reservations.MapPost("/{id:guid}/check-out", async (
             Guid id,
@@ -438,7 +438,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.CheckOutAsync(id, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingCheckout);
+        }).RequireAuthorization(PermissionCatalog.LodgingCheckoutExecute);
 
         reservations.MapPost("/{id:guid}/cancel", async (
             Guid id,
@@ -449,7 +449,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.CancelReservationAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingCancel);
+        }).RequireAuthorization(PermissionCatalog.LodgingReservationCancel);
 
         reservations.MapPost("/{id:guid}/no-show", async (
             Guid id,
@@ -459,7 +459,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.MarkNoShowAsync(id, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingNoShow);
+        }).RequireAuthorization(PermissionCatalog.LodgingReservationNoshow);
     }
 
     /// <summary>
@@ -481,7 +481,7 @@ internal static class LodgingEndpoints
             {
                 var result = await service.MoveRoomAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
                 return result.ToHttpResult();
-            }).RequireAuthorization(PermissionCatalog.LodgingRoomMove);
+            }).RequireAuthorization(PermissionCatalog.LodgingStayMove);
 
             stays.MapPost("/{id:guid}/extend", async (
                 Guid id,
@@ -493,14 +493,14 @@ internal static class LodgingEndpoints
                 var effective = request with
                 {
                     AllowOverbooking = request.AllowOverbooking
-                        && httpContext.User.HasPermission(PermissionCatalog.LodgingOverbooking),
+                        && httpContext.User.HasPermission(PermissionCatalog.LodgingReservationOverbook),
                     OverrideRestrictions = request.OverrideRestrictions
-                        && httpContext.User.HasPermission(PermissionCatalog.LodgingOverrideRestriction)
+                        && httpContext.User.HasPermission(PermissionCatalog.LodgingRestrictionOverride)
                 };
 
                 var result = await service.ExtendStayAsync(id, effective, httpContext.ToOperationContext(), cancellationToken);
                 return result.ToHttpResult();
-            }).RequireAuthorization(PermissionCatalog.LodgingReserve);
+            }).RequireAuthorization(PermissionCatalog.LodgingReservationCreate);
 
             stays.MapPost("/{id:guid}/change-room-type", async (
                 Guid id,
@@ -512,12 +512,12 @@ internal static class LodgingEndpoints
                 var effective = request with
                 {
                     AllowOverbooking = request.AllowOverbooking
-                        && httpContext.User.HasPermission(PermissionCatalog.LodgingOverbooking)
+                        && httpContext.User.HasPermission(PermissionCatalog.LodgingReservationOverbook)
                 };
 
                 var result = await service.ChangeRoomTypeAsync(id, effective, httpContext.ToOperationContext(), cancellationToken);
                 return result.ToHttpResult();
-            }).RequireAuthorization(PermissionCatalog.LodgingChangeRate);
+            }).RequireAuthorization(PermissionCatalog.LodgingStayChangeRate);
         }
     }
 
@@ -532,7 +532,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.GetFolioAsync(id, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         reservations.MapGet("/{id:guid}/folios", async (
             Guid id,
@@ -541,7 +541,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.ListFoliosAsync(id, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         reservations.MapPost("/{id:guid}/folios", async (
             Guid id,
@@ -552,7 +552,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.CreateFolioAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingCheckin);
+        }).RequireAuthorization(PermissionCatalog.LodgingFolioManage);
 
         reservations.MapPost("/{id:guid}/folio/charges", async (
             Guid id,
@@ -563,7 +563,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.AddFolioChargeAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingCheckin);
+        }).RequireAuthorization(PermissionCatalog.LodgingFolioManage);
 
         reservations.MapPost("/{id:guid}/folio/transfer", async (
             Guid id,
@@ -574,7 +574,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.TransferFolioChargeAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingCheckin);
+        }).RequireAuthorization(PermissionCatalog.LodgingFolioManage);
 
         // ------------------------------------- Extras -------------------------------------
 
@@ -585,7 +585,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.ListReservationExtrasAsync(id, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         reservations.MapPost("/{id:guid}/extras", async (
             Guid id,
@@ -596,7 +596,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.AddReservationExtraAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingReserve);
+        }).RequireAuthorization(PermissionCatalog.LodgingReservationCreate);
 
         reservations.MapDelete("/{id:guid}/extras/{extraId:guid}", async (
             Guid id,
@@ -607,7 +607,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.RemoveReservationExtraAsync(id, extraId, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingReserve);
+        }).RequireAuthorization(PermissionCatalog.LodgingReservationCreate);
 
         // ------------------------------------ Acomptes ------------------------------------
 
@@ -618,7 +618,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.ListDepositsAsync(id, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
 
         reservations.MapPost("/{id:guid}/deposits", async (
             Guid id,
@@ -629,7 +629,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.CreateDepositAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingCheckin);
+        }).RequireAuthorization(PermissionCatalog.LodgingFolioManage);
 
         var deposits = api.MapGroup("/lodging/deposits").WithTags("Folios");
 
@@ -642,7 +642,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.PayDepositAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingCheckin);
+        }).RequireAuthorization(PermissionCatalog.LodgingFolioManage);
 
         deposits.MapPost("/{id:guid}/apply", async (
             Guid id,
@@ -652,7 +652,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.ApplyDepositAsync(id, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingCheckin);
+        }).RequireAuthorization(PermissionCatalog.LodgingFolioManage);
 
         deposits.MapPost("/{id:guid}/refund", async (
             Guid id,
@@ -663,7 +663,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.RefundDepositAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingCheckin);
+        }).RequireAuthorization(PermissionCatalog.LodgingFolioManage);
 
         deposits.MapPost("/{id:guid}/forfeit", async (
             Guid id,
@@ -674,7 +674,7 @@ internal static class LodgingEndpoints
         {
             var result = await service.ForfeitDepositAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingCancel);
+        }).RequireAuthorization(PermissionCatalog.LodgingReservationCancel);
     }
 
     private static void MapOccupancyEndpoints(RouteGroupBuilder api)
@@ -701,7 +701,7 @@ internal static class LodgingEndpoints
 
             var result = await service.GetOccupancyAsync(hotelUnitCode, from.Value, to.Value, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.LodgingRead);
+        }).RequireAuthorization(PermissionCatalog.LodgingFrontOfficeRead);
     }
 
     private static bool TryParseStatus(string? status, out ReservationStatus? parsedStatus, out string error)

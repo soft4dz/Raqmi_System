@@ -27,7 +27,7 @@ internal static class TreasuryEndpoints
         {
             var result = await service.ListBankAccountsAsync(includeInactive == true, cancellationToken);
             return Results.Ok(result);
-        }).RequireAuthorization(PermissionCatalog.TreasuryRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceTreasuryRead);
 
         accounts.MapGet("/{code}", async (
             string code,
@@ -36,7 +36,7 @@ internal static class TreasuryEndpoints
         {
             var result = await service.GetBankAccountAsync(code, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.TreasuryRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceTreasuryRead);
 
         accounts.MapPost("", async (
             CreateBankAccountRequest request,
@@ -49,7 +49,7 @@ internal static class TreasuryEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/treasury/bank-accounts/{result.Value.Code}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.TreasuryWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceBankAccountManage);
 
         accounts.MapPut("/{code}", async (
             string code,
@@ -60,7 +60,7 @@ internal static class TreasuryEndpoints
         {
             var result = await service.UpdateBankAccountAsync(code, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.TreasuryWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceBankAccountManage);
 
         accounts.MapPost("/{code}/activate", async (
             string code,
@@ -70,7 +70,7 @@ internal static class TreasuryEndpoints
         {
             var result = await service.SetBankAccountActiveAsync(code, true, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.TreasuryWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceBankAccountManage);
 
         accounts.MapPost("/{code}/deactivate", async (
             string code,
@@ -80,7 +80,7 @@ internal static class TreasuryEndpoints
         {
             var result = await service.SetBankAccountActiveAsync(code, false, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.TreasuryWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceBankAccountManage);
     }
 
     private static void MapReceiptEndpoints(RouteGroupBuilder api)
@@ -114,7 +114,7 @@ internal static class TreasuryEndpoints
 
             var result = await service.ListReceiptsAsync(from, to, hotelUnitCode, parsedMethod, parsedStatus, cancellationToken);
             return Results.Ok(result);
-        }).RequireAuthorization(PermissionCatalog.TreasuryRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceTreasuryRead);
 
         receipts.MapGet("/summary", async (
             DateOnly? from,
@@ -131,7 +131,7 @@ internal static class TreasuryEndpoints
 
             var result = await service.GetReceiptSummaryAsync(from, to, hotelUnitCode, parsedStatus, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.TreasuryRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceTreasuryRead);
 
         receipts.MapGet("/{id:guid}", async (
             Guid id,
@@ -140,7 +140,7 @@ internal static class TreasuryEndpoints
         {
             var result = await service.GetReceiptAsync(id, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.TreasuryRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceTreasuryRead);
 
         receipts.MapPost("", async (
             CreateCashReceiptRequest request,
@@ -153,7 +153,7 @@ internal static class TreasuryEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/treasury/receipts/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.TreasuryWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceReceiptManage);
 
         receipts.MapPut("/{id:guid}", async (
             Guid id,
@@ -164,7 +164,7 @@ internal static class TreasuryEndpoints
         {
             var result = await service.UpdateReceiptAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.TreasuryWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceReceiptManage);
 
         receipts.MapPost("/{id:guid}/confirm", async (
             Guid id,
@@ -174,7 +174,7 @@ internal static class TreasuryEndpoints
         {
             var result = await service.ConfirmReceiptAsync(id, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.TreasuryWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceReceiptManage);
 
         receipts.MapPost("/{id:guid}/cancel", async (
             Guid id,
@@ -185,7 +185,7 @@ internal static class TreasuryEndpoints
         {
             var result = await service.CancelReceiptAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.TreasuryWrite);
+        }).RequireAuthorization(PermissionCatalog.FinanceReceiptManage);
     }
 
     private static void MapPaymentOrderEndpoints(RouteGroupBuilder api)
@@ -213,7 +213,7 @@ internal static class TreasuryEndpoints
 
             var result = await service.ListPaymentOrdersAsync(from, to, bankAccountCode, parsedStatus, cancellationToken);
             return Results.Ok(result);
-        }).RequireAuthorization(PermissionCatalog.TreasuryRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceTreasuryRead);
 
         orders.MapGet("/{id:guid}", async (
             Guid id,
@@ -222,7 +222,7 @@ internal static class TreasuryEndpoints
         {
             var result = await service.GetPaymentOrderAsync(id, cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.TreasuryRead);
+        }).RequireAuthorization(PermissionCatalog.FinanceTreasuryRead);
 
         orders.MapPost("", async (
             CreatePaymentOrderRequest request,
@@ -235,7 +235,7 @@ internal static class TreasuryEndpoints
             return result.Succeeded && result.Value is not null
                 ? Results.Created($"/api/v1/treasury/payment-orders/{result.Value.Id}", result.Value)
                 : result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.TreasuryWrite);
+        }).RequireAuthorization(PermissionCatalog.FinancePaymentOrderManage);
 
         orders.MapPost("/{id:guid}/approve", async (
             Guid id,
@@ -245,7 +245,7 @@ internal static class TreasuryEndpoints
         {
             var result = await service.ApprovePaymentOrderAsync(id, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.TreasuryApprove);
+        }).RequireAuthorization(PermissionCatalog.FinancePaymentOrderApprove);
 
         orders.MapPost("/{id:guid}/pay", async (
             Guid id,
@@ -255,7 +255,7 @@ internal static class TreasuryEndpoints
         {
             var result = await service.PayPaymentOrderAsync(id, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.TreasuryWrite);
+        }).RequireAuthorization(PermissionCatalog.FinancePaymentOrderManage);
 
         orders.MapPost("/{id:guid}/cancel", async (
             Guid id,
@@ -266,7 +266,7 @@ internal static class TreasuryEndpoints
         {
             var result = await service.CancelPaymentOrderAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
-        }).RequireAuthorization(PermissionCatalog.TreasuryWrite);
+        }).RequireAuthorization(PermissionCatalog.FinancePaymentOrderManage);
     }
 
     private const string MethodError = "Payment method must be Cash, Card, Cheque or BankTransfer.";
