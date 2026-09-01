@@ -1,62 +1,57 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Globalization;
 using System.Runtime.CompilerServices;
-using System.Text;
 using RaqmiSystem.Application.Navigation;
 
 namespace RaqmiSystem.Desktop;
 
-// Une section de la barre laterale : un intitule et les ecrans qu'elle regroupe.
-// L'ordre des sections vient du catalogue fonctionnel cible ; le panneau ne liste
-// QUE des écrans ouvrables - le sommaire complet des 50 modules,
-// planifies compris, reste l'ecran d'accueil.
+// Un domaine de la barre laterale : son intitule, et les modules et ecrans que le profil
+// peut ouvrir, dans l'ordre de l'arbre. La barre laterale ne liste QUE des ecrans
+// ouvrables ; le sommaire complet des 50 modules, planifies et verrouilles compris, reste
+// l'ecran d'accueil.
 //
-// Les ModuleTile sont ceux de l'accueil, pas des copies : un changement de
-// permission (ModuleTile.IsLocked) ou de module courant (IsActive) se voit des
-// deux cotes sans code de synchronisation.
+// Les groupes sont construits une fois, depuis l'arbre complet, et gardent leur etat
+// (section ouverte ou repliee) d'une session a l'autre. Ce qu'ils MONTRENT vient a chaque
+// fois de l'arbre elague par NavigationTreeBuilder (permissions du JWT, recherche) : c'est
+// Apply qui rejoue cet arbre sur le groupe, sans reconstruire les groupes eux-memes - ce
+// qui replierait tout et ferait clignoter le panneau.
+//
+// Les ModuleTile references sont ceux de l'accueil, pas des copies : un changement de
+// module courant (IsActive) se voit des deux cotes sans code de synchronisation.
 public sealed class ModuleNavigationGroup : INotifyPropertyChanged
 {
-    // Nom, description, famille et numero d'ordre normalises une fois pour toutes :
-    // la recherche compare sans accent ni casse, a chaque frappe.
-    private sealed record NavigableModule(ModuleTile Tile, string SearchText);
-
-    // Section en cours de composition : le plan pose les sections, le rattrapage du
-    // catalogue y ajoute ses ecrans, et seules celles qui portent au moins un module
-    // deviennent des ModuleNavigationGroup.
-    private sealed record Draft(string Name, string IconKey, bool IsPinned, List<NavigableModule> Modules);
-
-    private readonly IReadOnlyList<NavigableModule> modules;
+    // Onglets dont ce domaine est le chemin primaire : pour ouvrir la section du module
+    // courant, meme quand une recherche l'a momentanement vide.
+    private readonly IReadOnlySet<int> ownedTabs;
     private bool isExpanded;
 
-    private ModuleNavigationGroup(
-        string name,
-        string iconKey,
-        bool isPinned,
-        IReadOnlyList<NavigableModule> modules)
+    private ModuleNavigationGroup(DomainNode domain, IReadOnlySet<int> ownedTabs)
     {
-        Name = name;
-        IconKey = iconKey;
-        IsPinned = isPinned;
-        this.modules = modules;
-        VisibleModules = new ObservableCollection<ModuleTile>(modules.Select(module => module.Tile));
+        Id = domain.Id;
+        Name = domain.Label;
+        IconKey = domain.IconKey;
+        // L'administration systeme est presentee en pied de panneau, hors de la liste
+        // defilante : on l'ouvre rarement et jamais dans le flux de la journee.
+        IsPinned = domain.Id == "22";
+        this.ownedTabs = ownedTabs;
     }
+
+    public string Id { get; }
 
     public string Name { get; }
 
-    // Cle d'icone de la section, resolue par ModuleGroupIconConverter.
+    // Cle d'icone du domaine, resolue par ModuleGroupIconConverter.
     public string IconKey { get; }
 
-    // Vrai pour la section presentee en pied de panneau (le parametrage), hors de
-    // la liste defilante des sections de travail.
+    // Vrai pour la section presentee en pied de panneau, hors de la liste defilante.
     public bool IsPinned { get; }
 
-    // Tous les modules de la section, filtre de recherche non applique.
-    public IEnumerable<ModuleTile> Modules => modules.Select(module => module.Tile);
+    // Ecrans affiches, a plat. Le nom est celui que le gabarit d'en-tete du theme lit pour
+    // son compteur (« VisibleModules.Count ») : il compte des ecrans, pas des modules.
+    public ObservableCollection<ModuleNavigationScreen> VisibleModules { get; } = [];
 
-    // Modules affiches : la section entiere hors recherche, les seuls resultats
-    // pendant une recherche.
-    public ObservableCollection<ModuleTile> VisibleModules { get; }
+    // Les memes ecrans, ranges par module : ce que le panneau rend.
+    public ObservableCollection<ModuleNavigationSection> VisibleSections { get; } = [];
 
     // Section deroulee ou repliee. Liee en TwoWay a l'Expander : un clic sur
     // l'en-tete revient donc ici, et la fenetre peut a son tour ouvrir la section du
@@ -76,97 +71,77 @@ public sealed class ModuleNavigationGroup : INotifyPropertyChanged
         }
     }
 
-    // Faux = aucun resultat dans cette section : elle disparait entierement de la
-    // barre laterale plutot que d'afficher un en-tete vide.
+    // Faux = aucun ecran a montrer : la section disparait entierement de la barre
+    // laterale plutot que d'afficher un en-tete vide.
     public bool HasMatches => VisibleModules.Count > 0;
 
     /// <summary>
-    /// Construit les sections dans l'ordre des 22 domaines fonctionnels cibles, puis
-    /// rattache chaque écran historique par son numéro de catalogue stable.
+    /// Un groupe par domaine qui possede au moins un ecran ouvrable en chemin primaire,
+    /// dans l'ordre de l'arbre. Un domaine entierement planifie, ou qui n'atteint des ecrans
+    /// que par alias, n'a rien a montrer dans la barre laterale.
     /// </summary>
-    /// <remarks>
-    /// Un seul module par onglet : le catalogue peut decrire deux modules servis par
-    /// le meme ecran (« Audit &amp; controle interne » et « Journalisation &amp;
-    /// tracabilite » partagent l'onglet 4), et la barre laterale liste des ecrans,
-    /// pas des lignes de catalogue. Le premier du catalogue nomme la ligne.
-    /// </remarks>
-    public static IReadOnlyList<ModuleNavigationGroup> Build(IEnumerable<ModuleTile> tiles)
+    public static IReadOnlyList<ModuleNavigationGroup> Build(IReadOnlyList<DomainNode> tree)
     {
-        var tileList = tiles.ToList();
-        var byOrder = tileList.ToDictionary(tile => tile.Order, StringComparer.Ordinal);
-        var placedTabs = new HashSet<int>();
-        var drafts = new List<Draft>();
+        var groups = new List<ModuleNavigationGroup>();
 
-        foreach (var domain in FunctionalArchitectureCatalog.Domains)
+        foreach (var domain in tree)
         {
-            var draft = new Draft(domain.Name, domain.IconKey, domain.Id == "22", []);
+            var tabs = FunctionalArchitectureCatalog.EnumeratePaths([domain])
+                .Where(path => !path.Screen.IsAlias && path.Screen.LegacyTabIndex is not null)
+                .Select(path => path.Screen.LegacyTabIndex!.Value)
+                .ToHashSet();
 
-            foreach (var order in domain.LegacyModuleOrders)
+            if (tabs.Count > 0)
             {
-                if (byOrder.TryGetValue(order, out var tile)
-                    && tile.TabIndex is { } tabIndex
-                    && placedTabs.Add(tabIndex))
-                {
-                    draft.Modules.Add(Describe(tile));
-                }
-            }
-
-            if (draft.Modules.Count > 0)
-            {
-                drafts.Add(draft);
+                groups.Add(new ModuleNavigationGroup(domain, tabs));
             }
         }
 
-        // Garde de compatibilite : un ecran ajoute avant son rattachement explicite
-        // reste visible. Le test de couverture doit normalement rendre ce chemin vide.
-        foreach (var family in tileList
-                     .Where(tile => tile.TabIndex is { } tabIndex && !placedTabs.Contains(tabIndex))
-                     .OrderBy(tile => tile.TabIndex)
-                     .GroupBy(tile => tile.Group))
-        {
-            var draft = new Draft(family.Key, family.First().GroupIconKey, IsPinned: false, []);
-
-            foreach (var tile in family)
-            {
-                if (tile.TabIndex is { } tabIndex && placedTabs.Add(tabIndex))
-                {
-                    draft.Modules.Add(Describe(tile));
-                }
-            }
-
-            var pinned = drafts.FindIndex(candidate => candidate.IsPinned);
-            drafts.Insert(pinned < 0 ? drafts.Count : pinned, draft);
-        }
-
-        return drafts
-            .Where(draft => draft.Modules.Count > 0)
-            .Select(draft => new ModuleNavigationGroup(
-                draft.Name,
-                draft.IconKey,
-                draft.IsPinned,
-                draft.Modules))
-            .ToList();
+        return groups;
     }
 
     /// <summary>
-    /// Applique la recherche a cette section et renvoie le nombre de modules retenus.
-    /// Une saisie vide retablit la section complete.
+    /// Rejoue sur ce groupe le domaine tel que l'elagage l'a laisse (nul = rien a montrer),
+    /// et renvoie le nombre d'ecrans retenus.
     /// </summary>
-    public int ApplySearch(string? query)
+    /// <remarks>
+    /// Reconstruction plutot que filtrage en place : une section compte au plus une
+    /// demi-douzaine de boutons, et la collection reste ainsi la seule verite de ce qui
+    /// est affiche. Un ecran sans tuile de catalogue est ignore : la barre laterale ne
+    /// propose que ce que l'accueil connait.
+    /// </remarks>
+    public int Apply(DomainNode? visibleDomain, Func<int, ModuleTile?> tileForTab)
     {
-        var normalized = string.IsNullOrWhiteSpace(query) ? null : ModuleTile.NormalizeForSearch(query);
-
-        // Reconstruction plutot que filtrage en place : une section compte au plus une
-        // demi-douzaine de boutons, et la collection reste ainsi la seule verite de ce
-        // qui est affiche.
         VisibleModules.Clear();
+        VisibleSections.Clear();
 
-        foreach (var module in modules)
+        if (visibleDomain is not null)
         {
-            if (!module.Tile.IsLocked
-                && (normalized is null || module.SearchText.Contains(normalized, StringComparison.Ordinal)))
+            foreach (var module in visibleDomain.Modules)
             {
-                VisibleModules.Add(module.Tile);
+                var screens = new List<ModuleNavigationScreen>();
+
+                foreach (var screen in module.Submodules.SelectMany(submodule => submodule.Screens))
+                {
+                    if (screen.LegacyTabIndex is { } tab
+                        && screens.All(existing => existing.TabIndex != tab)
+                        && tileForTab(tab) is { } tile)
+                    {
+                        screens.Add(new ModuleNavigationScreen(screen, tile));
+                    }
+                }
+
+                if (screens.Count == 0)
+                {
+                    continue;
+                }
+
+                VisibleSections.Add(new ModuleNavigationSection(module.Id, module.Label, screens));
+
+                foreach (var screen in screens)
+                {
+                    VisibleModules.Add(screen);
+                }
             }
         }
 
@@ -174,30 +149,31 @@ public sealed class ModuleNavigationGroup : INotifyPropertyChanged
         return VisibleModules.Count;
     }
 
-    /// <summary>
-    /// Marque le module de l'onglet donne comme courant et renvoie vrai si cette
-    /// section est celle qui le contient.
-    /// </summary>
-    public bool SetActiveTab(int tabIndex)
-    {
-        var owns = false;
-
-        foreach (var module in modules)
-        {
-            var isActive = module.Tile.TabIndex == tabIndex;
-            module.Tile.IsActive = isActive;
-            owns |= isActive;
-        }
-
-        return owns;
-    }
+    /// <summary>Vrai si l'onglet est un ecran de ce domaine (chemin primaire).</summary>
+    public bool Owns(int tabIndex) => ownedTabs.Contains(tabIndex);
 
     public event PropertyChangedEventHandler? PropertyChanged;
-
-    private static NavigableModule Describe(ModuleTile tile) => new(tile, tile.SearchText);
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
+}
+
+// Un module de la barre laterale : son libelle et ses ecrans ouvrables.
+public sealed record ModuleNavigationSection(
+    string Id,
+    string Label,
+    IReadOnlyList<ModuleNavigationScreen> Screens);
+
+// Un ecran de la barre laterale : le noeud de l'arbre (libelle, chemin) et la tuile de
+// l'accueil qui porte son etat vivant (module courant, verrouillage). Le bouton lie
+// « Tile.NavTag » et « Tile.IsClickable » : les notifications de la tuile traversent le
+// chemin de liaison.
+public sealed record ModuleNavigationScreen(ScreenNode Screen, ModuleTile Tile)
+{
+    public string Label => Screen.Label;
+
+    public int TabIndex => Screen.LegacyTabIndex ?? throw new InvalidOperationException(
+        $"L'écran '{Screen.Id}' n'a pas d'onglet : il ne peut pas figurer dans la barre latérale.");
 }
