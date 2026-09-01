@@ -17,7 +17,8 @@ foreach ($path in @($catalogPath, $xamlPath, $mainWindowPath, $permissionPath)) 
 
 $catalog = Get-Content $catalogPath -Raw -Encoding UTF8
 $xaml = Get-Content $xamlPath -Raw -Encoding UTF8
-$mainWindow = Get-Content $mainWindowPath -Raw -Encoding UTF8
+$mainWindow = (Get-ChildItem (Join-Path $RepositoryRoot "src/RaqmiSystem.Desktop") -Filter "MainWindow*.cs" -File |
+    ForEach-Object { Get-Content $_.FullName -Raw -Encoding UTF8 }) -join "`n"
 $permissions = Get-Content $permissionPath -Raw -Encoding UTF8
 
 function Get-ConstInt([string]$name) {
