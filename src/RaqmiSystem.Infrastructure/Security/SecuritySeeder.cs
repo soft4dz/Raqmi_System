@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using RaqmiSystem.Application.Security;
 using RaqmiSystem.Domain.Identity;
 using RaqmiSystem.Infrastructure.Persistence;
@@ -70,7 +70,15 @@ public sealed class SecuritySeeder(
             PermissionCatalog.InventoryValidate,
             PermissionCatalog.PurchasingRead,
             PermissionCatalog.PurchasingApprove,
-            PermissionCatalog.KitchenRead
+            PermissionCatalog.KitchenRead,
+            // Module 10.6 - Groupes & MICE. Direction lit l'evenementiel et les blocs de groupe,
+            // et n'en ecrit rien : vendre un seminaire ou poser un allotement sont des actes
+            // d'unite. mice.write reste avec les roles qui repondent de la salle et du planning.
+            PermissionCatalog.MiceRead,
+            // Module 29 - registre des postes. Meme logique que maintenance.read : direction
+            // verifie que le parc est a jour et qu'aucun poste ne tourne sur une version
+            // perimee, sans avoir a passer par l'administrateur systeme.
+            PermissionCatalog.SyncRead
         ],
         [RoleCatalog.ExploitationControl] =
         [
@@ -127,7 +135,14 @@ public sealed class SecuritySeeder(
             PermissionCatalog.PurchasingApprove,
             PermissionCatalog.PurchasingReceive,
             PermissionCatalog.KitchenRead,
-            PermissionCatalog.KitchenWrite
+            PermissionCatalog.KitchenWrite,
+            // Module 10.6 - Groupes & MICE, en ecriture. Le controle d'exploitation vend les
+            // evenements et pose les allotements ; il detient deja lodging.write et
+            // invoices.write, que les routes de bloc et de facturation evenementielle exigent
+            // EN PLUS de mice.write - sans quoi mice.write serait un chemin detourne vers
+            // l'inventaire chambres et vers la facturation.
+            PermissionCatalog.MiceRead,
+            PermissionCatalog.MiceWrite
         ],
         [RoleCatalog.UnitManager] =
         [
@@ -170,7 +185,12 @@ public sealed class SecuritySeeder(
             PermissionCatalog.PurchasingWrite,
             PermissionCatalog.PurchasingReceive,
             PermissionCatalog.KitchenRead,
-            PermissionCatalog.KitchenWrite
+            PermissionCatalog.KitchenWrite,
+            // Module 10.6 - Groupes & MICE, en ecriture. C'est le role qui tient reellement le
+            // planning des salles et les blocs de son hotel. Il detient lodging.write et
+            // invoices.write, exiges en plus par les routes d'allotement et de facturation.
+            PermissionCatalog.MiceRead,
+            PermissionCatalog.MiceWrite
         ],
         [RoleCatalog.Cashier] =
         [
@@ -230,7 +250,9 @@ public sealed class SecuritySeeder(
             // module on this profile.
             PermissionCatalog.InventoryRead,
             PermissionCatalog.PurchasingRead,
-            PermissionCatalog.KitchenRead
+            PermissionCatalog.KitchenRead,
+            // Profil de lecture seule : il porte toutes les cles .read, celle-ci comprise.
+            PermissionCatalog.MiceRead
         ]
     };
 

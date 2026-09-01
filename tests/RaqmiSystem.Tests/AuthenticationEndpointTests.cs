@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using RaqmiSystem.Application.Identity;
 using RaqmiSystem.Domain.Identity;
@@ -212,7 +212,15 @@ public sealed class AuthenticationEndpointTests : IClassFixture<RaqmiApiFactory>
             PermissionCatalog.InventoryValidate,
             PermissionCatalog.PurchasingRead,
             PermissionCatalog.PurchasingApprove,
-            PermissionCatalog.KitchenRead
+            PermissionCatalog.KitchenRead,
+            // Module 10.6: direction reads the events, the quotes and the group blocks, and
+            // writes none of it - selling a seminar or holding a block of rooms are unit-level
+            // acts. mice.write is deliberately absent.
+            PermissionCatalog.MiceRead,
+            // Module 29: same reasoning as maintenance.read - direction checks that the fleet is
+            // up to date and that no workstation runs a stale build, without going through the
+            // system administrator.
+            PermissionCatalog.SyncRead
         };
 
         Assert.Equal(expectedPermissions.Order(), body.Permissions.Order());
