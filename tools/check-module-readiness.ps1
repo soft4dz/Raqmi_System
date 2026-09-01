@@ -29,17 +29,32 @@ function Get-ConstInt([string]$name) {
 $expectedTotal = Get-ConstInt "ExpectedTotal"
 $expectedAvailable = Get-ConstInt "ExpectedAvailable"
 
-# Capture uniquement les lignes declarees Disponible et exige, par construction,
-# une permission de lecture et un index d'onglet. Un module sans l'un des deux ne
-# peut pas etre considere comme ouvrable de bout en bout.
-$availablePattern = 'new\s+ModuleCatalogEntry\(\s*"(?<order>[^"]+)"\s*,.*?"(?<name>[^"]+)"\s*,.*?ModuleStatus\.Disponible\s*,\s*PermissionCatalog\.(?<permission>[A-Za-z0-9_]+)\s*,\s*(?<tab>\d+)\s*(?:,|\))'
-$availableMatches = [regex]::Matches($catalog, $availablePattern, [Text.RegularExpressions.RegexOptions]::Singleline)
+# La grammaire est volontairement stricte : une seule entree du catalogue, avec
+# ses six champs obligatoires, sa permission et son onglet. Le motif ne peut pas
+# traverser une entree Planifiee pour aller chercher le prochain Disponible.
+$availablePattern = @'
+new\s+ModuleCatalogEntry\(\s*
+"(?<order>[^"]+)"\s*,\s*
+Groups\.[A-Za-z0-9_]+\s*,\s*
+"(?<name>[^"]+)"\s*,\s*
+"[^"]*"\s*,\s*
+"[^"]*"\s*,\s*
+ModuleStatus\.Disponible\s*,\s*
+PermissionCatalog\.(?<permission>[A-Za-z0-9_]+)\s*,\s*
+(?<tab>\d+)\s*
+(?:,\s*"[^"]*")?\s*
+\)
+'@
+$availableMatches = [regex]::Matches(
+    $catalog,
+    $availablePattern,
+    [Text.RegularExpressions.RegexOptions]::Singleline -bor [Text.RegularExpressions.RegexOptions]::IgnorePatternWhitespace)
 
 if ($availableMatches.Count -ne $expectedAvailable) {
     throw "Module readiness: $($availableMatches.Count) modules Disponibles correctement cables trouves, $expectedAvailable attendus. Un module Disponible a probablement perdu PermissionKey ou TabIndex."
 }
 
-$allEntries = [regex]::Matches($catalog, 'new\s+ModuleCatalogEntry\(', [Text.RegularExpressions.RegexOptions]::Singleline).Count
+$allEntries = [regex]::Matches($catalog, 'new\s+ModuleCatalogEntry\(').Count
 if ($allEntries -ne $expectedTotal) {
     throw "Module readiness: catalogue contient $allEntries entrees, $expectedTotal attendues."
 }
