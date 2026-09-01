@@ -278,6 +278,37 @@ if ($null -ne $grace) {
     if ($null -ne $grace.screens) { $graceScreens = @($grace.screens) }
 }
 
+# Couverture des cles historiques par le registre domaine.ressource.action (lot 2.1).
+# Depuis ce lot, une route peut exiger la cle CIBLE (PermissionCatalog.PurchasingOrderRead) a la
+# place de la cle historique de l'ecran (PermissionCatalog.PurchasingRead) : la politique de la
+# cle cible accepte la cle historique qui la couvre, l'acces de l'ecran est donc intact. La
+# preuve RBAC accepte les deux, en lisant la couverture dans PermissionRegistry.cs - chaque
+# entree a la forme Target(PermissionCatalog.<cible>, ..., PermissionCatalog.<historique>...) -
+# jamais depuis une liste saisie a la main, qui finirait par mentir.
+$registryPath = Join-Path $RepositoryRoot "src/RaqmiSystem.Domain/Identity/PermissionRegistry.cs"
+$targetsByLegacyConst = @{}
+if (Test-Path $registryPath) {
+    $registrySource = Get-Content $registryPath -Raw -Encoding UTF8
+    # Les commentaires ne portent aucune couverture : retires avant le decoupage par entree.
+    $registrySource = [regex]::Replace($registrySource, '(?m)^\s*//.*$', '')
+    foreach ($chunk in @($registrySource -split 'Target\(') | Select-Object -Skip 1) {
+        # Une entree s'arrete a la fin du tableau : les membres qui suivent ne sont pas des cles.
+        $chunkBody = @($chunk -split '\};', 2)[0]
+        $refs = @([regex]::Matches($chunkBody, 'PermissionCatalog\.(?<const>[A-Za-z0-9_]+)') |
+            ForEach-Object { $_.Groups['const'].Value })
+        if ($refs.Count -lt 2) { continue }
+        $targetConst = $refs[0]
+        foreach ($legacyConst in @($refs | Select-Object -Skip 1 | Select-Object -Unique)) {
+            if (-not $targetsByLegacyConst.ContainsKey($legacyConst)) {
+                $targetsByLegacyConst[$legacyConst] = New-Object System.Collections.Generic.List[string]
+            }
+            if (-not $targetsByLegacyConst[$legacyConst].Contains($targetConst)) {
+                $targetsByLegacyConst[$legacyConst].Add($targetConst)
+            }
+        }
+    }
+}
+
 function Resolve-PathList($value) {
     if ($value -is [string]) { return @($value) }
     if ($value -is [array]) { return @($value | ForEach-Object { [string]$_ }) }
@@ -426,6 +457,14 @@ foreach ($tabName in ($screensByTab.Keys | Sort-Object { $screensByTab[$_][0].Ta
         Add-Failure "screens.json: $tabName / api : 'n/a' n'est pas admis, l'API est obligatoire."
         $proof.Api = [pscustomobject]@{ Status = "missing"; Detail = "n/a refuse" }
     }
+    # La permission de lecture de l'ecran, ou n'importe quelle cle cible que le registre lui
+    # fait couvrir : une route retaguee vers la cle cible reste ouverte au porteur de la cle
+    # historique, la preuve ne doit donc pas retomber quand le retag avance.
+    $acceptedConsts = @($permissionConst)
+    if ($targetsByLegacyConst.ContainsKey($permissionConst)) {
+        $acceptedConsts += @($targetsByLegacyConst[$permissionConst])
+    }
+    $acceptedPattern = ($acceptedConsts | ForEach-Object { [regex]::Escape($_) }) -join '|'
     $apiReferencesPermission = $false
     if ($proof.Api.Status -eq "ok") {
         foreach ($relative in $proof.Api.Paths) {
@@ -435,16 +474,16 @@ foreach ($tabName in ($screensByTab.Keys | Sort-Object { $screensByTab[$_][0].Ta
             if ($content -notmatch 'RequireAuthorization\(') {
                 Add-Failure "screens.json: $tabName / api : '$relative' ne contient aucun RequireAuthorization."
             }
-            if ($content -match "PermissionCatalog\.$([regex]::Escape($permissionConst))\b") { $apiReferencesPermission = $true }
+            if ($content -match "PermissionCatalog\.($acceptedPattern)\b") { $apiReferencesPermission = $true }
         }
     }
 
     # RBAC : derive, jamais saisi. Constante presente (controle 6), cablage WPF (controle 7)
-    # et politique API referencant la permission de lecture de l'ecran.
+    # et politique API referencant la permission de lecture de l'ecran ou une cle cible couverte.
     $proof.Rbac = if ($apiReferencesPermission) {
-        [pscustomobject]@{ Status = "ok"; Detail = "PermissionCatalog.$permissionConst : constante + ApplyModuleAccess + politique API" }
+        [pscustomobject]@{ Status = "ok"; Detail = "PermissionCatalog.$permissionConst (ou cle cible couverte : $($acceptedConsts -join ', ')) : constante + ApplyModuleAccess + politique API" }
     } else {
-        [pscustomobject]@{ Status = "missing"; Detail = "aucun endpoint declare ne reference PermissionCatalog.$permissionConst" }
+        [pscustomobject]@{ Status = "missing"; Detail = "aucun endpoint declare ne reference PermissionCatalog.$permissionConst ni une cle cible qu'elle couvre ($($acceptedConsts -join ', '))" }
     }
 
     # Desktop : onglet reel avec x:Name (controles 3 a 5) + fichier(s) de vue declare(s).
