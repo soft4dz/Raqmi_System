@@ -5,26 +5,27 @@ namespace RaqmiSystem.Desktop;
 
 public partial class MainWindow
 {
-    // Le PMS front office a ete ajoute apres la liste historique d'ApplyModuleAccess.
-    // CanOpenModule bloque deja toute navigation non autorisee, mais l'onglet lui-meme
-    // restait active : Ctrl+Tab pouvait donc le selectionner un instant avant le repli
-    // vers l'accueil. Ce garde remet la defense en profondeur au meme niveau que les
-    // 30 autres modules Disponibles sans dupliquer la logique de permission.
+    // Ces deux ecrans ont ete ajoutes apres la liste historique d'ApplyModuleAccess.
+    // CanOpenModule bloque deja toute navigation non autorisee, mais les TabItem eux-
+    // memes restaient actifs : le cycle clavier pouvait donc les selectionner un
+    // instant avant le repli vers l'accueil. Ce garde remet la defense en profondeur
+    // au meme niveau que les autres modules Disponibles.
     protected override void OnContentRendered(EventArgs e)
     {
         base.OnContentRendered(e);
 
         MainContentGrid.IsVisibleChanged += MainContentGrid_OnVisibilityChangedForModuleAccess;
-        ApplyPmsModuleAccess();
+        ApplyLateModuleAccess();
     }
 
     private void MainContentGrid_OnVisibilityChangedForModuleAccess(object sender, DependencyPropertyChangedEventArgs e)
     {
-        ApplyPmsModuleAccess();
+        ApplyLateModuleAccess();
     }
 
-    private void ApplyPmsModuleAccess()
+    private void ApplyLateModuleAccess()
     {
         ApplyModuleAccess(PermissionCatalog.LodgingRead, PmsTabItem);
+        ApplyModuleAccess(PermissionCatalog.DashboardRead, KpiTabItem);
     }
 }
