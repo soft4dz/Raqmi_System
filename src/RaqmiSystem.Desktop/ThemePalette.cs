@@ -160,5 +160,21 @@ internal static class ThemePalette
         ["ModuleProgressApiBrush"] = "#22C4CE",
         ["ModuleProgressPartialBrush"] = "#E5B23A",
         ["ModuleProgressPlannedBrush"] = "#506D91",
+
+        // ---- Maturite des domaines : meme renversement que les badges, fond sombre
+        //      teinte et texte clair (7,0 a 8,0:1) ; accents eclaircis pour tenir 3:1
+        //      sur SurfaceBrush sombre ----
+        ["MaturityPlannedBackgroundBrush"] = "#212F3F",
+        ["MaturityPlannedForegroundBrush"] = "#A8BCD0",
+        ["MaturityPlannedAccentBrush"] = "#506D91",
+        ["MaturityTechnicalPreviewBackgroundBrush"] = "#3A2D12",
+        ["MaturityTechnicalPreviewForegroundBrush"] = "#EFC15C",
+        ["MaturityTechnicalPreviewAccentBrush"] = "#E5B23A",
+        ["MaturityFunctionalBackgroundBrush"] = "#0E3439",
+        ["MaturityFunctionalForegroundBrush"] = "#4FD3DC",
+        ["MaturityFunctionalAccentBrush"] = "#22C4CE",
+        ["MaturityProductionReadyBackgroundBrush"] = "#11321F",
+        ["MaturityProductionReadyForegroundBrush"] = "#68D397",
+        ["MaturityProductionReadyAccentBrush"] = "#3FBF74",
     };
 }
