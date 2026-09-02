@@ -1,0 +1,1032 @@
+<!doctype html>
+<html lang="fr" data-theme="clair" data-densite="confortable">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exploration 3 — Portail Mon Espace (accueil Raqmi System)</title>
+<!--
+  Maquette autonome de l'exploration 3 « Portail Mon Espace » (docs/design/accueil/explorations/3-portail/concept.md).
+  Elle sert a trancher sur ecran, pas a etre integree : aucune dependance reseau, aucune police externe,
+  DONNEES FICTIVES annotees comme exemples. Chaque tuile indique la route serveur qu'elle appellerait et
+  la permission qui la fait apparaitre ; ce qui n'existe pas cote serveur n'apparait que comme noeud
+  « Planifie ».
+
+  Palette : les brushes de RaqmiTheme.xaml / ThemePalette.Sombre, clef par clef (reprises de
+  docs/design/maquette-shell.html). Shell : en-tete 76 px, barre laterale 248 px (repliee sur l'accueil
+  comme SyncSidebarToTab, commutateur de comparaison), fil d'Ariane masque sur l'accueil, bandeau de session.
+
+  Commutateurs : profil (8 roles, permissions EXACTES de SecuritySeeder ; Reception = role personnalise
+  a creer, decision 8 du README), theme, unite du poste (reglage local), etat des donnees (charge /
+  chargement / erreur partielle), barre laterale, annotations.
+-->
+<style>
+  /* ============ Palette : RaqmiTheme.xaml (clair) / ThemePalette.Sombre ============ */
+  :root, [data-theme="clair"] {
+    --structure:#071525; --structure-elevated:#0C2135; --header-fg:#FFFFFF; --header-muted:#9FC3DC;
+    --app-bg:#F4F7FA; --surface:#FFFFFF; --surface-subtle:#EEF4F8; --surface-hover:#E4EDF4;
+    --panel-border:#DCE6EF; --field-border:#7A8FA3; --border-strong:#B9CCDD;
+    --text:#0F2337; --text-2:#4A6A87; --text-muted:#5B6C7E; --text-label:#475569; --placeholder:#5C7188;
+    --accent:#0AA3AD; --accent-hover:#0DB6C1; --accent-pressed:#088790;
+    --accent-action:#07767D; --accent-action-hover:#08838B; --accent-action-fg:#FFFFFF;
+    --accent-soft:#E1F4F5; --accent-selection:rgba(10,163,173,.18);
+    --primary:#073B78; --secondary:#145CAB; --danger:#C0392B; --danger-soft:#FBECEA; --danger-border:#EFC9C4;
+    --focus:#073B78; --focus-on-filled:#FFFFFF; --focus-on-dark:#FFFFFF;
+    --disabled-bg:#E5EBF1; --disabled-fg:#576C82; --disabled-border:#DDE5EC;
+    --module-active:rgba(10,163,173,.10);
+    --row-hover:#F0F6FA; --row-alt:#FAFCFE; --grid-header-fg:#5B7591;
+    --shadow:rgba(7,21,37,.07); --shadow-hover:rgba(7,21,37,.20);
+    --mat-planned-bg:#E8EEF4; --mat-planned-fg:#46617B; --mat-planned-accent:#7798B5;
+    --mat-preview-bg:#FBEBC8; --mat-preview-fg:#8A5A08; --mat-preview-accent:#BF8B16;
+    --mat-functional-bg:#DDF2F4; --mat-functional-fg:#096B73; --mat-functional-accent:#0AA3AD;
+    --mat-ready-bg:#DCF3E5; --mat-ready-fg:#14713C; --mat-ready-accent:#1F9D57;
+    --status-available-bg:#DCF3E5; --status-available-fg:#14713C;
+    --status-planned-bg:#E8EEF4; --status-planned-fg:#46617B;
+    --status-draft-bg:#E2E8F0; --status-draft-fg:#475569;
+    --status-submitted-bg:#FCEFC7; --status-submitted-fg:#92600A;
+    --status-validated-bg:#DBF2E3; --status-validated-fg:#187A41;
+    --status-rejected-bg:#FBE3E1; --status-rejected-fg:#B3261E;
+    --prog-available:#1F9D57; --prog-api:#0AA3AD; --prog-partial:#BF8B16; --prog-planned:#7798B5;
+  }
+  [data-theme="sombre"] {
+    --structure:#050F1C; --structure-elevated:#0C1B2B; --header-fg:#EAF2F9; --header-muted:#8FB0CA;
+    --app-bg:#0E1826; --surface:#152233; --surface-subtle:#1B2B3E; --surface-hover:#22344A;
+    --panel-border:#26374D; --field-border:#62748D; --border-strong:#4B6E93;
+    --text:#E6EEF7; --text-2:#AFC3D6; --text-muted:#98AFC6; --text-label:#C2D2E1; --placeholder:#8DA4BC;
+    --accent:#22C4CE; --accent-hover:#3ED5DE; --accent-pressed:#16A8B1;
+    --accent-action:#2FCBD6; --accent-action-hover:#4CDAE3; --accent-action-fg:#062227;
+    --accent-soft:#0E3B40; --accent-selection:rgba(34,196,206,.24);
+    --primary:#5B9BE8; --secondary:#6FAEF0; --danger:#F4776A; --danger-soft:#3A1A17; --danger-border:#5E2D28;
+    --focus:#7FB6F5; --focus-on-filled:#08222A; --focus-on-dark:#EAF2F9;
+    --disabled-bg:#1C2938; --disabled-fg:#8195AB; --disabled-border:#26374D;
+    --module-active:rgba(34,196,206,.15);
+    --row-hover:#1B2B3E; --row-alt:#182637; --grid-header-fg:#9CB3C9;
+    --shadow:rgba(0,0,0,.35); --shadow-hover:rgba(0,0,0,.55);
+    --mat-planned-bg:#212F3F; --mat-planned-fg:#A8BCD0; --mat-planned-accent:#506D91;
+    --mat-preview-bg:#3A2D12; --mat-preview-fg:#EFC15C; --mat-preview-accent:#E5B23A;
+    --mat-functional-bg:#0E3439; --mat-functional-fg:#4FD3DC; --mat-functional-accent:#22C4CE;
+    --mat-ready-bg:#11321F; --mat-ready-fg:#68D397; --mat-ready-accent:#3FBF74;
+    --status-available-bg:#11321F; --status-available-fg:#68D397;
+    --status-planned-bg:#212F3F; --status-planned-fg:#A8BCD0;
+    --status-draft-bg:#26313E; --status-draft-fg:#C4D0DC;
+    --status-submitted-bg:#3B2E11; --status-submitted-fg:#F5C761;
+    --status-validated-bg:#11321F; --status-validated-fg:#68D397;
+    --status-rejected-bg:#3A1A19; --status-rejected-fg:#F58C82;
+    --prog-available:#3FBF74; --prog-api:#22C4CE; --prog-partial:#E5B23A; --prog-planned:#506D91;
+  }
+  [data-densite="confortable"] { --grid-row:40px; }
+  [data-densite="compact"] { --grid-row:32px; }
+
+  /* ============ Base ============ */
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; }
+  body {
+    font-family: Manrope, "Noto Kufi Arabic", "Segoe UI", sans-serif;
+    font-size:13px; color:var(--text); background:var(--app-bg);
+    display:flex; flex-direction:column; min-height:100vh;
+  }
+  button { font:inherit; color:inherit; cursor:pointer; border:0; background:none; }
+  button:disabled { cursor:default; }
+  button:focus-visible, [tabindex]:focus-visible, input:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+  svg.ic { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+  svg.ic.thin { stroke-width:1.4; }
+  .muted { color:var(--text-muted); font-weight:400; }
+  .mono { font-family:Consolas, "Cascadia Mono", monospace; font-size:10.5px; }
+  .vh { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+
+  /* ============ Barre de la maquette (hors produit) ============ */
+  .maquette-bar {
+    background:var(--structure-elevated); color:var(--header-fg); font-size:12px;
+    padding:8px 24px; display:flex; flex-wrap:wrap; gap:14px 18px; align-items:center;
+    border-bottom:1px solid rgba(255,255,255,.08);
+  }
+  .maquette-bar strong { color:var(--header-muted); font-weight:600; letter-spacing:.02em; text-transform:uppercase; font-size:10.5px; }
+  .maquette-bar .grp { display:flex; align-items:center; gap:6px; }
+  .maquette-bar .seg { display:inline-flex; border:1px solid rgba(255,255,255,.22); border-radius:15px; overflow:hidden; }
+  .maquette-bar .seg button { padding:5px 11px; color:var(--header-fg); font-weight:600; font-size:12px; }
+  .maquette-bar .seg button[aria-pressed="true"] { background:var(--accent); color:#062227; }
+  .maquette-bar .note { margin-left:auto; color:var(--header-muted); }
+
+  /* ============ En-tete (76 px) ============ */
+  header.entete { height:76px; background:var(--structure); color:var(--header-fg); display:flex; align-items:center; padding:0 24px; gap:12px; }
+  .marque { width:42px; height:42px; border-radius:11px; background:rgba(255,255,255,.10); display:grid; place-items:center; font-weight:600; font-size:20px; }
+  .entete h1 { font-size:21px; font-weight:600; margin:0; line-height:1.15; }
+  .entete .signature { font-size:12px; color:var(--header-muted); }
+  .entete .session { margin-left:auto; display:flex; align-items:center; gap:14px; font-size:12px; color:var(--header-muted); }
+  .entete .session b { color:var(--header-fg); font-weight:600; }
+  .entete .session .pt { width:7px; height:7px; border-radius:50%; background:var(--accent); display:inline-block; margin-right:6px; }
+  .entete .ghost { border:1px solid rgba(255,255,255,.25); border-radius:8px; padding:6px 10px; color:var(--header-fg); font-size:12px; display:inline-flex; gap:8px; align-items:center; min-height:34px; }
+  .entete .ghost:hover { background:rgba(255,255,255,.10); }
+  .entete .ghost:focus-visible { outline-color:var(--focus-on-dark); }
+
+  /* ============ Corps ============ */
+  .app { flex:1; display:grid; grid-template-columns:248px 1fr; gap:20px; padding:24px 24px 0; min-height:0; }
+  .app.racine { grid-template-columns:1fr; }
+  .app.racine aside { display:none; }
+  .carte { background:var(--surface); border:1px solid var(--panel-border); border-radius:10px; }
+  aside { padding:18px 14px; display:flex; flex-direction:column; min-height:0; align-self:start; }
+  .etiquette { font-size:11px; font-weight:600; color:var(--text-muted); margin:0 0 10px 14px; }
+  .nav-btn { width:100%; height:40px; display:flex; align-items:center; gap:10px; padding:0 10px 0 14px; border-radius:6px; color:var(--text-2); font-size:13px; text-align:left; position:relative; }
+  .nav-btn:hover { background:var(--surface-subtle); }
+  .nav-btn[aria-current="page"] { background:var(--module-active); color:var(--text); font-weight:600; }
+  .nav-btn[aria-current="page"]::before { content:""; position:absolute; left:0; top:9px; bottom:9px; width:3px; border-radius:1.5px; background:var(--accent); }
+  .recherche { position:relative; margin-top:12px; }
+  .recherche input { width:100%; min-height:34px; padding:0 32px; border:1px solid var(--field-border); border-radius:6px; background:var(--surface); color:var(--text); font:inherit; }
+  .recherche input::placeholder { color:var(--placeholder); }
+  .recherche svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--placeholder); }
+  .domaines { margin-top:14px; overflow:auto; flex:1; padding-right:4px; max-height:62vh; }
+  .domaine { margin-bottom:2px; }
+  .dom-tete { width:100%; height:36px; display:grid; grid-template-columns:auto 1fr auto auto auto; align-items:center; padding:0 10px; border-radius:6px; color:var(--text); font-size:12.5px; font-weight:600; text-align:left; }
+  .dom-tete:hover { background:var(--surface-subtle); }
+  .dom-tete svg.ic { color:var(--text-muted); margin-right:10px; }
+  .dom-tete .nom { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dom-tete .compteur { background:var(--surface-subtle); color:var(--text-2); font-size:10.5px; font-weight:400; border-radius:8px; padding:1px 7px; margin-left:8px; }
+  .dom-tete .chevron { width:9px; height:7px; margin-left:8px; color:var(--text-muted); transition:transform .12s; transform:rotate(-90deg); }
+  .dom-tete[aria-expanded="true"] .chevron { transform:rotate(0); }
+  .point { width:7px; height:7px; border-radius:50%; margin-left:8px; display:inline-block; }
+  .point.preview { background:var(--mat-preview-accent); }
+  .ecrans { margin:2px 0 8px; }
+  .ecrans .nav-btn { height:34px; margin-left:8px; width:calc(100% - 8px); font-size:12.5px; margin-bottom:2px; }
+  .epingle { border-top:1px solid var(--panel-border); margin-top:10px; padding-top:8px; }
+  .epingle:empty { display:none; }
+
+  /* ============ Bandeau de session (Grid.Row 2, toutes colonnes) ============ */
+  .session-zone { padding:14px 24px 24px; }
+  .progress { height:4px; border-radius:2px; background:var(--surface-hover); overflow:hidden; visibility:hidden; }
+  .progress.actif { visibility:visible; }
+  .progress span { display:block; height:100%; width:30%; background:var(--accent-action); animation:indet 1.2s linear infinite; }
+  @keyframes indet { from { transform:translateX(-100%); } to { transform:translateX(340%); } }
+  .session-bar { border-top:1px solid var(--panel-border); padding:10px 8px 8px; display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-2); border-radius:0 0 6px 6px; }
+  .session-bar .etiquette { margin:0 4px 0 0; }
+  .session-bar .dot { width:7px; height:7px; border-radius:50%; background:var(--accent); flex:none; }
+  .session-bar.erreur .dot { background:var(--danger); }
+  .session-bar.flash { animation:flashInfo .9s ease-out; }
+  .session-bar.erreur.flash { animation:flashErr 1.6s ease-out; }
+  @keyframes flashInfo { from { background:var(--accent-soft); } to { background:transparent; } }
+  @keyframes flashErr { from { background:var(--danger-soft); } to { background:transparent; } }
+
+  /* ============ Fil d'Ariane (masque sur l'accueil) ============ */
+  .ariane { height:32px; display:flex; align-items:center; gap:6px; font-size:12.5px; margin-bottom:12px; }
+  .ariane[hidden] { display:none; }
+  .ariane svg.ic { color:var(--text-2); }
+  .ariane button { color:var(--text-2); font-weight:600; padding:3px 6px; border-radius:5px; }
+  .ariane button:hover { background:var(--surface-subtle); color:var(--text); }
+  .ariane .courant { color:var(--text); font-weight:600; padding:3px 6px; }
+  .ariane .sep { width:9px; height:7px; color:var(--text-muted); transform:rotate(-90deg); }
+  .ariane .badge { margin-left:auto; }
+
+  /* ============ Badges ============ */
+  .badge { display:inline-flex; align-items:center; border-radius:9px; padding:2.5px 9px; font-size:10.5px; font-weight:600; white-space:nowrap; }
+  .badge.planned { background:var(--mat-planned-bg); color:var(--mat-planned-fg); }
+  .badge.preview { background:var(--mat-preview-bg); color:var(--mat-preview-fg); }
+  .badge.functional { background:var(--mat-functional-bg); color:var(--mat-functional-fg); }
+  .badge.ready { background:var(--mat-ready-bg); color:var(--mat-ready-fg); }
+  .badge.dispo { background:var(--status-available-bg); color:var(--status-available-fg); }
+  .badge.planifie { background:var(--status-planned-bg); color:var(--status-planned-fg); }
+  .badge.brouillon { background:var(--status-draft-bg); color:var(--status-draft-fg); }
+  .badge.soumise { background:var(--status-submitted-bg); color:var(--status-submitted-fg); }
+  .badge.validee { background:var(--status-validated-bg); color:var(--status-validated-fg); }
+  .badge.rejetee { background:var(--status-rejected-bg); color:var(--status-rejected-fg); }
+  .badge.exemple { background:var(--surface-subtle); color:var(--text-muted); font-weight:600; }
+
+  /* ============ Boutons ============ */
+  .btn { min-height:36px; padding:7px 15px; border-radius:6px; font-weight:600; font-size:13px; display:inline-flex; align-items:center; gap:8px; }
+  .btn.secondaire { background:var(--surface); border:1px solid var(--panel-border); color:var(--primary); }
+  .btn.secondaire:hover { background:var(--surface-subtle); border-color:var(--border-strong); }
+  .btn.primaire { background:var(--accent-action); color:var(--accent-action-fg); padding:7px 18px; }
+  .btn.primaire:hover { background:var(--accent-action-hover); }
+  .btn.primaire:focus-visible { outline-color:var(--focus-on-filled); outline-offset:-3px; }
+  .btn.fantome { min-height:34px; padding:6px 12px; color:var(--secondary); }
+  .btn.fantome:hover { background:var(--surface-subtle); }
+  .btn.fantome[aria-expanded="true"] { background:var(--module-active); color:var(--text); }
+  .btn:disabled { color:var(--disabled-fg); background:var(--disabled-bg); border-color:var(--disabled-border); }
+
+  /* ============ Ecran type (quand on quitte l'accueil) ============ */
+  main { min-width:0; display:flex; flex-direction:column; }
+  .ecran { padding:20px; flex:1; display:flex; flex-direction:column; gap:16px; }
+  .ecran-tete { display:flex; align-items:flex-start; gap:12px; }
+  .ecran-tete h2 { font-size:21px; font-weight:600; margin:0; }
+  .ecran-tete .sous { font-size:12.5px; color:var(--text-2); margin-top:4px; }
+  .ecran-tete .actions { margin-left:auto; display:flex; gap:8px; }
+  .onglets { display:flex; border-bottom:1px solid var(--panel-border); }
+  .onglet { padding:9px 18px; font-size:13px; font-weight:600; color:var(--text-2); border-radius:6px 6px 0 0; position:relative; }
+  .onglet:hover { background:var(--surface-subtle); }
+  .onglet[aria-selected="true"] { color:var(--primary); }
+  .onglet[aria-selected="true"]::after { content:""; position:absolute; left:0; right:0; bottom:-1px; height:2.5px; background:var(--accent); }
+  .grille { border:1px solid var(--panel-border); border-radius:8px; overflow:hidden; position:relative; min-height:230px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; font-weight:600; color:var(--grid-header-fg); font-size:12px; height:40px; padding:0 12px; border-bottom:1px solid var(--panel-border); background:var(--surface); }
+  td { height:var(--grid-row); padding:0 12px; border-bottom:1px solid var(--panel-border); }
+  tr:nth-child(even) td { background:var(--row-alt); }
+  tbody tr:hover td { background:var(--row-hover); }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .vide { position:absolute; inset:40px 0 0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; pointer-events:none; }
+  .vide svg { width:32px; height:32px; stroke-width:1.3; color:var(--text-muted); margin-bottom:6px; }
+  .vide .titre { font-size:14px; font-weight:600; color:var(--text-2); }
+  .vide .indice { font-size:12px; color:var(--text-muted); text-align:center; }
+
+  /* ============ Portail Mon Espace ============ */
+  .portail { display:flex; flex-direction:column; gap:22px; }
+  .reveal { animation:reveal .3s cubic-bezier(.2,.7,.3,1) both; }
+  .reveal.d1 { animation-delay:.08s; } .reveal.d2 { animation-delay:.16s; }
+  @keyframes reveal { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+  .exemple-bandeau { background:var(--surface-subtle); border:1px solid var(--panel-border); border-radius:8px; padding:8px 12px; font-size:11.5px; color:var(--text-muted); display:flex; gap:10px; align-items:center; }
+  .exemple-bandeau svg { color:var(--text-muted); }
+
+  .bandeau { padding:22px 24px; display:grid; grid-template-columns:1fr auto; gap:16px 28px; align-items:start; }
+  .bandeau h2 { font-size:26px; font-weight:600; margin:0; line-height:1.15; }
+  .bandeau .role { font-size:12.5px; color:var(--text-2); margin-top:7px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .bandeau .date { font-size:13px; color:var(--text-2); margin-top:4px; }
+  .bandeau .liens { display:flex; gap:4px; margin-top:14px; flex-wrap:wrap; align-items:center; }
+  .bandeau .liens .espace { flex:1; }
+  .identite { display:grid; grid-template-columns:auto auto; gap:7px 14px; font-size:12.5px; margin:0; align-items:baseline; }
+  .identite dt { color:var(--text-muted); font-weight:600; font-size:11px; }
+  .identite dd { margin:0; color:var(--text); }
+  .identite .tag { display:inline-flex; align-items:center; gap:6px; }
+  .panneau { grid-column:1 / -1; border-top:1px solid var(--panel-border); padding-top:14px; display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px 22px; font-size:12.5px; }
+  .panneau .lib { font-size:11px; font-weight:600; color:var(--text-muted); margin-bottom:3px; }
+  .panneau .seg { display:inline-flex; border:1px solid var(--panel-border); border-radius:15px; overflow:hidden; }
+  .panneau .seg button { padding:4px 11px; font-size:11.5px; font-weight:600; color:var(--text-2); }
+  .panneau .seg button[aria-pressed="true"] { background:var(--accent-action); color:var(--accent-action-fg); }
+  .panneau .note { grid-column:1 / -1; font-size:11.5px; color:var(--text-muted); }
+
+  .section h3 { font-size:11px; font-weight:600; color:var(--text-muted); margin:0 0 12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; letter-spacing:.01em; }
+  .section h3 .aide { font-weight:400; }
+  .tuiles { display:grid; grid-template-columns:repeat(auto-fill, minmax(222px, 1fr)); gap:14px; }
+  .tuile { text-align:left; padding:16px 18px 14px; display:flex; flex-direction:column; gap:8px; min-height:124px; position:relative; transition:transform .13s cubic-bezier(.2,.7,.3,1), box-shadow .13s; color:var(--text); }
+  button.tuile:hover { box-shadow:0 2px 10px var(--shadow-hover); transform:translateY(-2px); border-color:var(--accent); }
+  button.tuile:focus-visible { outline:2px solid var(--focus); outline-offset:-4px; }
+  .tuile .tete { display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:600; }
+  .tuile .tete svg { color:var(--text-muted); margin-left:auto; }
+  .tuile .valeur { font-size:27px; font-weight:600; line-height:1.1; font-variant-numeric:tabular-nums; }
+  .tuile .valeur small { font-size:12.5px; font-weight:600; color:var(--text-2); margin-left:5px; }
+  .tuile .legende { font-size:11.5px; color:var(--text-muted); display:flex; gap:6px; align-items:center; flex-wrap:wrap; line-height:1.4; }
+  .tuile .source { margin-top:auto; padding-top:6px; color:var(--text-muted); opacity:.85; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .tuile.chargement .valeur { color:transparent; background:var(--surface-subtle); border-radius:6px; width:56%; height:30px; }
+  .tuile.chargement .legende { color:transparent; background:var(--surface-subtle); border-radius:6px; width:82%; height:15px; }
+  .tuile.chargement .legende * { visibility:hidden; }
+  .tuile.erreur { background:var(--danger-soft); border-color:var(--danger-border); }
+  .tuile.erreur .valeur { font-size:14px; color:var(--danger); }
+  .tuile.inactif { background:var(--surface-subtle); }
+  .tuile.vide-portail { grid-column:1 / -1; align-items:center; justify-content:center; text-align:center; min-height:140px; pointer-events:none; }
+  .tuile.vide-portail svg { width:32px; height:32px; stroke-width:1.3; color:var(--text-muted); fill:none; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; }
+  .tuile.vide-portail .titre { font-size:14px; font-weight:600; color:var(--text-2); }
+  .tuile.vide-portail .indice { font-size:12px; color:var(--text-muted); max-width:520px; }
+  .planifie-note { font-size:11.5px; color:var(--text-muted); margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+  .recherche-accueil { position:relative; max-width:420px; margin-bottom:14px; }
+  .recherche-accueil input { width:100%; min-height:36px; padding:0 34px; border:1px solid var(--field-border); border-radius:6px; background:var(--surface); color:var(--text); font:inherit; }
+  .recherche-accueil input::placeholder { color:var(--placeholder); }
+  .recherche-accueil input:hover { border-color:var(--border-strong); }
+  .recherche-accueil > svg { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--placeholder); }
+  .recherche-accueil .effacer { position:absolute; right:7px; top:50%; transform:translateY(-50%); width:22px; height:22px; border-radius:11px; display:grid; place-items:center; color:var(--text-muted); }
+  .recherche-accueil .effacer:hover { background:var(--surface-subtle); color:var(--text); }
+  .recherche-accueil .effacer svg { width:9px; height:9px; }
+  .ecrans-groupes { display:flex; flex-direction:column; gap:10px; }
+  .ecrans-groupe { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .ecrans-groupe .dom { display:inline-flex; gap:7px; align-items:center; font-size:11.5px; font-weight:600; color:var(--text-2); min-width:210px; }
+  .ecrans-groupe .dom svg { color:var(--text-muted); }
+  .ecrans-groupe .dom .id { color:var(--text-muted); font-size:10.5px; }
+  .puce { border:1px solid var(--panel-border); background:var(--surface); border-radius:15px; padding:6px 14px; font-size:12.5px; font-weight:600; color:var(--text-2); display:inline-flex; gap:8px; align-items:center; }
+  .puce:hover { background:var(--surface-subtle); border-color:var(--border-strong); color:var(--text); }
+  .puce svg { color:var(--text-muted); }
+  .puce .sous { font-weight:400; color:var(--text-muted); }
+  .puce.compacte { padding:4px 11px; font-size:11.5px; }
+  .puce[aria-pressed="true"] { background:var(--accent-action); border-color:var(--accent-action); color:var(--accent-action-fg); }
+  .etat-vide-inline { padding:18px 2px 10px; }
+  .etat-vide-inline .titre { font-size:14px; font-weight:600; color:var(--text-2); }
+  .etat-vide-inline .indice { font-size:12px; color:var(--text-muted); margin-top:4px; }
+
+  .activite { padding:20px; }
+  .activite table { font-size:12.5px; }
+  .activite td .mono { color:var(--text-muted); }
+  .activite .pied { display:flex; align-items:center; gap:12px; margin-top:12px; font-size:11.5px; color:var(--text-muted); flex-wrap:wrap; }
+
+  .produit { padding:20px 22px; }
+  .produit-tete { display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .produit-tete h3 { margin:0; font-size:16px; font-weight:600; color:var(--text); letter-spacing:0; }
+  .stat-inline { display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--text-2); font-weight:600; align-items:center; }
+  .stat-inline span { display:inline-flex; align-items:center; gap:6px; }
+  .stat-inline b { font-size:16px; font-weight:600; color:var(--text); }
+  .stat-inline .pt { width:8px; height:8px; border-radius:50%; display:inline-block; }
+  .stat-inline .pt7 { width:7px; height:7px; }
+  .produit-tete .btn { margin-left:auto; }
+  .barre { display:flex; gap:3px; height:10px; margin-top:14px; }
+  .barre span { border-radius:5px; }
+  .legende-barre { font-size:12.5px; color:var(--text-2); margin-top:12px; line-height:1.45; }
+  .catalogue { border-top:1px solid var(--panel-border); margin-top:16px; padding-top:14px; }
+  .catalogue .filtres { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:6px; }
+  .catalogue .filtres .lib { font-size:11px; font-weight:600; color:var(--text-muted); margin-right:2px; }
+  .cat-groupe h4 { display:flex; align-items:center; gap:10px; font-size:13.5px; font-weight:600; margin:16px 0 12px; }
+  .cat-groupe h4 .id { color:var(--text-muted); font-size:11px; }
+  .cat-groupe h4 svg { color:var(--text-muted); }
+  .cat-groupe h4 .compteur { background:var(--surface-subtle); color:var(--text-2); font-size:11px; font-weight:400; border-radius:9px; padding:1px 8px; }
+  .cat-groupe h4 .filet { flex:1; height:1px; background:var(--panel-border); }
+  .cartes { display:flex; flex-wrap:wrap; gap:14px; }
+  .carte-module { width:224px; height:176px; padding:16px 14px 14px; text-align:left; background:var(--surface); border:1px solid var(--panel-border); border-radius:10px; display:flex; flex-direction:column; gap:5px; box-shadow:0 2px 10px var(--shadow); transition:transform .13s cubic-bezier(.2,.7,.3,1), box-shadow .13s; color:var(--text); }
+  .carte-module:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 2px 10px var(--shadow-hover); border-color:var(--accent); }
+  .carte-module:focus-visible { outline:2px solid var(--focus); outline-offset:-4px; }
+  .carte-module:disabled { background:var(--surface-subtle); box-shadow:none; }
+  .cm-tete { display:flex; align-items:center; gap:8px; }
+  .cm-icone { width:34px; height:34px; border-radius:9px; background:var(--accent-soft); display:grid; place-items:center; color:var(--accent-pressed); }
+  .cm-prio { font-size:10.5px; font-weight:600; color:var(--text-muted); }
+  .cm-tete .cadenas { margin-left:auto; width:12px; height:12px; color:var(--text-muted); stroke-width:1.3; }
+  .cm-titre { font-size:13.5px; font-weight:600; margin-top:4px; line-height:1.25; }
+  .cm-desc { font-size:11.5px; color:var(--text-2); line-height:1.35; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .carte-module .badge { margin-top:auto; align-self:flex-start; }
+
+  @media (max-width: 1000px) { .app { grid-template-columns:220px 1fr; } .bandeau { grid-template-columns:1fr; } .ecrans-groupe .dom { min-width:100%; } }
+</style>
+</head>
+<body>
+
+<div class="maquette-bar" role="region" aria-label="Commandes de la maquette">
+  <strong>Maquette · exploration 3</strong>
+  <div class="grp"><span>Profil</span>
+    <span class="seg" role="group" aria-label="Profil" id="seg-profil"></span>
+  </div>
+  <div class="grp"><span>Thème</span>
+    <span class="seg" role="group" aria-label="Thème">
+      <button type="button" data-theme="clair" aria-pressed="true">Clair</button>
+      <button type="button" data-theme="sombre" aria-pressed="false">Sombre</button>
+    </span>
+  </div>
+  <div class="grp"><span>Unité du poste</span>
+    <span class="seg" role="group" aria-label="Unité du poste">
+      <button type="button" data-unite="defaut" aria-pressed="true">Selon le profil</button>
+      <button type="button" data-unite="poste" aria-pressed="false">ALG-CEN</button>
+      <button type="button" data-unite="aucune" aria-pressed="false">Aucune</button>
+    </span>
+  </div>
+  <div class="grp"><span>Données</span>
+    <span class="seg" role="group" aria-label="État des données">
+      <button type="button" data-donnees="charge" aria-pressed="true">Chargées</button>
+      <button type="button" data-donnees="chargement" aria-pressed="false">Chargement</button>
+      <button type="button" data-donnees="erreur" aria-pressed="false">Erreur partielle</button>
+    </span>
+  </div>
+  <div class="grp"><span>Barre latérale sur l'accueil</span>
+    <span class="seg" role="group" aria-label="Barre latérale">
+      <button type="button" data-sidebar="masquee" aria-pressed="true">Masquée (SyncSidebarToTab)</button>
+      <button type="button" data-sidebar="visible" aria-pressed="false">Visible (comparaison)</button>
+    </span>
+  </div>
+  <div class="grp"><span>Annotations</span>
+    <span class="seg" role="group" aria-label="Annotations">
+      <button type="button" data-annot="oui" aria-pressed="true">Sources</button>
+      <button type="button" data-annot="non" aria-pressed="false">Masquées</button>
+    </span>
+  </div>
+  <span class="note">Données fictives · ne pas intégrer · voir concept.md</span>
+</div>
+
+<header class="entete">
+  <div class="marque" aria-hidden="true">Q</div>
+  <div>
+    <h1>Raqmi System</h1>
+    <div class="signature">Un système. Toute votre entreprise.</div>
+  </div>
+  <div class="session">
+    <span id="entete-session"></span>
+    <button type="button" class="ghost" title="Basculer l'apparence (par poste)" id="btn-theme">
+      <svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8,2.2 A5.8,5.8 0 1 0 8.01,2.2 M8,2.2 V13.8 A5.8,5.8 0 0 0 8,2.2 Z"/></svg>
+      <span id="lbl-theme">Sombre</span>
+    </button>
+    <button type="button" class="ghost" id="btn-mdp" title="Changer mon mot de passe (existant : ChangePasswordButton)">Mot de passe</button>
+    <button type="button" class="ghost" title="Raccourcis clavier (F1)">F1</button>
+    <button type="button" class="ghost" title="Se déconnecter">Déconnexion</button>
+  </div>
+</header>
+
+<div class="app racine" id="app">
+  <aside class="carte" id="sidebar" aria-label="Modules"></aside>
+  <main>
+    <nav class="ariane" id="ariane" aria-label="Fil d'Ariane" hidden></nav>
+    <section class="carte ecran" id="ecran"></section>
+  </main>
+</div>
+
+<div class="session-zone">
+  <div class="progress" id="progress" aria-hidden="true"><span></span></div>
+  <div class="session-bar" id="session-bar" role="status" aria-live="polite">
+    <span class="etiquette">Session</span><span class="dot"></span><span id="session-msg"></span>
+  </div>
+</div>
+
+<script>
+/* ======================= Icones : geometries ModuleGroupIcon.* du theme + utilitaires ======================= */
+const ICONES = {
+  MonEspace: "M8,1.8 A6.2,6.2 0 1 0 8.01,1.8 M8,5 A2,2 0 1 0 8.01,5 M4.3,12.6 A4.2,4.2 0 0 1 11.7,12.6",
+  Administration: "M5.6,1.8 H10.4 V5.4 H5.6 Z M8,5.4 V8 M3.6,8 H12.4 M3.6,8 V10.4 M12.4,8 V10.4 M1.4,10.4 H5.8 V14.2 H1.4 Z M10.2,10.4 H14.6 V14.2 H10.2 Z",
+  Finance: "M1.5,4.5 H14.5 V11.5 H1.5 Z M8,5.9 A2.1,2.1 0 1 0 8.01,5.9 M3.9,8 H4.1 M11.9,8 H12.1",
+  Commercial: "M1.5,3.4 H14.5 V12.6 H1.5 Z M5.2,6 A1.5,1.5 0 1 0 5.21,6 M3.4,11.2 A1.9,1.9 0 0 1 7,11.2 M9,6.6 H12.2 M9,9.4 H12.2",
+  Facturation: "M3,1.8 H13 V14.2 L10.5,12.7 L8,14.2 L5.5,12.7 L3,14.2 Z M5.6,5.4 H10.4 M5.6,8.2 H8.8",
+  Hebergement: "M1.6,3.2 V13.6 M1.6,6.4 H12.8 A1.6,1.6 0 0 1 14.4,8 V13.6 M1.6,11.2 H14.4 M5.2,6.4 V11.2",
+  Revenue: "M1.8,12.4 L6.2,8 L9.2,11 L14.2,6 M10.6,6 H14.2 V9.6",
+  Housekeeping: "M13.6,2.4 L8.6,7.4 M7.75,6.55 L3.1,8.7 L7.3,12.9 L9.45,8.25 Z M8.6,7.4 L5.2,10.8",
+  Evenementiel: "M2.2,3.6 H13.8 V14 H2.2 Z M2.2,7 H13.8 M5.4,1.8 V4.8 M10.6,1.8 V4.8 M5,10.4 H8.4",
+  Restauration: "M2.6,11.2 A5.4,5.4 0 0 1 13.4,11.2 M8,4 V5.8 M1.4,11.2 H14.6 M3.6,13.6 H12.4",
+  Stocks: "M1.6,8.4 H8 V14.2 H1.6 Z M8,8.4 H14.4 V14.2 H8 Z M4.8,2.6 H11.2 V8.4 H4.8 Z",
+  Achats: "M2.4,5.4 L8,2.6 L13.6,5.4 V10.6 L8,13.4 L2.4,10.6 Z M2.4,5.4 L8,8.2 L13.6,5.4 M8,8.2 V13.4",
+  RessourcesHumaines: "M5.6,6 A2.2,2.2 0 1 0 5.61,6 M1.9,13.8 V12.6 A3.4,3.4 0 0 1 5.3,9.2 H6 A3.4,3.4 0 0 1 9.4,12.6 V13.8 M11.2,6.2 A1.8,1.8 0 1 0 11.21,6.2 M11.6,9.4 A3.2,3.2 0 0 1 14.2,12.5 V13.8",
+  Maintenance: "M9.8,4.2 A0.7,0.7 0 0 0 9.8,5.1 L10.9,6.2 A0.7,0.7 0 0 0 11.8,6.2 L14.3,3.7 A4,4 0 0 1 9,9 L4.4,13.6 A1.4,1.4 0 0 1 2.4,11.6 L7,7 A4,4 0 0 1 12.3,1.7 Z",
+  Qualite: "M5.8,3 H3 V14.2 H13 V3 H10.2 M5.8,1.8 H10.2 V4.2 H5.8 Z M5.6,9.2 L7.4,11 L10.6,7.4",
+  Juridique: "M8,2.4 V13.6 M4.6,13.6 H11.4 M2.6,5 H13.4 M2.6,5 L1.2,9 H4 Z M13.4,5 L12,9 H14.8 Z",
+  Documentaire: "M1.8,13.2 V3.8 H6 L7.4,5.8 H14.2 V13.2 Z",
+  Marina: "M2.2,11.2 H13.8 L12.2,14.2 H3.8 Z M8,1.8 V11.2 M8,3.2 L12.6,9.4 H8",
+  Parking: "M1.6,12 V8.6 L3.6,4.6 H12.4 L14.4,8.6 V12 M1.6,8.6 H14.4 M4.4,10.7 A1.3,1.3 0 1 0 4.41,10.7 M11.6,10.7 A1.3,1.3 0 1 0 11.61,10.7",
+  Pilotage: "M2.2,11.5 A5.8,5.8 0 0 1 13.8,11.5 M8,11.5 L10.9,7.7 M3.4,8.6 L4.3,9.3 M8,5.7 V6.8",
+  Integrations: "M4.4,6.4 H11.6 V9.4 A3.6,3.6 0 0 1 4.4,9.4 Z M6,2.8 V6.4 M10,2.8 V6.4 M8,13 V14.6",
+  Systeme: "M8,5.5 A2.5,2.5 0 1 0 8.01,5.5 M8,1.4 V3 M8,13 V14.6 M1.4,8 H3 M13,8 H14.6 M3.6,3.6 L4.7,4.7 M11.3,11.3 L12.4,12.4 M12.4,3.6 L11.3,4.7 M4.7,11.3 L3.6,12.4",
+  /* utilitaires du shell (MainWindow.xaml / RaqmiTheme.xaml) et de la maquette */
+  Recherche: "M6.5,2.6 A3.9,3.9 0 1 0 6.51,2.6 M9.3,9.3 L13.4,13.4",
+  Chevron: "M0.6,1.6 L4.5,5.5 L8.4,1.6",
+  Cadenas: "M3.4,5.4 V4 A2.6,2.6 0 0 1 8.6,4 V5.4 M2.2,5.4 H9.8 V10.6 H2.2 Z",
+  Corbeille: "M2,9 L4,3 H12 L14,9 V13 H2 Z M2,9 H5.5 L6.8,11 H9.2 L10.5,9 H14",
+  Actualiser: "M13.2,8 A5.2,5.2 0 1 1 11.7,4.3 M11.9,1.8 V4.6 H9.1",
+  Plus: "M8,3 V13 M3,8 H13",
+  Croix: "M1,1 L8,8 M8,1 L1,8",
+  Coche: "M2.6,8.4 L6.4,12.2 L13.4,4.6",
+  Horloge: "M8,1.8 A6.2,6.2 0 1 0 8.01,1.8 M8,4.6 V8.2 L10.6,9.9",
+  Sortie: "M6.4,2.4 H2.6 V13.6 H6.4 M10.2,11.2 L13.4,8 L10.2,4.8 M5.8,8 H13.4",
+  Info: "M8,1.8 A6.2,6.2 0 1 0 8.01,1.8 M8,7 V11.4 M8,4.8 V5",
+  Alerte: "M8,2.2 L14.4,13.4 H1.6 Z M8,6.4 V9.6 M8,11.4 V11.6",
+};
+const svg = (cle, classes = "ic", vb = "0 0 16 16") =>
+  `<svg class="${classes}" viewBox="${vb}" aria-hidden="true" focusable="false"><path d="${ICONES[cle]}"/></svg>`;
+
+/* ======================= Maturite : libelles a source unique (FunctionalMaturityMapper.Label) ======================= */
+const MATURITE = {
+  Planned:          { cls:"planned",    libelle:"Planifié",                aide:"Périmètre et dépendances documentés, aucun engagement de disponibilité." },
+  TechnicalPreview: { cls:"preview",    libelle:"Aperçu technique",        aide:"Noyau technique ou parcours incomplet, données non critiques." },
+  Functional:       { cls:"functional", libelle:"Fonctionnel",             aide:"Parcours annoncé utilisable : Domain, API, PostgreSQL, RBAC, Desktop, tests, documentation." },
+  ProductionReady:  { cls:"ready",      libelle:"Prêt pour la production", aide:"PostgreSQL réel, E2E, smoke WPF, sécurité et exploitation validés." },
+};
+const badge = (m, extra = "") => `<span class="badge ${MATURITE[m].cls} ${extra}" title="${MATURITE[m].aide}">${MATURITE[m].libelle}</span>`;
+
+/* ======================= Les 22 domaines et leurs 30 ecrans ouvrables (FunctionalArchitectureCatalog) =======================
+   nom = libelle historique de la carte (un seul vocabulaire) ; module / sousModules = chemin cible ; perm = permission
+   de lecture qui ouvre l'ecran ; tab = index reel de l'onglet dans MainWindow (NavigateToModule). */
+const DOMAINES = [
+  { id:"01", cle:"MonEspace", nom:"Mon Espace", maturite:"Planned", ecrans:[
+      { nom:"Validations", module:"Mes validations", sousModules:["En attente de ma décision","Historique"], perm:"approvals.read", tab:16 } ] },
+  { id:"02", cle:"Administration", nom:"Administration & Socle ERP", maturite:"Functional", ecrans:[
+      { nom:"Unités hôtelières", module:"Organisation", sousModules:["Unités"], perm:"units.read", tab:1 },
+      { nom:"Administration & utilisateurs", module:"Utilisateurs", sousModules:["Comptes"], perm:"users.read", tab:10 },
+      { nom:"Paramétrage global", module:"Paramétrage", sousModules:["Établissement","Poste de travail","Santé du système"], perm:"settings.read", tab:9 } ] },
+  { id:"03", cle:"Finance", nom:"Finance & Comptabilité", maturite:"Functional", ecrans:[
+      { nom:"Recettes journalières", module:"Recettes", sousModules:["CA journalier"], perm:"revenue.read", tab:2 },
+      { nom:"Trésorerie", module:"Trésorerie", sousModules:["Encaissements","Ordres de paiement","Comptes bancaires"], perm:"treasury.read", tab:6 },
+      { nom:"Comptabilité SCF", module:"Comptabilité", sousModules:["Comptabilité générale","Exercices","Comptabilité auxiliaire","États comptables"], perm:"accounting.read", tab:11 },
+      { nom:"Budget & prévisions", module:"Budget", sousModules:["Plan budgétaire","Réalisé et écarts"], perm:"budget.read", tab:12 },
+      { nom:"Créances & recouvrement", module:"Créances", sousModules:["Balance âgée","Relances","Risque client"], perm:"receivables.read", tab:13 } ] },
+  { id:"04", cle:"Commercial", nom:"Commercial, Clients & CRM", maturite:"Functional", ecrans:[
+      { nom:"Clients", module:"Clients", sousModules:["Fichier clients"], perm:"customers.read", tab:7 },
+      { nom:"CRM & expérience client", module:"CRM", sousModules:["Fiche client 360°","Contacts et historique","Segmentation","Fidélité","Campagnes","Satisfaction et NPS"], perm:"crm.read", tab:23 } ] },
+  { id:"05", cle:"Facturation", nom:"Facturation & Ventes", maturite:"Functional", ecrans:[
+      { nom:"Facturation", module:"Factures", sousModules:["Factures"], perm:"invoices.read", tab:8 } ] },
+  { id:"06", cle:"Hebergement", nom:"PMS / Hébergement", maturite:"Functional", ecrans:[
+      { nom:"Hébergement & occupation", module:"Réservations & folios", sousModules:["Réservations","Folios","Inventaire","Planning"], perm:"lodging.read", tab:15 },
+      { nom:"PMS front office", module:"Front Office", sousModules:["Arrivées","Départs","Clients présents","Planning","Prévisionnel","Hors service","Night audit"], perm:"lodging.read", tab:30 },
+      { nom:"Clôture journalière", module:"Contrôle", sousModules:["Clôture journalière"], perm:"closing.read", tab:5 } ] },
+  { id:"07", cle:"Revenue", nom:"Revenue Management & Distribution", maturite:"TechnicalPreview", ecrans:[
+      { nom:"Tarifs & conventions", module:"Tarification", sousModules:["Plans tarifaires","Périodes","Conventions"], perm:"tariffs.read", tab:14 } ] },
+  { id:"08", cle:"Housekeeping", nom:"Housekeeping", maturite:"Functional", ecrans:[
+      { nom:"Housekeeping & chambres", module:"Housekeeping", sousModules:["États des chambres","Planning et affectations","Minibar"], perm:"housekeeping.read", tab:21 } ] },
+  { id:"09", cle:"Evenementiel", nom:"Groupes, MICE & Événementiel", maturite:"Functional", ecrans:[
+      { nom:"Groupes & MICE", module:"Groupes & événements", sousModules:["Salles","Événements","Groupes"], perm:"mice.read", tab:28 } ] },
+  { id:"10", cle:"Restauration", nom:"F&B / Restauration", maturite:"TechnicalPreview", ecrans:[
+      { nom:"Cuisine & HACCP", module:"Cuisine", sousModules:["Fiches techniques","Hygiène"], perm:"kitchen.read", tab:26 } ] },
+  { id:"11", cle:"Stocks", nom:"Stocks & Économat", maturite:"Functional", ecrans:[
+      { nom:"Stocks & consommations", module:"Stocks", sousModules:["Stock courant","Mouvements","Articles & magasins","Inventaires"], perm:"inventory.read", tab:24 } ] },
+  { id:"12", cle:"Achats", nom:"Achats & Fournisseurs", maturite:"TechnicalPreview", ecrans:[
+      { nom:"Achats & approvisionnements", module:"Achats", sousModules:["Commandes","Réception","Fournisseurs"], perm:"purchasing.read", tab:25 } ] },
+  { id:"13", cle:"RessourcesHumaines", nom:"Ressources Humaines & Paie", maturite:"Functional", ecrans:[
+      { nom:"RH & paie", module:"RH & paie", sousModules:["Personnel","Temps et absences","Paie","Référentiel RH"], perm:"hr.read", tab:22 } ] },
+  { id:"14", cle:"Maintenance", nom:"Maintenance & Patrimoine", maturite:"Planned", ecrans:[] },
+  { id:"15", cle:"Qualite", nom:"Qualité, Audit & Contrôle interne", maturite:"TechnicalPreview", ecrans:[
+      { nom:"Journal d'audit", module:"Audit", sousModules:["Journal d'audit"], perm:"audit.read", tab:4 } ] },
+  { id:"16", cle:"Juridique", nom:"Juridique & Conformité", maturite:"Planned", ecrans:[] },
+  { id:"17", cle:"Documentaire", nom:"GED / Gestion documentaire", maturite:"Planned", ecrans:[] },
+  { id:"18", cle:"Marina", nom:"PortMaster / Marina", maturite:"Planned", ecrans:[] },
+  { id:"19", cle:"Parking", nom:"Parking & Contrôle d'accès", maturite:"Planned", ecrans:[] },
+  { id:"20", cle:"Pilotage", nom:"Pilotage, KPI & BI", maturite:"Functional", ecrans:[
+      { nom:"Tableau de bord", module:"Dashboards", sousModules:["Unité"], perm:"dashboard.read", tab:3 },
+      { nom:"Tableau de bord PDG", module:"Dashboards", sousModules:["Groupe"], perm:"dashboard.read", tab:19 },
+      { nom:"Cockpit DEC", module:"Dashboards", sousModules:["Exploitation"], perm:"dashboard.read", tab:20 },
+      { nom:"Bibliothèque KPI", module:"KPI Engine", sousModules:["Bibliothèque KPI","Analyse inter-unités","Alertes","Paramétrage"], perm:"dashboard.read", tab:29 },
+      { nom:"Rapports", module:"BI", sousModules:["Rapports"], perm:"reports.read", tab:17 } ] },
+  { id:"21", cle:"Integrations", nom:"Intégrations & Matériels", maturite:"TechnicalPreview", ecrans:[] },
+  { id:"22", cle:"Systeme", nom:"Administration Système", maturite:"Functional", epingle:true, ecrans:[
+      { nom:"Sauvegarde", module:"Maintenance", sousModules:["Sauvegarde"], perm:"maintenance.read", tab:18 },
+      { nom:"Postes & erreurs", module:"Diagnostic", sousModules:["Postes"], perm:"sync.read", tab:27 } ] },
+];
+const domaine = id => DOMAINES.find(d => d.id === id);
+const TAB_VERS_ECRAN = {};
+DOMAINES.forEach(d => d.ecrans.forEach(e => { if (!(e.tab in TAB_VERS_ECRAN)) TAB_VERS_ECRAN[e.tab] = [d.id, e.nom]; }));
+
+/* ======================= Les 50 entrees de ModuleCatalog (inchangees) rattachees a leur domaine ======================= */
+const MODULES = [
+  ["1","02","Administration & utilisateurs","Comptes, rôles, permissions et périmètres","P0","Disponible","users.read",10],
+  ["2","02","Paramétrage global","Identité de l'établissement, réglages du poste et santé du système","P0","Disponible","settings.read",9],
+  ["3","02","Unités hôtelières","Référentiel des unités et des établissements","P0","Disponible","units.read",1],
+  ["4","03","CA journalier (ERP)","Saisie du jour, validation unité et DEC","P0","Disponible","revenue.read",2],
+  ["4.5","06","Clôture journalière & Night Audit","Clôture de la date métier et Night Audit","P1","Disponible","closing.read",5],
+  ["5","03","Encaissements & trésorerie","Caisses, banques et ordres de paiement","P1","Disponible","treasury.read",6],
+  ["5.2","03","Comptabilité SCF","Plan de comptes, journaux, écritures en partie double et balance","P1","Disponible","accounting.read",11],
+  ["5.4","03","Fiscalité DGI & SIFEC","TVA, déclarations, liasse et lien SIFEC","P2","Planifie",null,null],
+  ["6","03","Budget & prévisions","Objectifs, budgets mensuels et écarts","P1","Disponible","budget.read",12],
+  ["8","05","Facturation","Factures clients, avoirs et registre des ventes","P1","Disponible","invoices.read",8],
+  ["9","03","Créances & recouvrement","Balance âgée, relances et risque client","P1","Disponible","receivables.read",13],
+  ["9.2","04","Clients","Fichier clients et historique commercial","P1","Disponible","customers.read",7],
+  ["10","06","Hébergement & occupation","Types de chambre, réservations, folios et taux d'occupation","P1","Disponible","lodging.read",15],
+  ["10.1","06","PMS front office","Planning, arrivées, départs, clients présents, prévisionnel, hors service et night audit","P1","Disponible","lodging.read",30],
+  ["10.2","08","Housekeeping & chambres","Planning des équipes, inspection, minibar","P2","Disponible","housekeeping.read",21],
+  ["10.4","04","CRM & expérience client","Vue client 360°, segmentation, fidélité, campagnes et NPS","P2","Disponible","crm.read",23],
+  ["10.6","09","Groupes & MICE","Salles, événements, devis, BEO, allotements et rooming lists","P2","Disponible","mice.read",28],
+  ["11","11","Stocks & consommations","Magasins, articles, mouvements valorisés au PMP et inventaires physiques","P2","Disponible","inventory.read",24],
+  ["11.5","10","Cuisine, production & qualité","Fiches techniques, coût matière et relevés de température HACCP","P2","Disponible","kitchen.read",26],
+  ["11.6","10","Points de vente (POS)","Plan de salle, tickets et transfert au folio","P2","Planifie",null,null],
+  ["12","12","Achats & approvisionnements","Fournisseurs, bons de commande et réceptions entrées en stock","P2","Disponible","purchasing.read",25],
+  ["12.5","12","Appels d'offres","Lots, ouverture des plis et attribution","P2","Planifie",null,null],
+  ["13","14","Maintenance & interventions","Équipements, ordres de travail et préventif","P2","Planifie",null,null],
+  ["13.5","21","Intégrations matérielles","Serrures, PBX, TPE CIB et imprimantes","P2","Planifie",null,null],
+  ["14.5","07","Tarifs & conventions","Plans tarifaires, périodes de tarif et conventions clients","P1","Disponible","tariffs.read",14],
+  ["18","04","Qualité & réclamations clients","Réclamations, délais et analyse des causes","P2","Planifie",null,null],
+  ["20","16","Contrats & conventions","Contrats, allotements et échéances","P2","Planifie",null,null],
+  ["20.2","04","Commercial & partenariats","Prospection, partenariats et suivi commercial","P2","Planifie",null,null],
+  ["21","13","RH & paie","Collaborateurs, contrats, temps et absences, paie algérienne","P2","Disponible","hr.read",22],
+  ["21.2","21","Pointeuses & badgeuses","Import des pointages et réconciliation","P2","Planifie",null,null],
+  ["22","15","Audit & contrôle interne","Consultation des traces et piste d'audit","P0","Disponible","audit.read",4],
+  ["22.2","01","Workflows & validations","Circuits d'approbation par type de sujet et décisions étape par étape","P1","Disponible","approvals.read",16],
+  ["22.4","15","Checklists de contrôle","Modèles, exécution et suivi des écarts","P2","Planifie",null,null],
+  ["22.6","15","Journal des anomalies","Déclaration, affectation et corrections","P2","Planifie",null,null],
+  ["22.8","15","Décisions & instructions","Instructions de direction et échéances","P2","Planifie",null,null],
+  ["23","16","Conformité hôtelière","Fiches police, taxe de séjour, tourisme","P2","Planifie",null,null],
+  ["23.2","16","Protection des données","Registre des traitements et consentements","P2","Planifie",null,null],
+  ["23.4","14","Modules légaux","Immobilisations, CASNOS, inventaire légal","P2","Planifie",null,null],
+  ["23.6","16","Veille juridique & réglementaire","Textes, mise en conformité et échéances","P2","Planifie",null,null],
+  ["24","20","Tableaux de bord directionnels","Indicateurs consolidés par période et unité","P0","Disponible","dashboard.read",3],
+  ["24.2","20","Dashboard PDG","Vision groupe et alertes de direction","P0","Disponible","dashboard.read",19],
+  ["24.4","20","Cockpit DEC","Pilotage exploitation et contrôles quotidiens","P0","Disponible","dashboard.read",20],
+  ["25","20","Rapports automatiques","Catalogue de rapports paramétrables, export CSV et journal des exécutions","P1","Disponible","reports.read",17],
+  ["25.2","01","Alertes & notifications","Règles d'alerte et préférences de diffusion","P2","Planifie",null,null],
+  ["25.4","20","Comparatif inter-unités","Bibliothèque KPI, classement des unités et comparaisons N/N-1","P2","Disponible","dashboard.read",29],
+  ["26","18","PortMaster","Bateaux, emplacements, contrats et facturation","P2","Planifie",null,null],
+  ["27","17","Gestion documentaire","GED, versions, signature et archivage légal","P2","Planifie",null,null],
+  ["28","22","Sauvegarde & restauration","État des sauvegardes, déclenchement à la demande et paliers de rétention","P1","Disponible","maintenance.read",18],
+  ["29","22","Registre des postes & erreurs clients","Postes déclarés, dernier contact et erreurs remontées par les clients","P1","Disponible","sync.read",27],
+  ["30","15","Journalisation & traçabilité","Journal d'audit, recherche et export","P0","Disponible","audit.read",4],
+].map(([ordre, dom, nom, desc, prio, statut, perm, tab]) => ({ ordre, dom, nom, desc, prio, statut, perm, tab }));
+
+/* ======================= Profils : permissions EXACTES de SecuritySeeder.RolePermissions ======================= */
+const LODGING_TOUT = ["lodging.read","lodging.write","lodging.checkin","lodging.reserve","lodging.checkout","lodging.change_rate","lodging.room_move",
+  "lodging.override_restriction","lodging.overbooking","lodging.noshow","lodging.cancel","lodging.manage_rooms","lodging.manage_rates","lodging.night_audit"];
+const UNITE_POSTE = { code:"ALG-CEN", nom:"Hôtel Riadh Alger Centre" };
+const PROFILS = {
+  reception: { nom:"Réception", utilisateur:"Nadia Bouzid", login:"n.bouzid", roles:["reception"], roleLibelle:"Réception — rôle personnalisé à créer (décision 8)",
+    unite:true, permissions:["lodging.read","lodging.checkin","lodging.reserve","lodging.checkout","lodging.room_move","customers.read","crm.read","crm.write","housekeeping.read"],
+    recents:[["06","PMS front office",0],["06","Hébergement & occupation",1],["04","CRM & expérience client",0]] },
+  unite: { nom:"Directeur d'unité", utilisateur:"Samir Merzouk", login:"s.merzouk", roles:["unit.manager"], roleLibelle:"Directeur d'unité",
+    unite:true, permissions:["units.read","revenue.read","revenue.write","dashboard.read","reports.export","closing.read","closing.close","customers.read","customers.write",
+      "invoices.read","invoices.write","settings.read","budget.read","budget.write","tariffs.read","tariffs.write",...LODGING_TOUT,"housekeeping.read","housekeeping.write",
+      "housekeeping.inspect","crm.read","crm.write","crm.loyalty","approvals.read","approvals.decide","reports.read","inventory.read","inventory.write","purchasing.read",
+      "purchasing.write","purchasing.receive","kitchen.read","kitchen.write","mice.read","mice.write"],
+    recents:[["06","PMS front office",0],["03","Recettes journalières",0],["08","Housekeeping & chambres",0]] },
+  direction: { nom:"Direction générale", utilisateur:"Dalila Hamdani", login:"d.hamdani", roles:["direction"], roleLibelle:"Direction générale",
+    unite:false, permissions:["units.read","revenue.read","dashboard.read","treasury.read","audit.read","reports.export","closing.read","treasury.approve","customers.read",
+      "invoices.read","settings.read","accounting.read","budget.read","budget.approve","receivables.read","tariffs.read","lodging.read","housekeeping.read","crm.read",
+      "approvals.read","approvals.decide","reports.read","maintenance.read","hr.read","inventory.read","inventory.validate","purchasing.read","purchasing.approve",
+      "kitchen.read","mice.read","sync.read","kpi.admin"],
+    recents:[["20","Tableau de bord PDG",0],["03","Trésorerie",1],["03","Budget & prévisions",1]] },
+  controle: { nom:"Contrôle d'exploitation", utilisateur:"Karim Benali", login:"k.benali", roles:["exploitation.control"], roleLibelle:"Contrôle d'exploitation",
+    unite:false, permissions:["units.read","revenue.read","revenue.write","revenue.validate","dashboard.read","audit.read","reports.export","closing.read","closing.close",
+      "closing.reopen","treasury.read","treasury.approve","customers.read","customers.write","invoices.read","invoices.write","invoices.issue","settings.read",
+      "accounting.read","accounting.write","accounting.post","accounting.reconcile","accounting.close","accounting.reverse","budget.read","budget.write",
+      "receivables.read","receivables.write","tariffs.read","tariffs.write",...LODGING_TOUT,"housekeeping.read","housekeeping.write","housekeeping.inspect",
+      "crm.read","crm.write","crm.loyalty","approvals.read","approvals.write","approvals.decide","reports.read","inventory.read","inventory.write","inventory.validate",
+      "purchasing.read","purchasing.write","purchasing.approve","purchasing.receive","kitchen.read","kitchen.write","mice.read","mice.write","kpi.admin"],
+    recents:[["03","Recettes journalières",0],["06","Clôture journalière",0],["20","Cockpit DEC",0]] },
+  caisse: { nom:"Caisse", utilisateur:"Yacine Ferhat", login:"y.ferhat", roles:["cashier"], roleLibelle:"Caisse / comptoir",
+    unite:true, permissions:["revenue.read","revenue.write","treasury.read","treasury.write","settings.read","lodging.read","lodging.checkin","lodging.reserve",
+      "lodging.checkout","lodging.room_move","lodging.noshow","lodging.cancel","lodging.night_audit","housekeeping.read","housekeeping.write","crm.read","crm.write","approvals.read"],
+    recents:[["03","Trésorerie",0],["06","PMS front office",1]] },
+  rh: { nom:"RH", utilisateur:"Nadia Saidi", login:"n.saidi", roles:["hr.manager"], roleLibelle:"Ressources humaines",
+    unite:false, permissions:["units.read","settings.read","approvals.read","hr.read","hr.write","hr.payroll","hr.payroll.close"],
+    recents:[["13","RH & paie",1],["13","RH & paie",2]] },
+  admin: { nom:"Administrateur", utilisateur:"Administrateur", login:"admin", roles:["system.administrator"], roleLibelle:"Administrateur système",
+    unite:false, permissions:"*",
+    recents:[["02","Administration & utilisateurs",0],["02","Paramétrage global",1],["15","Journal d'audit",0]] },
+  lecture: { nom:"Lecture seule", utilisateur:"Lamine Ouali", login:"l.ouali", roles:["reader"], roleLibelle:"Lecture seule",
+    unite:true, permissions:["units.read","revenue.read","dashboard.read","closing.read","customers.read","invoices.read","settings.read","accounting.read","budget.read",
+      "receivables.read","tariffs.read","lodging.read","housekeeping.read","crm.read","approvals.read","inventory.read","purchasing.read","kitchen.read","mice.read"],
+    recents:[["20","Tableau de bord",0],["06","Hébergement & occupation",0]] },
+};
+const ORDRE_PROFILS = ["reception","unite","direction","controle","caisse","rh","admin","lecture"];
+
+/* ======================= Registre des capacites : ce que le serveur SAIT projeter aujourd'hui =======================
+   genre "file"   : file d'action « à traiter » — affichee si TOUTES les alternatives de `requis` sont detenues
+                    (lecture de la route ET droit d'action qui rend la file « mienne »).
+   genre "journee": instantane de lecture, meme regle sans droit d'action.
+   unite:true     : la route exige hotelUnitCode → il faut une unite de poste (reglage local).
+   Chaque entree cite la route reelle et la forme de reponse dont vient le chiffre (jamais recalcule). */
+const CAPACITES = [
+  { id:"validations", genre:"file", titre:"Mes validations", icone:"Coche", route:"GET /approvals/instances/pending", champ:"instances.Count", requis:[["approvals.decide","workflow.request.decide"]], unite:false, ecran:["01","Validations",0], maturite:"TechnicalPreview",
+    ex:{ valeur:2, unite:"ordres de paiement", legende:"en attente de votre décision · la plus ancienne du 28/08" } },
+  { id:"op-approuver", genre:"file", titre:"Ordres de paiement à approuver", icone:"Finance", route:"GET /treasury/payment-orders?status=Draft", champ:"orders.Count", requis:[["treasury.read"],["treasury.approve"]], unite:false, ecran:["03","Trésorerie",1],
+    ex:{ valeur:4, unite:"ordres", legende:"en brouillon · échéance la plus proche 05/09" } },
+  { id:"op-regler", genre:"file", titre:"Ordres de paiement à régler", icone:"Finance", route:"GET /treasury/payment-orders?status=Approved", champ:"orders.Count", requis:[["treasury.read"],["treasury.write"]], unite:false, ecran:["03","Trésorerie",1],
+    ex:{ valeur:3, unite:"ordres approuvés", legende:"à régler · échéance la plus proche 04/09" } },
+  { id:"recettes-valider", genre:"file", titre:"Recettes à valider", icone:"Finance", route:"GET /pilotage/dec-cockpit", champ:"PendingValidationCount · PendingValidationAmount", requis:[["dashboard.read"],["revenue.validate"]], unite:false, ecran:["03","Recettes journalières",0],
+    ex:{ valeur:3, unite:"journées", legende:"soumises par les unités · 1 215 300,00 DA (montant serveur)" } },
+  { id:"cloture", genre:"file", titre:"Jours à clôturer", icone:"Horloge", route:"GET /lodging/business-date?hotelUnitCode=…", champ:"PendingDays · IsLate", requis:[["lodging.read"],["closing.close"]], unite:true, ecran:["06","Clôture journalière",0],
+    ex:{ valeur:1, unite:"jour", legende:"date métier 01/09 non clôturée", alerte:"en retard" } },
+  { id:"arrivees", genre:"file", titre:"Arrivées à enregistrer", icone:"Hebergement", route:"GET /lodging/front-desk?hotelUnitCode=…", champ:"Arrivals.Count · OverdueArrivals.Count", requis:[["lodging.read"],["lodging.checkin"]], unite:true, ecran:["06","PMS front office",0],
+    ex:{ valeur:14, unite:"arrivées", legende:"attendues aujourd'hui", alerte:"2 en retard" } },
+  { id:"departs", genre:"file", titre:"Départs à clôturer", icone:"Sortie", route:"GET /lodging/front-desk?hotelUnitCode=…", champ:"Departures.Count · OverdueDepartures.Count", requis:[["lodging.read"],["lodging.checkout"]], unite:true, ecran:["06","PMS front office",1],
+    ex:{ valeur:9, unite:"départs", legende:"prévus aujourd'hui", alerte:"1 en retard" } },
+  { id:"inspections", genre:"file", titre:"Chambres à inspecter", icone:"Housekeeping", route:"GET /housekeeping/board?hotelUnitCode=…&date=…", champ:"AwaitingInspectionTasks", requis:[["housekeeping.read"],["housekeeping.inspect"]], unite:true, ecran:["08","Housekeeping & chambres",0],
+    ex:{ valeur:3, unite:"chambres", legende:"en attente d'inspection" } },
+  { id:"commandes-approuver", genre:"file", titre:"Commandes à approuver", icone:"Achats", route:"GET /purchasing/orders?status=Draft", champ:"orders.Count", requis:[["purchasing.read"],["purchasing.approve"]], unite:false, ecran:["12","Achats & approvisionnements",0],
+    ex:{ valeur:2, unite:"commandes", legende:"en brouillon, engagement de dépense à approuver" } },
+  { id:"receptions", genre:"file", titre:"Commandes à réceptionner", icone:"Achats", route:"GET /purchasing/orders (CanReceive)", champ:"orders.Count", requis:[["purchasing.read"],["purchasing.receive"]], unite:false, ecran:["12","Achats & approvisionnements",1],
+    ex:{ valeur:3, unite:"commandes", legende:"approuvées, livraison à réceptionner" } },
+  { id:"inventaires", genre:"file", titre:"Inventaires à valider", icone:"Stocks", route:"GET /inventory/counts?status=Counted", champ:"counts.Count", requis:[["inventory.read"],["inventory.validate"]], unite:false, ecran:["11","Stocks & consommations",3],
+    ex:{ valeur:0, unite:"", legende:"aucun inventaire compté en attente" } },
+  { id:"absences", genre:"file", titre:"Absences à approuver", icone:"RessourcesHumaines", route:"GET /hr/absences?status=Pending", champ:"absences.Count", requis:[["hr.read"],["hr.write"]], unite:false, ecran:["13","RH & paie",1],
+    ex:{ valeur:3, unite:"demandes", legende:"d'absence en attente de décision" } },
+  { id:"paie", genre:"file", titre:"Bulletins en brouillon", icone:"RessourcesHumaines", route:"GET /hr/payroll/periods", champ:"DraftPayslipCount", requis:[["hr.read"],["hr.payroll"]], unite:false, ecran:["13","RH & paie",2],
+    ex:{ valeur:12, unite:"bulletins", legende:"période 2026-08 ouverte" } },
+
+  { id:"occupation", genre:"journee", titre:"Occupation", icone:"Hebergement", route:"GET /lodging/front-desk?hotelUnitCode=…", champ:"Occupancy.OccupancyRatePercent · InHouseCount", requis:[["lodging.read"]], unite:true, ecran:["06","PMS front office",2],
+    ex:{ valeur:"78 %", legende:"96 clients présents · 42 chambres actives" } },
+  { id:"chambres", genre:"journee", titre:"Chambres", icone:"Housekeeping", route:"GET /housekeeping/board?hotelUnitCode=…&date=…", champ:"DirtyRooms · PendingTasks · OutOfOrderRooms", requis:[["housekeeping.read"]], unite:true, ecran:["08","Housekeeping & chambres",0],
+    ex:{ valeur:12, unite:"à faire", legende:"5 tâches en cours · 1 chambre hors service" } },
+  { id:"recettes-jour", genre:"journee", titre:"Recettes du jour", icone:"Finance", route:"GET /revenue/daily/summary?from=…&to=…&hotelUnitCode=…", champ:"Total · SubmittedCount", requis:[["revenue.read"]], unite:true, ecran:["03","Recettes journalières",0],
+    ex:{ valeur:"1 215 300,00", suffixe:"DA", legende:"saisie du jour", statut:["soumise","Soumise"] } },
+  { id:"caisse", genre:"journee", titre:"Encaissements du jour", icone:"Finance", route:"GET /treasury/receipts/summary?from=…&to=…", champ:"GrandTotal · ConfirmedCount", requis:[["treasury.read"]], unite:false, ecran:["03","Trésorerie",0],
+    ex:{ valeur:"312 400,00", suffixe:"DA", legende:"27 reçus confirmés · 3 brouillons" } },
+  { id:"dec", genre:"journee", titre:"Exploitation du groupe", icone:"Pilotage", route:"GET /pilotage/dec-cockpit", champ:"UnitHealth.NeedsAttention · ClosingBacklogDayCount · RejectedCount", requis:[["dashboard.read"]], unite:false, ecran:["20","Cockpit DEC",0],
+    ex:{ valeur:1, unite:"unité à surveiller", legende:"sur 4 · retard de clôture 2 j · 3 recettes rejetées" } },
+  { id:"creances", genre:"journee", titre:"Créances", icone:"Finance", route:"GET /receivables/aging", champ:"Total.Total · Total.Over90", requis:[["receivables.read"]], unite:false, ecran:["03","Créances & recouvrement",0],
+    ex:{ valeur:"4 812 000,00", suffixe:"DA", legende:"encours client · 610 000,00 DA à plus de 90 j" } },
+  { id:"stocks", genre:"journee", titre:"Stocks sous le minimum", icone:"Stocks", route:"GET /inventory/low-stock", champ:"rows.Count", requis:[["inventory.read"]], unite:false, ecran:["11","Stocks & consommations",0],
+    ex:{ valeur:7, unite:"articles", legende:"sous le seuil dans 2 magasins" } },
+  { id:"sauvegardes", genre:"journee", titre:"Sauvegardes", icone:"Systeme", route:"GET /maintenance/backups/status", champ:"AgeHours · IsOverdue", requis:[["maintenance.read"]], unite:false, ecran:["22","Sauvegarde",0],
+    ex:{ valeur:"6 h", legende:"depuis la dernière sauvegarde · seuil 24 h" } },
+  { id:"postes", genre:"journee", titre:"Postes de travail", icone:"Systeme", route:"GET /sync/stations", champ:"Workstations.Count · Freshness", requis:[["sync.read"]], unite:false, ecran:["22","Postes & erreurs",0],
+    ex:{ valeur:12, unite:"postes", legende:"déclarés · 1 sans contact depuis 3 j", alerte:"1 hors ligne" } },
+];
+
+/* ======================= Etat de la maquette ======================= */
+const etat = {
+  profil:"reception", theme:"clair", unite:"defaut", donnees:"charge", sidebar:"masquee", annotations:true,
+  racine:true, courant:null, deroules:new Set(), recherche:"", catalogueDeplie:false, filtreCatalogue:"tous",
+  panneau:null, recents:[], densite:"confortable",
+};
+const DATE_LONGUE = "mercredi 2 septembre 2026";
+const DATE_COURTE = "02/09/2026";
+
+const permissions = () => PROFILS[etat.profil].permissions;
+/* Equivalent de HasModulePermission + PermissionRegistry.AcceptedClaims : comparaison sans casse, alias acceptes via `requis`. */
+const detient = cle => { const p = permissions(); return p === "*" || p.some(x => x.toLowerCase() === cle.toLowerCase()); };
+const detientTous = groupes => groupes.every(g => g.some(detient));
+const uniteDuPoste = () => etat.unite === "aucune" ? null : etat.unite === "poste" ? UNITE_POSTE : (PROFILS[etat.profil].unite ? UNITE_POSTE : null);
+const normaliser = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+/* ======================= Composeur (fonction pure → MonEspaceComposer dans RaqmiSystem.Application) ======================= */
+function composer() {
+  const prof = PROFILS[etat.profil];
+  const u = uniteDuPoste();
+  const ok = c => detientTous(c.requis) && (!c.unite || u !== null);
+  const files = CAPACITES.filter(c => c.genre === "file" && ok(c));
+  const journee = CAPACITES.filter(c => c.genre === "journee" && ok(c));
+  const ecrans = DOMAINES.map(d => ({ d, ecrans:d.ecrans.filter(e => detient(e.perm)) })).filter(g => g.ecrans.length);
+  const nbEcrans = ecrans.reduce((n, g) => n + g.ecrans.length, 0);
+  const aucuneAction = !CAPACITES.some(c => c.genre === "file" && detientTous(c.requis));
+  const manqueUnite = !u && CAPACITES.some(c => c.unite && detientTous(c.requis));
+  return { prof, u, files, journee, ecrans, nbEcrans, aucuneAction, manqueUnite,
+    activite: detient("audit.read") ? "serveur" : "masque",
+    dateMetier: u !== null && detient("lodging.read"),
+    reglagesPoste: detient("settings.read") };
+}
+
+/* ======================= Navigation : un seul chemin (NavigateToModule) ======================= */
+function ouvrir(idDomaine, nomEcran, onglet = 0) {
+  const d = domaine(idDomaine); const e = d && d.ecrans.find(x => x.nom === nomEcran);
+  if (!e || !detient(e.perm)) { setStatus(`« ${nomEcran} » n'est pas ouvert à votre profil.`, true); return; }   // CanOpenModule
+  etat.racine = false; etat.courant = { domaine:idDomaine, ecran:nomEcran, onglet };
+  etat.deroules.add(idDomaine);
+  etat.recents = [[idDomaine, nomEcran, onglet], ...etat.recents.filter(r => !(r[0] === idDomaine && r[1] === nomEcran))].slice(0, 6);
+  rendre();
+}
+function allerRacine() { etat.racine = true; etat.courant = null; rendre(); }
+function ouvrirTab(tab) { const cible = TAB_VERS_ECRAN[tab]; if (cible) ouvrir(cible[0], cible[1], 0); }
+
+/* ======================= Bandeau de session (SetStatus / FlashSessionStrip) ======================= */
+function setStatus(message, isError = false) {
+  const bar = document.getElementById("session-bar");
+  document.getElementById("session-msg").textContent = message;
+  bar.classList.toggle("erreur", isError);
+  bar.classList.remove("flash"); void bar.offsetWidth; bar.classList.add("flash");
+}
+
+/* ======================= Rendu : barre laterale (identique au shell) ======================= */
+function rendreSidebar() {
+  const aside = document.getElementById("sidebar");
+  const ligneDomaine = d => {
+    const ouvrables = d.ecrans.filter(e => detient(e.perm));
+    if (ouvrables.length === 0) return "";
+    const deroule = etat.deroules.has(d.id);
+    const point = d.maturite === "TechnicalPreview" ? `<span class="point preview" role="img" aria-label="Aperçu technique" title="Aperçu technique"></span>` : "<span></span>";
+    return `<div class="domaine">
+      <button type="button" class="dom-tete" aria-expanded="${deroule}" data-toggle="${d.id}" aria-label="Domaine ${d.nom}, ${ouvrables.length} écran${ouvrables.length > 1 ? "s" : ""}" title="${d.id} · ${d.nom}">
+        ${svg(d.cle, "ic thin")}<span class="nom">${d.nom}</span>${point}<span class="compteur">${ouvrables.length}</span>${svg("Chevron", "chevron", "0 0 9 7")}
+      </button>
+      <div class="ecrans" ${deroule ? "" : "hidden"}>${ouvrables.map(e => {
+        const actif = !etat.racine && etat.courant && etat.courant.domaine === d.id && etat.courant.ecran === e.nom;
+        return `<button type="button" class="nav-btn" data-open="${d.id}|${e.nom}|0" ${actif ? 'aria-current="page"' : ""} aria-label="Ouvrir ${e.nom}" title="${e.module} › ${e.sousModules[0]}">${e.nom}</button>`; }).join("")}
+      </div></div>`;
+  };
+  aside.innerHTML = `
+    <p class="etiquette">Modules</p>
+    <button type="button" class="nav-btn" id="btn-racine" ${etat.racine ? 'aria-current="page"' : ""} aria-label="Mon Espace, accueil" title="Mon Espace (Alt+Origine)">${svg("MonEspace")}<span>Mon Espace</span></button>
+    <div class="recherche">${svg("Recherche")}<input type="search" placeholder="Rechercher un écran…  (Ctrl+K)" aria-label="Rechercher un écran"></div>
+    <div class="domaines">${DOMAINES.filter(d => !d.epingle).map(ligneDomaine).join("")}</div>
+    <div class="epingle">${DOMAINES.filter(d => d.epingle).map(ligneDomaine).join("")}</div>`;
+  aside.querySelector("#btn-racine").addEventListener("click", allerRacine);
+  aside.querySelectorAll("[data-toggle]").forEach(b => b.addEventListener("click", () => { const id = b.dataset.toggle; etat.deroules.has(id) ? etat.deroules.delete(id) : etat.deroules.add(id); rendreSidebar(); }));
+}
+
+/* ======================= Rendu : fil d'Ariane (masque sur l'accueil) ======================= */
+function rendreAriane() {
+  const nav = document.getElementById("ariane");
+  if (etat.racine || !etat.courant) { nav.hidden = true; nav.innerHTML = ""; return; }
+  const d = domaine(etat.courant.domaine); const e = d.ecrans.find(x => x.nom === etat.courant.ecran);
+  const sousModule = e.sousModules[etat.courant.onglet] || e.sousModules[0];
+  const sep = svg("Chevron", "sep", "0 0 9 7");
+  nav.hidden = false;
+  nav.innerHTML = `${svg(d.cle)}<button type="button" data-seg="dom" aria-label="Remonter à ${d.nom}">${d.nom}</button>${sep}
+    <button type="button" data-seg="mod" aria-label="Remonter à ${e.module}">${e.module}</button>${sep}
+    <span class="courant" aria-current="page">${sousModule}</span>${d.maturite === "TechnicalPreview" ? badge(d.maturite) : ""}`;
+  nav.querySelector('[data-seg="dom"]').addEventListener("click", () => { etat.deroules.add(d.id); rendreSidebar(); });
+  nav.querySelector('[data-seg="mod"]').addEventListener("click", () => ouvrir(d.id, e.nom, 0));
+}
+
+/* ======================= Rendu : ecran type (quand on quitte le portail) ======================= */
+const LIGNES_FICTIVES = {
+  "Arrivées": { colonnes:["Réservation","Client","Chambre","Nuits","Statut","Montant dû"],
+    lignes:[["RSV-2026-0412","A. Benali","204 · Double vue mer","2","validee|Confirmée","18 500,00"],["RSV-2026-0415","S. Haddad","117 · Twin","1","validee|Confirmée","9 200,00"],
+            ["RSV-2026-0418","Agence Sahel Tours","305–308 · Groupe","3","soumise|Option","0,00"],["RSV-2026-0421","M. Cherif","212 · Suite","4","validee|Garantie","61 000,00"]] },
+  "En attente de ma décision": { colonnes:["Sujet","Référence","Circuit","Étape courante","Statut","Créée le"],
+    lignes:[["Ordre de paiement","OP-2026-118","Paiement fournisseur","Approbation direction","soumise|En cours","28/08/2026"],["Ordre de paiement","OP-2026-121","Paiement fournisseur","Approbation direction","soumise|En cours","01/09/2026"]] },
+};
+function rendreEcran() {
+  const sec = document.getElementById("ecran");
+  if (etat.racine || !etat.courant) { rendrePortail(sec); return; }
+  const d = domaine(etat.courant.domaine); const e = d.ecrans.find(x => x.nom === etat.courant.ecran);
+  const idx = Math.min(etat.courant.onglet, e.sousModules.length - 1); const ongletCourant = e.sousModules[idx];
+  const donnees = LIGNES_FICTIVES[ongletCourant]; const plusieurs = e.sousModules.length > 1;
+  sec.innerHTML = `
+    <div class="ecran-tete">
+      <div><h2>${e.module}</h2><div class="sous">${d.nom} — ${plusieurs ? "sous-modules : " + e.sousModules.join(", ") : e.sousModules[0]}. <span class="muted">Écran existant (onglet ${e.tab}), inchangé par l'exploration.</span></div></div>
+      <div class="actions"><button type="button" class="btn secondaire" title="Actualiser (F5)">${svg("Actualiser")}Actualiser</button><button type="button" class="btn fantome" id="btn-retour">${svg("MonEspace")}Mon Espace (Alt+Origine)</button></div>
+    </div>
+    ${plusieurs ? `<div class="onglets" role="tablist" aria-label="Sous-modules de ${e.module}">${e.sousModules.map((s, i) => `<button type="button" class="onglet" role="tab" aria-selected="${i === idx}" data-onglet="${i}">${s}</button>`).join("")}</div>` : ""}
+    <div class="grille">
+      <table><thead><tr>${(donnees ? donnees.colonnes : ["Référence","Libellé","Unité","Date","Statut","Montant"]).map((c, i, a) => `<th class="${i === a.length - 1 ? "num" : ""}">${c}</th>`).join("")}</tr></thead>
+      <tbody>${donnees ? donnees.lignes.map(l => `<tr>${l.map((c, i, a) => { if (c.includes("|")) { const [cls, lib] = c.split("|"); return `<td><span class="badge ${cls}">${lib}</span></td>`; } return `<td class="${i === a.length - 1 ? "num" : ""}">${c}</td>`; }).join("")}</tr>`).join("") : ""}</tbody></table>
+      ${donnees ? "" : `<div class="vide" aria-live="polite">${svg("Corbeille")}<div class="titre">Aucun élément pour « ${ongletCourant} »</div><div class="indice">Choisissez une date métier ou créez un élément avec « Nouveau » (Ctrl+N).</div></div>`}
+    </div>`;
+  sec.querySelectorAll("[data-onglet]").forEach(b => b.addEventListener("click", () => { etat.courant.onglet = +b.dataset.onglet; rendreAriane(); rendreEcran(); }));
+  sec.querySelector("#btn-retour").addEventListener("click", allerRacine);
+}
+
+/* ======================= Rendu : portail Mon Espace ======================= */
+function tuile(cap, enChargement, enErreur) {
+  const ex = cap.ex;
+  const d = domaine(cap.ecran[0]); const e = d.ecrans.find(x => x.nom === cap.ecran[1]);
+  const ouvrable = e && detient(e.perm);
+  const cls = enChargement ? "chargement" : enErreur ? "erreur" : (ouvrable ? "" : "inactif");
+  const valeurTexte = enErreur ? "Indisponible" : `${ex.valeur}${ex.unite ? " " + ex.unite : ""}${ex.suffixe ? " " + ex.suffixe : ""}`;
+  const label = enChargement ? `${cap.titre}, chargement en cours` : `${cap.titre}, ${valeurTexte}${enErreur ? ", le serveur n'a pas répondu" : ", " + ex.legende}${ex.alerte ? ", " + ex.alerte : ""}${ouvrable ? ", ouvrir " + cap.ecran[1] : ""}`;
+  const corps = enErreur
+    ? `<div class="valeur">Indisponible</div><div class="legende">Le serveur n'a pas répondu (détail dans le bandeau de session) · <span style="color:var(--secondary);font-weight:600">Réessayer (F5)</span></div>`
+    : `<div class="valeur" ${enChargement ? "" : 'aria-live="polite"'}>${ex.valeur}${ex.suffixe ? `<small>${ex.suffixe}</small>` : ""}${ex.unite && typeof ex.valeur === "number" ? `<small>${ex.unite}</small>` : ""}</div>
+       <div class="legende">${ex.legende}${ex.alerte ? `<span class="badge soumise">${ex.alerte}</span>` : ""}${ex.statut ? `<span class="badge ${ex.statut[0]}">${ex.statut[1]}</span>` : ""}${cap.maturite ? badge(cap.maturite) : ""}</div>`;
+  const source = etat.annotations ? `<div class="source mono">${cap.route} → ${cap.champ}<span class="badge exemple">exemple</span></div>` : "";
+  const attrs = `class="carte tuile ${cls}" title="${cap.route} — ${cap.requis.map(g => g.join(" ou ")).join(" + ")}${cap.unite ? " + unité du poste" : ""}" aria-label="${label}" ${enChargement ? 'aria-busy="true"' : ""}`;
+  return ouvrable && !enChargement
+    ? `<button type="button" ${attrs} data-open="${cap.ecran.join("|")}"><div class="tete">${cap.titre}${svg(cap.icone)}</div>${corps}${source}</button>`
+    : `<div ${attrs}><div class="tete">${cap.titre}${svg(cap.icone)}</div>${corps}${source}</div>`;
+}
+
+function rendrePortail(sec) {
+  const c = composer(); const p = c.prof; const u = c.u;
+  const charg = etat.donnees === "chargement"; const erreur = etat.donnees === "erreur";
+  const nbDroits = p.permissions === "*" ? "toutes les clés" : `${p.permissions.length} droits`;
+  const indexErreur = erreur ? (c.files.length > 1 ? 1 : 0) : -1;   // une tuile en erreur, les autres chargees : chaque tuile a son RunAsync
+
+  /* ---- bandeau identitaire ---- */
+  const panneauProfil = etat.panneau === "profil" ? `<div class="panneau" role="region" aria-label="Mon profil">
+      <div><div class="lib">Identifiant</div>${p.login}</div>
+      <div><div class="lib">Courriel</div>${p.login}@elbahdja-demo.dz</div>
+      <div><div class="lib">Rôles</div>${p.roles.join(", ")}</div>
+      <div><div class="lib">Droits dans le jeton</div>${nbDroits}</div>
+      <div><div class="lib">Mot de passe</div>à jour <span class="muted">· MustChangePassword = false</span></div>
+      <div class="note mono">Sources : réponse de connexion (AuthenticatedUser) et GET /api/v1/me · aucune donnée serveur de profil au-delà — pas d'unité, pas de photo, pas de sessions.</div></div>` : "";
+  const panneauPrefs = etat.panneau === "prefs" ? `<div class="panneau" role="region" aria-label="Mes préférences">
+      <div><div class="lib">Apparence (ce poste)</div><span class="seg" role="group" aria-label="Apparence"><button type="button" data-pref-theme="clair" aria-pressed="${etat.theme === "clair"}">Clair</button><button type="button" data-pref-theme="sombre" aria-pressed="${etat.theme === "sombre"}">Sombre</button></span></div>
+      <div><div class="lib">Densité des grilles (ce poste)</div><span class="seg" role="group" aria-label="Densité"><button type="button" data-pref-densite="confortable" aria-pressed="${etat.densite === "confortable"}">Confortable</button><button type="button" data-pref-densite="compact" aria-pressed="${etat.densite === "compact"}">Compact</button></span></div>
+      <div><div class="lib">Unité de ce poste</div>${u ? `${u.code} · ${u.nom}` : "aucune"} <span class="muted">· fixée dans Paramétrage → Poste de travail</span></div>
+      <div><div class="lib">Catalogue des modules</div>${etat.catalogueDeplie ? "déplié" : "replié"} <span class="muted">· mémorisé par poste</span></div>
+      ${c.reglagesPoste ? `<div><div class="lib">Tous les réglages</div><button type="button" class="btn fantome" style="padding-left:0" data-open="02|Paramétrage global|1">Paramétrage global → Poste de travail</button></div>` : `<div><div class="lib">Tous les réglages</div><span class="muted">Paramétrage global non ouvert à votre profil (settings.read) — les réglages ci-dessus restent locaux.</span></div>`}
+      <div class="note">Réglages par poste (DesktopSettings), jamais par compte : aucune préférence serveur n'existe aujourd'hui.</div></div>` : "";
+
+  const bandeau = `<div class="carte bandeau reveal">
+    <div>
+      <h2>Bonjour, ${p.utilisateur}</h2>
+      <div class="role">${p.roleLibelle} <span class="muted">· ${p.roles.join(", ")} · ${nbDroits}</span></div>
+      <div class="date">${DATE_LONGUE}</div>
+      <div class="liens">
+        <button type="button" class="btn fantome" data-panneau="profil" aria-expanded="${etat.panneau === "profil"}">Mon profil</button>
+        <button type="button" class="btn fantome" data-panneau="prefs" aria-expanded="${etat.panneau === "prefs"}">Mes préférences</button>
+        <button type="button" class="btn fantome" id="btn-securite">Ma sécurité</button>
+        <span class="espace"></span>
+        <button type="button" class="btn secondaire" id="RefreshHomeButton" title="Actualiser Mon Espace (F5)">${svg("Actualiser")}Actualiser</button>
+      </div>
+    </div>
+    <dl class="identite">
+      <dt>Établissement</dt><dd>El Bahdja Hôtels ${etat.annotations ? `<span class="muted mono">GET /settings · CompanyName</span>` : ""}</dd>
+      <dt>Unité de ce poste</dt><dd>${u ? `${u.code} · ${u.nom} <span class="muted">· réglage local, jamais un périmètre de sécurité</span>` : `<span class="muted">aucune · poste sans unité, lecture au niveau du groupe</span>`}</dd>
+      <dt>Date métier</dt><dd>${c.dateMetier ? (charg ? `<span class="muted">…</span>` : `${DATE_COURTE} <span class="tag"><span class="badge validee">à jour</span></span> ${etat.annotations ? `<span class="muted mono">GET /lodging/business-date</span>` : ""}`) : `<span class="muted">— ${u ? "lodging.read requis pour la lire" : "par unité, choisissez une unité sur ce poste"}</span>`}</dd>
+      <dt>Session</dt><dd>ouverte à 08:12 · expire à 09:12 <span class="muted">· jeton 60 min (ExpiresAt de la connexion)</span></dd>
+    </dl>
+    ${panneauProfil}${panneauPrefs}
+  </div>`;
+
+  /* ---- a traiter ---- */
+  const vide = `<div class="carte tuile vide-portail">${svg("Corbeille")}<div class="titre">Rien à traiter</div>
+    <div class="indice">${c.aucuneAction ? "Votre profil ne porte aucun droit de décision ou d'exécution : aucune file d'action ne vous est adressée. Vos écrans de lecture restent ci-dessous." :
+      c.manqueUnite ? "Vos files d'action dépendent d'une unité : fixez l'unité de ce poste dans Paramétrage → Poste de travail." :
+      "Vos validations et vos files d'action apparaîtront ici dès qu'un élément attendra votre décision."}</div></div>`;
+  const traiter = `<section class="section reveal d1" aria-labelledby="h-traiter">
+    <h3 id="h-traiter">À traiter <span class="aide">· ce que vos droits vous permettent de décider ou d'exécuter · compteurs du serveur</span></h3>
+    <div class="tuiles">${c.files.length ? c.files.map((f, i) => tuile(f, charg, i === indexErreur)).join("") : vide}</div>
+    <div class="planifie-note">${badge("Planned")} Mes tâches · Notifications · Mes demandes · Mes délégations · Messagerie · Agenda — aucun service serveur aujourd'hui (domaine 01, lot 4.3) ; rien n'est simulé.</div>
+  </section>`;
+
+  /* ---- ma journee ---- */
+  const journee = c.journee.length ? `<section class="section reveal d1" aria-labelledby="h-journee">
+    <h3 id="h-journee">Ma journée <span class="aide">· ${u ? `unité ${u.code}` : "lecture au niveau du groupe"} · instantanés de lecture, un appel par tuile</span></h3>
+    <div class="tuiles">${c.journee.map((j, i) => tuile(j, charg, erreur && c.files.length === 0 && i === 0)).join("")}</div>
+  </section>` : "";
+
+  /* ---- mes ecrans ---- */
+  const q = normaliser(etat.recherche.trim());
+  const correspond = e => !q || normaliser(`${e.nom} ${e.module} ${e.sousModules.join(" ")}`).includes(q);
+  const groupes = c.ecrans.map(g => ({ d:g.d, ecrans:g.ecrans.filter(correspond) })).filter(g => g.ecrans.length);
+  const recents = (etat.recents.length ? etat.recents : p.recents).filter(([id, nom]) => { const d = domaine(id); const e = d.ecrans.find(x => x.nom === nom); return e && detient(e.perm); });
+  const puce = (d, e, onglet = 0, sous = "") => `<button type="button" class="puce" data-open="${d.id}|${e.nom}|${onglet}" aria-label="Ouvrir ${e.nom}${sous ? ", " + sous : ""}" title="${d.id} · ${d.nom} › ${e.module}">${svg(d.cle)}${sous || e.nom}${sous ? `<span class="sous">· ${e.nom}</span>` : ""}</button>`;
+  const ecrans = `<section class="section reveal d2" aria-labelledby="h-ecrans">
+    <h3 id="h-ecrans">Mes écrans <span class="aide">· ${c.nbEcrans} écran${c.nbEcrans > 1 ? "s" : ""} ouvrable${c.nbEcrans > 1 ? "s" : ""} pour votre profil · la barre latérale est repliée sur l'accueil</span></h3>
+    <div class="recherche-accueil">${svg("Recherche")}<input id="HomeSearchTextBox" type="search" placeholder="Rechercher un écran…  (Ctrl+K)" aria-label="Rechercher un écran" value="${etat.recherche.replace(/"/g, "&quot;")}">${etat.recherche ? `<button type="button" class="effacer" id="btn-effacer" aria-label="Effacer la recherche">${svg("Croix", "", "0 0 9 9")}</button>` : ""}</div>
+    ${!q && recents.length ? `<div class="ecrans-groupe" style="margin-bottom:12px"><span class="dom">${svg("Horloge")}Derniers ouverts <span class="muted">· ce poste${etat.recents.length ? "" : " · exemple"}</span></span>${recents.map(([id, nom, onglet]) => { const d = domaine(id); const e = d.ecrans.find(x => x.nom === nom); return puce(d, e, onglet, e.sousModules[onglet] !== e.nom && e.sousModules.length > 1 ? e.sousModules[onglet] : ""); }).join("")}</div>` : ""}
+    <div class="ecrans-groupes">${groupes.map(g => `<div class="ecrans-groupe"><span class="dom">${svg(g.d.cle, "ic thin")}<span class="id">${g.d.id}</span>${g.d.nom}${g.d.maturite === "TechnicalPreview" ? `<span class="point preview" role="img" aria-label="Aperçu technique" title="Aperçu technique"></span>` : ""}</span>${g.ecrans.map(e => puce(g.d, e)).join("")}</div>`).join("")}</div>
+    ${groupes.length ? "" : `<div class="etat-vide-inline" aria-live="polite"><div class="titre">Aucun écran ne correspond à « ${etat.recherche.trim()} »</div><div class="indice">Échap efface la recherche. Les 50 modules restent listés dans « Où en est le produit ? ».</div></div>`}
+  </section>`;
+
+  /* ---- mon activite ---- */
+  const activite = c.activite === "serveur" ? `<section class="section carte activite reveal d2" aria-labelledby="h-activite">
+    <h3 id="h-activite">Mon activité <span class="aide">· les 5 dernières traces de votre compte</span>${badge("TechnicalPreview")}</h3>
+    ${charg ? `<div class="etat-vide-inline" aria-busy="true"><div class="indice">Chargement du journal…</div></div>` : `<table aria-label="Mon activité"><thead><tr><th>Quand</th><th>Action</th><th>Élément</th><th>Poste</th></tr></thead><tbody>
+      <tr><td>02/09/2026 08:12</td><td>Connexion réussie <span class="mono">auth.login.success</span></td><td>—</td><td>${u ? "RECEPTION-02" : "DIRECTION-01"}</td></tr>
+      <tr><td>01/09/2026 17:40</td><td>Étape approuvée <span class="mono">approvals.instance.step_approved</span></td><td>OP-2026-118</td><td>DIRECTION-01</td></tr>
+      <tr><td>01/09/2026 16:05</td><td>Rapport exécuté <span class="mono">reporting.report.executed</span></td><td>REV-DAILY · 4 unités</td><td>DIRECTION-01</td></tr>
+      <tr><td>01/09/2026 09:31</td><td>Connexion réussie <span class="mono">auth.login.success</span></td><td>—</td><td>DIRECTION-01</td></tr>
+      <tr><td>31/08/2026 18:02</td><td>Fiche employé consultée <span class="mono">hr.employee.file_read</span></td><td>EMP-0042</td><td>DIRECTION-01</td></tr>
+    </tbody></table>`}
+    <div class="pied">${etat.annotations ? `<span class="mono">GET /audit?userId={moi}&pageSize=5 · audit.read · heure locale</span><span class="badge exemple">exemple</span>` : ""}<button type="button" class="btn fantome" style="margin-left:auto" data-open="15|Journal d'audit|0">Tout mon journal</button></div>
+  </section>` : "";
+
+  /* ---- ou en est le produit ---- */
+  const dispo = MODULES.filter(m => m.statut === "Disponible").length, planifies = MODULES.length - dispo;
+  const cptDom = { Functional:0, TechnicalPreview:0, Planned:0, ProductionReady:0 }; DOMAINES.forEach(d => cptDom[d.maturite]++);
+  const catalogue = etat.catalogueDeplie ? `<div class="catalogue" id="catalogue">
+    <div class="filtres"><span class="lib">Statut</span>${[["tous","Tous"],["Disponible","Disponibles"],["Planifie","Planifiés"]].map(([v, l]) => `<button type="button" class="puce compacte" data-filtre="${v}" aria-pressed="${etat.filtreCatalogue === v}">${l}</button>`).join("")}<span class="muted" style="font-size:11.5px;margin-left:8px">Les puces de priorité et le filtre de domaine de l'accueil actuel se replacent ici, inchangés.</span></div>
+    ${DOMAINES.map(d => {
+      const ms = MODULES.filter(m => m.dom === d.id && (etat.filtreCatalogue === "tous" || m.statut === etat.filtreCatalogue));
+      if (!ms.length && etat.filtreCatalogue !== "tous") return "";
+      return `<div class="cat-groupe"><h4><span class="id">${d.id}</span>${svg(d.cle, "ic thin")}${d.nom}<span class="compteur">${ms.length} module${ms.length > 1 ? "s" : ""}</span>${badge(d.maturite)}<span class="filet"></span></h4>
+        <div class="cartes">${ms.length ? ms.map(m => {
+          const verrou = m.perm && !detient(m.perm); const cliquable = m.tab !== null && !verrou;
+          const info = verrou ? "Accès non autorisé pour votre profil" : (m.statut === "Planifie" ? "Module planifié : aucun écran encore livré" : `Ouvrir ${m.nom}`);
+          return `<button type="button" class="carte-module" ${cliquable ? `data-tab="${m.tab}"` : "disabled"} title="${info}" aria-label="${m.nom}, ${m.statut === "Disponible" ? "Disponible" : "Planifié"}${verrou ? ", accès non autorisé pour votre profil" : ""}">
+            <div class="cm-tete"><span class="cm-icone">${svg(d.cle)}</span><span class="cm-prio">${m.prio}</span>${verrou ? svg("Cadenas", "ic cadenas", "0 0 12 12") : ""}</div>
+            <div class="cm-titre">${m.nom}</div><div class="cm-desc">${m.desc}</div>
+            <span class="badge ${m.statut === "Disponible" ? "dispo" : "planifie"}">${m.statut === "Disponible" ? "Disponible" : "Planifié"}</span></button>`; }).join("")
+          : `<div class="muted" style="font-size:12px">Aucun module rattaché : le domaine apparaît quand même, c'est la promesse du catalogue.</div>`}</div></div>`; }).join("")}
+  </div>` : "";
+  const produit = `<section class="carte produit reveal d2" aria-labelledby="h-produit">
+    <div class="produit-tete">
+      <h3 id="h-produit">Où en est le produit ?</h3>
+      <div class="stat-inline" aria-label="Avancement des 50 modules">
+        <span><span class="pt" style="background:var(--prog-available)"></span><b>${dispo}</b> disponibles</span>
+        <span><span class="pt" style="background:var(--prog-api)"></span><b>0</b> API prête</span>
+        <span><span class="pt" style="background:var(--prog-partial)"></span><b>0</b> partiels</span>
+        <span><span class="pt" style="background:var(--prog-planned)"></span><b>${planifies}</b> planifiés</span>
+      </div>
+      <button type="button" class="btn secondaire" id="btn-catalogue" aria-expanded="${etat.catalogueDeplie}" aria-controls="catalogue">${etat.catalogueDeplie ? "Replier le catalogue" : "Afficher les 50 modules"}</button>
+    </div>
+    <div class="barre" aria-hidden="true"><span style="flex:${dispo};background:var(--prog-available)"></span><span style="flex:${planifies};background:var(--prog-planned)"></span></div>
+    <div class="legende-barre">${Math.round(dispo / MODULES.length * 100)} % du périmètre déjà utilisable · ${dispo} modules disponibles sur ${MODULES.length}, ${planifies} planifiés.
+      Domaines : <span class="stat-inline" style="display:inline-flex"><span><span class="pt pt7" style="background:var(--mat-functional-accent)"></span>${cptDom.Functional} fonctionnels</span><span><span class="pt pt7" style="background:var(--mat-preview-accent)"></span>${cptDom.TechnicalPreview} aperçus techniques</span><span><span class="pt pt7" style="background:var(--mat-planned-accent)"></span>${cptDom.Planned} planifiés</span><span><span class="pt pt7" style="background:var(--mat-ready-accent)"></span>${cptDom.ProductionReady} prêt pour la production</span></span> — les deux échelles ne s'additionnent pas.</div>
+    ${catalogue}
+  </section>`;
+
+  sec.innerHTML = `<div class="portail">
+    <div class="exemple-bandeau" role="note">${svg("Info")}<span><b>Maquette :</b> toutes les valeurs sont fictives. Chaque tuile cite la route et le champ serveur dont viendrait son chiffre, et la permission qui la fait apparaître. Une tuile absente = un droit absent ou un service inexistant, jamais un « bientôt ».</span></div>
+    ${bandeau}${traiter}${journee}${ecrans}${activite}${produit}
+  </div>`;
+
+  /* ---- cablage ---- */
+  sec.querySelectorAll("[data-panneau]").forEach(b => b.addEventListener("click", () => { etat.panneau = etat.panneau === b.dataset.panneau ? null : b.dataset.panneau; rendreEcran(); }));
+  sec.querySelectorAll("[data-pref-theme]").forEach(b => b.addEventListener("click", () => { etat.theme = b.dataset.prefTheme; rendre(); setStatus("Apparence enregistrée pour ce poste. Les écrans déjà ouverts prendront le nouveau thème au prochain démarrage."); }));
+  sec.querySelectorAll("[data-pref-densite]").forEach(b => b.addEventListener("click", () => { etat.densite = b.dataset.prefDensite; rendre(); setStatus(`Densité « ${etat.densite === "compact" ? "Compact" : "Confortable"} » appliquée aux grilles de ce poste.`); }));
+  const sec_ = sec.querySelector("#btn-securite"); if (sec_) sec_.addEventListener("click", () => setStatus("Ouvre la boîte « Changer mon mot de passe » existante (ChangePasswordButton) — les autres sessions du compte sont révoquées à la validation."));
+  const rf = sec.querySelector("#RefreshHomeButton"); if (rf) rf.addEventListener("click", actualiser);
+  const bc = sec.querySelector("#btn-catalogue"); if (bc) bc.addEventListener("click", () => { etat.catalogueDeplie = !etat.catalogueDeplie; rendreEcran(); if (etat.catalogueDeplie) document.getElementById("catalogue")?.scrollIntoView({ behavior:"smooth", block:"start" }); });
+  sec.querySelectorAll("[data-filtre]").forEach(b => b.addEventListener("click", () => { etat.filtreCatalogue = b.dataset.filtre; rendreEcran(); }));
+  sec.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => ouvrirTab(+b.dataset.tab)));
+  const inp = sec.querySelector("#HomeSearchTextBox");
+  if (inp) {
+    inp.addEventListener("input", () => { const pos = inp.selectionStart; etat.recherche = inp.value; rendreEcran(); const i2 = document.getElementById("HomeSearchTextBox"); i2.focus(); i2.setSelectionRange(pos, pos); });
+    inp.addEventListener("keydown", ev => { if (ev.key === "Escape" && etat.recherche) { ev.preventDefault(); etat.recherche = ""; rendreEcran(); document.getElementById("HomeSearchTextBox").focus(); } });
+  }
+  const eff = sec.querySelector("#btn-effacer"); if (eff) eff.addEventListener("click", () => { etat.recherche = ""; rendreEcran(); document.getElementById("HomeSearchTextBox").focus(); });
+}
+
+/* ======================= Actualisation (F5 → RefreshHomeButton) : un RunAsync par tuile, en sequence ======================= */
+let minuteur = null;
+function actualiser() {
+  if (etat.donnees === "chargement") return;
+  const retour = etat.donnees;
+  etat.donnees = "chargement"; rendre(); setStatus("Actualisation de Mon Espace…");
+  clearTimeout(minuteur);
+  minuteur = setTimeout(() => { etat.donnees = retour === "erreur" ? "charge" : retour; rendre(); setStatus("Mon Espace actualisé. Compteurs et montants renvoyés par le serveur."); }, 1100);
+}
+
+/* ======================= Rendu global ======================= */
+function rendre() {
+  const prof = PROFILS[etat.profil]; const u = uniteDuPoste();
+  document.documentElement.dataset.theme = etat.theme;
+  document.documentElement.dataset.densite = etat.densite;
+  const app = document.getElementById("app");
+  app.classList.toggle("racine", etat.racine && etat.sidebar === "masquee");
+  document.getElementById("entete-session").innerHTML = `<span class="pt"></span><b>${prof.utilisateur}</b> · ${prof.login}${u ? " · " + u.code : ""}`;
+  document.getElementById("lbl-theme").textContent = etat.theme === "clair" ? "Sombre" : "Clair";
+  document.getElementById("progress").classList.toggle("actif", etat.donnees === "chargement");
+  document.querySelectorAll(".maquette-bar [data-profil]").forEach(b => b.setAttribute("aria-pressed", b.dataset.profil === etat.profil));
+  document.querySelectorAll(".maquette-bar [data-theme]").forEach(b => b.setAttribute("aria-pressed", b.dataset.theme === etat.theme));
+  document.querySelectorAll(".maquette-bar [data-unite]").forEach(b => b.setAttribute("aria-pressed", b.dataset.unite === etat.unite));
+  document.querySelectorAll(".maquette-bar [data-donnees]").forEach(b => b.setAttribute("aria-pressed", b.dataset.donnees === etat.donnees));
+  document.querySelectorAll(".maquette-bar [data-sidebar]").forEach(b => b.setAttribute("aria-pressed", b.dataset.sidebar === etat.sidebar));
+  document.querySelectorAll(".maquette-bar [data-annot]").forEach(b => b.setAttribute("aria-pressed", (b.dataset.annot === "oui") === etat.annotations));
+  rendreSidebar(); rendreAriane(); rendreEcran();
+  document.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => { const [id, nom, onglet] = b.dataset.open.split("|"); ouvrir(id, nom, +onglet || 0); }));
+}
+
+function appliquerProfil(p) {
+  etat.profil = p; etat.deroules.clear(); etat.recents = []; etat.panneau = null; etat.recherche = ""; etat.unite = "defaut";
+  allerRacine();
+  const prof = PROFILS[p];
+  setStatus(etat.donnees === "erreur"
+    ? "Erreur : GET /treasury/payment-orders — 503 Service indisponible (exemple). Les autres tuiles sont chargées."
+    : `Prêt. Connecté en tant que ${prof.utilisateur} (${prof.roles.join(", ")}).`, etat.donnees === "erreur");
+}
+
+/* ======================= Commandes de la maquette ======================= */
+const segProfil = document.getElementById("seg-profil");
+segProfil.innerHTML = ORDRE_PROFILS.map(k => `<button type="button" data-profil="${k}" aria-pressed="${k === etat.profil}">${PROFILS[k].nom}</button>`).join("");
+segProfil.querySelectorAll("[data-profil]").forEach(b => b.addEventListener("click", () => appliquerProfil(b.dataset.profil)));
+document.querySelectorAll(".maquette-bar [data-theme]").forEach(b => b.addEventListener("click", () => { etat.theme = b.dataset.theme; rendre(); }));
+document.querySelectorAll(".maquette-bar [data-unite]").forEach(b => b.addEventListener("click", () => { etat.unite = b.dataset.unite; rendre(); }));
+document.querySelectorAll(".maquette-bar [data-donnees]").forEach(b => b.addEventListener("click", () => {
+  etat.donnees = b.dataset.donnees; rendre();
+  if (etat.donnees === "erreur") setStatus("Erreur : GET /treasury/payment-orders — 503 Service indisponible (exemple). Les autres tuiles sont chargées.", true);
+  else if (etat.donnees === "chargement") setStatus("Chargement de Mon Espace… (un appel par tuile, en séquence)");
+  else setStatus(`Prêt. Connecté en tant que ${PROFILS[etat.profil].utilisateur}.`);
+}));
+document.querySelectorAll(".maquette-bar [data-sidebar]").forEach(b => b.addEventListener("click", () => { etat.sidebar = b.dataset.sidebar; rendre(); }));
+document.querySelectorAll(".maquette-bar [data-annot]").forEach(b => b.addEventListener("click", () => { etat.annotations = b.dataset.annot === "oui"; rendre(); }));
+document.getElementById("btn-theme").addEventListener("click", () => { etat.theme = etat.theme === "clair" ? "sombre" : "clair"; rendre(); });
+document.getElementById("btn-mdp").addEventListener("click", () => setStatus("Ouvre la boîte « Changer mon mot de passe » existante (ChangePasswordButton)."));
+document.addEventListener("keydown", ev => {
+  if (ev.altKey && ev.key === "Home") { ev.preventDefault(); allerRacine(); }
+  if (ev.ctrlKey && ev.key.toLowerCase() === "k") { ev.preventDefault(); (etat.racine ? document.getElementById("HomeSearchTextBox") : document.querySelector("#sidebar input"))?.focus(); }
+  if (ev.key === "F5" && etat.racine) { ev.preventDefault(); actualiser(); }
+});
+
+appliquerProfil("reception");
+</script>
+</body>
+</html>

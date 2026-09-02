@@ -1,0 +1,958 @@
+<!doctype html>
+<html lang="fr" data-theme="clair">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette — Accueil « Catalogue vivant » (exploration 4-hybride)</title>
+<!--
+  Exploration 4-hybride — accueil « Catalogue vivant » (docs/design/accueil/explorations/4-hybride/concept.md).
+
+  Maquette autonome pour VALIDATION HUMAINE : aucune dependance reseau, aucune police externe,
+  aucune donnee reelle. Elle reprend cle par cle la palette de RaqmiTheme.xaml / ThemePalette.Sombre,
+  l'echelle typographique et les composants de la charte (docs/charte-ui-desktop.md), ainsi que
+  le shell de docs/design/maquette-shell.html (en-tete, barre laterale, fil d'Ariane).
+
+  Parti pris : l'accueil reste le catalogue des 50 modules groupes par domaine (le repere des
+  utilisateurs actuels), mais les cartes deviennent VIVANTES : un compteur lu sur le serveur, un
+  badge d'urgence uniquement quand le serveur qualifie lui-meme la situation, une zone « A traiter »
+  en tete qui n'est qu'une projection de ces memes signaux, et une recherche universelle de
+  navigation (modules, sous-modules, ecrans).
+
+  TOUTES LES VALEURS CHIFFREES SONT DES EXEMPLES FICTIFS, marquees « ex. » a l'ecran.
+  Les permissions des profils sont celles de SecuritySeeder (branche reorg/phase-1) ; le profil
+  Reception est un role personnalise a creer (docs/reorganisation/README.md, decision 8).
+-->
+<style>
+  /* ============ Palette : les brushes de RaqmiTheme.xaml / ThemePalette.Sombre ============ */
+  :root, [data-theme="clair"] {
+    --structure:#071525; --structure-elevated:#0C2135; --header-fg:#FFFFFF; --header-muted:#9FC3DC;
+    --app-bg:#F4F7FA; --surface:#FFFFFF; --surface-subtle:#EEF4F8; --surface-hover:#E4EDF4;
+    --panel-border:#DCE6EF; --field-border:#7A8FA3; --border-strong:#B9CCDD;
+    --text:#0F2337; --text-2:#4A6A87; --text-muted:#5B6C7E; --text-label:#475569; --placeholder:#5C7188;
+    --accent:#0AA3AD; --accent-hover:#0DB6C1; --accent-pressed:#088790;
+    --accent-action:#07767D; --accent-action-hover:#08838B; --accent-action-fg:#FFFFFF;
+    --accent-soft:#E1F4F5; --accent-selection:rgba(10,163,173,.18);
+    --primary:#073B78; --secondary:#145CAB; --danger:#C0392B; --danger-soft:#FBECEA; --danger-border:#EFC9C4;
+    --focus:#073B78; --focus-on-filled:#FFFFFF; --focus-on-dark:#FFFFFF;
+    --disabled-bg:#E5EBF1; --disabled-fg:#576C82; --disabled-border:#DDE5EC;
+    --module-active:rgba(10,163,173,.10);
+    --row-hover:#F0F6FA; --row-alt:#FAFCFE; --grid-header-fg:#5B7591;
+    --shadow:rgba(7,21,37,.07); --shadow-hover:rgba(7,21,37,.20);
+    --mat-planned-bg:#E8EEF4; --mat-planned-fg:#46617B; --mat-planned-accent:#7798B5;
+    --mat-preview-bg:#FBEBC8; --mat-preview-fg:#8A5A08; --mat-preview-accent:#BF8B16;
+    --mat-functional-bg:#DDF2F4; --mat-functional-fg:#096B73; --mat-functional-accent:#0AA3AD;
+    --mat-ready-bg:#DCF3E5; --mat-ready-fg:#14713C; --mat-ready-accent:#1F9D57;
+    --status-available-bg:#DCF3E5; --status-available-fg:#14713C;
+    --status-api-bg:#DDF2F4; --status-api-fg:#096B73;
+    --status-partial-bg:#FBEBC8; --status-partial-fg:#8A5A08;
+    --status-planned-bg:#E8EEF4; --status-planned-fg:#46617B;
+    --progress-available:#1F9D57; --progress-api:#0AA3AD; --progress-partial:#BF8B16; --progress-planned:#7798B5;
+    --status-submitted-bg:#FCEFC7; --status-submitted-fg:#92600A;
+    --status-validated-bg:#DBF2E3; --status-validated-fg:#187A41;
+    --status-rejected-bg:#FBE3E1; --status-rejected-fg:#B3261E;
+  }
+  [data-theme="sombre"] {
+    --structure:#050F1C; --structure-elevated:#0C1B2B; --header-fg:#EAF2F9; --header-muted:#8FB0CA;
+    --app-bg:#0E1826; --surface:#152233; --surface-subtle:#1B2B3E; --surface-hover:#22344A;
+    --panel-border:#26374D; --field-border:#62748D; --border-strong:#4B6E93;
+    --text:#E6EEF7; --text-2:#AFC3D6; --text-muted:#98AFC6; --text-label:#C2D2E1; --placeholder:#8DA4BC;
+    --accent:#22C4CE; --accent-hover:#3ED5DE; --accent-pressed:#16A8B1;
+    --accent-action:#2FCBD6; --accent-action-hover:#4CDAE3; --accent-action-fg:#062227;
+    --accent-soft:#0E3B40; --accent-selection:rgba(34,196,206,.24);
+    --primary:#5B9BE8; --secondary:#6FAEF0; --danger:#F4776A; --danger-soft:#3A1A17; --danger-border:#5E2D28;
+    --focus:#7FB6F5; --focus-on-filled:#08222A; --focus-on-dark:#EAF2F9;
+    --disabled-bg:#1C2938; --disabled-fg:#8195AB; --disabled-border:#26374D;
+    --module-active:rgba(34,196,206,.15);
+    --row-hover:#1B2B3E; --row-alt:#182637; --grid-header-fg:#9CB3C9;
+    --shadow:rgba(0,0,0,.35); --shadow-hover:rgba(0,0,0,.55);
+    --mat-planned-bg:#212F3F; --mat-planned-fg:#A8BCD0; --mat-planned-accent:#506D91;
+    --mat-preview-bg:#3A2D12; --mat-preview-fg:#EFC15C; --mat-preview-accent:#E5B23A;
+    --mat-functional-bg:#0E3439; --mat-functional-fg:#4FD3DC; --mat-functional-accent:#22C4CE;
+    --mat-ready-bg:#11321F; --mat-ready-fg:#68D397; --mat-ready-accent:#3FBF74;
+    --status-available-bg:#11321F; --status-available-fg:#68D397;
+    --status-api-bg:#0E3439; --status-api-fg:#4FD3DC;
+    --status-partial-bg:#3A2D12; --status-partial-fg:#EFC15C;
+    --status-planned-bg:#212F3F; --status-planned-fg:#A8BCD0;
+    --progress-available:#3FBF74; --progress-api:#22C4CE; --progress-partial:#E5B23A; --progress-planned:#506D91;
+    --status-submitted-bg:#3B2E11; --status-submitted-fg:#F5C761;
+    --status-validated-bg:#11321F; --status-validated-fg:#68D397;
+    --status-rejected-bg:#3A1A19; --status-rejected-fg:#F58C82;
+  }
+
+  /* ============ Base ============ */
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; }
+  body {
+    font-family: Manrope, "Noto Kufi Arabic", "Segoe UI", sans-serif;
+    font-size:13px; color:var(--text); background:var(--app-bg);
+    display:flex; flex-direction:column; min-height:100vh;
+  }
+  button { font:inherit; color:inherit; cursor:pointer; border:0; background:none; }
+  button:disabled { cursor:default; }
+  button:focus-visible, [tabindex]:focus-visible, input:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+  svg.ic { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+  svg.ic.thin { stroke-width:1.4; }
+  sup.ex { font-size:9px; font-weight:600; color:var(--mat-preview-fg); background:var(--mat-preview-bg); border-radius:6px; padding:0 4px; margin-left:4px; vertical-align:top; line-height:12px; cursor:help; }
+
+  /* ============ Barre de la maquette (hors produit) ============ */
+  .maquette-bar {
+    background:var(--structure-elevated); color:var(--header-fg); font-size:12px;
+    padding:8px 24px; display:flex; flex-wrap:wrap; gap:14px 18px; align-items:center;
+    border-bottom:1px solid rgba(255,255,255,.08);
+  }
+  .maquette-bar strong { color:var(--header-muted); font-weight:600; letter-spacing:.02em; text-transform:uppercase; font-size:10.5px; }
+  .maquette-bar .grp { display:flex; align-items:center; gap:6px; }
+  .maquette-bar .seg { display:inline-flex; border:1px solid rgba(255,255,255,.22); border-radius:15px; overflow:hidden; }
+  .maquette-bar .seg button { padding:5px 11px; color:var(--header-fg); font-weight:600; font-size:12px; }
+  .maquette-bar .seg button[aria-pressed="true"] { background:var(--accent); color:#062227; }
+  .maquette-bar .note { margin-left:auto; color:var(--header-muted); }
+
+  /* ============ En-tete ============ */
+  header.entete { height:76px; background:var(--structure); color:var(--header-fg); display:flex; align-items:center; padding:0 24px; gap:12px; }
+  .marque { width:42px; height:42px; border-radius:11px; background:rgba(255,255,255,.10); display:grid; place-items:center; font-weight:600; font-size:20px; color:var(--header-fg); }
+  .entete h1 { font-size:21px; font-weight:600; margin:0; line-height:1.15; }
+  .entete .signature { font-size:12px; color:var(--header-muted); }
+  .entete .session { margin-left:auto; display:flex; align-items:center; gap:14px; font-size:12px; color:var(--header-muted); }
+  .entete .session b { color:var(--header-fg); font-weight:600; }
+  .entete .ghost { border:1px solid rgba(255,255,255,.25); border-radius:8px; padding:6px 10px; color:var(--header-fg); font-size:12px; display:inline-flex; gap:8px; align-items:center; }
+  .entete .ghost:focus-visible { outline-color:var(--focus-on-dark); }
+
+  /* ============ Corps : barre laterale + contenu + bandeau de session ============ */
+  .app { flex:1; display:grid; grid-template-columns:248px 1fr; grid-template-rows:1fr auto; gap:0 20px; padding:24px; min-height:0; }
+  .app.racine { grid-template-columns:1fr; }
+  .app.racine aside { display:none; }
+  .carte { background:var(--surface); border:1px solid var(--panel-border); border-radius:10px; }
+  aside { padding:18px 14px; display:flex; flex-direction:column; min-height:0; }
+  .etiquette { font-size:11px; font-weight:600; color:var(--text-muted); margin:0 0 10px 14px; }
+  .nav-btn { width:100%; height:40px; display:flex; align-items:center; gap:10px; padding:0 10px 0 14px; border-radius:6px; color:var(--text-2); font-size:13px; text-align:left; position:relative; }
+  .nav-btn:hover { background:var(--surface-subtle); }
+  .nav-btn[aria-current="page"] { background:var(--module-active); color:var(--text); font-weight:600; }
+  .nav-btn[aria-current="page"]::before { content:""; position:absolute; left:0; top:9px; bottom:9px; width:3px; border-radius:1.5px; background:var(--accent); }
+  .recherche { position:relative; margin-top:12px; }
+  .recherche input { width:100%; min-height:34px; padding:0 32px; border:1px solid var(--field-border); border-radius:8px; background:var(--surface); color:var(--text); font:inherit; }
+  .recherche input::placeholder { color:var(--placeholder); }
+  .recherche svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--placeholder); }
+  .domaines { margin-top:14px; overflow:auto; flex:1; padding-right:4px; }
+  .domaine { margin-bottom:2px; }
+  .dom-tete { width:100%; height:36px; display:grid; grid-template-columns:auto 1fr auto auto auto; align-items:center; padding:0 10px; border-radius:6px; color:var(--text); font-size:12.5px; font-weight:600; text-align:left; }
+  .dom-tete:hover { background:var(--surface-subtle); }
+  .dom-tete svg.ic { color:var(--text-muted); margin-right:10px; }
+  .dom-tete .nom { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dom-tete .compteur { background:var(--surface-subtle); color:var(--text-2); font-size:10.5px; font-weight:400; border-radius:8px; padding:1px 7px; margin-left:8px; }
+  .dom-tete .chevron { width:9px; height:7px; margin-left:8px; color:var(--text-muted); transition:transform .12s; transform:rotate(-90deg); }
+  .dom-tete[aria-expanded="true"] .chevron { transform:rotate(0); }
+  .point { width:7px; height:7px; border-radius:50%; margin-left:8px; display:inline-block; }
+  .point.preview { background:var(--mat-preview-accent); }
+  .ecrans { margin:2px 0 8px; }
+  .ecrans .nav-btn { height:34px; margin-left:8px; width:calc(100% - 8px); font-size:12.5px; margin-bottom:2px; }
+  .epingle { border-top:1px solid var(--panel-border); margin-top:10px; padding-top:8px; }
+  .epingle:empty { display:none; }
+  .session-bar { grid-column:1 / -1; margin-top:14px; border-top:1px solid var(--panel-border); padding:10px 8px 0; display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-2); }
+  .session-bar .etiquette { margin:0 4px 0 0; }
+  .session-bar .dot { width:7px; height:7px; border-radius:50%; background:var(--accent); flex:none; }
+  .session-bar.flash { animation: flash .9s ease-out; }
+  @keyframes flash { 0% { background:var(--accent-soft);} 100% { background:transparent; } }
+  .busy { height:4px; background:var(--surface-hover); overflow:hidden; border-radius:2px; margin:0 8px; grid-column:1 / -1; visibility:hidden; }
+  .busy.actif { visibility:visible; }
+  .busy::after { content:""; display:block; width:30%; height:100%; background:var(--accent-action); animation: ind 1.1s infinite linear; }
+  @keyframes ind { 0% { transform:translateX(-100%);} 100% { transform:translateX(340%);} }
+
+  /* ============ Fil d'Ariane ============ */
+  .ariane { height:32px; display:flex; align-items:center; gap:6px; font-size:12.5px; margin-bottom:12px; }
+  .ariane[hidden] { display:none; }
+  .ariane svg.ic { color:var(--text-2); }
+  .ariane button { color:var(--text-2); font-weight:600; padding:3px 6px; border-radius:5px; }
+  .ariane button:hover { background:var(--surface-subtle); color:var(--text); }
+  .ariane .courant { color:var(--text); font-weight:600; padding:3px 6px; }
+  .ariane .sep { width:9px; height:7px; color:var(--text-muted); transform:rotate(-90deg); }
+  .ariane .badge { margin-left:auto; }
+  .ariane .note-ariane { margin-left:auto; font-size:11px; color:var(--text-muted); }
+
+  /* ============ Badges ============ */
+  .badge { display:inline-flex; align-items:center; border-radius:9px; padding:2.5px 9px; font-size:10.5px; font-weight:600; white-space:nowrap; }
+  .badge.planned { background:var(--mat-planned-bg); color:var(--mat-planned-fg); }
+  .badge.preview { background:var(--mat-preview-bg); color:var(--mat-preview-fg); }
+  .badge.functional { background:var(--mat-functional-bg); color:var(--mat-functional-fg); }
+  .badge.ready { background:var(--mat-ready-bg); color:var(--mat-ready-fg); }
+  .badge.dispo { background:var(--status-available-bg); color:var(--status-available-fg); }
+  .badge.api { background:var(--status-api-bg); color:var(--status-api-fg); }
+  .badge.partiel { background:var(--status-partial-bg); color:var(--status-partial-fg); }
+  .badge.planifie { background:var(--status-planned-bg); color:var(--status-planned-fg); }
+  .badge.soumise { background:var(--status-submitted-bg); color:var(--status-submitted-fg); }
+  .badge.validee { background:var(--status-validated-bg); color:var(--status-validated-fg); }
+
+  /* ============ Boutons de la charte ============ */
+  .btn { min-height:36px; padding:7px 15px; border-radius:6px; font-weight:600; font-size:13px; display:inline-flex; align-items:center; gap:8px; }
+  .btn.secondaire { background:var(--surface); border:1px solid var(--panel-border); color:var(--primary); }
+  .btn.secondaire:hover { background:var(--surface-subtle); border-color:var(--border-strong); }
+  .btn.primaire { background:var(--accent-action); color:var(--accent-action-fg); padding:7px 18px; }
+  .btn.primaire:focus-visible { outline-color:var(--focus-on-filled); outline-offset:-3px; }
+  .btn.fantome { min-height:34px; padding:6px 12px; color:var(--secondary); }
+  .btn.fantome:hover { background:var(--surface-subtle); }
+  .btn.petit { min-height:30px; padding:4px 11px; font-size:12px; }
+
+  /* ============ Accueil « Catalogue vivant » ============ */
+  main { min-width:0; display:flex; flex-direction:column; }
+  .accueil { display:flex; flex-direction:column; gap:16px; }
+  .section-titre { font-size:11px; font-weight:600; color:var(--text-muted); margin:0 0 12px; }
+
+  /* Bandeau : salutation + date + liens compte a gauche, recherche universelle a droite */
+  .bandeau { padding:18px 22px 14px; display:grid; grid-template-columns:1fr auto; gap:12px 24px; align-items:start; }
+  .bandeau h2 { font-size:26px; font-weight:600; margin:0; line-height:1.15; }
+  .bandeau .date { font-size:13px; color:var(--text-2); margin-top:6px; display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
+  .bandeau .date .sep { color:var(--text-muted); }
+  .bandeau .liens { display:flex; gap:2px; margin:6px 0 0 -12px; flex-wrap:wrap; }
+  .recherche-u { position:relative; width:420px; max-width:100%; justify-self:end; }
+  .recherche-u input { width:100%; min-height:36px; padding:0 34px; border:1px solid var(--field-border); border-radius:6px; background:var(--surface); color:var(--text); font:inherit; }
+  .recherche-u input::placeholder { color:var(--placeholder); }
+  .recherche-u input:hover { border-color:var(--border-strong); }
+  .recherche-u svg.loupe { position:absolute; left:11px; top:18px; transform:translateY(-50%); color:var(--placeholder); }
+  .recherche-u .effacer { position:absolute; right:7px; top:7px; width:22px; height:22px; border-radius:11px; display:grid; place-items:center; color:var(--text-2); }
+  .recherche-u .effacer:hover { background:var(--surface-subtle); }
+  .recherche-u .effacer svg { width:9px; height:9px; stroke-width:1.6; }
+  .recherche-u .aide { font-size:11.5px; color:var(--text-muted); margin-top:6px; text-align:right; }
+
+  /* A traiter */
+  .a-traiter { padding:14px 18px 12px; position:relative; }
+  .a-traiter .tete { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .a-traiter .tete .section-titre { margin:0; }
+  .a-traiter .maj { margin-left:auto; font-size:11.5px; color:var(--text-muted); }
+  .items { display:flex; flex-wrap:wrap; gap:8px; min-height:40px; }
+  .item { display:inline-flex; align-items:center; gap:9px; min-height:40px; padding:6px 12px 6px 12px; border:1px solid var(--panel-border); border-radius:8px; background:var(--surface); color:var(--text); font-size:12.5px; text-align:left; position:relative; overflow:hidden; }
+  .item:hover { border-color:var(--accent); background:var(--surface); }
+  .item:focus-visible { border-color:var(--focus); }
+  .item svg.ic { color:var(--accent-pressed); }
+  .item b { font-weight:600; }
+  .item .mod { color:var(--text-muted); }
+  .item.urgent { padding-left:14px; }
+  .item.urgent::before { content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--status-submitted-fg); }
+  .item.urgent svg.ic { color:var(--status-submitted-fg); }
+  .item .badge { margin-left:2px; }
+  .squelette { display:inline-block; height:12px; width:140px; border-radius:6px; background:linear-gradient(90deg, var(--surface-subtle) 25%, var(--surface-hover) 50%, var(--surface-subtle) 75%); background-size:200% 100%; animation: shimmer 1.2s infinite linear; }
+  @keyframes shimmer { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
+  .item.squelette-item { pointer-events:none; }
+  .vide-inline { display:flex; align-items:center; gap:14px; padding:6px 4px; pointer-events:none; }
+  .vide-inline svg { width:28px; height:28px; stroke-width:1.3; color:var(--text-muted); }
+  .vide-inline .titre { font-size:14px; font-weight:600; color:var(--text-2); }
+  .vide-inline .indice { font-size:12px; color:var(--text-muted); }
+  .avertissement { display:flex; align-items:center; gap:10px; margin-top:10px; padding:9px 14px; border-radius:8px; background:var(--status-submitted-bg); border:1px solid var(--status-submitted-fg); color:var(--status-submitted-fg); font-size:13px; font-weight:600; }
+  .avertissement button { color:inherit; text-decoration:underline; font-weight:600; margin-left:auto; }
+
+  /* Rail des domaines */
+  .rail { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .rail .lib { font-size:11px; font-weight:600; color:var(--text-muted); margin-right:6px; }
+  .rail button { height:30px; padding:0 9px 0 8px; border-radius:15px; border:1px solid var(--panel-border); background:var(--surface); display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600; color:var(--text-2); }
+  .rail button:hover { background:var(--surface-subtle); border-color:var(--border-strong); }
+  .rail button[aria-pressed="true"] { background:var(--accent-action); border-color:var(--accent-action); color:var(--accent-action-fg); }
+  .rail button[aria-pressed="true"]:focus-visible { outline-color:var(--focus-on-filled); outline-offset:-3px; }
+  .rail button .id { font-variant-numeric:tabular-nums; }
+  .rail button .nb { font-weight:400; opacity:.85; }
+  .rail button .nom { display:none; }
+  .rail button[aria-pressed="true"] .nom { display:inline; font-weight:600; }
+
+  /* Filtres + avancement compact */
+  .ligne-filtres { display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; }
+  .groupe-puces { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .groupe-puces .lib { font-size:11px; font-weight:600; color:var(--text-muted); margin-right:2px; }
+  .puce-c { padding:4px 11px; border-radius:15px; border:1px solid var(--panel-border); background:var(--surface); font-size:11.5px; font-weight:600; color:var(--text-2); }
+  .puce-c:hover { background:var(--surface-subtle); border-color:var(--border-strong); }
+  .puce-c[aria-pressed="true"] { background:var(--accent-action); border-color:var(--accent-action); color:var(--accent-action-fg); }
+  .puce-c[aria-pressed="true"]:focus-visible { outline-color:var(--focus-on-filled); outline-offset:-3px; }
+  .avancement-c { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; padding:9px 14px; background:var(--surface-subtle); border:1px solid var(--panel-border); border-radius:8px; font-size:12.5px; color:var(--text-2); }
+  .avancement-c .titre { font-size:11px; font-weight:600; color:var(--text-muted); }
+  .avancement-c b { color:var(--text); font-weight:600; }
+  .mini-barre { display:flex; gap:2px; width:150px; height:8px; }
+  .mini-barre span { border-radius:4px; }
+  .avancement-c .pt { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:5px; vertical-align:middle; }
+  .avancement-c .detail { color:var(--secondary); font-weight:600; display:inline-flex; align-items:center; gap:4px; }
+  .avancement-c .detail svg { width:9px; height:7px; transform:rotate(-90deg); transition:transform .12s; }
+  .avancement-c .detail[aria-expanded="true"] svg { transform:rotate(0); }
+  .avancement-detail { padding:18px 22px; }
+  .avancement-detail .headline { font-size:12px; font-weight:600; color:var(--text-muted); }
+  .avancement { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin:14px 0 8px; }
+  .stat .lib { display:flex; align-items:center; gap:7px; font-size:11.5px; font-weight:600; color:var(--text-2); }
+  .stat .val { font-size:27px; font-weight:600; margin:2px 0 0 15px; }
+  .stat .pt { width:8px; height:8px; border-radius:50%; }
+  .barre { display:flex; gap:3px; height:10px; margin-top:12px; }
+  .barre span { border-radius:5px; }
+  .legende-barre { font-size:12.5px; color:var(--text-2); margin-top:12px; }
+  .legende-barre .pt { width:7px; height:7px; border-radius:50%; display:inline-block; margin:0 5px 0 2px; }
+
+  /* Resultats de recherche (sous-modules et ecrans) */
+  .resultats { padding:12px 16px 8px; }
+  .res { display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; min-height:34px; border-radius:6px; padding:0 8px; font-size:12.5px; width:100%; text-align:left; color:var(--text); }
+  .res:hover { background:var(--surface-subtle); }
+  .res:disabled { color:var(--text-2); }
+  .res svg.ic { color:var(--text-2); }
+  .res .chemin { color:var(--text-muted); }
+  .res .chemin b { color:var(--text); font-weight:600; }
+  .res .cadenas { width:12px; height:12px; stroke-width:1.3; color:var(--text-muted); }
+
+  /* Catalogue vivant */
+  .groupe-tete { display:flex; align-items:center; gap:10px; margin:6px 0 12px; }
+  .groupe-tete svg.ic { color:var(--text-muted); }
+  .groupe-tete .nom { font-size:13.5px; font-weight:600; }
+  .groupe-tete .nom .id { color:var(--text-muted); font-weight:600; margin-right:6px; }
+  .groupe-tete .compteur { background:var(--surface-subtle); color:var(--text-2); font-size:11px; border-radius:9px; padding:2px 9px; }
+  .groupe-tete .filet { flex:1; border-top:1px solid var(--panel-border); margin:0 4px 0 4px; }
+  .cartes { display:flex; flex-wrap:wrap; }
+  .cm { width:224px; height:176px; margin:0 14px 14px 0; padding:14px 16px; border-radius:10px; background:var(--surface); border:1px solid var(--panel-border);
+        box-shadow:0 2px 10px var(--shadow); display:grid; grid-template-rows:auto auto 1fr auto auto; gap:4px; text-align:left; color:var(--text);
+        transition: transform .13s cubic-bezier(.33,1,.68,1), box-shadow .13s, border-color .13s; }
+  .cm:not(:disabled):hover { transform:translateY(-2px); border-color:var(--accent); box-shadow:0 2px 10px var(--shadow-hover); }
+  .cm:not(:disabled):active { background:var(--surface-subtle); }
+  .cm:focus-visible { outline:0; border-color:var(--focus); box-shadow:0 0 0 1px var(--focus), 0 2px 10px var(--shadow); }
+  .cm:disabled { background:var(--surface-subtle); box-shadow:none; }
+  .cm .tete { display:flex; align-items:flex-start; }
+  .cm .chip { width:34px; height:34px; border-radius:9px; background:var(--surface-hover); display:grid; place-items:center; color:var(--text-2); }
+  .cm.dispo .chip { background:var(--accent-soft); color:var(--accent-pressed); }
+  .cm.verrou .chip { background:var(--disabled-bg); color:var(--text-muted); }
+  .cm .droite { margin-left:auto; margin-top:3px; display:flex; align-items:center; gap:6px; font-size:10.5px; font-weight:600; color:var(--text-muted); }
+  .cm .droite svg.cadenas { width:12px; height:12px; stroke-width:1.3; }
+  .cm .titre { font-size:13.5px; font-weight:600; line-height:1.25; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cm .desc { font-size:11.5px; color:var(--text-2); line-height:1.3; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .cm .signal { font-size:11.5px; font-weight:600; color:var(--text-2); display:flex; align-items:center; gap:6px; min-height:18px; overflow:hidden; white-space:nowrap; }
+  .cm .signal .txt { overflow:hidden; text-overflow:ellipsis; }
+  .cm .signal .pt { width:7px; height:7px; border-radius:50%; background:var(--accent); flex:none; }
+  .cm .signal.urgent .pt { background:var(--status-submitted-fg); }
+  .cm .signal.urgent { color:var(--status-submitted-fg); }
+  .cm .signal.vide, .cm .signal.erreur, .cm .signal.sans-unite { font-weight:400; color:var(--text-muted); }
+  .cm .signal.vide .pt { background:var(--border-strong); }
+  .cm .signal.erreur .pt, .cm .signal.sans-unite .pt { display:none; }
+  .cm .signal.erreur svg.ic { width:12px; height:12px; }
+  .cm .bas { display:flex; align-items:center; gap:8px; }
+  .cm .bas .mod { margin-left:auto; font-size:11px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:105px; }
+  .catalogue-vide { font-size:13px; color:var(--text-muted); margin:2px 0 10px; }
+  .catalogue-vide b { display:block; font-size:14px; font-weight:600; color:var(--text-2); margin-bottom:4px; }
+
+  /* Ecran de remplacement (hors perimetre) */
+  .ecran { padding:20px; flex:1; display:flex; flex-direction:column; gap:16px; }
+  .ecran-tete h2 { font-size:21px; font-weight:600; margin:0; }
+  .ecran-tete .sous { font-size:12.5px; color:var(--text-2); margin-top:4px; }
+  .grille { border:1px solid var(--panel-border); border-radius:8px; min-height:230px; position:relative; }
+  .vide { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; pointer-events:none; }
+  .vide svg { width:32px; height:32px; stroke-width:1.3; color:var(--text-muted); margin-bottom:6px; }
+  .vide .titre { font-size:14px; font-weight:600; color:var(--text-2); }
+  .vide .indice { font-size:12px; color:var(--text-muted); text-align:center; }
+
+  @media (max-width: 1100px) { .bandeau { grid-template-columns:1fr; } .recherche-u { justify-self:start; } .avancement { grid-template-columns:repeat(2,1fr); } }
+</style>
+</head>
+<body>
+
+<div class="maquette-bar" role="region" aria-label="Commandes de la maquette">
+  <strong>Maquette</strong>
+  <div class="grp"><span>Profil</span>
+    <span class="seg" role="group" aria-label="Profil" id="seg-profil"></span>
+  </div>
+  <div class="grp"><span>Thème</span>
+    <span class="seg" role="group" aria-label="Thème">
+      <button type="button" data-theme="clair" aria-pressed="true">Clair</button>
+      <button type="button" data-theme="sombre" aria-pressed="false">Sombre</button>
+    </span>
+  </div>
+  <div class="grp"><span>Shell</span>
+    <span class="seg" role="group" aria-label="Shell autour de l'accueil">
+      <button type="button" data-shell="visible" aria-pressed="true">Barre latérale visible</button>
+      <button type="button" data-shell="masque" aria-pressed="false">Masquée (comportement actuel)</button>
+    </span>
+  </div>
+  <div class="grp"><span>Données</span>
+    <span class="seg" role="group" aria-label="Simulation des données">
+      <button type="button" data-sim="exemple" aria-pressed="true">Exemple</button>
+      <button type="button" data-sim="vide" aria-pressed="false">Rien à traiter</button>
+      <button type="button" data-sim="chargement" aria-pressed="false">Chargement</button>
+      <button type="button" data-sim="erreur" aria-pressed="false">Erreur partielle</button>
+    </span>
+  </div>
+  <div class="grp"><span>Unité du poste</span>
+    <span class="seg" role="group" aria-label="Unité du poste">
+      <button type="button" data-unite="auto" aria-pressed="true">Selon le profil</button>
+      <button type="button" data-unite="definie" aria-pressed="false">HTL-01 définie</button>
+      <button type="button" data-unite="absente" aria-pressed="false">Non définie</button>
+    </span>
+  </div>
+  <span class="note">Données fictives, marquées <sup class="ex" style="margin:0">ex.</sup> · ne pas intégrer · voir concept.md</span>
+</div>
+
+<header class="entete">
+  <div class="marque" aria-hidden="true">Q</div>
+  <div>
+    <h1>Raqmi System</h1>
+    <div class="signature">Un système. Toute votre entreprise.</div>
+  </div>
+  <div class="session">
+    <span id="entete-session"></span>
+    <button type="button" class="ghost" title="Basculer l'apparence (par poste)" id="btn-theme">
+      <svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8,2.2 A5.8,5.8 0 1 0 8.01,2.2 M8,2.2 V13.8 A5.8,5.8 0 0 0 8,2.2 Z"/></svg>
+      <span id="lbl-theme">Sombre</span>
+    </button>
+    <button type="button" class="ghost" title="Raccourcis clavier (F1)">F1</button>
+  </div>
+</header>
+
+<div class="app" id="app">
+  <aside class="carte" id="sidebar" aria-label="Modules"></aside>
+  <main>
+    <nav class="ariane" id="ariane" aria-label="Fil d'Ariane" hidden></nav>
+    <section id="ecran" aria-live="polite"></section>
+  </main>
+  <div class="busy" id="busy" aria-hidden="true"></div>
+  <div class="session-bar" id="session-bar"><span class="etiquette">Session</span><span class="dot"></span><span id="statut">Prêt.</span></div>
+</div>
+
+<script>
+/* ======================= Icones : geometries ModuleGroupIcon.* du theme ======================= */
+const ICONES = {
+  MonEspace: "M8,1.8 A6.2,6.2 0 1 0 8.01,1.8 M8,5 A2,2 0 1 0 8.01,5 M4.3,12.6 A4.2,4.2 0 0 1 11.7,12.6",
+  Administration: "M5.6,1.8 H10.4 V5.4 H5.6 Z M8,5.4 V8 M3.6,8 H12.4 M3.6,8 V10.4 M12.4,8 V10.4 M1.4,10.4 H5.8 V14.2 H1.4 Z M10.2,10.4 H14.6 V14.2 H10.2 Z",
+  Finance: "M1.5,4.5 H14.5 V11.5 H1.5 Z M8,5.9 A2.1,2.1 0 1 0 8.01,5.9 M3.9,8 H4.1 M11.9,8 H12.1",
+  Commercial: "M1.5,3.4 H14.5 V12.6 H1.5 Z M5.2,6 A1.5,1.5 0 1 0 5.21,6 M3.4,11.2 A1.9,1.9 0 0 1 7,11.2 M9,6.6 H12.2 M9,9.4 H12.2",
+  Facturation: "M3,1.8 H13 V14.2 L10.5,12.7 L8,14.2 L5.5,12.7 L3,14.2 Z M5.6,5.4 H10.4 M5.6,8.2 H8.8",
+  Hebergement: "M1.6,3.2 V13.6 M1.6,6.4 H12.8 A1.6,1.6 0 0 1 14.4,8 V13.6 M1.6,11.2 H14.4 M5.2,6.4 V11.2",
+  Revenue: "M1.8,12.4 L6.2,8 L9.2,11 L14.2,6 M10.6,6 H14.2 V9.6",
+  Housekeeping: "M13.6,2.4 L8.6,7.4 M7.75,6.55 L3.1,8.7 L7.3,12.9 L9.45,8.25 Z M8.6,7.4 L5.2,10.8",
+  Evenementiel: "M2.2,3.6 H13.8 V14 H2.2 Z M2.2,7 H13.8 M5.4,1.8 V4.8 M10.6,1.8 V4.8 M5,10.4 H8.4",
+  Restauration: "M2.6,11.2 A5.4,5.4 0 0 1 13.4,11.2 M8,4 V5.8 M1.4,11.2 H14.6 M3.6,13.6 H12.4",
+  Stocks: "M1.6,8.4 H8 V14.2 H1.6 Z M8,8.4 H14.4 V14.2 H8 Z M4.8,2.6 H11.2 V8.4 H4.8 Z",
+  Achats: "M2.4,5.4 L8,2.6 L13.6,5.4 V10.6 L8,13.4 L2.4,10.6 Z M2.4,5.4 L8,8.2 L13.6,5.4 M8,8.2 V13.4",
+  RessourcesHumaines: "M5.6,6 A2.2,2.2 0 1 0 5.61,6 M1.9,13.8 V12.6 A3.4,3.4 0 0 1 5.3,9.2 H6 A3.4,3.4 0 0 1 9.4,12.6 V13.8 M11.2,6.2 A1.8,1.8 0 1 0 11.21,6.2 M11.6,9.4 A3.2,3.2 0 0 1 14.2,12.5 V13.8",
+  Maintenance: "M9.8,4.2 A0.7,0.7 0 0 0 9.8,5.1 L10.9,6.2 A0.7,0.7 0 0 0 11.8,6.2 L14.3,3.7 A4,4 0 0 1 9,9 L4.4,13.6 A1.4,1.4 0 0 1 2.4,11.6 L7,7 A4,4 0 0 1 12.3,1.7 Z",
+  Qualite: "M5.8,3 H3 V14.2 H13 V3 H10.2 M5.8,1.8 H10.2 V4.2 H5.8 Z M5.6,9.2 L7.4,11 L10.6,7.4",
+  Juridique: "M8,2.4 V13.6 M4.6,13.6 H11.4 M2.6,5 H13.4 M2.6,5 L1.2,9 H4 Z M13.4,5 L12,9 H14.8 Z",
+  Documentaire: "M1.8,13.2 V3.8 H6 L7.4,5.8 H14.2 V13.2 Z",
+  Marina: "M2.2,11.2 H13.8 L12.2,14.2 H3.8 Z M8,1.8 V11.2 M8,3.2 L12.6,9.4 H8",
+  Parking: "M1.6,12 V8.6 L3.6,4.6 H12.4 L14.4,8.6 V12 M1.6,8.6 H14.4 M4.4,10.7 A1.3,1.3 0 1 0 4.41,10.7 M11.6,10.7 A1.3,1.3 0 1 0 11.61,10.7",
+  Pilotage: "M2.2,11.5 A5.8,5.8 0 0 1 13.8,11.5 M8,11.5 L10.9,7.7 M3.4,8.6 L4.3,9.3 M8,5.7 V6.8",
+  Integrations: "M4.4,6.4 H11.6 V9.4 A3.6,3.6 0 0 1 4.4,9.4 Z M6,2.8 V6.4 M10,2.8 V6.4 M8,13 V14.6",
+  Systeme: "M8,5.5 A2.5,2.5 0 1 0 8.01,5.5 M8,1.4 V3 M8,13 V14.6 M1.4,8 H3 M13,8 H14.6 M3.6,3.6 L4.7,4.7 M11.3,11.3 L12.4,12.4 M12.4,3.6 L11.3,4.7 M4.7,11.3 L3.6,12.4",
+  /* utilitaires du shell (MainWindow.xaml / RaqmiTheme.xaml) */
+  Recherche: "M6.5,2.6 A3.9,3.9 0 1 0 6.51,2.6 M9.3,9.3 L13.4,13.4",
+  Chevron: "M0.6,1.6 L4.5,5.5 L8.4,1.6",
+  Cadenas: "M3.4,5.4 V4 A2.6,2.6 0 0 1 8.6,4 V5.4 M2.2,5.4 H9.8 V10.6 H2.2 Z",
+  Corbeille: "M2,9 L4,3 H12 L14,9 V13 H2 Z M2,9 H5.5 L6.8,11 H9.2 L10.5,9 H14",
+  Actualiser: "M13.2,8 A5.2,5.2 0 1 1 11.7,4.3 M11.9,1.8 V4.6 H9.1",
+  Croix: "M1.5,1.5 L7.5,7.5 M7.5,1.5 L1.5,7.5",
+  Coche: "M2.5,8.5 L6.2,12.2 L13.5,4.5",
+};
+const svg = (cle, classes = "ic", vb = "0 0 16 16") =>
+  `<svg class="${classes}" viewBox="${vb}" aria-hidden="true" focusable="false"><path d="${ICONES[cle]}"/></svg>`;
+const EX = `<sup class="ex" title="Valeur d'exemple, fictive : en production ce chiffre vient du serveur (charte § 3.10).">ex.</sup>`;
+
+/* ======================= Maturite : libelles a source unique (FunctionalMaturityMapper.Label) ======================= */
+const MATURITE = {
+  Planned:          { cls:"planned",    libelle:"Planifié",                aide:"Périmètre et dépendances documentés, aucun engagement de disponibilité." },
+  TechnicalPreview: { cls:"preview",    libelle:"Aperçu technique",        aide:"Noyau technique ou parcours incomplet, données non critiques." },
+  Functional:       { cls:"functional", libelle:"Fonctionnel",             aide:"Parcours annoncé utilisable : Domain, API, PostgreSQL, RBAC, Desktop, tests, documentation." },
+  ProductionReady:  { cls:"ready",      libelle:"Prêt pour la production", aide:"PostgreSQL réel, E2E, smoke WPF, sécurité et exploitation validés." },
+};
+const badgeMat = m => `<span class="badge ${MATURITE[m].cls}" title="${MATURITE[m].aide}">${MATURITE[m].libelle}</span>`;
+const STATUT = { dispo:["dispo","Disponible"], api:["api","API prête"], partiel:["partiel","Partiel"], planifie:["planifie","Planifié"] };
+
+/* ======================= Les 22 domaines (FunctionalArchitectureCatalog) et leurs ecrans (arbre) ======================= */
+const DOMAINES = [
+  { id:"01", cle:"MonEspace", nom:"Mon Espace", maturite:"Planned", ecrans:[
+      { nom:"Workflows & validations", module:"Mon travail", sousModules:["Mes validations"], perm:"approvals.read", tab:16 } ],
+    planifies:[["Mon travail","Tableau de bord personnel"],["Mon travail","Mes tâches"],["Mon travail","Mes demandes"],["Mon travail","Mes délégations"],["Mon travail","Mon activité"],
+               ["Communication","Notifications"],["Communication","Messagerie interne"],["Communication","Mon agenda"],["Mes documents et favoris","Mes documents"],["Mes documents et favoris","Mes favoris"],
+               ["Mon compte","Mon profil"],["Mon compte","Mes préférences"],["Mon compte","Ma sécurité"]] },
+  { id:"02", cle:"Administration", nom:"Administration & Socle ERP", maturite:"Functional", ecrans:[
+      { nom:"Unités hôtelières", module:"Organisation", sousModules:["Unités"], perm:"units.read", tab:1 },
+      { nom:"Administration & utilisateurs", module:"Utilisateurs", sousModules:["Comptes et rôles"], perm:"users.read", tab:10 },
+      { nom:"Paramétrage global", module:"Paramétrage", sousModules:["Établissement","Poste de travail","Santé du système"], perm:"settings.read", tab:9 } ],
+    planifies:[["Sécurité","Sessions et politiques de sécurité"],["Référentiels","Référentiels partagés (TVA, devises, pays)"]] },
+  { id:"03", cle:"Finance", nom:"Finance & Comptabilité", maturite:"Functional", ecrans:[
+      { nom:"CA journalier (ERP)", module:"Recettes", sousModules:["CA journalier"], perm:"revenue.read", tab:2 },
+      { nom:"Encaissements & trésorerie", module:"Trésorerie", sousModules:["Encaissements","Ordres de paiement","Comptes bancaires"], perm:"treasury.read", tab:6 },
+      { nom:"Comptabilité SCF", module:"Comptabilité", sousModules:["Comptabilité générale","Exercices","Comptabilité auxiliaire","États comptables"], perm:"accounting.read", tab:11 },
+      { nom:"Budget & prévisions", module:"Budget", sousModules:["Plan budgétaire","Réalisé et écarts"], perm:"budget.read", tab:12 },
+      { nom:"Créances & recouvrement", module:"Créances", sousModules:["Balance âgée","Relances","Risque client"], perm:"receivables.read", tab:13 } ],
+    planifies:[["Comptabilité","Comptabilité analytique"],["Fiscalité","Fiscalité DGI & SIFEC"]] },
+  { id:"04", cle:"Commercial", nom:"Commercial, Clients & CRM", maturite:"Functional", ecrans:[
+      { nom:"Clients", module:"Clients", sousModules:["Fichier clients"], perm:"customers.read", tab:7 },
+      { nom:"CRM & expérience client", module:"CRM", sousModules:["Fiche client 360°","Contacts et historique","Segmentation","Fidélité","Campagnes","Satisfaction et NPS"], perm:"crm.read", tab:23 } ],
+    planifies:[["Réclamations","Qualité & réclamations clients"],["Commercial","Commercial & partenariats"]] },
+  { id:"05", cle:"Facturation", nom:"Facturation & Ventes", maturite:"Functional", ecrans:[
+      { nom:"Facturation", module:"Factures", sousModules:["Factures"], perm:"invoices.read", tab:8 } ], planifies:[] },
+  { id:"06", cle:"Hebergement", nom:"PMS / Hébergement", maturite:"Functional", ecrans:[
+      { nom:"Hébergement & occupation", module:"Réservations & folios", sousModules:["Réservations","Folios","Inventaire","Planning"], perm:"lodging.read", tab:15 },
+      { nom:"PMS front office", module:"Front Office", sousModules:["Arrivées","Départs","Clients présents","Planning","Prévisionnel","Hors service","Night audit"], perm:"lodging.read", tab:30 },
+      { nom:"Clôture journalière & Night Audit", module:"Contrôle", sousModules:["Clôture journalière"], perm:"closing.read", tab:5 } ], planifies:[] },
+  { id:"07", cle:"Revenue", nom:"Revenue Management & Distribution", maturite:"TechnicalPreview", ecrans:[
+      { nom:"Tarifs & conventions", module:"Tarification", sousModules:["Plans tarifaires","Périodes","Conventions"], perm:"tariffs.read", tab:14 } ], planifies:[["Distribution","Channel manager"]] },
+  { id:"08", cle:"Housekeeping", nom:"Housekeeping", maturite:"Functional", ecrans:[
+      { nom:"Housekeeping & chambres", module:"Housekeeping", sousModules:["États des chambres","Planning et affectations","Minibar"], perm:"housekeeping.read", tab:21 } ], planifies:[] },
+  { id:"09", cle:"Evenementiel", nom:"Groupes, MICE & Événementiel", maturite:"Functional", ecrans:[
+      { nom:"Groupes & MICE", module:"Groupes & événements", sousModules:["Salles","Événements","Groupes"], perm:"mice.read", tab:28 } ], planifies:[] },
+  { id:"10", cle:"Restauration", nom:"F&B / Restauration", maturite:"TechnicalPreview", ecrans:[
+      { nom:"Cuisine, production & qualité", module:"Cuisine", sousModules:["Fiches techniques","Hygiène"], perm:"kitchen.read", tab:26 } ], planifies:[["Points de vente","Points de vente (POS)"]] },
+  { id:"11", cle:"Stocks", nom:"Stocks & Économat", maturite:"Functional", ecrans:[
+      { nom:"Stocks & consommations", module:"Stocks", sousModules:["Stock courant","Mouvements","Articles & magasins","Inventaires"], perm:"inventory.read", tab:24 } ], planifies:[] },
+  { id:"12", cle:"Achats", nom:"Achats & Fournisseurs", maturite:"TechnicalPreview", ecrans:[
+      { nom:"Achats & approvisionnements", module:"Achats", sousModules:["Commandes","Réception","Fournisseurs"], perm:"purchasing.read", tab:25 } ], planifies:[["Appels d'offres","Appels d'offres"]] },
+  { id:"13", cle:"RessourcesHumaines", nom:"Ressources Humaines & Paie", maturite:"Functional", ecrans:[
+      { nom:"RH & paie", module:"RH & paie", sousModules:["Personnel","Temps et absences","Paie","Référentiel RH"], perm:"hr.read", tab:22 } ], planifies:[] },
+  { id:"14", cle:"Maintenance", nom:"Maintenance & Patrimoine", maturite:"Planned", ecrans:[], planifies:[["Maintenance","Maintenance & interventions"],["Patrimoine","Modules légaux"]] },
+  { id:"15", cle:"Qualite", nom:"Qualité, Audit & Contrôle interne", maturite:"TechnicalPreview", ecrans:[
+      { nom:"Audit & contrôle interne", module:"Audit", sousModules:["Journal d'audit"], perm:"audit.read", tab:4 } ], planifies:[["Contrôle interne","Checklists de contrôle"],["Contrôle interne","Journal des anomalies"],["Contrôle interne","Décisions & instructions"]] },
+  { id:"16", cle:"Juridique", nom:"Juridique & Conformité", maturite:"Planned", ecrans:[], planifies:[["Contrats","Contrats & conventions"],["Conformité","Conformité hôtelière"],["Conformité","Protection des données"],["Veille","Veille juridique & réglementaire"]] },
+  { id:"17", cle:"Documentaire", nom:"GED / Gestion documentaire", maturite:"Planned", ecrans:[], planifies:[["GED","Gestion documentaire"]] },
+  { id:"18", cle:"Marina", nom:"PortMaster / Marina", maturite:"Planned", ecrans:[], planifies:[["Marina","PortMaster"]] },
+  { id:"19", cle:"Parking", nom:"Parking & Contrôle d'accès", maturite:"Planned", ecrans:[], planifies:[["Parking","Contrôle d'accès"]] },
+  { id:"20", cle:"Pilotage", nom:"Pilotage, KPI & BI", maturite:"Functional", ecrans:[
+      { nom:"Tableaux de bord directionnels", module:"Dashboards", sousModules:["Unité"], perm:"dashboard.read", tab:3 },
+      { nom:"Dashboard PDG", module:"Dashboards", sousModules:["Groupe"], perm:"dashboard.read", tab:19 },
+      { nom:"Cockpit DEC", module:"Dashboards", sousModules:["Exploitation"], perm:"dashboard.read", tab:20 },
+      { nom:"Comparatif inter-unités", module:"KPI Engine", sousModules:["Bibliothèque KPI","Analyse inter-unités","Alertes","Paramétrage"], perm:"dashboard.read", tab:29 },
+      { nom:"Rapports automatiques", module:"BI", sousModules:["Rapports"], perm:"reports.read", tab:17 } ], planifies:[["Communication","Alertes & notifications"]] },
+  { id:"21", cle:"Integrations", nom:"Intégrations & Matériels", maturite:"TechnicalPreview", ecrans:[], planifies:[["Matériels","Intégrations matérielles"],["Temps","Pointeuses & badgeuses"]] },
+  { id:"22", cle:"Systeme", nom:"Administration Système", maturite:"Functional", epingle:true, ecrans:[
+      { nom:"Sauvegarde & restauration", module:"Maintenance", sousModules:["Sauvegarde"], perm:"maintenance.read", tab:18 },
+      { nom:"Registre des postes & erreurs clients", module:"Diagnostic", sousModules:["Postes"], perm:"sync.read", tab:27 },
+      { nom:"Journalisation & traçabilité", module:"Journalisation", sousModules:["Journal d'audit"], perm:"audit.read", tab:4 } ], planifies:[] },
+];
+const domaine = id => DOMAINES.find(d => d.id === id);
+
+/* ======================= Les 50 entrees de ModuleCatalog (ordre, nom, description, priorite, statut, permission, onglet) =======================
+   dom = domaine cible (FunctionalArchitectureCatalog.LegacyModuleOrders) ; mod = module de rattachement dans l'arbre. */
+const MODULES = [
+  { o:"1",    dom:"02", mod:"Utilisateurs",           n:"Administration & utilisateurs",        d:"Comptes, rôles, permissions et périmètres",                                       p:"P0", s:"dispo",    perm:"users.read",       tab:10 },
+  { o:"2",    dom:"02", mod:"Paramétrage",            n:"Paramétrage global",                   d:"Identité de l'établissement, réglages du poste et santé du système",              p:"P0", s:"dispo",    perm:"settings.read",    tab:9 },
+  { o:"3",    dom:"02", mod:"Organisation",           n:"Unités hôtelières",                    d:"Référentiel des unités et des établissements",                                    p:"P0", s:"dispo",    perm:"units.read",       tab:1 },
+  { o:"4",    dom:"03", mod:"Recettes",               n:"CA journalier (ERP)",                  d:"Saisie du jour, validation unité et DEC",                                         p:"P0", s:"dispo",    perm:"revenue.read",     tab:2 },
+  { o:"4.5",  dom:"06", mod:"Contrôle",               n:"Clôture journalière & Night Audit",    d:"Clôture de la date métier et Night Audit",                                        p:"P1", s:"dispo",    perm:"closing.read",     tab:5 },
+  { o:"5",    dom:"03", mod:"Trésorerie",             n:"Encaissements & trésorerie",           d:"Caisses, banques et ordres de paiement",                                          p:"P1", s:"dispo",    perm:"treasury.read",    tab:6 },
+  { o:"5.2",  dom:"03", mod:"Comptabilité",           n:"Comptabilité SCF",                     d:"Plan de comptes, journaux, écritures en partie double et balance",                p:"P1", s:"dispo",    perm:"accounting.read",  tab:11 },
+  { o:"5.4",  dom:"03", mod:"Fiscalité",              n:"Fiscalité DGI & SIFEC",                d:"TVA, déclarations, liasse et lien SIFEC",                                         p:"P2", s:"planifie" },
+  { o:"6",    dom:"03", mod:"Budget",                 n:"Budget & prévisions",                  d:"Objectifs, budgets mensuels et écarts",                                           p:"P1", s:"dispo",    perm:"budget.read",      tab:12 },
+  { o:"8",    dom:"05", mod:"Factures",               n:"Facturation",                          d:"Factures clients, avoirs et registre des ventes",                                 p:"P1", s:"dispo",    perm:"invoices.read",    tab:8 },
+  { o:"9",    dom:"03", mod:"Créances",               n:"Créances & recouvrement",              d:"Balance âgée, relances et risque client",                                         p:"P1", s:"dispo",    perm:"receivables.read", tab:13 },
+  { o:"9.2",  dom:"04", mod:"Clients",                n:"Clients",                              d:"Fichier clients et historique commercial",                                        p:"P1", s:"dispo",    perm:"customers.read",   tab:7 },
+  { o:"10",   dom:"06", mod:"Réservations & folios",  n:"Hébergement & occupation",             d:"Types de chambre, réservations, folios et taux d'occupation",                     p:"P1", s:"dispo",    perm:"lodging.read",     tab:15 },
+  { o:"10.1", dom:"06", mod:"Front Office",           n:"PMS front office",                     d:"Planning, arrivées, départs, clients présents, prévisionnel, hors service et night audit", p:"P1", s:"dispo", perm:"lodging.read", tab:30 },
+  { o:"10.2", dom:"08", mod:"Housekeeping",           n:"Housekeeping & chambres",              d:"Planning des équipes, inspection, minibar",                                       p:"P2", s:"dispo",    perm:"housekeeping.read", tab:21 },
+  { o:"10.4", dom:"04", mod:"CRM",                    n:"CRM & expérience client",              d:"Vue client 360°, segmentation, fidélité, campagnes et NPS",                       p:"P2", s:"dispo",    perm:"crm.read",         tab:23 },
+  { o:"10.6", dom:"09", mod:"Groupes & événements",   n:"Groupes & MICE",                       d:"Salles, événements, devis, BEO, allotements et rooming lists",                    p:"P2", s:"dispo",    perm:"mice.read",        tab:28 },
+  { o:"11",   dom:"11", mod:"Stocks",                 n:"Stocks & consommations",               d:"Magasins, articles, mouvements valorisés au PMP et inventaires physiques",        p:"P2", s:"dispo",    perm:"inventory.read",   tab:24 },
+  { o:"11.5", dom:"10", mod:"Cuisine",                n:"Cuisine, production & qualité",        d:"Fiches techniques, coût matière et relevés de température HACCP",                 p:"P2", s:"dispo",    perm:"kitchen.read",     tab:26 },
+  { o:"11.6", dom:"10", mod:"Points de vente",        n:"Points de vente (POS)",                d:"Plan de salle, tickets et transfert au folio",                                    p:"P2", s:"planifie" },
+  { o:"12",   dom:"12", mod:"Achats",                 n:"Achats & approvisionnements",          d:"Fournisseurs, bons de commande et réceptions entrées en stock",                   p:"P2", s:"dispo",    perm:"purchasing.read",  tab:25 },
+  { o:"12.5", dom:"12", mod:"Appels d'offres",        n:"Appels d'offres",                      d:"Lots, ouverture des plis et attribution",                                         p:"P2", s:"planifie" },
+  { o:"13",   dom:"14", mod:"Maintenance",            n:"Maintenance & interventions",          d:"Équipements, ordres de travail et préventif",                                     p:"P2", s:"planifie" },
+  { o:"13.5", dom:"21", mod:"Matériels",              n:"Intégrations matérielles",             d:"Serrures, PBX, TPE CIB et imprimantes",                                           p:"P2", s:"planifie" },
+  { o:"14.5", dom:"07", mod:"Tarification",           n:"Tarifs & conventions",                 d:"Plans tarifaires, périodes de tarif et conventions clients",                      p:"P1", s:"dispo",    perm:"tariffs.read",     tab:14 },
+  { o:"18",   dom:"04", mod:"Réclamations",           n:"Qualité & réclamations clients",       d:"Réclamations, délais et analyse des causes",                                      p:"P2", s:"planifie" },
+  { o:"20",   dom:"16", mod:"Contrats",               n:"Contrats & conventions",               d:"Contrats, allotements et échéances",                                              p:"P2", s:"planifie" },
+  { o:"20.2", dom:"04", mod:"Commercial",             n:"Commercial & partenariats",            d:"Prospection, partenariats et suivi commercial",                                   p:"P2", s:"planifie" },
+  { o:"21",   dom:"13", mod:"RH & paie",              n:"RH & paie",                            d:"Collaborateurs, contrats, temps et absences, paie algérienne",                    p:"P2", s:"dispo",    perm:"hr.read",          tab:22 },
+  { o:"21.2", dom:"21", mod:"Temps",                  n:"Pointeuses & badgeuses",               d:"Import des pointages et réconciliation",                                          p:"P2", s:"planifie" },
+  { o:"22",   dom:"15", mod:"Audit",                  n:"Audit & contrôle interne",             d:"Consultation des traces et piste d'audit",                                        p:"P0", s:"dispo",    perm:"audit.read",       tab:4 },
+  { o:"22.2", dom:"01", mod:"Mon travail",            n:"Workflows & validations",              d:"Circuits d'approbation par type de sujet et décisions étape par étape",           p:"P1", s:"dispo",    perm:"approvals.read",   tab:16 },
+  { o:"22.4", dom:"15", mod:"Contrôle interne",       n:"Checklists de contrôle",               d:"Modèles, exécution et suivi des écarts",                                          p:"P2", s:"planifie" },
+  { o:"22.6", dom:"15", mod:"Contrôle interne",       n:"Journal des anomalies",                d:"Déclaration, affectation et corrections",                                         p:"P2", s:"planifie" },
+  { o:"22.8", dom:"15", mod:"Contrôle interne",       n:"Décisions & instructions",             d:"Instructions de direction et échéances",                                          p:"P2", s:"planifie" },
+  { o:"23",   dom:"16", mod:"Conformité",             n:"Conformité hôtelière",                 d:"Fiches police, taxe de séjour, tourisme",                                         p:"P2", s:"planifie" },
+  { o:"23.2", dom:"16", mod:"Conformité",             n:"Protection des données",               d:"Registre des traitements et consentements",                                       p:"P2", s:"planifie" },
+  { o:"23.4", dom:"14", mod:"Patrimoine",             n:"Modules légaux",                       d:"Immobilisations, CASNOS, inventaire légal",                                       p:"P2", s:"planifie" },
+  { o:"23.6", dom:"16", mod:"Veille",                 n:"Veille juridique & réglementaire",     d:"Textes, mise en conformité et échéances",                                         p:"P2", s:"planifie" },
+  { o:"24",   dom:"20", mod:"Dashboards",             n:"Tableaux de bord directionnels",       d:"Indicateurs consolidés par période et unité",                                     p:"P0", s:"dispo",    perm:"dashboard.read",   tab:3 },
+  { o:"24.2", dom:"20", mod:"Dashboards",             n:"Dashboard PDG",                        d:"Vision groupe et alertes de direction",                                           p:"P0", s:"dispo",    perm:"dashboard.read",   tab:19 },
+  { o:"24.4", dom:"20", mod:"Dashboards",             n:"Cockpit DEC",                          d:"Pilotage exploitation et contrôles quotidiens",                                   p:"P0", s:"dispo",    perm:"dashboard.read",   tab:20 },
+  { o:"25",   dom:"20", mod:"BI",                     n:"Rapports automatiques",                d:"Catalogue de rapports paramétrables, export CSV et journal des exécutions",       p:"P1", s:"dispo",    perm:"reports.read",     tab:17 },
+  { o:"25.2", dom:"01", mod:"Communication",          n:"Alertes & notifications",              d:"Règles d'alerte et préférences de diffusion",                                     p:"P2", s:"planifie" },
+  { o:"25.4", dom:"20", mod:"KPI Engine",             n:"Comparatif inter-unités",              d:"Bibliothèque KPI, classement des unités et comparaisons N/N-1",                   p:"P2", s:"dispo",    perm:"dashboard.read",   tab:29 },
+  { o:"26",   dom:"18", mod:"Marina",                 n:"PortMaster",                           d:"Bateaux, emplacements, contrats et facturation",                                  p:"P2", s:"planifie" },
+  { o:"27",   dom:"17", mod:"GED",                    n:"Gestion documentaire",                 d:"GED, versions, signature et archivage légal",                                     p:"P2", s:"planifie" },
+  { o:"28",   dom:"22", mod:"Maintenance",            n:"Sauvegarde & restauration",            d:"État des sauvegardes, déclenchement à la demande et paliers de rétention",        p:"P1", s:"dispo",    perm:"maintenance.read", tab:18 },
+  { o:"29",   dom:"22", mod:"Diagnostic",             n:"Registre des postes & erreurs clients", d:"Postes déclarés, dernier contact et erreurs remontées par les clients",          p:"P1", s:"dispo",    perm:"sync.read",        tab:27 },
+  { o:"30",   dom:"22", mod:"Journalisation",         n:"Journalisation & traçabilité",         d:"Journal d'audit, recherche et export",                                            p:"P0", s:"dispo",    perm:"audit.read",       tab:4 },
+];
+const module_ = o => MODULES.find(m => m.o === o);
+
+/* ======================= Registre des signaux (HomeSignalCatalog, cf. concept.md § 4) =======================
+   Un signal = une carte + une route legere + la permission de la route + une portee (global / unite).
+   « urgent » n'est pose que sur un drapeau QUALIFIE PAR LE SERVEUR (IsLate, overdue, Freshness, IsCompliant=false, NeedsAttention).
+   « agir » : le verbe n'est imperatif que si le profil detient le droit d'agir ; sinon libelle neutre. */
+const SIGNAUX = [
+  { id:"validations", ordre:"22.2", perm:"approvals.decide", portee:"global", poids:100, route:"GET /approvals/instances/pending",
+    ex:{ n:2 }, zero:{ n:0 },
+    rendu:v => v.n ? { texte:`${v.n} en attente de votre décision`, travail:true } : { texte:"Rien en attente de votre décision", travail:false } },
+  { id:"cockpit", ordre:"24.4", perm:"dashboard.read", portee:"global", poids:90, route:"GET /pilotage/dec-cockpit",
+    ex:{ attention:1, retard:2, rejets:1 }, zero:{ attention:0, retard:0, rejets:0 },
+    rendu:v => { const p = []; if (v.attention) p.push(`${v.attention} unité à surveiller`); if (v.retard) p.push(`${v.retard} j de clôture en retard`); if (v.rejets) p.push(`${v.rejets} recette rejetée`);
+      return p.length ? { texte:p.join(" · "), travail:true, urgent:v.attention > 0 } : { texte:"Exploitation sans signal", travail:false }; } },
+  { id:"recettes", ordre:"24", perm:"dashboard.read", portee:"global", poids:80, route:"GET /revenue/daily/dashboard",
+    ex:{ manquantes:1, attente:2 }, zero:{ manquantes:0, attente:0 },
+    rendu:(v, has) => { const p = []; if (v.manquantes) p.push(`${v.manquantes} unité sans saisie`); if (v.attente) p.push(has("revenue.validate") ? `${v.attente} à valider` : `${v.attente} en attente de validation`);
+      return p.length ? { texte:p.join(" · "), travail:true } : { texte:"Toutes les unités ont saisi et validé", travail:false }; } },
+  { id:"frontdesk", ordre:"10.1", perm:"lodging.read", portee:"unite", poids:95, route:"GET /lodging/front-desk?hotelUnitCode",
+    ex:{ arr:12, dep:8, retard:3 }, zero:{ arr:0, dep:0, retard:0 },
+    rendu:v => (v.arr || v.dep || v.retard) ? { texte:`${v.arr} arrivées · ${v.dep} départs${v.retard ? ` · ${v.retard} en retard` : ""}`, travail:true, urgent:v.retard > 0 } : { texte:"Aucun mouvement attendu aujourd'hui", travail:false } },
+  { id:"cloture", ordre:"4.5", perm:"lodging.read", portee:"unite", poids:85, route:"GET /lodging/business-date?hotelUnitCode",
+    ex:{ pending:2, late:true }, zero:{ pending:0, late:false },
+    rendu:(v, has) => v.pending ? { texte:has("closing.close") ? `${v.pending} jours à clôturer` : `${v.pending} jours non clôturés`, travail:true, urgent:v.late } : { texte:"Date métier à jour", travail:false } },
+  { id:"housekeeping", ordre:"10.2", perm:"housekeeping.read", portee:"unite", poids:70, route:"GET /housekeeping/board?hotelUnitCode&date",
+    ex:{ sales:9, inspect:4 }, zero:{ sales:0, inspect:0 },
+    rendu:v => (v.sales || v.inspect) ? { texte:`${v.sales} chambres à nettoyer · ${v.inspect} à inspecter`, travail:true } : { texte:"Toutes les chambres sont prêtes", travail:false } },
+  { id:"tresorerie", ordre:"5", perm:"treasury.read", portee:"global", poids:75, variantes:[
+      { si:"treasury.approve", route:"GET /treasury/payment-orders?status=Draft", ex:{ n:3 }, zero:{ n:0 }, rendu:v => v.n ? { texte:`${v.n} ordres de paiement à approuver`, travail:true } : { texte:"Aucun ordre à approuver", travail:false } },
+      { si:"treasury.write",   route:"GET /treasury/payment-orders?status=Approved", ex:{ n:2 }, zero:{ n:0 }, rendu:v => v.n ? { texte:`${v.n} ordres approuvés à régler`, travail:true } : { texte:"Aucun ordre à régler", travail:false } },
+      { route:"GET /treasury/receipts/summary?from=today&to=today", ex:{ total:"84 500,00", n:12 }, zero:{ total:"0,00", n:0 }, rendu:v => ({ texte:`Encaissé aujourd'hui : ${v.total} DA (${v.n} reçus)`, travail:false }) } ] },
+  { id:"creances", ordre:"9", perm:"receivables.read", portee:"global", poids:50, route:"GET /receivables/aging",
+    ex:{ over90:"412 300,00" }, zero:{ over90:"0,00" },
+    rendu:v => v.over90 !== "0,00" ? { texte:`Plus de 90 jours : ${v.over90} DA`, travail:true } : { texte:"Aucune créance de plus de 90 jours", travail:false } },
+  { id:"stocks", ordre:"11", perm:"inventory.read", portee:"global", poids:60, route:"GET /inventory/low-stock",
+    ex:{ n:5 }, zero:{ n:0 }, rendu:v => v.n ? { texte:`${v.n} articles sous le minimum`, travail:true } : { texte:"Aucun article sous le minimum", travail:false } },
+  { id:"achats", ordre:"12", perm:"purchasing.read", portee:"global", poids:55, variantes:[
+      { si:"purchasing.approve", route:"GET /purchasing/orders?status=Draft", ex:{ n:2 }, zero:{ n:0 }, rendu:v => v.n ? { texte:`${v.n} commandes à approuver`, travail:true } : { texte:"Aucune commande à approuver", travail:false } },
+      { si:"purchasing.receive", route:"GET /purchasing/orders?status=Approved", ex:{ n:1 }, zero:{ n:0 }, rendu:v => v.n ? { texte:`${v.n} commande à réceptionner`, travail:true } : { texte:"Aucune réception attendue", travail:false } },
+      { route:"GET /purchasing/orders?status=Draft", ex:{ n:2 }, zero:{ n:0 }, rendu:v => ({ texte:`${v.n} commandes en brouillon`, travail:false }) } ] },
+  { id:"rh", ordre:"21", perm:"hr.read", portee:"global", poids:65, route:"GET /hr/absences?status=Pending",
+    ex:{ n:4 }, zero:{ n:0 },
+    rendu:(v, has) => v.n ? { texte:has("hr.write") ? `${v.n} absences à approuver` : `${v.n} absences en attente`, travail:true } : { texte:"Aucune absence en attente", travail:false } },
+  { id:"cuisine", ordre:"11.5", perm:"kitchen.read", portee:"global", poids:72, route:"GET /kitchen/readings?nonCompliantOnly=true&from=today",
+    ex:{ n:2 }, zero:{ n:0 }, rendu:v => v.n ? { texte:`${v.n} relevés HACCP non conformes aujourd'hui`, travail:true, urgent:true } : { texte:"Relevés HACCP conformes aujourd'hui", travail:false } },
+  { id:"mice", ordre:"10.6", perm:"mice.read", portee:"global", poids:40, route:"GET /mice/events?from=today&to=today",
+    ex:{ n:1 }, zero:{ n:0 }, rendu:v => v.n ? { texte:`${v.n} événement aujourd'hui`, travail:true } : { texte:"Aucun événement aujourd'hui", travail:false } },
+  { id:"sauvegarde", ordre:"28", perm:"maintenance.read", portee:"global", poids:88, route:"GET /maintenance/backups/status",
+    ex:{ age:"31 h", overdue:true }, zero:{ age:"2 h", overdue:false },
+    rendu:v => ({ texte:v.overdue ? `Sauvegarde en retard · dernière il y a ${v.age}` : `Dernière sauvegarde il y a ${v.age}`, travail:v.overdue, urgent:v.overdue }) },
+  { id:"postes", ordre:"29", perm:"sync.read", portee:"global", poids:45, route:"GET /sync/stations",
+    ex:{ n:7, off:1 }, zero:{ n:7, off:0 }, rendu:v => v.off ? { texte:`${v.off} poste hors ligne sur ${v.n}`, travail:true } : { texte:`${v.n} postes en contact`, travail:false } },
+  { id:"activite", ordre:"30", perm:"audit.read", portee:"global", poids:10, route:"GET /audit?userId={moi}&action=auth.login.success&pageSize=1",
+    note:"paramètre userId à ajouter à RaqmiApiClient.GetAuditLogAsync (la route et IAuditQueryService l'acceptent déjà)",
+    ex:{ last:"01/09 à 08:12" }, zero:{ last:"01/09 à 08:12" }, rendu:v => ({ texte:`Votre dernière connexion : ${v.last}`, travail:false }) },
+];
+
+/* ======================= Profils : clefs seedees par SecuritySeeder (reorg/phase-1) ======================= */
+const LECTURE_EXPLOITATION = ["units.read","revenue.read","dashboard.read","closing.read","customers.read","invoices.read","settings.read","accounting.read","budget.read","receivables.read","tariffs.read","lodging.read","housekeeping.read","crm.read","approvals.read","inventory.read","purchasing.read","kitchen.read","mice.read"];
+const PROFILS = {
+  reception: { nom:"Réception", utilisateur:"Nadia B.", role:"Rôle personnalisé « Réception » (à créer, README décision 8)", unite:"HTL-01 · Alger centre",
+    permissions:["settings.read","lodging.read","lodging.checkin","lodging.checkout","lodging.reserve","lodging.room_move","customers.read","crm.read","housekeeping.read"] },
+  unite: { nom:"Directeur d'unité", utilisateur:"S. Merzouk", role:"unit.manager", unite:"HTL-01 · Alger centre",
+    permissions:["units.read","revenue.read","revenue.write","dashboard.read","reports.export","closing.read","closing.close","customers.read","customers.write","invoices.read","invoices.write","settings.read","budget.read","budget.write","tariffs.read","tariffs.write",
+                 "lodging.read","lodging.checkin","lodging.checkout","lodging.reserve","lodging.room_move","lodging.noshow","lodging.cancel","lodging.night_audit","housekeeping.read","housekeeping.write","housekeeping.inspect","crm.read","crm.write","crm.loyalty",
+                 "approvals.read","approvals.decide","reports.read","inventory.read","inventory.write","purchasing.read","purchasing.write","purchasing.receive","kitchen.read","kitchen.write","mice.read","mice.write"] },
+  direction: { nom:"Direction générale", utilisateur:"D. Hamdani", role:"direction", unite:null,
+    permissions:["units.read","revenue.read","dashboard.read","treasury.read","audit.read","reports.export","closing.read","treasury.approve","customers.read","invoices.read","settings.read","accounting.read","budget.read","budget.approve","receivables.read","tariffs.read",
+                 "lodging.read","housekeeping.read","crm.read","approvals.read","approvals.decide","reports.read","maintenance.read","hr.read","inventory.read","inventory.validate","purchasing.read","purchasing.approve","kitchen.read","mice.read","sync.read","kpi.admin"] },
+  admin: { nom:"Administrateur", utilisateur:"Administrateur", role:"system.administrator", unite:null, tout:true, permissions:[] },
+  lecture: { nom:"Lecture seule", utilisateur:"L. Ouali", role:"reader", unite:null, permissions:LECTURE_EXPLOITATION },
+  caisse: { nom:"Caisse", utilisateur:"Y. Ferhat", role:"cashier", unite:"HTL-01 · Alger centre",
+    permissions:["revenue.read","revenue.write","treasury.read","treasury.write","settings.read","lodging.read","lodging.checkin","lodging.reserve","lodging.checkout","lodging.room_move","lodging.noshow","lodging.cancel","lodging.night_audit","housekeeping.read","housekeeping.write","crm.read","crm.write","approvals.read"] },
+  rh: { nom:"RH", utilisateur:"N. Saidi", role:"hr.manager", unite:null, permissions:["units.read","settings.read","approvals.read","hr.read","hr.write","hr.payroll","hr.payroll.close"] },
+};
+const ORDRE_PROFILS = ["reception","unite","direction","admin","lecture","caisse","rh"];
+
+/* ======================= Etat ======================= */
+const etat = {
+  profil:"reception", theme:"clair", shell:"visible", sim:"exemple", uniteMode:"auto",
+  domaine:null, statut:"", prio:"", maturite:"", recherche:"", detail:false,
+  ecran:null, deroules:new Set(), rechargement:false, horodatage:"08:12",
+};
+const prof = () => PROFILS[etat.profil];
+const has = k => prof().tout || prof().permissions.includes(k);
+const uniteDuPoste = () => etat.uniteMode === "definie" ? "HTL-01 · Alger centre" : etat.uniteMode === "absente" ? null : prof().unite;
+const norm = s => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+/* ======================= Composeur (HomeComposer.Compose : fonction pure permissions × registre) ======================= */
+function composer() {
+  const slots = new Map();
+  for (const s of SIGNAUX) {
+    const carte = module_(s.ordre);
+    let etatSlot, variante = null;
+    if (!has(carte.perm)) etatSlot = "verrouille";                 // la carte est cadenassee : aucun appel
+    else if (!has(s.perm)) etatSlot = "cache";                      // la route n'est pas ouverte au profil : rien
+    else if (s.portee === "unite" && !uniteDuPoste()) etatSlot = "sansUnite";
+    else { etatSlot = "pret"; variante = s.variantes ? s.variantes.find(v => !v.si || has(v.si)) : s; }
+    slots.set(s.ordre, { s, etat:etatSlot, variante });
+  }
+  return slots;
+}
+function lire(slot) {
+  if (slot.etat !== "pret") return null;
+  if (etat.sim === "chargement" || etat.rechargement) return { etat:"chargement" };
+  if (etat.sim === "erreur" && ["frontdesk","cockpit","tresorerie","rh"].includes(slot.s.id)) return { etat:"erreur" };
+  const v = etat.sim === "vide" ? slot.variante.zero : slot.variante.ex;
+  const r = slot.variante.rendu(v, has);
+  return { etat:"valeur", texte:r.texte, travail:!!r.travail, urgent:!!r.urgent };
+}
+
+/* ======================= Navigation (un seul chemin : NavigateToModule) ======================= */
+function ouvrirOnglet(tab, nom) {
+  const m = MODULES.find(x => x.tab === tab && x.n === nom) || MODULES.find(x => x.tab === tab);
+  if (!m || !has(m.perm)) { statut(`« ${nom || m?.n} » n'est pas ouvert à votre profil.`, true); return; }
+  etat.ecran = { tab, nom:m.n, dom:m.dom, mod:m.mod };
+  etat.deroules.add(m.dom);
+  rendre();
+  statut(`NavigateToModule(${tab}) → ${m.n}.`);
+}
+function allerRacine() { etat.ecran = null; rendre(); }
+function statut(msg, erreur = false) {
+  const bar = document.getElementById("session-bar"); const txt = document.getElementById("statut");
+  txt.textContent = msg; txt.style.color = erreur ? "var(--danger)" : ""; bar.querySelector(".dot").style.background = erreur ? "var(--danger)" : "var(--accent)";
+  bar.classList.remove("flash"); void bar.offsetWidth; bar.classList.add("flash");
+}
+function actualiser() {
+  if (etat.rechargement) return;
+  etat.rechargement = true; document.getElementById("busy").classList.add("actif"); rendre();
+  setTimeout(() => {
+    etat.rechargement = false; document.getElementById("busy").classList.remove("actif");
+    const n = [...composer().values()].filter(x => x.etat === "pret").length;
+    etat.horodatage = "08:14"; rendre();
+    statut(`Accueil actualisé : ${n} compteur${n > 1 ? "s" : ""} lu${n > 1 ? "s" : ""} en 0,6 s (exemple).`);
+  }, 900);
+}
+
+/* ======================= Rendu : barre laterale (identique au shell) ======================= */
+function rendreSidebar() {
+  const aside = document.getElementById("sidebar");
+  const ouvrables = d => d.ecrans.filter(e => has(e.perm));
+  const ligne = d => {
+    const ecr = ouvrables(d);
+    if (!ecr.length) return "";
+    const deroule = etat.deroules.has(d.id);
+    const point = d.maturite === "TechnicalPreview" ? `<span class="point preview" role="img" aria-label="Aperçu technique" title="Aperçu technique — noyau technique ou parcours incomplet"></span>` : "<span></span>";
+    return `<div class="domaine">
+      <button type="button" class="dom-tete" aria-expanded="${deroule}" data-toggle="${d.id}" aria-label="Domaine ${d.nom}, ${ecr.length} écran${ecr.length > 1 ? "s" : ""}" title="${d.id} · ${d.nom}">
+        ${svg(d.cle, "ic thin")}<span class="nom">${d.nom}</span>${point}<span class="compteur">${ecr.length}</span>${svg("Chevron", "chevron", "0 0 9 7")}
+      </button>
+      <div class="ecrans" ${deroule ? "" : "hidden"}>${ecr.map(e => {
+        const actif = etat.ecran && etat.ecran.tab === e.tab && etat.ecran.nom === e.nom;
+        return `<button type="button" class="nav-btn" data-open="${e.tab}|${e.nom}" ${actif ? 'aria-current="page"' : ""} aria-label="Ouvrir ${e.nom}${actif ? ", écran affiché" : ""}" title="${e.module} › ${e.sousModules[0]}">${e.nom}</button>`; }).join("")}
+      </div></div>`;
+  };
+  aside.innerHTML = `
+    <p class="etiquette">Modules</p>
+    <button type="button" class="nav-btn" id="btn-racine" ${!etat.ecran ? 'aria-current="page"' : ""} aria-label="Mon Espace, accueil" title="Mon Espace (Alt+Origine)">${svg("MonEspace")}<span>Mon Espace</span></button>
+    <div class="recherche">${svg("Recherche")}<input type="search" placeholder="Rechercher un écran…  (Ctrl+K)" aria-label="Rechercher un écran"></div>
+    <div class="domaines">${DOMAINES.filter(d => !d.epingle).map(ligne).join("")}</div>
+    <div class="epingle">${DOMAINES.filter(d => d.epingle).map(ligne).join("")}</div>`;
+  aside.querySelector("#btn-racine").addEventListener("click", allerRacine);
+  aside.querySelectorAll("[data-toggle]").forEach(b => b.addEventListener("click", () => { const id = b.dataset.toggle; etat.deroules.has(id) ? etat.deroules.delete(id) : etat.deroules.add(id); rendreSidebar(); }));
+  aside.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => { const [tab, nom] = b.dataset.open.split("|"); ouvrirOnglet(+tab, nom); }));
+}
+
+/* ======================= Rendu : fil d'Ariane ======================= */
+function rendreAriane() {
+  const nav = document.getElementById("ariane");
+  const sep = svg("Chevron", "sep", "0 0 9 7");
+  if (!etat.ecran) {
+    if (etat.shell !== "visible") { nav.hidden = true; nav.innerHTML = ""; return; }
+    const d = domaine("01");
+    nav.hidden = false;
+    nav.innerHTML = `${svg(d.cle)}<span class="courant" aria-current="page">Mon Espace</span>${badgeMat(d.maturite)}
+      <span class="note-ariane" title="En production, UpdateBreadcrumb masque le fil d'Ariane sur l'accueil (onglet 0) ; il est affiché ici pour situer l'écran dans le shell.">fil d'Ariane masqué sur l'accueil en production</span>`;
+    return;
+  }
+  const d = domaine(etat.ecran.dom);
+  nav.hidden = false;
+  nav.innerHTML = `${svg(d.cle)}<button type="button" id="seg-dom" aria-label="Remonter à ${d.nom}">${d.nom}</button>${sep}<button type="button" aria-label="Remonter à ${etat.ecran.mod}">${etat.ecran.mod}</button>${sep}<span class="courant" aria-current="page">${etat.ecran.nom}</span>${d.maturite === "TechnicalPreview" ? badgeMat(d.maturite) : ""}`;
+  nav.querySelector("#seg-dom").addEventListener("click", () => { etat.deroules.add(d.id); rendreSidebar(); document.querySelector(`[data-toggle="${d.id}"]`)?.focus(); });
+}
+
+/* ======================= Rendu : accueil « Catalogue vivant » ======================= */
+function filtreCarte(m) {
+  if (etat.domaine && m.dom !== etat.domaine) return false;
+  if (etat.statut && m.s !== etat.statut) return false;
+  if (etat.prio && m.p !== etat.prio) return false;
+  if (etat.maturite && domaine(m.dom).maturite !== etat.maturite) return false;
+  if (etat.recherche) { const q = norm(etat.recherche); const d = domaine(m.dom); if (!norm(`${m.n} ${m.d} ${d.nom} ${m.mod} ${m.o}`).includes(q)) return false; }
+  return true;
+}
+function rendreSignal(slot, lecture, carte) {
+  if (!slot) return `<div class="signal" aria-hidden="true"></div>`;
+  if (slot.etat === "sansUnite") return `<div class="signal sans-unite" title="Ce compteur est propre à une unité (${slot.s.route}). Définissez l'unité de ce poste dans Paramétrage global → Poste de travail."><span class="txt">Unité du poste non définie</span></div>`;
+  if (!lecture) return `<div class="signal" aria-hidden="true"></div>`;
+  if (lecture.etat === "chargement") return `<div class="signal" aria-label="Chargement du compteur"><span class="squelette" style="width:120px"></span></div>`;
+  if (lecture.etat === "erreur") return `<div class="signal erreur" title="${slot.s.route} n'a pas répondu. F5 relance les compteurs de l'accueil.">${svg("Actualiser")}<span class="txt">Indisponible · réessayer (F5)</span></div>`;
+  const cls = lecture.urgent ? "urgent" : (lecture.travail ? "" : "vide");
+  return `<div class="signal ${cls}" title="${slot.s.route}"><span class="pt"></span><span class="txt">${lecture.texte}</span>${EX}</div>`;
+}
+function rendreAccueil(sec) {
+  const p = prof(); const slots = composer(); const unite = uniteDuPoste();
+  const lectures = new Map(); slots.forEach((slot, o) => lectures.set(o, lire(slot)));
+
+  /* --- Bandeau --- */
+  const cl = slots.get("4.5"); const lc = lectures.get("4.5");
+  let dateMetier = "";
+  if (has("lodging.read") && unite) {
+    if (lc && lc.etat === "valeur") dateMetier = `<span class="sep">·</span><span title="GET /lodging/business-date?hotelUnitCode (lodging.read)">date métier 01/09/2026${etat.sim === "vide" ? "" : ` · <span class="badge soumise">2 jours non clôturés</span>`}${EX}</span>`;
+    else if (lc && lc.etat === "chargement") dateMetier = `<span class="sep">·</span><span class="squelette" style="width:90px"></span>`;
+    else if (lc && lc.etat === "erreur") dateMetier = `<span class="sep">·</span><span style="color:var(--text-muted)">date métier indisponible</span>`;
+  }
+  const bandeau = `<div class="carte bandeau">
+    <div>
+      <h2 id="salutation">Bonjour, ${p.utilisateur}</h2>
+      <div class="date"><span>lundi 1<sup>er</sup> septembre 2026</span>${unite ? `<span class="sep">·</span><span title="Unité du poste, mémorisée par poste dans DesktopSettings (confort, jamais une sécurité)">${unite}</span>` : ""}${dateMetier}</div>
+      <div class="liens">
+        <button type="button" class="btn fantome" title="Identité de session : GET /api/v1/me + réponse de connexion">Mon profil</button>
+        <button type="button" class="btn fantome" title="Thème, densité, URL API, unité du poste : Paramétrage global → Poste de travail (local)">Mes préférences</button>
+        <button type="button" class="btn fantome" title="Changer de mot de passe : POST /account/change-password">Ma sécurité</button>
+      </div>
+    </div>
+    <div class="recherche-u">
+      ${svg("Recherche", "ic loupe")}
+      <input id="recherche" type="search" value="${etat.recherche.replace(/"/g, "&quot;")}" placeholder="Rechercher un module, un sous-module, un écran…  (Ctrl+K)" aria-label="Rechercher un module, un sous-module ou un écran" autocomplete="off">
+      <button type="button" class="effacer" id="effacer" aria-label="Effacer la recherche (Échap)" ${etat.recherche ? "" : "hidden"}>${svg("Croix", "ic", "0 0 9 9")}</button>
+      <div class="aide">Navigation seulement : modules, sous-modules et écrans de l'arbre — pas les données. Entrée ouvre le premier écran.</div>
+    </div>
+  </div>`;
+
+  /* --- À traiter : projection des signaux « travail » --- */
+  const prets = [...slots.values()].filter(x => x.etat === "pret");
+  const travail = prets.map(x => ({ slot:x, l:lectures.get(x.s.ordre) })).filter(x => x.l && x.l.etat === "valeur" && x.l.travail)
+    .sort((a, b) => (b.l.urgent - a.l.urgent) || (b.slot.s.poids - a.slot.s.poids));
+  const enErreur = prets.filter(x => lectures.get(x.s.ordre)?.etat === "erreur");
+  const chargement = prets.some(x => lectures.get(x.s.ordre)?.etat === "chargement");
+  let corps;
+  if (!prets.length) corps = `<div class="vide-inline">${svg("Corbeille")}<div><div class="titre">Aucun compteur pour votre profil</div><div class="indice">Vos écrans n'exposent pas de file de travail. Le catalogue ci-dessous reste votre sommaire ; les cartes verrouillées disent ce qui manque.</div></div></div>`;
+  else if (chargement) corps = `<div class="items">${[150,120,180].map(w => `<span class="item squelette-item" aria-hidden="true"><span class="squelette" style="width:${w}px"></span></span>`).join("")}</div>`;
+  else if (!travail.length) corps = `<div class="vide-inline">${svg("Coche")}<div><div class="titre">Rien à traiter</div><div class="indice">Aucun signal en attente sur vos écrans. Les compteurs se relisent à l'ouverture de l'accueil ou avec F5.</div></div></div>`;
+  else corps = `<div class="items">${travail.map(({ slot, l }) => { const m = module_(slot.s.ordre); const d = domaine(m.dom);
+      return `<button type="button" class="item ${l.urgent ? "urgent" : ""}" data-open="${m.tab}|${m.n}" aria-label="Ouvrir ${m.n} : ${l.texte}${l.urgent ? ", en retard" : ""}" title="${slot.s.route}">${svg(d.cle)}<b>${l.texte}</b><span class="mod">· ${m.mod}</span>${l.urgent ? `<span class="badge soumise">en retard</span>` : ""}${EX}</button>`; }).join("")}</div>`;
+  const avert = enErreur.length ? `<div class="avertissement" role="status">${enErreur.length} compteur${enErreur.length > 1 ? "s n'ont" : " n'a"} pas répondu (${enErreur.map(x => module_(x.s.ordre).n).join(", ")}). Les autres sont à jour.<button type="button" id="reessayer">Réessayer (F5)</button></div>` : "";
+  const aTraiter = `<div class="carte a-traiter">
+    <div class="tete"><p class="section-titre">À traiter</p>${prets.length ? `<span class="badge functional" title="Compteurs lus sur le serveur, jamais recalculés côté client (charte § 3.10)">${prets.length} compteur${prets.length > 1 ? "s" : ""} serveur</span>` : ""}
+      <span class="maj">${prets.length && !chargement ? `actualisé à ${etat.horodatage}` : ""}</span>
+      <button type="button" class="btn secondaire petit" id="RefreshHomeSignalsButton" title="Relire les compteurs (F5)" ${!prets.length ? "disabled" : ""}>${svg("Actualiser")}Actualiser</button></div>
+    ${corps}${avert}
+  </div>`;
+
+  /* --- Rail des domaines --- */
+  const nbParDom = id => MODULES.filter(m => m.dom === id).length;
+  const rail = `<div class="rail" role="group" aria-label="Domaines">
+    <span class="lib">Domaines</span>
+    <button type="button" data-dom="" aria-pressed="${!etat.domaine}" aria-label="Tous les domaines, 50 modules">Tous <span class="nb">50</span></button>
+    ${DOMAINES.map(d => `<button type="button" data-dom="${d.id}" aria-pressed="${etat.domaine === d.id}" aria-label="Domaine ${d.id} ${d.nom}, ${nbParDom(d.id)} module${nbParDom(d.id) > 1 ? "s" : ""}" title="${d.id} · ${d.nom} — ${MATURITE[d.maturite].libelle}">${svg(d.cle, "ic thin")}<span class="id">${d.id}</span><span class="nom">${d.nom}</span><span class="nb">${nbParDom(d.id)}</span></button>`).join("")}
+  </div>`;
+
+  /* --- Filtres + avancement compact (les deux lectures, jamais additionnées) --- */
+  const cnt = { dispo:31, api:0, partiel:0, planifie:19 };
+  const mat = { Functional:0, TechnicalPreview:0, Planned:0, ProductionReady:0 }; DOMAINES.forEach(d => mat[d.maturite]++);
+  const puce = (grp, val, lib, cur) => `<button type="button" class="puce-c" data-${grp}="${val}" aria-pressed="${cur === val}">${lib}</button>`;
+  const filtres = `<div class="ligne-filtres">
+    <div class="groupe-puces" role="group" aria-label="Statut du module"><span class="lib">Statut</span>${[["","Tous"],["dispo","Disponibles"],["api","API prête"],["partiel","Partiels"],["planifie","Planifiés"]].map(([v,l]) => puce("statut", v, l, etat.statut)).join("")}</div>
+    <div class="groupe-puces" role="group" aria-label="Priorité"><span class="lib">Priorité</span>${[["","Toutes"],["P0","P0"],["P1","P1"],["P2","P2"]].map(([v,l]) => puce("prio", v, l, etat.prio)).join("")}</div>
+    <div class="groupe-puces" role="group" aria-label="Maturité du domaine"><span class="lib">Maturité</span>${[["","Toutes"],["Functional","Fonctionnel"],["TechnicalPreview","Aperçu technique"],["Planned","Planifié"]].map(([v,l]) => puce("mat", v, l, etat.maturite)).join("")}</div>
+  </div>
+  <div class="avancement-c" aria-label="Où en est le produit ?">
+    <span class="titre">Où en est le produit ?</span>
+    <span><b>${cnt.dispo}</b> disponibles sur 50</span>
+    <span class="mini-barre" aria-hidden="true"><span style="flex:${cnt.dispo};background:var(--progress-available)"></span><span style="flex:${cnt.planifie};background:var(--progress-planned)"></span></span>
+    <span>${cnt.api} API prête · ${cnt.partiel} partiels · ${cnt.planifie} planifiés</span>
+    <span class="sep" aria-hidden="true">|</span>
+    <span title="Maturité des 22 domaines : une autre échelle, qui compte des engagements et non des écrans"><span class="pt" style="background:var(--mat-functional-accent)"></span><b>${mat.Functional}</b> fonctionnels <span class="pt" style="background:var(--mat-preview-accent);margin-left:8px"></span><b>${mat.TechnicalPreview}</b> aperçus <span class="pt" style="background:var(--mat-planned-accent);margin-left:8px"></span><b>${mat.Planned}</b> planifiés · ${mat.ProductionReady} prêt pour la production</span>
+    <button type="button" class="detail" id="detail" aria-expanded="${etat.detail}" aria-controls="avancement-detail">Détail ${svg("Chevron", "", "0 0 9 7")}</button>
+  </div>
+  <div class="carte avancement-detail" id="avancement-detail" ${etat.detail ? "" : "hidden"}>
+    <div class="headline">62 % du périmètre déjà utilisable — bandeau d'avancement inchangé, replié par défaut</div>
+    <div class="avancement">
+      ${[["Disponible", cnt.dispo, "available"],["API prête", cnt.api, "api"],["Partiel", cnt.partiel, "partial"],["Planifié", cnt.planifie, "planned"]].map(([l, v, c]) => `<div class="stat"><div class="lib"><span class="pt" style="background:var(--progress-${c})"></span>${l}</div><div class="val">${v}</div></div>`).join("")}
+    </div>
+    <div class="barre" aria-hidden="true"><span style="flex:${cnt.dispo};background:var(--progress-available)"></span><span style="flex:${cnt.planifie};background:var(--progress-planned)"></span></div>
+    <div class="legende-barre">${cnt.dispo} modules disponibles sur 50 · ${cnt.api} avec API livrée, écran à venir · ${cnt.partiel} partiellement couverts · ${cnt.planifie} planifiés.<br>
+      Domaines : <span class="pt" style="background:var(--mat-functional-accent)"></span>${mat.Functional} Fonctionnels · <span class="pt" style="background:var(--mat-preview-accent)"></span>${mat.TechnicalPreview} Aperçus techniques · <span class="pt" style="background:var(--mat-planned-accent)"></span>${mat.Planned} Planifiés · <span class="pt" style="background:var(--mat-ready-accent)"></span>${mat.ProductionReady} Prêt pour la production. Les deux lectures ne s'additionnent pas : l'une compte des écrans, l'autre des engagements.</div>
+  </div>`;
+
+  /* --- Résultats de recherche : sous-modules et écrans (nœuds qui ne sont pas des cartes) --- */
+  let resultats = "";
+  if (etat.recherche) {
+    const q = norm(etat.recherche); const hits = [];
+    for (const d of DOMAINES) {
+      for (const e of d.ecrans) for (const sm of e.sousModules) if (norm(`${sm} ${e.module} ${e.nom}`).includes(q)) hits.push({ d, e, sm, ouvrable:has(e.perm) });
+      for (const [mod, sm] of d.planifies) if (norm(`${sm} ${mod}`).includes(q)) hits.push({ d, sm, mod, planifie:true });
+    }
+    if (hits.length) resultats = `<div class="carte resultats"><p class="section-titre">Sous-modules et écrans (${hits.length})</p>${hits.slice(0, 8).map(h => h.planifie
+      ? `<button type="button" class="res" disabled title="Sous-module planifié : visible dans l'arbre, jamais ouvrable tant qu'aucun écran ne le sert.">${svg(h.d.cle)}<span class="chemin">${h.d.id} ${h.d.nom} › ${h.mod} › <b>${h.sm}</b></span>${badgeMat("Planned")}</button>`
+      : `<button type="button" class="res" data-open="${h.e.tab}|${h.e.nom}" ${h.ouvrable ? "" : "disabled"} aria-label="${h.ouvrable ? "Ouvrir" : ""} ${h.sm}${h.ouvrable ? "" : ", accès non autorisé pour votre profil"}" title="${h.ouvrable ? `Ouvre ${h.e.nom} (onglet ${h.e.tab})` : `Demandez le droit ${h.e.perm} à votre administrateur`}">${svg(h.d.cle)}<span class="chemin">${h.d.id} ${h.d.nom} › ${h.e.module} › <b>${h.sm}</b></span><span>${h.ouvrable ? `<span class="badge dispo">Écran ${h.e.nom}</span>` : svg("Cadenas", "cadenas", "0 0 12 12")}</span></button>`).join("")}</div>`;
+  }
+
+  /* --- Catalogue vivant : 50 cartes groupées par domaine 01…22 --- */
+  const visibles = MODULES.filter(filtreCarte);
+  let catalogue = "";
+  for (const d of DOMAINES) {
+    if (etat.domaine && d.id !== etat.domaine) continue;
+    const cartes = visibles.filter(m => m.dom === d.id);
+    if (!cartes.length) { if (d.id === "19" && !etat.recherche && !etat.statut && !etat.prio && !etat.maturite) catalogue += `<div class="groupe-tete">${svg(d.cle, "ic thin")}<span class="nom"><span class="id">${d.id}</span>${d.nom}</span><span class="compteur">0 module</span>${badgeMat(d.maturite)}<span class="filet"></span></div><div class="catalogue-vide" style="margin-bottom:14px">Aucun module rattaché : c'est la promesse du catalogue, le domaine existe avant son premier écran.</div>`; continue; }
+    catalogue += `<div class="groupe-tete" role="heading" aria-level="3" aria-label="Domaine ${d.id} ${d.nom}, ${cartes.length} module${cartes.length > 1 ? "s" : ""}, ${MATURITE[d.maturite].libelle}">${svg(d.cle, "ic thin")}<span class="nom"><span class="id">${d.id}</span>${d.nom}</span><span class="compteur">${cartes.length} module${cartes.length > 1 ? "s" : ""}</span>${badgeMat(d.maturite)}<span class="filet"></span></div>
+      <div class="cartes">${cartes.map(m => {
+        const verrou = m.perm && !has(m.perm); const planifie = m.s === "planifie"; const cliquable = m.tab && !verrou;
+        const [sc, sl] = STATUT[m.s]; const slot = slots.get(m.o); const l = slot ? lectures.get(m.o) : null;
+        const nomA = verrou ? `${m.n}, accès non autorisé pour votre profil` : planifie ? `${m.n}, planifié` : `Ouvrir ${m.n}, ${sl}${l && l.etat === "valeur" ? `, ${l.texte}` : ""}`;
+        const tip = verrou ? "Accès non autorisé pour votre profil" : planifie ? "Module planifié : aucun écran encore livré" : `${d.id} · ${d.nom} → ${m.mod}`;
+        return `<button type="button" class="cm ${m.s === "dispo" && !verrou ? "dispo" : ""} ${verrou ? "verrou" : ""}" ${cliquable ? `data-open="${m.tab}|${m.n}"` : "disabled"} aria-label="${nomA}" title="${tip}">
+          <div class="tete"><span class="chip">${svg(d.cle)}</span><span class="droite">${verrou ? svg("Cadenas", "ic cadenas", "0 0 12 12") : ""}${m.p}</span></div>
+          <div class="titre">${m.n}</div>
+          <div class="desc">${m.d}</div>
+          ${verrou ? `<div class="signal" aria-hidden="true"></div>` : rendreSignal(slot, l, m)}
+          <div class="bas"><span class="badge ${sc}">${sl}</span><span class="mod" title="${m.mod}">${m.mod}</span></div>
+        </button>`; }).join("")}</div>`;
+  }
+  if (!visibles.length) catalogue = `<div class="catalogue-vide"><b>Aucun module ne correspond à ${etat.recherche ? `« ${etat.recherche} »` : "ce filtre"}</b>${etat.recherche ? "Échap efface la recherche." : "Élargissez le statut, la priorité, la maturité ou le domaine."}</div>`;
+
+  sec.innerHTML = `<div class="accueil">${bandeau}${aTraiter}${rail}${filtres}${resultats}<div>${catalogue}</div></div>`;
+
+  /* --- Câblage --- */
+  const inp = sec.querySelector("#recherche");
+  inp.addEventListener("input", () => { etat.recherche = inp.value; const pos = inp.selectionStart; rendreAccueil(sec); const i2 = sec.querySelector("#recherche"); i2.focus(); i2.setSelectionRange(pos, pos); });
+  inp.addEventListener("keydown", ev => {
+    if (ev.key === "Escape") { ev.preventDefault(); etat.recherche = ""; rendreAccueil(sec); sec.querySelector("#recherche").focus(); }
+    if (ev.key === "Enter") { const first = sec.querySelector(".res[data-open]:not(:disabled), .cm[data-open]"); if (first) { const [tab, nom] = first.dataset.open.split("|"); ouvrirOnglet(+tab, nom); } }
+  });
+  sec.querySelector("#effacer").addEventListener("click", () => { etat.recherche = ""; rendreAccueil(sec); sec.querySelector("#recherche").focus(); });
+  sec.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => { const [tab, nom] = b.dataset.open.split("|"); ouvrirOnglet(+tab, nom); }));
+  sec.querySelectorAll("[data-dom]").forEach(b => b.addEventListener("click", () => { etat.domaine = b.dataset.dom || null; rendreAccueil(sec); }));
+  sec.querySelectorAll("[data-statut]").forEach(b => b.addEventListener("click", () => { etat.statut = b.dataset.statut; rendreAccueil(sec); }));
+  sec.querySelectorAll("[data-prio]").forEach(b => b.addEventListener("click", () => { etat.prio = b.dataset.prio; rendreAccueil(sec); }));
+  sec.querySelectorAll("[data-mat]").forEach(b => b.addEventListener("click", () => { etat.maturite = b.dataset.mat; rendreAccueil(sec); }));
+  sec.querySelector("#detail").addEventListener("click", () => { etat.detail = !etat.detail; rendreAccueil(sec); });
+  sec.querySelector("#RefreshHomeSignalsButton").addEventListener("click", actualiser);
+  sec.querySelector("#reessayer")?.addEventListener("click", actualiser);
+}
+
+/* ======================= Rendu : ecran ouvert (hors perimetre de la maquette) ======================= */
+function rendreEcranOuvert(sec) {
+  const e = etat.ecran; const d = domaine(e.dom);
+  sec.innerHTML = `<div class="carte ecran">
+    <div class="ecran-tete"><h2>${e.nom}</h2><div class="sous">${d.nom} → ${e.mod} — onglet ${e.tab} de MainTabs, vue inchangée.</div></div>
+    <div class="grille"><div class="vide">${svg("Corbeille")}<div class="titre">Écran hors périmètre de cette maquette</div><div class="indice">Cette exploration ne porte que sur l'accueil. Alt+Origine ou « Mon Espace » dans la barre latérale pour y revenir.</div></div></div>
+  </div>`;
+}
+
+/* ======================= Rendu global ======================= */
+function rendre() {
+  const p = prof();
+  document.documentElement.dataset.theme = etat.theme;
+  document.getElementById("app").classList.toggle("racine", etat.shell !== "visible" && !etat.ecran);
+  document.getElementById("entete-session").innerHTML = `<b>${p.utilisateur}</b> · ${p.nom}${uniteDuPoste() ? " · " + uniteDuPoste() : ""}`;
+  document.getElementById("lbl-theme").textContent = etat.theme === "clair" ? "Sombre" : "Clair";
+  document.querySelectorAll(".maquette-bar [data-profil]").forEach(b => b.setAttribute("aria-pressed", b.dataset.profil === etat.profil));
+  document.querySelectorAll(".maquette-bar [data-theme]").forEach(b => b.setAttribute("aria-pressed", b.dataset.theme === etat.theme));
+  document.querySelectorAll(".maquette-bar [data-shell]").forEach(b => b.setAttribute("aria-pressed", b.dataset.shell === etat.shell));
+  document.querySelectorAll(".maquette-bar [data-sim]").forEach(b => b.setAttribute("aria-pressed", b.dataset.sim === etat.sim));
+  document.querySelectorAll(".maquette-bar [data-unite]").forEach(b => b.setAttribute("aria-pressed", b.dataset.unite === etat.uniteMode));
+  rendreSidebar(); rendreAriane();
+  const sec = document.getElementById("ecran");
+  if (etat.ecran) rendreEcranOuvert(sec); else rendreAccueil(sec);
+}
+
+/* ======================= Commandes de la maquette et raccourcis ======================= */
+document.getElementById("seg-profil").innerHTML = ORDRE_PROFILS.map(k => `<button type="button" data-profil="${k}" aria-pressed="${k === etat.profil}">${PROFILS[k].nom}</button>`).join("");
+document.querySelectorAll(".maquette-bar [data-profil]").forEach(b => b.addEventListener("click", () => { etat.profil = b.dataset.profil; etat.ecran = null; etat.deroules.clear(); etat.recherche = ""; etat.domaine = null; rendre(); statut(`Prêt. Connecté en tant que ${prof().utilisateur} (${prof().role}).`); }));
+document.querySelectorAll(".maquette-bar [data-theme]").forEach(b => b.addEventListener("click", () => { etat.theme = b.dataset.theme; rendre(); }));
+document.querySelectorAll(".maquette-bar [data-shell]").forEach(b => b.addEventListener("click", () => { etat.shell = b.dataset.shell; rendre(); }));
+document.querySelectorAll(".maquette-bar [data-sim]").forEach(b => b.addEventListener("click", () => { etat.sim = b.dataset.sim; rendre(); }));
+document.querySelectorAll(".maquette-bar [data-unite]").forEach(b => b.addEventListener("click", () => { etat.uniteMode = b.dataset.unite; rendre(); }));
+document.getElementById("btn-theme").addEventListener("click", () => { etat.theme = etat.theme === "clair" ? "sombre" : "clair"; rendre(); statut("Apparence changée pour ce poste. Les écrans déjà ouverts prendront le nouveau thème au prochain démarrage."); });
+document.addEventListener("keydown", ev => {
+  if (ev.altKey && ev.key === "Home") { ev.preventDefault(); allerRacine(); }
+  if (ev.ctrlKey && ev.key.toLowerCase() === "k") { ev.preventDefault(); const i = etat.ecran ? document.querySelector("#sidebar input") : document.querySelector("#recherche"); i?.focus(); i?.select(); }
+  if (ev.key === "F5") { ev.preventDefault(); if (!etat.ecran) { if ([...composer().values()].some(x => x.etat === "pret")) actualiser(); else statut("Cet écran n'a rien à actualiser."); } else statut("Cet écran n'a rien à actualiser (maquette)."); }
+});
+
+rendre();
+statut(`Prêt. Connecté en tant que ${prof().utilisateur} (${prof().role}).`);
+</script>
+</body>
+</html>
