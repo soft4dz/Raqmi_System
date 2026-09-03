@@ -781,9 +781,6 @@ public partial class MainWindow : Window
             case 29:
                 await KpiView.LoadAsync();
                 break;
-            case 30:
-                await PmsView.LoadAsync();
-                break;
             default:
                 // Les onglets 0 a 4 vivent dans MainWindow et sont charges a la
                 // connexion : rien a faire, et rien a retenir non plus.
@@ -966,7 +963,6 @@ public partial class MainWindow : Window
         MiceView.Initialize(context);
         GroupDashboardView.Initialize(context);
         KpiView.Initialize(context);
-        PmsView.Initialize(context);
         DecCockpitView.Initialize(context);
         HousekeepingView.Initialize(context);
         HumanResourcesView.Initialize(context);
@@ -1061,7 +1057,6 @@ public partial class MainWindow : Window
         BackupView.ResetState();
         SyncView.ResetState();
         MiceView.ResetState();
-        PmsView.ResetState();
 
         // Remis a zero pour que la prochaine session batte immediatement : le registre doit
         // refleter le NOUVEL utilisateur du poste sans attendre cinq minutes.
@@ -1734,6 +1729,16 @@ public partial class MainWindow : Window
         catch (InvalidOperationException ex)
         {
             SetStatus(ex.Message, isError: true);
+        }
+        catch (Exception ex)
+        {
+            // Une action de module ne doit jamais s'echapper d'un gestionnaire async void et
+            // produire la boite modale globale vue par l'utilisateur. On conserve la trace
+            // complete pour le diagnostic tout en gardant l'ecran dans un etat utilisable.
+            System.Diagnostics.Trace.TraceError(ex.ToString());
+            SetStatus(
+                "L'opération n'a pas pu être terminée. Actualisez les données puis réessayez.",
+                isError: true);
         }
         finally
         {

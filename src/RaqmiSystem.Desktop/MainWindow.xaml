@@ -769,7 +769,7 @@
                                                             <TextBlock Text="Accéder aux opérations PMS de la journée" Style="{StaticResource HomeWorkItemDetail}" />
                                                         </StackPanel>
                                                         <Button Grid.Column="1" Content="Voir" Style="{StaticResource SecondaryButton}"
-                                                                Tag="30" IsEnabled="{Binding IsEnabled, ElementName=PmsTabItem}"
+                                                                Tag="15" IsEnabled="{Binding IsEnabled, ElementName=LodgingTabItem}"
                                                                 Click="HomeNavigate_Click" />
                                                     </Grid>
                                                 </Border>
@@ -823,8 +823,8 @@
                                         <StackPanel>
                                             <TextBlock Text="Mes actions rapides" Style="{StaticResource SectionTitleText}" Margin="0,0,0,14" />
                                             <UniformGrid Columns="6">
-                                                <Button Content="Nouvelle réservation" Style="{StaticResource HomeQuickActionButton}" Tag="30" IsEnabled="{Binding IsEnabled, ElementName=PmsTabItem}" Click="HomeNavigate_Click" />
-                                                <Button Content="Check-in" Style="{StaticResource HomeQuickActionButton}" Tag="30" IsEnabled="{Binding IsEnabled, ElementName=PmsTabItem}" Click="HomeNavigate_Click" />
+                                                <Button Content="Nouvelle réservation" Style="{StaticResource HomeQuickActionButton}" Tag="15" IsEnabled="{Binding IsEnabled, ElementName=LodgingTabItem}" Click="HomeNavigate_Click" />
+                                                <Button Content="Check-in" Style="{StaticResource HomeQuickActionButton}" Tag="15" IsEnabled="{Binding IsEnabled, ElementName=LodgingTabItem}" Click="HomeNavigate_Click" />
                                                 <Button Content="Saisir le CA" Style="{StaticResource HomeQuickActionButton}" Tag="2" IsEnabled="{Binding IsEnabled, ElementName=RevenueTabItem}" Click="HomeNavigate_Click" />
                                                 <Button Content="Créer une facture" Style="{StaticResource HomeQuickActionButton}" Tag="8" IsEnabled="{Binding IsEnabled, ElementName=InvoicesTabItem}" Click="HomeNavigate_Click" />
                                                 <Button Content="Demande d’achat" Style="{StaticResource HomeQuickActionButton}" Tag="25" IsEnabled="{Binding IsEnabled, ElementName=PurchasingTabItem}" Click="HomeNavigate_Click" />
@@ -1953,8 +1953,8 @@
                         <views:TariffsView x:Name="TariffsView" />
                     </TabItem>
 
-                    <!-- ================= Hébergement &amp; occupation ==================== -->
-                    <TabItem x:Name="LodgingTabItem" Header="Hébergement &amp; occupation">
+                    <!-- ================= PMS &amp; Hébergement ==================== -->
+                    <TabItem x:Name="LodgingTabItem" Header="PMS &amp; Hébergement">
                         <views:LodgingView x:Name="LodgingView" />
                     </TabItem>
 
@@ -2044,15 +2044,7 @@
                         <views:KpiView x:Name="KpiView" />
                     </TabItem>
 
-                    <!-- Onglet 30 - PMS front office. Meme regle que ci-dessus : un nouveau module
-                         s'ajoute TOUJOURS a la fin, sa place metier lui etant donnee par
-                         ModuleCatalog dans la barre laterale. Il complete le module 10 plutot que
-                         de le remplacer : "Hebergement & occupation" tient le parametrage et la
-                         vente, celui-ci tient l'exploitation quotidienne. -->
-                    <TabItem x:Name="PmsTabItem" Header="PMS front office">
-                        <views:PmsView x:Name="PmsView" />
-                    </TabItem>
-
+                    <!-- Onglet 30 - Points de vente. -->
                     <TabItem x:Name="PosTabItem" Header="Points de vente">
                         <views:PosView x:Name="PosView" />
                     </TabItem>

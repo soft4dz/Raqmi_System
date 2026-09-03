@@ -42,8 +42,8 @@ public sealed record ModuleCatalogEntry(
 public static class ModuleCatalog
 {
     // Totaux attendus - garde de coherence verifiee au chargement du type.
-    public const int ExpectedTotal = 50;
-    public const int ExpectedAvailable = 31;
+    public const int ExpectedTotal = 49;
+    public const int ExpectedAvailable = 30;
     public const int ExpectedApiReady = 0;
     public const int ExpectedPartial = 1;
     public const int ExpectedPlanned = 18;
@@ -94,7 +94,7 @@ public static class ModuleCatalog
             ["4"] = "\uE9D2", ["4.5"] = "\uE823", ["5"] = "\uE8C7",
             ["5.2"] = "\uE8EF", ["5.4"] = "\uE9D9", ["6"] = "\uE9D2",
             ["8"] = "\uE8A5", ["9"] = "\uE8C7", ["9.2"] = "\uE716",
-            ["10"] = "\uE825", ["10.1"] = "\uE787", ["10.2"] = "\uE7C3",
+            ["10"] = "\uE825", ["10.2"] = "\uE7C3",
             ["10.4"] = "\uE77B", ["10.6"] = "\uE716", ["11"] = "\uE7B8",
             ["11.5"] = "\uE8D4", ["11.6"] = "\uE719", ["12"] = "\uE7BF",
             ["12.5"] = "\uE8AB", ["13"] = "\uE90F", ["13.5"] = "\uE7E8",
@@ -121,12 +121,8 @@ public static class ModuleCatalog
         // passage : il tient un registre des postes, il ne synchronise rien.
         // La bibliotheque KPI (onglet 29) fait passer le 25.4 (Comparatif inter-unites)
         // de Planifie a Disponible : tableau de bord d'indicateurs, comparatif et alertes.
-        // Le PMS front office (10.1, onglet 30) ajoute la 50e ligne, et c'est la premiere fois
-        // que ce catalogue compte plus de modules que le tableau source. C'est assume : le
-        // module 10 a desormais DEUX ecrans, le parametrage et la vente d'un cote,
-        // l'exploitation quotidienne de l'autre, et une entree ne pouvant porter qu'un seul
-        // onglet, le second ecran serait sinon absent de la barre laterale - donc introuvable
-        // pour une reception qui ne connait pas la bande d'onglets.
+        // Le PMS est le point d'entree unique pour l'hebergement. Le parametrage, la vente,
+        // les reservations et les folios ne doivent pas apparaitre comme deux modules concurrents.
         // Toute edition qui casse ces totaux doit etre volontaire et reportee ici.
         EnsureCount("total", Entries.Count, ExpectedTotal);
         EnsureCount("Disponible", CountOf(ModuleStatus.Disponible), ExpectedAvailable);
@@ -178,16 +174,9 @@ public static class ModuleCatalog
             "P1", ModuleStatus.Disponible, PermissionCatalog.CustomersRead, 7),
 
         // --------------------------------------------------------- Exploitation
-        new ModuleCatalogEntry("10", Groups.Exploitation, "Hébergement & occupation",
-            "Types de chambre, réservations, folios et taux d'occupation",
+        new ModuleCatalogEntry("10", Groups.Exploitation, "PMS & Hébergement",
+            "Chambres, réservations, séjours, folios, occupation et exploitation hôtelière",
             "P1", ModuleStatus.Disponible, PermissionCatalog.LodgingRead, 15),
-        // Le PMS front office complete le module 10 plutot que de le remplacer : le 10 tient le
-        // parametrage du parc et la vente, celui-ci tient l'exploitation quotidienne - planning,
-        // arrivees, departs, presents, previsionnel, hors service et night audit. Deux ecrans, un
-        // seul moteur : tout ce qui touche a l'inventaire vient du meme calcul serveur.
-        new ModuleCatalogEntry("10.1", Groups.Exploitation, "PMS front office",
-            "Planning, arrivées, départs, clients présents, prévisionnel, hors service et night audit",
-            "P1", ModuleStatus.Disponible, PermissionCatalog.LodgingRead, 30),
         new ModuleCatalogEntry("10.2", Groups.Exploitation, "Housekeeping & chambres",
             "Planning des équipes, inspection, minibar",
             "P2", ModuleStatus.Disponible, PermissionCatalog.HousekeepingRead, 21),
@@ -213,7 +202,7 @@ public static class ModuleCatalog
             "P2", ModuleStatus.Disponible, PermissionCatalog.KitchenRead, 26),
         new ModuleCatalogEntry("11.6", Groups.Exploitation, "Points de vente (POS)",
             "Plan de salle, tickets et transfert au folio",
-            "P2", ModuleStatus.Partiel, PermissionCatalog.KitchenRead, 31,
+            "P2", ModuleStatus.Partiel, PermissionCatalog.KitchenRead, 30,
             "Comptoir local livré : articles, ticket, quantités et paiement. Persistance serveur et transfert au folio à venir."),
         // Perimetre livre, dit tel quel : fournisseurs, bons de commande numerotes a
         // l'approbation et receptions qui alimentent le stock. Les demandes d'achat, les
