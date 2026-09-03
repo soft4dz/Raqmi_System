@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using RaqmiSystem.Desktop;
 
@@ -27,13 +27,13 @@ internal sealed record CaptureTarget(
         {
             new(
                 HomeTabIndex,
-                FileNameFor(HomeTabIndex, "accueil"),
-                "Accueil - catalogue des modules",
-                "Accueil",
+                FileNameFor(HomeTabIndex, "mon-espace"),
+                "Mon Espace - Mon travail",
+                "Mon Espace",
                 "Socle",
                 "P0",
                 "Disponible",
-                "Sommaire des 50 modules de l'ERP, leur domaine et leur avancement reel.",
+                "Files de travail composees des permissions du profil, et catalogue des 50 modules en seconde section.",
                 null,
                 Array.Empty<string>())
         };
