@@ -1813,8 +1813,8 @@
          ouvrable (statut sans ecran ou permission manquante) : fond attenue,
          plus d'ombre ni de survol, mais texte a pleine lisibilite. -->
     <Style x:Key="ModuleCatalogCard" TargetType="Button">
-        <Setter Property="Width" Value="182" />
-        <Setter Property="Height" Value="144" />
+        <Setter Property="Width" Value="158" />
+        <Setter Property="Height" Value="136" />
         <Setter Property="Margin" Value="0,0,12,12" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -1850,15 +1850,18 @@
                             <!-- Icone du groupe, priorite et cadenas -->
                             <Grid>
                                 <Border x:Name="iconChip"
-                                        Width="44"
-                                        Height="44"
-                                        CornerRadius="12"
+                                        Width="50"
+                                        Height="50"
+                                        CornerRadius="14"
                                         Background="{StaticResource AppTileBlueSoftBrush}"
-                                        HorizontalAlignment="Left">
-                                    <Path x:Name="groupIcon"
-                                          Style="{StaticResource ModuleCardIcon}"
-                                          Stroke="{StaticResource AppTileBlueBrush}"
-                                          Data="{Binding GroupIconKey, Converter={StaticResource ModuleGroupIconConverter}}" />
+                                        HorizontalAlignment="Center">
+                                    <TextBlock x:Name="moduleIcon"
+                                               Text="{Binding IconGlyph}"
+                                               FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                               FontSize="24"
+                                               Foreground="{StaticResource AppTileBlueBrush}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
                                 </Border>
 
                                 <StackPanel Orientation="Horizontal"
@@ -1881,27 +1884,23 @@
                             </Grid>
 
                             <!-- Titre et description -->
-                            <StackPanel Grid.Row="1" Margin="0,10,0,0">
+                            <StackPanel Grid.Row="1" Margin="0,9,0,0">
                                 <TextBlock Text="{Binding Name}"
                                            FontSize="12.5"
                                            FontWeight="SemiBold"
                                            Foreground="{StaticResource TextPrimaryBrush}"
                                            TextWrapping="Wrap"
                                            TextTrimming="CharacterEllipsis"
+                                           TextAlignment="Center"
                                            MaxHeight="35" />
                                 <TextBlock Text="{Binding Description}"
-                                           FontSize="10.5"
-                                           Foreground="{StaticResource TextSecondaryBrush}"
-                                           TextWrapping="Wrap"
-                                           TextTrimming="CharacterEllipsis"
-                                           MaxHeight="28"
-                                           Margin="0,3,0,0" />
+                                           Visibility="Collapsed" />
                             </StackPanel>
 
                             <!-- Pastille de statut -->
                             <Border x:Name="statusPill"
                                     Grid.Row="2"
-                                    HorizontalAlignment="Left"
+                                    HorizontalAlignment="Center"
                                     CornerRadius="8"
                                     Padding="7,2"
                                     Background="{StaticResource ModuleStatusPlannedBackgroundBrush}">
@@ -1919,23 +1918,23 @@
                             <Setter TargetName="statusPill" Property="Background" Value="{StaticResource ModuleStatusAvailableBackgroundBrush}" />
                             <Setter TargetName="statusPillText" Property="Foreground" Value="{StaticResource ModuleStatusAvailableForegroundBrush}" />
                             <Setter TargetName="iconChip" Property="Background" Value="{StaticResource AccentSoftBrush}" />
-                            <Setter TargetName="groupIcon" Property="Stroke" Value="{StaticResource AccentPressedBrush}" />
+                            <Setter TargetName="moduleIcon" Property="Foreground" Value="{StaticResource AccentPressedBrush}" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding Group}" Value="Finance">
                             <Setter TargetName="iconChip" Property="Background" Value="{StaticResource AppTileGreenSoftBrush}" />
-                            <Setter TargetName="groupIcon" Property="Stroke" Value="{StaticResource AppTileGreenBrush}" />
+                            <Setter TargetName="moduleIcon" Property="Foreground" Value="{StaticResource AppTileGreenBrush}" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding Group}" Value="Exploitation">
                             <Setter TargetName="iconChip" Property="Background" Value="{StaticResource AppTileTealSoftBrush}" />
-                            <Setter TargetName="groupIcon" Property="Stroke" Value="{StaticResource AppTileTealBrush}" />
+                            <Setter TargetName="moduleIcon" Property="Foreground" Value="{StaticResource AppTileTealBrush}" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding Group}" Value="Ressources humaines">
                             <Setter TargetName="iconChip" Property="Background" Value="{StaticResource AppTileGoldSoftBrush}" />
-                            <Setter TargetName="groupIcon" Property="Stroke" Value="{StaticResource AppTileGoldBrush}" />
+                            <Setter TargetName="moduleIcon" Property="Foreground" Value="{StaticResource AppTileGoldBrush}" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding Group}" Value="Pilotage">
                             <Setter TargetName="iconChip" Property="Background" Value="{StaticResource AppTileIndigoSoftBrush}" />
-                            <Setter TargetName="groupIcon" Property="Stroke" Value="{StaticResource AppTileIndigoBrush}" />
+                            <Setter TargetName="moduleIcon" Property="Foreground" Value="{StaticResource AppTileIndigoBrush}" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding Status}" Value="{x:Static desktop:ModuleStatus.ApiPrete}">
                             <Setter TargetName="statusPill" Property="Background" Value="{StaticResource ModuleStatusApiBackgroundBrush}" />
@@ -1957,7 +1956,7 @@
                         <DataTrigger Binding="{Binding IsLocked}" Value="True">
                             <Setter TargetName="lockIcon" Property="Visibility" Value="Visible" />
                             <Setter TargetName="iconChip" Property="Background" Value="{StaticResource DisabledBackgroundBrush}" />
-                            <Setter TargetName="groupIcon" Property="Stroke" Value="{StaticResource TextMutedBrush}" />
+                            <Setter TargetName="moduleIcon" Property="Foreground" Value="{StaticResource TextMutedBrush}" />
                         </DataTrigger>
 
                         <!-- Survol : elevation de 2px, bordure accent de marque.

@@ -83,6 +83,32 @@ public static class ModuleCatalog
             [Groups.Systeme] = "Systeme"
         };
 
+    // Glyphe propre a chaque application du lanceur. Segoe Fluent Icons est livre
+    // avec Windows ; les caracteres restent vectoriels et nets a toute echelle.
+    // Le catalogue garde cette correspondance a cote des metadonnees fonctionnelles
+    // afin qu'une vue n'ait jamais a deviner une icone depuis un libelle traduit.
+    private static readonly IReadOnlyDictionary<string, string> ModuleIconGlyphs =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["1"] = "\uE77B", ["2"] = "\uE713", ["3"] = "\uE80F",
+            ["4"] = "\uE9D2", ["4.5"] = "\uE823", ["5"] = "\uE8C7",
+            ["5.2"] = "\uE8EF", ["5.4"] = "\uE9D9", ["6"] = "\uE9D2",
+            ["8"] = "\uE8A5", ["9"] = "\uE8C7", ["9.2"] = "\uE716",
+            ["10"] = "\uE825", ["10.1"] = "\uE787", ["10.2"] = "\uE7C3",
+            ["10.4"] = "\uE77B", ["10.6"] = "\uE716", ["11"] = "\uE7B8",
+            ["11.5"] = "\uE8D4", ["11.6"] = "\uE719", ["12"] = "\uE7BF",
+            ["12.5"] = "\uE8AB", ["13"] = "\uE90F", ["13.5"] = "\uE7E8",
+            ["14.5"] = "\uE8EC", ["18"] = "\uE939", ["20"] = "\uE8A5",
+            ["20.2"] = "\uE8D7", ["21"] = "\uE716", ["21.2"] = "\uE77B",
+            ["22"] = "\uE83D", ["22.2"] = "\uE8D7", ["22.4"] = "\uE9D5",
+            ["22.6"] = "\uE7BA", ["22.8"] = "\uE8BD", ["23"] = "\uE73E",
+            ["23.2"] = "\uE72E", ["23.4"] = "\uE8A5", ["23.6"] = "\uE789",
+            ["24"] = "\uE9D2", ["24.2"] = "\uE95E", ["24.4"] = "\uE9D2",
+            ["25"] = "\uE9D5", ["25.2"] = "\uE7BA", ["25.4"] = "\uE8AB",
+            ["26"] = "\uE7E3", ["27"] = "\uE8A5", ["28"] = "\uE777",
+            ["29"] = "\uE8B9", ["30"] = "\uE9D5"
+        };
+
     static ModuleCatalog()
     {
         // Garde de coherence : le tableau de verite du depot compte 50 modules,
@@ -330,6 +356,9 @@ public static class ModuleCatalog
     // qu'une carte ne se retrouve jamais sans icone.
     public static string GroupIconKey(string group) =>
         IconKeys.TryGetValue(group, out var key) ? key : "Systeme";
+
+    public static string ModuleIconGlyph(string order) =>
+        ModuleIconGlyphs.TryGetValue(order, out var glyph) ? glyph : "\uE71D";
 
     // Debug.Assert et non une exception : une derive de ces totaux est une erreur
     // d'edition du catalogue, connue des la compilation. La faire remonter en

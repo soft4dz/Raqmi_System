@@ -23,6 +23,7 @@ public sealed class ModuleTile : INotifyPropertyChanged
         Entry = entry;
         StatusLabel = ModuleCatalog.StatusLabel(entry.Status);
         GroupIconKey = ModuleCatalog.GroupIconKey(entry.Group);
+        IconGlyph = ModuleCatalog.ModuleIconGlyph(entry.Order);
         SearchText = NormalizeForSearch($"{entry.Name} {entry.Description} {entry.Group} {entry.Order}");
     }
 
@@ -72,6 +73,8 @@ public sealed class ModuleTile : INotifyPropertyChanged
     public string StatusLabel { get; }
 
     public string GroupIconKey { get; }
+
+    public string IconGlyph { get; }
 
     public string? PermissionKey => Entry.PermissionKey;
 
