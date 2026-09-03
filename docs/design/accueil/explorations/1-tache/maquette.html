@@ -72,7 +72,9 @@
   /* ============ Base ============ */
   * { box-sizing:border-box; }
   html, body { margin:0; height:100%; }
-  body { font-family: Manrope, "Noto Kufi Arabic", "Segoe UI", sans-serif; font-size:13px; color:var(--text); background:var(--app-bg); display:flex; flex-direction:column; min-height:100vh; }
+  body { font-family: Manrope, "Noto Kufi Arabic", "Segoe UI", sans-serif; font-size:13px; color:var(--text); background:var(--app-bg); display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+  /* La fenetre WPF a une hauteur fixe : l'en-tete, la barre laterale et le bandeau de session restent en place ;
+     seul le contenu de l'onglet defile (ScrollViewer de la vue). La page ne defile jamais. */
   button { font:inherit; color:inherit; cursor:pointer; border:0; background:none; }
   button:focus-visible, [tabindex]:focus-visible, input:focus-visible, select:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
   svg.ic { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; flex:none; }
@@ -99,13 +101,13 @@
   .entete .ghost:focus-visible { outline-color:var(--focus-on-dark); }
 
   /* ============ Corps : barre laterale + contenu ============ */
-  .app { flex:1; display:grid; grid-template-columns:248px 1fr; gap:20px; padding:24px 24px 0; min-height:0; }
+  .app { flex:1; display:grid; grid-template-columns:248px 1fr; grid-template-rows:minmax(0, 1fr); gap:20px; padding:24px 24px 0; min-height:0; }
   .app.racine { grid-template-columns:1fr; }
   .app.racine aside { display:none; }
   [data-sidebar="affichee"] .app.racine { grid-template-columns:248px 1fr; }
   [data-sidebar="affichee"] .app.racine aside { display:flex; }
   .carte { background:var(--surface); border:1px solid var(--panel-border); border-radius:10px; }
-  aside { padding:18px 14px; display:flex; flex-direction:column; min-height:0; align-self:start; }
+  aside { padding:18px 14px; display:flex; flex-direction:column; min-height:0; overflow:hidden; }
   .etiquette { font-size:11px; font-weight:600; color:var(--text-muted); margin:0 0 10px 14px; }
   .nav-btn { width:100%; height:40px; display:flex; align-items:center; gap:10px; padding:0 10px 0 14px; border-radius:6px; color:var(--text-2); font-size:13px; text-align:left; position:relative; }
   .nav-btn:hover { background:var(--surface-subtle); }
@@ -115,7 +117,7 @@
   .recherche input { width:100%; min-height:34px; padding:0 32px; border:1px solid var(--field-border); border-radius:8px; background:var(--surface); color:var(--text); font:inherit; }
   .recherche input::placeholder { color:var(--placeholder); }
   .recherche svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--placeholder); }
-  .domaines { margin-top:14px; overflow:auto; flex:1; padding-right:4px; max-height:520px; }
+  .domaines { margin-top:14px; overflow:auto; flex:1; min-height:0; padding-right:4px; }
   .domaine { margin-bottom:2px; }
   .dom-tete { width:100%; height:36px; display:grid; grid-template-columns:auto 1fr auto auto auto; align-items:center; padding:0 10px; border-radius:6px; color:var(--text); font-size:12.5px; font-weight:600; text-align:left; }
   .dom-tete:hover { background:var(--surface-subtle); }
@@ -168,8 +170,9 @@
   .badge.rejetee { background:var(--status-rejected-bg); color:var(--status-rejected-fg); }
 
   /* ============ Ecran cible (stub du shell) ============ */
-  main { min-width:0; display:flex; flex-direction:column; }
-  .ecran { padding:20px; flex:1; display:flex; flex-direction:column; gap:16px; }
+  main { min-width:0; min-height:0; display:flex; flex-direction:column; }
+  #ecran { flex:1; min-height:0; overflow:auto; }            /* = ScrollViewer de l'onglet : le fil d'Ariane ne defile pas */
+  .ecran { padding:20px; display:flex; flex-direction:column; gap:16px; }
   .ecran-tete { display:flex; align-items:flex-start; gap:12px; }
   .ecran-tete h2 { font-size:21px; font-weight:600; margin:0; }
   .ecran-tete .sous { font-size:12.5px; color:var(--text-2); margin-top:4px; }
@@ -205,7 +208,7 @@
   .vide .indice { font-size:12px; color:var(--text-muted); text-align:center; }
 
   /* ============ Accueil : Poste de travail ============ */
-  .poste { display:flex; flex-direction:column; gap:20px; }
+  .poste { display:flex; flex-direction:column; gap:20px; padding:0 6px 24px 0; }   /* ScrollViewer Padding 0,0,6,0 de l'accueil */
   [data-densite="compact"] .poste { gap:14px; }
   .sections { display:flex; gap:8px; align-items:center; }
   .puce { border:1px solid var(--panel-border); background:var(--surface); border-radius:15px; padding:6px 14px; font-size:12.5px; font-weight:600; color:var(--text-2); display:inline-flex; gap:8px; align-items:center; }
@@ -536,7 +539,7 @@ const UNITES = [
 /* ======================= Donnees d'EXEMPLE (aucune ne vient d'un serveur) ======================= */
 const DONNEES = {
   settings:        { company:"Groupe Riadh Hôtels", currency:"DA" },
-  businessDate:    { businessDate:"01/09/2026", calendarDate:"01/09/2026", lastClosedDate:"30/08/2026", isLate:true, pendingDays:1 },
+  businessDate:    { businessDate:"31/08/2026", calendarDate:"01/09/2026", lastClosedDate:"30/08/2026", isLate:true, pendingDays:1 },   // BusinessDay.Resolve : Date = LastClosed + 1 ; IsLate = Date < CalendarDate
   frontDesk:       { arrivals:14, overdueArrivals:2, departures:9, overdueDepartures:1, overdueBalance:"9 200,00", inHouse:31, occupancy:74 },
   board:           { totalRooms:42, dirtyRooms:6, awaitingInspection:3, outOfOrder:1, cleanRooms:30 },
   pending:         { count:2, oldest:"OP-2026-0187 · 1 180 000,00" },
@@ -708,7 +711,7 @@ function rendrePoste(sec) {
   const prof = PROFILS[etat.profil];
   const { bandes, unitaireSansUnite, nbFiles } = cartesParBande();
   const unite = uniteCourante();
-  const dateMetier = (unite && has("lodging.read")) ? ` · date métier ${DONNEES.businessDate.businessDate}${DONNEES.businessDate.isLate ? ` (${DONNEES.businessDate.pendingDays} journée à clôturer)` : " · à jour"}` : "";
+  const dateMetier = (unite && has("lodging.read")) ? ` · date métier ${DONNEES.businessDate.businessDate}${DONNEES.businessDate.isLate ? ` · ${DONNEES.businessDate.pendingDays} journée${DONNEES.businessDate.pendingDays > 1 ? "s" : ""} à clôturer` : " · à jour"}` : "";
   const nbFaire = Object.values(bandes).flat().filter(c => c.mode === "faire" && c.q.action).length;
   const synthese = etat.simulation === "chargement"
     ? `<span>Chargement des files de travail…</span>`
@@ -727,7 +730,7 @@ function rendrePoste(sec) {
     <div class="carte bandeau">
       <div>
         <h2>Bonjour, ${prof.utilisateur}</h2>
-        <div class="date">lundi 1 septembre 2026${dateMetier}</div>
+        <div class="date">mardi 1 septembre 2026${dateMetier}</div>
         <div class="synthese" aria-live="polite">${synthese}</div>
         <div class="liens">
           <button type="button" class="btn fantome" data-open="9|2" title="Ouvre Paramétrage global › Santé du système (rend GET /api/v1/me)">Mon profil</button>

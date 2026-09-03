@@ -67,8 +67,8 @@ catalogue qui ne dit rien (charte § 4.3 : « un statut qui ment au dirigeant es
    acceptables : ce sont des lignes que le serveur a déjà sélectionnées. Aucune somme de
    `Amount` n'est faite côté client ; si le serveur ne renvoie pas le total, la tuile n'affiche
    que le nombre de lignes.
-3. **Aucun pourcentage calculé côté client.** J et J-1 sont affichés côte à côte
-   (« 3 412 600,00 · veille 4 060 900,00 »). Une flèche de tendance ou une variation en % n'apparaît
+3. **Aucun pourcentage calculé côté client.** J-1 et J sont affichés côte à côte
+   (« Recettes J-1 3 562 200,00 · J en cours 486 200,00 »). Une flèche de tendance ou une variation en % n'apparaît
    que si le serveur la renvoie (`KpiMeasureResponse.Trend` / `PreviousVariancePercent`,
    `GroupDashboardResponse.Variations`). Le verdict de couleur ne vient que de `KpiHealth`
    ou de `KpiAlertSeverity`, jamais d'une comparaison locale.
@@ -89,49 +89,58 @@ catalogue qui ne dit rien (charte § 4.3 : « un statut qui ment au dirigeant es
 
 ## 3. Structure
 
-### 3.1 Wireframe (1240 × 760, barre latérale repliée comme aujourd'hui sur l'onglet 0)
+### 3.1 Wireframe (1240 × 760, profil direction, barre latérale déployée — parti pris, voir § 9)
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│ EN-TÊTE 76 px  Raqmi System                        D. Hamdani · direction  [Thème] [F1]   │
-├──────────────────────────────────────────────────────────────────────────────────────────┤
-│ ┌ BANDEAU DE COMMANDE (CardBorder) ────────────────────────────────────────────────────┐ │
-│ │ Bonjour, Djamel Hamdani                 Périmètre [Toutes les unités ▾] Journée [02/09]│ │
-│ │ mardi 2 septembre 2026 · Raqmi Hôtels · DZD · direction        [Actualiser F5]         │ │
-│ │ Cockpit calculé à 08:42 · HTL-01 date métier 02/09 · en retard : HTL-04 (30/08, 3 j)   │ │
-│ └───────────────────────────────────────────────────────────────────────────────────────┘ │
-│ INSTRUMENTS                                                                               │
-│ ┌─────────┐┌─────────┐┌─────────┐┌─────────┐┌─────────┐┌─────────┐┌─────────┐            │
-│ │Recettes ││Encaiss. ││Créances ││Stocks < ││Absences ││NPS 30 j ││Sauveg.  │  ← Button   │
-│ │3 412 600││2 184 350││18 642 300│ 7 art.  ││   4     ││  +42    ││ 6 h     │    par tuile│
-│ │veille   ││veille   ││> 90 j   ││3 magas. ││août     ││118 rép. ││1,2 Go   │            │
-│ └─────────┘└─────────┘└─────────┘└─────────┘└─────────┘└─────────┘└─────────┘            │
-│ À DÉCIDER                                                                                 │
-│ [3 Mes validations →] [2 Recettes à valider · 1 216 300 →] [3 j Retard de clôture →]       │
-│ [1 Recette rejetée →] [2 OP à approuver · 2 640 000 →] [1 Inventaire à valider →]         │
-│ ┌ ALERTES ET SIGNAUX (5/12) ──────────┐ ┌ UNITÉS (7/12) ─────────────────────────────┐   │
-│ │ ● Critique  Taux d'occupation HTL-04│ │ Unité      Recette J-1   Clôt. Occupation ● │   │
-│ │   52 % < 60 % · unit.manager        │ │ HTL-01  1 215 300 Validée Oui  96/123 78 %  │   │
-│ │ ● À surveiller  Food cost HTL-03    │ │ HTL-02    742 100 Soumise Oui  54/84  64 %  │   │
-│ │ ● Signal  HTL-04 sans recette J-1   │ │ HTL-03  1 604 800 Validée Oui 141/155 91 %  │   │
-│ │ [Ouvrir les alertes KPI]            │ │ HTL-04         —     —   Non   46/88  52 % ●│   │
-│ └─────────────────────────────────────┘ └─────────────────────────────────────────────┘   │
-│ KPI MOTEUR — mois en cours vs N-1        [Charger (calcule toute la bibliothèque, ~2 s)]   │
-│ ┌ OÙ EN EST LE PRODUIT ? ───────────────┐ ┌ MON ESPACE ────────────────────────────────┐  │
-│ │ 31 dispo · 0 API · 0 partiel · 19 plan.│ │ Djamel Hamdani · direction · d.hamdani@…    │  │
-│ │ ▓▓▓▓▓▓▓▓▓▓▓▓░░░░░  [Catalogue (50)]    │ │ [Mon profil] [Mes préférences] [Ma sécurité]│  │
-│ └────────────────────────────────────────┘ │ Mon activité → Journal d'audit              │  │
-│                                            │ Notifications · Tâches · Agenda  ⟨Planifié⟩ │  │
-│                                            └─────────────────────────────────────────────┘  │
-│ ▸ Catalogue des modules · 50  (replié ; Ctrl+K l'ouvre et place le curseur dans la recherche) │
-├──────────────────────────────────────────────────────────────────────────────────────────┤
-│ Session ● Prêt. Connecté en tant que Djamel Hamdani.                                       │
-└──────────────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ EN-TÊTE 76 px   Raqmi System                           ● D. Hamdani · direction   [Thème] [F1]    │
+├──────────────┬───────────────────────────────────────────────────────────────────────────────────┤
+│ Modules      │ ┌ BANDEAU DE COMMANDE (CardBorder) ─────────────────────────────────────────────┐ │
+│ ▌Accueil     │ │ Bonjour, Djamel Hamdani              Périmètre [Toutes les unités ▾]  Journée  │ │
+│ [Rechercher…]│ │ mardi 2 septembre 2026 · Raqmi Hôtels · DZD · direction     [02/09/2026] [⟳ F5]│ │
+│              │ │ Cockpit calculé à 08:42 · retard de clôture le plus ancien : HTL-04 30/08 (3 j) │ │
+│ 01 Mon Esp. 1│ └───────────────────────────────────────────────────────────────────────────────┘ │
+│ 02 Admin.   2│ INSTRUMENTS — J-1 ET J                                                            │
+│ 03 Finance  5│ ┌──────────────┐┌──────────────┐┌──────────────┐┌──────────────┐                  │
+│ 04 Commerc. 2│ │Recettes J-1  ││Encaissem. J  ││Créances      ││Stocks < min. │  un Button par   │
+│ 05 Factur.  1│ │3 562 200,00  ││2 184 350,00  ││18 642 300,00 ││7 articles    │  tuile ; ouvre   │
+│ 06 PMS      3│ │3/4 · J : 1/4 ││veille 2 947 1││> 90 j 2 118 0││tous magasins │  l'écran source  │
+│ 07 Revenue  1│ └──────────────┘└──────────────┘└──────────────┘└──────────────┘                  │
+│ 08 Housek.  1│ ┌──────────────┐┌──────────────┐┌──────────────┐┌──────────────┐  rangées 2-3     │
+│ 09 MICE     1│ │Événements J 3││NPS 30 j  +42 ││Paie  Août 26 ││Effectif  148 │  selon les clés  │
+│ 10 F&B      1│ └──────────────┘└──────────────┘└──────────────┘└──────────────┘  (ici direction) │
+│ 11 Stocks   1│ ┌──────────────┐┌──────────────┐┌──────────────┐                                  │
+│ 12 Achats   1│ │Journal 24 h  ││Sauvegarde 6 h││Postes 9 · 1 ▪│                                  │
+│ 13 RH       1│ └──────────────┘└──────────────┘└──────────────┘                                  │
+│ 15 Qualité  1│ À DÉCIDER                                                                         │
+│ 20 Pilotage 5│ [3 Mes validations ›] [2 Recettes à valider · 1 216 300 ›] [4 Journées à clôturer ›]│
+│ ──────────── │ [1 Recette rejetée ›] [2 OP à approuver · 2 640 000 ›] [1 Inventaire à valider ›]  │
+│ 22 Système  2│ [3 Commandes à approuver ›] [2 Commandes livrables ›] [4 Absences à approuver ›]   │
+│ ──────────── │ ┌ ALERTES ET SIGNAUX (5/12) ────────┐ ┌ UNITÉS — SANTÉ DU JOUR (7/12) ──────────┐ │
+│ Session ●    │ │ ● Critique  Taux d'occupation      │ │ Unité   Recette J-1  Statut  Clôt. Occ.  │ │
+│ Prêt.        │ │   HTL-04 · 52 % · seuil crit. 60 % │ │ HTL-04         —    Aucune  Non  52 % ● │ │
+│              │ │ ● À surveiller  Food cost HTL-03   │ │ HTL-01 1 215 300,00 Validée Oui  78 %   │ │
+│              │ │ ● Signal  HTL-04 demande attention │ │ HTL-02   742 100,00 Soumise Non  64 %   │ │
+│              │ │          [Ouvrir les alertes KPI ›]│ │ HTL-03 1 604 800,00 Validée Oui  91 %   │ │
+│              │ └────────────────────────────────────┘ └─────────────────────────────────────────┘ │
+│              │ KPI MOTEUR — mois en cours vs N-1     [Charger les KPI (toute la bibliothèque, ~2 s)]│
+│              │ ┌ OÙ EN EST LE PRODUIT ? ────────────┐ ┌ MON ESPACE ─────────────────────────────┐ │
+│              │ │ 31 · 0 · 0 · 19  ▓▓▓▓▓▓▓▓▓░░░░░    │ │ Djamel Hamdani · d.hamdani@… · direction │ │
+│              │ │ 62 % utilisable  [Catalogue (50)]  │ │ [Mon profil] [Mes préférences] [Sécurité] │ │
+│              │ └────────────────────────────────────┘ │ Mon activité → Journal d'audit · Validations│ │
+│              │                                        │ Notifications · Tâches · Agenda  ⟨Planifié⟩ │ │
+│              │                                        └─────────────────────────────────────────┘ │
+│              │ ▸ Catalogue des modules · 50   (replié ; Ctrl+K le déplie et focalise la recherche)  │
+└──────────────┴───────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-À 760 px de haut, le bandeau (≈ 96 px), la rangée d'instruments (≈ 108 px) et la rangée
-« À décider » (≈ 64 px) tiennent dans le premier écran avec le haut des cartes Alertes /
-Unités : **l'utilisateur voit des données avant de défiler**, là où il voyait des filtres.
+Largeur utile à 1240 px : 1240 − 48 (marges) − 268 (barre + gouttière) = 924 px → **4 tuiles
+de 208 px par rangée** (5 dès 1404 px, 7 à 1920 px). À 760 px de haut (≈ 600 px sous l'en-tête),
+le bandeau (≈ 96 px) et les trois rangées d'instruments d'une direction (≈ 324 px) tiennent dans
+le premier écran avec le haut de la rangée « À décider » ; un profil court (Réception, RH) voit
+tout jusqu'aux alertes sans défiler : **l'utilisateur voit des données avant de défiler**, là où
+il voyait des filtres. La barre latérale ne montre que les domaines qui ont un écran ouvrable pour
+la session (ici 16 sur 22), comme aujourd'hui sur les autres onglets.
 
 ### 3.2 Bandeau de commande
 
@@ -145,17 +154,22 @@ Unités : **l'utilisateur voit des données avant de défiler**, là où il voya
 
 ### 3.3 Instruments
 
-Tuiles `Button` (gabarit dérivé de `ModuleCatalogCard`, hauteur 100 px confortable / 84 px
-compact) : icône du domaine `ModuleGroupIcon.<clé>` 16 px + libellé `MetricLabelText`,
-valeur `HomeStatValueText` 27 (tri-valeurs en `MetricValueText` 18), légende `CaptionText`
-(« veille … », « n/m unités saisies »), pastille de statut si le serveur en fournit un.
-Le clic ouvre l'écran source par `NavigateToModule`. Info-bulle = route, permission, heure de calcul.
+Tuiles `Button` (gabarit dérivé de `ModuleCatalogCard`, **208 × 100 px** confortable /
+208 × 84 px compact, dans un `WrapPanel` comme les cartes du catalogue) : icône du domaine
+`ModuleGroupIcon.<clé>` 16 px + libellé `MetricLabelText`, valeur `HomeStatValueText` 27
+(tri-valeurs en `MetricValueText` 18), légende `CaptionText` sur deux lignes au plus (la devise
+y figure : « DZD · 3/4 unités saisies … » — un montant N2 à dix chiffres tient alors en 27 px
+sans troncature), pastille de statut si le serveur en fournit un. Le clic ouvre l'écran source
+par `NavigateToModule`. Info-bulle = route, permission, heure de calcul.
+
+Un instrument est une **mesure** (J-1, J, un stock, un âge) ; ce qui attend une décision est une
+**file** (§ 3.4), jamais les deux : « Absences à approuver » n'est donc qu'une file.
 
 Registre des instruments (ordre d'affichage = ordre du registre, filtré par permission) :
 
 | # | Instrument | Valeur affichée (serveur) | Route | Permission (clé historique acceptée) | Périmètre | Charge | Écran cible | Existe |
 |---|---|---|---|---|---|---|---|---|
-| 1 | **Recettes J / J-1** | `GrandTotal` ; légende `UnitsWithEntry`/`TotalUnits`, `UnitsPendingValidation` ; second appel `date=J-1` | `GET /revenue/daily/dashboard?date=` | dashboard.read | global | légère ×2 | 3 Tableau de bord | Oui |
+| 1 | **Recettes J-1** (J en légende) | `GrandTotal` de J-1 en grand — les recettes se saisissent en fin de journée, le chiffre du matin est celui de la veille ; légende `UnitsWithEntry`/`TotalUnits`, pastille `UnitsPendingValidation`, puis « J en cours : `UnitsWithEntry`/`TotalUnits`, `GrandTotal` » (second appel `date=J`) | `GET /revenue/daily/dashboard?date=` | dashboard.read | global | légère ×2 | 3 Tableau de bord | Oui |
 | 1b | **Recettes J** (profil sans dashboard.read) | `Total`, `EntryCount`, `DraftCount`, `SubmittedCount` | `GET /revenue/daily/summary?from=J&to=J[&hotelUnitCode]` | revenue.read | global ou unité | légère | 2 Recettes journalières | Oui |
 | 2 | **Encaissements J / J-1** | `GrandTotal` ; légende `ConfirmedCount`, `CashTotal`, `CardTotal` | `GET /treasury/receipts/summary?from&to[&hotelUnitCode]` | treasury.read | global ou unité | légère ×2 | 6 Trésorerie | Oui |
 | 3 | **Créances** | `Total.Total` ; légende `Total.Over90`, `Customers.Count` clients | `GET /receivables/aging` | receivables.read | global | moyenne | 13 Créances | Oui |
@@ -164,7 +178,7 @@ Registre des instruments (ordre d'affichage = ordre du registre, filtré par per
 | 6 | **Chambres** (tri-valeur) | `DirtyRooms` · `CleanRooms` · `OutOfOrderRooms` ; légende `PendingTasks`, `AwaitingInspectionTasks` | `GET /housekeeping/board?hotelUnitCode&date` | housekeeping.read | **unité** | moyenne | 21 Housekeeping | Oui |
 | 7 | **Événements du jour** | lignes renvoyées ; légende premier `Title` · `FunctionSpaceLabel` | `GET /mice/events?from=J&to=J[&hotelUnitCode]` | mice.read | global ou unité | moyenne | 28 Groupes & MICE | Oui |
 | 8 | **Stocks sous minimum** | lignes renvoyées | `GET /inventory/low-stock` | inventory.read | global | légère | 24 Stocks | Oui |
-| 9 | **Absences à approuver** | lignes renvoyées (`status=Pending`) | `GET /hr/absences?status=Pending` | hr.read | global | légère | 22 RH & paie | Oui |
+| 9 | **Effectif** | lignes renvoyées (fiches actives) | `GET /hr/employees` | hr.read | global | légère | 22 RH & paie | Oui |
 | 10 | **Paie** | dernière `PayrollPeriodResponse` : `Period`, `Status`, `DraftPayslipCount` | `GET /hr/payroll/periods` | hr.read | global | légère | 22 RH & paie | Oui |
 | 11 | **NPS 30 jours** | `Nps`, `AnswerCount` | `GET /crm/satisfaction/nps?from=J-30&to=J[&hotelUnitCode]` | crm.read | global ou unité | légère | 23 CRM | Oui |
 | 12 | **Journal 24 h** | `TotalCount` | `GET /audit?from=J-1&to=J&pageSize=1` | audit.read | global | légère | 4 Journal d'audit | Oui |
@@ -188,32 +202,36 @@ une information, la tuile reste). Aucune tuile ne se cache parce qu'elle vaut z�
 ### 3.4 « À décider » — les files
 
 Rangée de compteurs-boutons (valeur `MetricValueText` 18 + libellé + montant serveur + flèche),
-chaque file ouvrant l'écran où l'on tranche. Les verbes sont ceux de l'écran cible ; pour un
-profil qui ne peut pas agir (Lecture seule, ou directeur d'unité devant une recette à valider
-par la DEC), le libellé devient un constat (« Recettes soumises, en attente DEC ») et la rangée
-s'intitule « À suivre ».
+chaque file ouvrant l'écran où l'on tranche. **Une règle, deux clés** : une file est *affichée*
+par la clé de **lecture** de la route qu'elle appelle (la même que l'écran cible) ; son *verbe*
+(« à valider », « à approuver ») n'apparaît que si la session porte une clé d'**action** de
+l'écran cible, sinon le libellé devient un constat (« Recettes soumises, en attente DEC »,
+« Commandes en brouillon »). Quand aucune file de la rangée n'a de verbe (Lecture seule), la
+rangée s'intitule « À suivre » au lieu de « À décider ». Les verbes sont ceux de l'écran cible.
 
-| File | Compteur (serveur) | Route | Permission d'affichage | Écran cible |
-|---|---|---|---|---|
-| Mes validations | `instances.Count` | `GET /approvals/instances/pending` (filtre serveur par rôle) | approvals.decide | 16 Validations |
-| Validations (lien sans chiffre) | — | aucun appel (403 sinon) | approvals.read sans decide | 16 Validations |
-| Recettes à valider | `PendingValidationCount`, `PendingValidationAmount` | `GET /pilotage/dec-cockpit?date=` | dashboard.read | 20 Cockpit DEC |
-| Retard de clôture | `ClosingBacklogDayCount`, `OldestClosingDelay` | idem | dashboard.read | 5 Clôture (closing.read) sinon 20 |
-| Recettes rejetées | `RejectedCount` | idem | dashboard.read | 2 Recettes (revenue.read) sinon 20 |
-| OP à approuver | `PendingPaymentOrderCount`, `PendingPaymentOrderAmount` | idem | dashboard.read | 6 Trésorerie (treasury.read) sinon 20 |
-| OP à régler | lignes `status=Approved` | `GET /treasury/payment-orders?status=Approved` | treasury.read | 6 Trésorerie |
-| Recettes en brouillon | `DraftCount` | `GET /revenue/daily/summary?from=J&to=J` | revenue.read (sans dashboard.read) | 2 Recettes |
-| Commandes à réceptionner | lignes `CanReceive` | `GET /purchasing/orders?status=Approved` | purchasing.read | 25 Achats |
-| Inventaires ouverts | lignes hors clôturé | `GET /inventory/counts?status=` | inventory.read | 24 Stocks |
-| Absences en attente | lignes `status=Pending` | `GET /hr/absences?status=Pending` | hr.read | 22 RH & paie |
-| Bulletins en brouillon | `DraftPayslipCount` | `GET /hr/payroll/periods` | hr.read | 22 RH & paie |
-| Arrivées non assignées | `UnassignedCount` | `GET /lodging/arrivals?hotelUnitCode&date` | lodging.read + unité | 30 PMS front office |
-| Chambres à préparer | `RoomsToPrepare`, `NotReadyCount` | idem | lodging.read + unité | 21 Housekeeping (housekeeping.read) sinon 30 |
-| Départs avec solde | `PendingCount`, `OutstandingBalance` | `GET /lodging/departures?hotelUnitCode&date` | lodging.read + unité | 30 PMS front office |
+| File | Compteur (serveur) | Route | Affichée si (lecture) | Verbe si (action) | Écran cible |
+|---|---|---|---|---|---|
+| Mes validations | `instances.Count` | `GET /approvals/instances/pending` (filtre serveur par rôle) | approvals.decide (la route l'exige) | approvals.decide | 16 Validations |
+| Validations (lien sans chiffre) | — | aucun appel (403 sinon) | approvals.read sans decide | — | 16 Validations |
+| Recettes à valider | `PendingValidationCount`, `PendingValidationAmount` | `GET /pilotage/dec-cockpit?date=` | dashboard.read | revenue.validate | 20 Cockpit DEC |
+| Journées à clôturer | `ClosingBacklogDayCount`, `OldestClosingDelay` | idem | dashboard.read | closing.close | 5 Clôture (closing.read) sinon 20 |
+| Recettes rejetées à corriger | `RejectedCount` | idem | dashboard.read | revenue.write | 2 Recettes (revenue.read) sinon 20 |
+| OP à approuver | `PendingPaymentOrderCount`, `PendingPaymentOrderAmount` | idem | dashboard.read | treasury.approve | 6 Trésorerie (treasury.read) sinon 20 |
+| OP à régler | lignes `status=Approved` | `GET /treasury/payment-orders?status=Approved` | treasury.read (sans dashboard.read) | treasury.write | 6 Trésorerie |
+| Recettes à soumettre | `DraftCount` | `GET /revenue/daily/summary?from=J&to=J` | revenue.read (sans dashboard.read) | revenue.write | 2 Recettes |
+| Commandes à approuver | lignes `status=Draft` | `GET /purchasing/orders?status=Draft` | purchasing.read | purchasing.approve | 25 Achats |
+| Commandes à réceptionner | lignes `status=Approved` avec `CanReceive` | `GET /purchasing/orders?status=Approved` | purchasing.read | purchasing.receive | 25 Achats |
+| Inventaires à valider / à compter | lignes `status=Draft` (`InventoryCountStatus.Draft` = ouvert) | `GET /inventory/counts?status=Draft` | inventory.read | inventory.validate / inventory.write | 24 Stocks |
+| Absences à approuver | lignes `status=Requested` (`AbsenceStatus.Requested`) | `GET /hr/absences?status=Requested` | hr.read | hr.write | 22 RH & paie |
+| Bulletins à finaliser | `DraftPayslipCount` de la dernière période | `GET /hr/payroll/periods` | hr.read | hr.payroll | 22 RH & paie |
+| Arrivées à assigner | `UnassignedCount` | `GET /lodging/arrivals?hotelUnitCode&date` | lodging.read + unité | lodging.checkin | 30 PMS front office |
+| Chambres à préparer | `RoomsToPrepare`, `NotReadyCount` | idem | lodging.read + unité | housekeeping.write | 21 Housekeeping (housekeeping.read) sinon 30 |
+| Départs avec solde | `PendingCount`, `OutstandingBalance` | `GET /lodging/departures?hotelUnitCode&date` | lodging.read + unité | lodging.checkout | 30 PMS front office |
 
 **État vide** : quand toutes les files valent zéro, la rangée reste (les zéros sont visibles)
 et une ligne `EmptyStateHintText` dit « Rien n'attend votre décision. » Quand aucune file n'est
-autorisée, la rangée disparaît (pas de titre orphelin).
+autorisée, la rangée disparaît (pas de titre orphelin). Un compteur à zéro n'est jamais masqué :
+« 0 recette rejetée » est une information de pilotage.
 
 ### 3.5 Alertes et signaux
 
@@ -313,8 +331,9 @@ public static class CockpitComposer
   `ApplyModuleAccess` — et la route citée en chaîne pour la documentation et les tests.
 - `Compose` filtre par `hasPermission`, retire les instruments de périmètre *unité* quand aucune
   unité n'est connue (ils passent en état « sans unité » plutôt que de disparaître, pour que
-  l'utilisateur sache quoi configurer), résout l'écran cible de repli (ex. « Retard de clôture »
-  → 5 si closing.read, sinon 20), et calcule `ShowAlerts`/`ShowUnits`/`ShowKpiEngine`.
+  l'utilisateur sache quoi configurer), résout l'écran cible de repli (ex. « Journées à clôturer »
+  → 5 si closing.read, sinon 20), décide du verbe ou du constat de chaque file (clé d'action
+  présente ou non), et calcule `ShowAlerts`/`ShowUnits`/`ShowKpiEngine`.
 - **Aucun rôle codé en dur.** Un rôle personnalisé porteur de `lodging.read` obtient le même
   cockpit que la Réception de démonstration.
 - `hasPermission` est celui de `ModuleViewContext.HasPermission` ; recommandation (déjà notée
@@ -327,8 +346,10 @@ public static class CockpitComposer
 teste comme `NavigationTreeBuilder` :
 
 - par jeu de clés : `Only("lodging.read")` → instruments 4-5 en état « sans unité », aucune file
-  de décision, `ShowUnits=false` ; `Only("hr.read","approvals.read")` → instruments 9-10, files
-  RH, lien Validations sans compteur ; `NoPermission` → cockpit réduit au pied (jamais vide) ;
+  de décision, `ShowUnits=false` ; `Only("hr.read","approvals.read")` → instruments Effectif et
+  Paie, files RH en constat (aucune clé d'action → rangée « À suivre »), lien Validations sans
+  compteur ; `Only("hr.read","hr.write")` → même rangée avec le verbe « à approuver » ;
+  `NoPermission` → cockpit réduit au pied (jamais vide) ;
 - par rôle réel : `SecuritySeeder` sur SQLite in-memory (`SecuritySeederTests.CreateSeededContextAsync`)
   → un test par rôle système qui fige la liste d'instruments (un ajout de clé au seeder fait
   changer le test, c'est voulu) ;
@@ -359,13 +380,13 @@ seules les clés comptent.
 
 | Profil (rôle) | Instruments | À décider / À suivre | Alertes & signaux | Unités | KPI moteur | Mon Espace |
 |---|---|---|---|---|---|---|
-| **Réception** (rôle personnalisé à créer : lodging.read + checkin/reserve/checkout/room_move, customers.read, crm.read, housekeeping.read, settings.read ; unité du poste HTL-01) | Front office, Occupation, Chambres, NPS 30 j (unité) | Arrivées non assignées, Chambres à préparer, Départs avec solde | Signal « date métier en retard » seulement | — | — | Profil, préférences, sécurité. Ni validations ni audit. |
-| **Directeur d'unité** (unit.manager ; unité de travail choisie dans la liste) | Recettes J/J-1 (toutes unités, dit), Front office, Occupation, Chambres, Événements, Stocks < min., NPS | Mes validations (decide), Recettes soumises en attente DEC (constat), Retard de clôture (→ 5), Recettes rejetées (→ 2), Commandes à réceptionner, Inventaires ouverts | Alertes KPI `unitId` + signaux | Oui, unité surlignée | Oui, à la demande | Profil, préférences, sécurité, validations. Pas d'audit (audit.read absent). |
-| **Direction générale** (direction) | Recettes, Encaissements, Créances, Stocks, Absences, Paie, NPS, Événements, Journal 24 h, Sauvegarde, Postes ; Front office/Occupation/Chambres dès qu'une unité est choisie | Mes validations, Recettes à valider, Retard de clôture, Rejets, OP à approuver, Inventaires à valider, Commandes à approuver, Absences en attente | Alertes KPI groupe + signaux (DEC, sauvegarde, postes) | Oui | Oui | Tout, y compris Mon activité. |
-| **Caisse** (cashier ; sans units.read, unité du poste non définie dans la maquette) | Encaissements J/J-1, Recettes J (résumé), Front office et Chambres en état « unité du poste non définie » | OP à régler, Recettes en brouillon, lien Validations sans chiffre | — | — | — | Profil, préférences, sécurité. |
-| **RH** (hr.manager) | Absences à approuver, Paie, Effectif (lignes `/hr/employees`) | Absences en attente (état vide « Rien à approuver » dans la maquette), Bulletins en brouillon, lien Validations | — | — | — | Profil, préférences, sécurité. |
-| **Administrateur** (system.administrator) | Direction + Comptes | Direction | Direction | Oui | Oui | Tout. |
-| **Lecture seule** (reader) | Recettes J/J-1, Créances, Stocks, NPS, Événements ; unité → Front office, Occupation, Chambres | Rangée « À suivre » : mêmes compteurs, verbes de constat, lien Validations sans chiffre | Alertes KPI (état vide « Aucune alerte » dans la maquette) | Oui | Oui, à la demande | Profil, préférences, sécurité. Pas de trésorerie, audit, RH. |
+| **Réception** (rôle personnalisé à créer : lodging.read + checkin/reserve/checkout/room_move, customers.read, crm.read, housekeeping.read, settings.read ; unité du poste HTL-01) | Front office, Occupation, Chambres, NPS 30 j (unité) | Arrivées à assigner, Chambres à préparer (constat : pas de housekeeping.write), Départs avec solde | Signal « date métier en retard » seulement ; sinon état vide « Rien à signaler » | — | — | Profil, préférences, sécurité. Ni validations ni audit. |
+| **Directeur d'unité** (unit.manager ; unité de travail choisie dans la liste) | Recettes J-1 (toutes unités, dit par le bandeau), Front office, Occupation, Chambres, Événements, Stocks < min., NPS | Mes validations (decide), Recettes soumises en attente DEC (constat : pas de revenue.validate), Journées à clôturer (→ 5), Recettes rejetées à corriger (→ 2), Commandes à réceptionner (verbe) et Commandes en brouillon (constat), Inventaires à compter, Arrivées / Chambres / Départs de l'unité | Alertes KPI `unitId` + signaux | Oui, unité surlignée | Oui, à la demande | Profil, préférences, sécurité, validations. Pas d'audit (audit.read absent). |
+| **Direction générale** (direction) | Recettes J-1, Encaissements, Créances, Stocks, Événements, NPS, Paie, Effectif, Journal 24 h, Sauvegarde, Postes ; Front office/Occupation/Chambres dès qu'une unité est choisie | Mes validations, Recettes à valider, Journées à clôturer, Rejets (constat), OP à approuver, Commandes à approuver, Commandes livrables (constat), Inventaires à valider, Absences en attente (constat : pas de hr.write), Bulletins en brouillon (constat) | Alertes KPI groupe + signaux (DEC, sauvegarde, postes) | Oui | Oui | Tout, y compris Mon activité. |
+| **Caisse** (cashier ; sans units.read, unité du poste non définie dans la maquette) | Encaissements J, Recettes J (résumé), Front office et Chambres en état « unité du poste non définie » | OP à régler, Recettes à soumettre, lien Validations sans chiffre | — | — | — | Profil, préférences, sécurité. |
+| **RH** (hr.manager) | Paie, Effectif (lignes `/hr/employees`) — aucune donnée d'exploitation, le cockpit reste utile | Absences à approuver (à zéro dans la maquette : « Aucune demande en attente »), Bulletins à finaliser, lien Validations | — | — | — | Profil, préférences, sécurité. |
+| **Administrateur** (system.administrator) | Direction + Comptes | Direction, tous verbes | Direction | Oui | Oui | Tout. |
+| **Lecture seule** (reader) | Recettes J-1, Créances, Stocks, NPS, Événements ; unité → Front office, Occupation, Chambres | Rangée « À suivre » : mêmes compteurs, verbes de constat, lien Validations sans chiffre | Alertes KPI (période sans alerte dans la maquette : seul le signal DEC « HTL-04 demande attention » reste ; l'état vide complet « Rien à signaler » se voit sur le profil Réception) | Oui | Oui, à la demande | Profil, préférences, sécurité. Pas de trésorerie, audit, RH. |
 
 Un profil qui n'aurait que settings.read voit : bandeau, une ligne « Votre profil n'ouvre aucun
 instrument de pilotage » (`EmptyStateTitleText`), la carte produit et la carte Mon Espace.
@@ -381,11 +402,12 @@ instrument de pilotage » (`EmptyStateTitleText`), la carte produit et la carte 
   remplit au fil de l'eau, la barre latérale reste active. Une erreur n'interrompt pas la
   séquence : l'instrument passe en « Indisponible », `RunAsync` a déjà écrit le message dans le
   bandeau de session. Coût accepté : la barre de progression clignote entre deux appels.
-- **Deux paliers** : palier 1 à l'ouverture de session (dec-cockpit, revenue dashboard J et J-1,
-  approvals pending, kpis/alerts, business-date + front-desk de l'unité : ≤ 7 appels légers à
+- **Trois paliers** : palier 1 à l'ouverture de session (dec-cockpit, revenue dashboard J-1 et
+  J, approvals pending, kpis/alerts, business-date + front-desk de l'unité : ≤ 7 appels légers à
   moyens) ; palier 2 immédiatement après, tuiles en squelette pendant ce temps (receipts,
-  aging, low-stock, absences, nps, events, backups, stations, audit) ; palier 3 à la demande
-  (KPI moteur). Un profil court (Réception, RH) ne déclenche que 3 à 5 appels.
+  aging, low-stock, purchasing, counts, absences, payroll, employees, nps, events, backups,
+  stations, audit — chacun conditionné à sa clé) ; palier 3 à la demande (KPI moteur). Un profil
+  court (Réception, RH) ne déclenche que 3 à 5 appels ; une direction jusqu'à 16.
 - **Quand** : à la connexion, après `ApplyModulePermissions` et `NavigateToModule(0)` ; à F5 ;
   au changement de périmètre ou de journée. Pas au retour sur l'onglet 0 (la fraîcheur est
   affichée, l'utilisateur décide).
@@ -447,11 +469,19 @@ réservé à Validé / Prêt pour la production ; montants `N2` alignés à droi
 
 ## 9. Densité et thème
 
-- **Sobre et dense** : bandeau 96 px, tuiles 100 px (84 compact), files 56 px, tout en
-  `CaptionText`/`MetricLabelText` hors valeurs. À 1240 px : 6 instruments par rangée (176 px
-  min) ; à 1920 px : 9. Barre latérale repliée sur l'onglet 0 comme aujourd'hui
-  (`SyncSidebarToTab` inchangé) : chaque tuile est déjà un lien, 248 px valent une colonne
-  d'instruments. La maquette offre le commutateur « déployée » pour comparaison.
+- **Sobre et dense** : bandeau 96 px, tuiles 208 × 100 px (84 compact), files 56 px (46
+  compact), tout en `CaptionText`/`MetricLabelText` hors valeurs.
+- **Barre latérale déployée sur le cockpit** — le seul changement de comportement du shell.
+  Aujourd'hui `SyncSidebarToTab` replie la barre à 0 px sur l'onglet 0 parce que l'accueil *est*
+  le sommaire. Le cockpit ne l'est plus : il cède ce rôle à la barre latérale, qui reste ainsi le
+  même sommaire sur les 31 onglets, sans cas particulier à la racine. Coût : 268 px de largeur
+  (4 tuiles par rangée à 1240 px, 5 dès 1404 px, 7 à 1920 px, au lieu de 5 et 8 barre repliée) ;
+  gain : les 22 domaines et la recherche d'écran à un geste depuis la page d'ouverture, sans
+  Ctrl+K ni catalogue. Le fil d'Ariane reste masqué à la racine (`UpdateBreadcrumb` inchangé).
+  La maquette garde le commutateur « Repliée (aujourd'hui) » pour comparer.
+- **Densité** : la grille Unités suit déjà `GridRowHeight` ; la tuile et la file suivent la
+  ressource proposée `CockpitTileHeight` / `CockpitQueueHeight` (`DynamicResource`, réglées par
+  `ThemeManager.AppliquerDensite`). En compact, la valeur passe de 27 à 18 px et la légende sur une ligne.
 - **Thème** : tout en `StaticResource`, palettes clair et sombre déjà couvertes ; un cockpit
   ouvert à la connexion est construit dans le thème appliqué au démarrage (`RedemarrageConseille`
   inchangé).
@@ -469,7 +499,7 @@ réservé à Validé / Prêt pour la production ; montants `N2` alignés à droi
 | `src/RaqmiSystem.Desktop/Views/CockpitTile.cs` | Modèle d'affichage d'une tuile (`INotifyPropertyChanged` : `State`, `Value`, `Caption`, `Pill`, `TabIndex`, `AccessibleName`) — comme `ModuleTile`, sans dépendance WPF. |
 | `src/RaqmiSystem.Desktop/MainWindow.xaml` (onglet 0 seulement) | Contenu du `TabItem` 0 = `ScrollViewer` → `StackPanel` [ `views:CockpitView x:Name="CockpitView"` ; `Expander x:Name="CatalogExpander"` contenant **le XAML actuel** des blocs 2-4 ]. `HomeGreetingTextBlock`/`HomeDateTextBlock` passent dans la vue. Le `TabItem` 0 reste la première balise, sans `x:Name` ; aucune balise `<TabItem>` ajoutée. |
 | `src/RaqmiSystem.Desktop/MainWindow.xaml.cs` | Trois points de contact : `LoginButton_Click` (→ `CockpitView.SetSession(...)` puis `await CockpitView.LoadAsync()` après `NavigateToModule(0)`), `LogoutButton_Click` (→ `CockpitView.ResetState()`), `InitializeModuleViews` (→ `CockpitView.Initialize(context)`, abonnement aux événements). `RefreshHomeDate` migre dans la vue. |
-| `src/RaqmiSystem.Desktop/MainWindow.Navigation.cs` | `CockpitView_NavigateRequested` = garde `CanOpenModule` + `NavigateToModule` (copie de `DecCockpitView_NavigateRequested`) ; `CatalogRequested` → `CatalogExpander.IsExpanded = true` + focus recherche. Rien d'autre ne bouge : `ApplyModulePermissions` et ses 28 `ApplyModuleAccess` restent textuels. |
+| `src/RaqmiSystem.Desktop/MainWindow.Navigation.cs` | `CockpitView_NavigateRequested` = garde `CanOpenModule` + `NavigateToModule` (copie de `DecCockpitView_NavigateRequested`) ; `CatalogRequested` → `CatalogExpander.IsExpanded = true` + focus recherche ; `SyncSidebarToTab` : les trois affectations `isHome ? 0 : SidebarWidth` deviennent inconditionnelles (barre visible sur l'onglet 0, § 9) — `ShowHomeButton.Tag = Active` et `UpdateBreadcrumb` (masqué à la racine) ne changent pas. Rien d'autre ne bouge : `ApplyModulePermissions` et ses 28 `ApplyModuleAccess` restent textuels. |
 | `src/RaqmiSystem.Desktop/MainWindow.Shortcuts.cs` | Ctrl+K sur l'onglet 0 : déplier `CatalogExpander` avant `HomeSearchTextBox.Focus()`. |
 | `src/RaqmiSystem.Desktop/Api/RaqmiApiClient.Kpi.cs` | **Ajout** `GetKpiAlertsAsync(from, to, unitId)` → `IReadOnlyCollection<KpiAlertResponse>` (route existante). |
 | `src/RaqmiSystem.Desktop/Api/RaqmiApiClient.cs` | **Ajout** du paramètre `userId` optionnel à `GetAudit...` n'est pas requis par le cockpit (le compteur 24 h est global) ; utile pour « Mon activité » plus tard. |
@@ -507,6 +537,7 @@ réservé à Validé / Prêt pour la production ; montants `N2` alignés à droi
 | Un accueil instantané (aucun appel) : le cockpit fait 3 à 12 appels légers à la connexion. | Un accueil qui répond à « où en sommes-nous ? » et mène directement à l'écran de décision. |
 | La cascade d'apparition sur du contenu statique. | La même cascade, sur des instruments qui se remplissent au fil de l'eau. |
 | Rien pour Réception, Caisse, RH (le catalogue leur montrait surtout des cadenas). | Un cockpit court avec leurs compteurs du jour et leurs files. |
+| La pleine largeur de l'onglet 0 : la barre latérale (248 px + 20 px) est désormais visible à la racine. | Le sommaire des 22 domaines et la recherche d'écran à un geste dès l'ouverture, comme sur tous les autres onglets — plus de cas particulier à la racine. |
 
 Pour l'administrateur, le catalogue reste à deux gestes (carte produit ou Ctrl+K) ; la maquette
 du shell prévoit de toute façon qu'il « devienne un écran, jamais supprimé ».
@@ -515,9 +546,10 @@ du shell prévoit de toute façon qu'il « devienne un écran, jamais supprimé 
 
 ## 12. Compromis, risques, questions ouvertes
 
-1. **Temps d'ouverture de session.** Jusqu'à 12 appels pour une direction (dec-cockpit et aging
-   sont moyens). Mitigation : paliers, squelettes, aucun appel lourd, profils courts = peu
-   d'appels. À mesurer sur PostgreSQL réel avant de fixer la liste du palier 1.
+1. **Temps d'ouverture de session.** Jusqu'à 16 appels pour une direction (dec-cockpit et aging
+   sont moyens, les autres légers). Mitigation : paliers, squelettes, aucun appel lourd, profils
+   courts = peu d'appels. À mesurer sur PostgreSQL réel avant de fixer la liste du palier 1 ; si
+   le palier 2 dépasse ~3 s, les files d'achats et de RH passent à la demande comme les KPI.
 2. **`RunAsync` gèle `MainTabs`** pendant chaque appel : le cockpit n'est pas cliquable pendant
    son remplissage (quelques secondes). Alternative écartée : un `RunAsync` unique qui masquerait
    les erreurs partielles.
@@ -527,8 +559,16 @@ du shell prévoit de toute façon qu'il « devienne un écran, jamais supprimé 
 4. **Périmètre d'unité** : aucune affectation utilisateur↔unité côté serveur (décision 4) ; le
    cockpit le dit et surligne. L'unité du poste est un réglage local — à valider comme confort de
    poste (question ouverte Q1).
-5. **Barre latérale repliée** sur le cockpit (comme aujourd'hui) : parti pris pour la densité ;
-   Q2 — la déployer à partir de 1450 px ? La maquette montre les deux.
+5. **Barre latérale déployée** sur le cockpit (§ 9) : c'est une divergence assumée avec
+   `navigation-shell.md` § 5.2, écrit pour un *portail* qui « n'a pas besoin de sommaire à
+   côté » ; un *cockpit* n'est pas un sommaire, il en a besoin. Q2 — la replier automatiquement
+   sous 1200 px de large (taille minimale 1100 × 680) plutôt que de passer à 3 tuiles par rangée ?
+   La maquette montre les deux états.
+5b. **Libellé de la ligne racine** : « Accueil » tant que l'onglet 0 est un cockpit (question 3
+   de `navigation-shell.md` § 11) ; « Mon Espace » est une carte *dans* le cockpit et le
+   redeviendra en première ligne le jour où le portail du lot 4.3 remplacera le cockpit — ou
+   cohabitera avec lui (Q4 : le cockpit devient-il alors l'écran d'ouverture des seuls porteurs
+   de dashboard.read, le portail celui des autres ?).
 6. **Alertes KPI sans seuils** : la carte sera souvent vide tant que `kpi.admin` n'a pas réglé de
    seuils ; l'état vide le dit et pointe l'écran de paramétrage.
 7. **Salutation et date** migrent de `MainWindow` vers la vue : trois lignes de `MainWindow.xaml.cs`

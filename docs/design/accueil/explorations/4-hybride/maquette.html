@@ -16,11 +16,13 @@
   utilisateurs actuels), mais les cartes deviennent VIVANTES : un compteur lu sur le serveur, un
   badge d'urgence uniquement quand le serveur qualifie lui-meme la situation, une zone « A traiter »
   en tete qui n'est qu'une projection de ces memes signaux, et une recherche universelle de
-  navigation (modules, sous-modules, ecrans).
+  navigation (modules, sous-modules, ecrans de l'arbre FunctionalArchitectureCatalog.Tree.cs).
 
   TOUTES LES VALEURS CHIFFREES SONT DES EXEMPLES FICTIFS, marquees « ex. » a l'ecran.
   Les permissions des profils sont celles de SecuritySeeder (branche reorg/phase-1) ; le profil
   Reception est un role personnalise a creer (docs/reorganisation/README.md, decision 8).
+  L'arbre Domaine -> Module -> Sous-module -> Ecran est recopie de FunctionalArchitectureCatalog.Tree.cs
+  (HEAD e7dcaad) ; les 50 entrees sont celles de ModuleCatalog.cs.
 -->
 <style>
   /* ============ Palette : les brushes de RaqmiTheme.xaml / ThemePalette.Sombre ============ */
@@ -97,7 +99,7 @@
   /* ============ Barre de la maquette (hors produit) ============ */
   .maquette-bar {
     background:var(--structure-elevated); color:var(--header-fg); font-size:12px;
-    padding:8px 24px; display:flex; flex-wrap:wrap; gap:14px 18px; align-items:center;
+    padding:8px 24px; display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center;
     border-bottom:1px solid rgba(255,255,255,.08);
   }
   .maquette-bar strong { color:var(--header-muted); font-weight:600; letter-spacing:.02em; text-transform:uppercase; font-size:10.5px; }
@@ -144,6 +146,7 @@
   .point { width:7px; height:7px; border-radius:50%; margin-left:8px; display:inline-block; }
   .point.preview { background:var(--mat-preview-accent); }
   .ecrans { margin:2px 0 8px; }
+  .ecrans .module-lib { font-size:11px; font-weight:600; color:var(--text-muted); margin:6px 0 3px 18px; }
   .ecrans .nav-btn { height:34px; margin-left:8px; width:calc(100% - 8px); font-size:12.5px; margin-bottom:2px; }
   .epingle { border-top:1px solid var(--panel-border); margin-top:10px; padding-top:8px; }
   .epingle:empty { display:none; }
@@ -165,7 +168,6 @@
   .ariane button:hover { background:var(--surface-subtle); color:var(--text); }
   .ariane .courant { color:var(--text); font-weight:600; padding:3px 6px; }
   .ariane .sep { width:9px; height:7px; color:var(--text-muted); transform:rotate(-90deg); }
-  .ariane .badge { margin-left:auto; }
   .ariane .note-ariane { margin-left:auto; font-size:11px; color:var(--text-muted); }
 
   /* ============ Badges ============ */
@@ -185,6 +187,7 @@
   .btn { min-height:36px; padding:7px 15px; border-radius:6px; font-weight:600; font-size:13px; display:inline-flex; align-items:center; gap:8px; }
   .btn.secondaire { background:var(--surface); border:1px solid var(--panel-border); color:var(--primary); }
   .btn.secondaire:hover { background:var(--surface-subtle); border-color:var(--border-strong); }
+  .btn.secondaire:disabled { color:var(--disabled-fg); background:var(--disabled-bg); border-color:var(--disabled-border); }
   .btn.primaire { background:var(--accent-action); color:var(--accent-action-fg); padding:7px 18px; }
   .btn.primaire:focus-visible { outline-color:var(--focus-on-filled); outline-offset:-3px; }
   .btn.fantome { min-height:34px; padding:6px 12px; color:var(--secondary); }
@@ -218,7 +221,7 @@
   .a-traiter .tete .section-titre { margin:0; }
   .a-traiter .maj { margin-left:auto; font-size:11.5px; color:var(--text-muted); }
   .items { display:flex; flex-wrap:wrap; gap:8px; min-height:40px; }
-  .item { display:inline-flex; align-items:center; gap:9px; min-height:40px; padding:6px 12px 6px 12px; border:1px solid var(--panel-border); border-radius:8px; background:var(--surface); color:var(--text); font-size:12.5px; text-align:left; position:relative; overflow:hidden; }
+  .item { display:inline-flex; align-items:center; gap:9px; min-height:40px; padding:6px 12px; border:1px solid var(--panel-border); border-radius:8px; background:var(--surface); color:var(--text); font-size:12.5px; text-align:left; position:relative; overflow:hidden; }
   .item:hover { border-color:var(--accent); background:var(--surface); }
   .item:focus-visible { border-color:var(--focus); }
   .item svg.ic { color:var(--accent-pressed); }
@@ -264,7 +267,7 @@
   .mini-barre { display:flex; gap:2px; width:150px; height:8px; }
   .mini-barre span { border-radius:4px; }
   .avancement-c .pt { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:5px; vertical-align:middle; }
-  .avancement-c .detail { color:var(--secondary); font-weight:600; display:inline-flex; align-items:center; gap:4px; }
+  .avancement-c .detail { color:var(--secondary); font-weight:600; display:inline-flex; align-items:center; gap:4px; margin-left:auto; }
   .avancement-c .detail svg { width:9px; height:7px; transform:rotate(-90deg); transition:transform .12s; }
   .avancement-c .detail[aria-expanded="true"] svg { transform:rotate(0); }
   .avancement-detail { padding:18px 22px; }
@@ -280,6 +283,7 @@
 
   /* Resultats de recherche (sous-modules et ecrans) */
   .resultats { padding:12px 16px 8px; }
+  .resultats .plus { font-size:11.5px; color:var(--text-muted); margin:6px 8px 4px; }
   .res { display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; min-height:34px; border-radius:6px; padding:0 8px; font-size:12.5px; width:100%; text-align:left; color:var(--text); }
   .res:hover { background:var(--surface-subtle); }
   .res:disabled { color:var(--text-2); }
@@ -294,7 +298,7 @@
   .groupe-tete .nom { font-size:13.5px; font-weight:600; }
   .groupe-tete .nom .id { color:var(--text-muted); font-weight:600; margin-right:6px; }
   .groupe-tete .compteur { background:var(--surface-subtle); color:var(--text-2); font-size:11px; border-radius:9px; padding:2px 9px; }
-  .groupe-tete .filet { flex:1; border-top:1px solid var(--panel-border); margin:0 4px 0 4px; }
+  .groupe-tete .filet { flex:1; border-top:1px solid var(--panel-border); margin:0 4px; }
   .cartes { display:flex; flex-wrap:wrap; }
   .cm { width:224px; height:176px; margin:0 14px 14px 0; padding:14px 16px; border-radius:10px; background:var(--surface); border:1px solid var(--panel-border);
         box-shadow:0 2px 10px var(--shadow); display:grid; grid-template-rows:auto auto 1fr auto auto; gap:4px; text-align:left; color:var(--text);
@@ -316,8 +320,9 @@
   .cm .signal .pt { width:7px; height:7px; border-radius:50%; background:var(--accent); flex:none; }
   .cm .signal.urgent .pt { background:var(--status-submitted-fg); }
   .cm .signal.urgent { color:var(--status-submitted-fg); }
-  .cm .signal.vide, .cm .signal.erreur, .cm .signal.sans-unite { font-weight:400; color:var(--text-muted); }
+  .cm .signal.vide, .cm .signal.erreur, .cm .signal.sans-unite, .cm .signal.info { font-weight:400; color:var(--text-muted); }
   .cm .signal.vide .pt { background:var(--border-strong); }
+  .cm .signal.info .pt { background:var(--border-strong); }
   .cm .signal.erreur .pt, .cm .signal.sans-unite .pt { display:none; }
   .cm .signal.erreur svg.ic { width:12px; height:12px; }
   .cm .bas { display:flex; align-items:center; gap:8px; }
@@ -438,6 +443,7 @@ const ICONES = {
 const svg = (cle, classes = "ic", vb = "0 0 16 16") =>
   `<svg class="${classes}" viewBox="${vb}" aria-hidden="true" focusable="false"><path d="${ICONES[cle]}"/></svg>`;
 const EX = `<sup class="ex" title="Valeur d'exemple, fictive : en production ce chiffre vient du serveur (charte § 3.10).">ex.</sup>`;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
 /* ======================= Maturite : libelles a source unique (FunctionalMaturityMapper.Label) ======================= */
 const MATURITE = {
@@ -449,130 +455,184 @@ const MATURITE = {
 const badgeMat = m => `<span class="badge ${MATURITE[m].cls}" title="${MATURITE[m].aide}">${MATURITE[m].libelle}</span>`;
 const STATUT = { dispo:["dispo","Disponible"], api:["api","API prête"], partiel:["partiel","Partiel"], planifie:["planifie","Planifié"] };
 
-/* ======================= Les 22 domaines (FunctionalArchitectureCatalog) et leurs ecrans (arbre) ======================= */
-const DOMAINES = [
-  { id:"01", cle:"MonEspace", nom:"Mon Espace", maturite:"Planned", ecrans:[
-      { nom:"Workflows & validations", module:"Mon travail", sousModules:["Mes validations"], perm:"approvals.read", tab:16 } ],
-    planifies:[["Mon travail","Tableau de bord personnel"],["Mon travail","Mes tâches"],["Mon travail","Mes demandes"],["Mon travail","Mes délégations"],["Mon travail","Mon activité"],
-               ["Communication","Notifications"],["Communication","Messagerie interne"],["Communication","Mon agenda"],["Mes documents et favoris","Mes documents"],["Mes documents et favoris","Mes favoris"],
-               ["Mon compte","Mon profil"],["Mon compte","Mes préférences"],["Mon compte","Ma sécurité"]] },
-  { id:"02", cle:"Administration", nom:"Administration & Socle ERP", maturite:"Functional", ecrans:[
-      { nom:"Unités hôtelières", module:"Organisation", sousModules:["Unités"], perm:"units.read", tab:1 },
-      { nom:"Administration & utilisateurs", module:"Utilisateurs", sousModules:["Comptes et rôles"], perm:"users.read", tab:10 },
-      { nom:"Paramétrage global", module:"Paramétrage", sousModules:["Établissement","Poste de travail","Santé du système"], perm:"settings.read", tab:9 } ],
-    planifies:[["Sécurité","Sessions et politiques de sécurité"],["Référentiels","Référentiels partagés (TVA, devises, pays)"]] },
-  { id:"03", cle:"Finance", nom:"Finance & Comptabilité", maturite:"Functional", ecrans:[
-      { nom:"CA journalier (ERP)", module:"Recettes", sousModules:["CA journalier"], perm:"revenue.read", tab:2 },
-      { nom:"Encaissements & trésorerie", module:"Trésorerie", sousModules:["Encaissements","Ordres de paiement","Comptes bancaires"], perm:"treasury.read", tab:6 },
-      { nom:"Comptabilité SCF", module:"Comptabilité", sousModules:["Comptabilité générale","Exercices","Comptabilité auxiliaire","États comptables"], perm:"accounting.read", tab:11 },
-      { nom:"Budget & prévisions", module:"Budget", sousModules:["Plan budgétaire","Réalisé et écarts"], perm:"budget.read", tab:12 },
-      { nom:"Créances & recouvrement", module:"Créances", sousModules:["Balance âgée","Relances","Risque client"], perm:"receivables.read", tab:13 } ],
-    planifies:[["Comptabilité","Comptabilité analytique"],["Fiscalité","Fiscalité DGI & SIFEC"]] },
-  { id:"04", cle:"Commercial", nom:"Commercial, Clients & CRM", maturite:"Functional", ecrans:[
-      { nom:"Clients", module:"Clients", sousModules:["Fichier clients"], perm:"customers.read", tab:7 },
-      { nom:"CRM & expérience client", module:"CRM", sousModules:["Fiche client 360°","Contacts et historique","Segmentation","Fidélité","Campagnes","Satisfaction et NPS"], perm:"crm.read", tab:23 } ],
-    planifies:[["Réclamations","Qualité & réclamations clients"],["Commercial","Commercial & partenariats"]] },
-  { id:"05", cle:"Facturation", nom:"Facturation & Ventes", maturite:"Functional", ecrans:[
-      { nom:"Facturation", module:"Factures", sousModules:["Factures"], perm:"invoices.read", tab:8 } ], planifies:[] },
-  { id:"06", cle:"Hebergement", nom:"PMS / Hébergement", maturite:"Functional", ecrans:[
-      { nom:"Hébergement & occupation", module:"Réservations & folios", sousModules:["Réservations","Folios","Inventaire","Planning"], perm:"lodging.read", tab:15 },
-      { nom:"PMS front office", module:"Front Office", sousModules:["Arrivées","Départs","Clients présents","Planning","Prévisionnel","Hors service","Night audit"], perm:"lodging.read", tab:30 },
-      { nom:"Clôture journalière & Night Audit", module:"Contrôle", sousModules:["Clôture journalière"], perm:"closing.read", tab:5 } ], planifies:[] },
-  { id:"07", cle:"Revenue", nom:"Revenue Management & Distribution", maturite:"TechnicalPreview", ecrans:[
-      { nom:"Tarifs & conventions", module:"Tarification", sousModules:["Plans tarifaires","Périodes","Conventions"], perm:"tariffs.read", tab:14 } ], planifies:[["Distribution","Channel manager"]] },
-  { id:"08", cle:"Housekeeping", nom:"Housekeeping", maturite:"Functional", ecrans:[
-      { nom:"Housekeeping & chambres", module:"Housekeeping", sousModules:["États des chambres","Planning et affectations","Minibar"], perm:"housekeeping.read", tab:21 } ], planifies:[] },
-  { id:"09", cle:"Evenementiel", nom:"Groupes, MICE & Événementiel", maturite:"Functional", ecrans:[
-      { nom:"Groupes & MICE", module:"Groupes & événements", sousModules:["Salles","Événements","Groupes"], perm:"mice.read", tab:28 } ], planifies:[] },
-  { id:"10", cle:"Restauration", nom:"F&B / Restauration", maturite:"TechnicalPreview", ecrans:[
-      { nom:"Cuisine, production & qualité", module:"Cuisine", sousModules:["Fiches techniques","Hygiène"], perm:"kitchen.read", tab:26 } ], planifies:[["Points de vente","Points de vente (POS)"]] },
-  { id:"11", cle:"Stocks", nom:"Stocks & Économat", maturite:"Functional", ecrans:[
-      { nom:"Stocks & consommations", module:"Stocks", sousModules:["Stock courant","Mouvements","Articles & magasins","Inventaires"], perm:"inventory.read", tab:24 } ], planifies:[] },
-  { id:"12", cle:"Achats", nom:"Achats & Fournisseurs", maturite:"TechnicalPreview", ecrans:[
-      { nom:"Achats & approvisionnements", module:"Achats", sousModules:["Commandes","Réception","Fournisseurs"], perm:"purchasing.read", tab:25 } ], planifies:[["Appels d'offres","Appels d'offres"]] },
-  { id:"13", cle:"RessourcesHumaines", nom:"Ressources Humaines & Paie", maturite:"Functional", ecrans:[
-      { nom:"RH & paie", module:"RH & paie", sousModules:["Personnel","Temps et absences","Paie","Référentiel RH"], perm:"hr.read", tab:22 } ], planifies:[] },
-  { id:"14", cle:"Maintenance", nom:"Maintenance & Patrimoine", maturite:"Planned", ecrans:[], planifies:[["Maintenance","Maintenance & interventions"],["Patrimoine","Modules légaux"]] },
-  { id:"15", cle:"Qualite", nom:"Qualité, Audit & Contrôle interne", maturite:"TechnicalPreview", ecrans:[
-      { nom:"Audit & contrôle interne", module:"Audit", sousModules:["Journal d'audit"], perm:"audit.read", tab:4 } ], planifies:[["Contrôle interne","Checklists de contrôle"],["Contrôle interne","Journal des anomalies"],["Contrôle interne","Décisions & instructions"]] },
-  { id:"16", cle:"Juridique", nom:"Juridique & Conformité", maturite:"Planned", ecrans:[], planifies:[["Contrats","Contrats & conventions"],["Conformité","Conformité hôtelière"],["Conformité","Protection des données"],["Veille","Veille juridique & réglementaire"]] },
-  { id:"17", cle:"Documentaire", nom:"GED / Gestion documentaire", maturite:"Planned", ecrans:[], planifies:[["GED","Gestion documentaire"]] },
-  { id:"18", cle:"Marina", nom:"PortMaster / Marina", maturite:"Planned", ecrans:[], planifies:[["Marina","PortMaster"]] },
-  { id:"19", cle:"Parking", nom:"Parking & Contrôle d'accès", maturite:"Planned", ecrans:[], planifies:[["Parking","Contrôle d'accès"]] },
-  { id:"20", cle:"Pilotage", nom:"Pilotage, KPI & BI", maturite:"Functional", ecrans:[
-      { nom:"Tableaux de bord directionnels", module:"Dashboards", sousModules:["Unité"], perm:"dashboard.read", tab:3 },
-      { nom:"Dashboard PDG", module:"Dashboards", sousModules:["Groupe"], perm:"dashboard.read", tab:19 },
-      { nom:"Cockpit DEC", module:"Dashboards", sousModules:["Exploitation"], perm:"dashboard.read", tab:20 },
-      { nom:"Comparatif inter-unités", module:"KPI Engine", sousModules:["Bibliothèque KPI","Analyse inter-unités","Alertes","Paramétrage"], perm:"dashboard.read", tab:29 },
-      { nom:"Rapports automatiques", module:"BI", sousModules:["Rapports"], perm:"reports.read", tab:17 } ], planifies:[["Communication","Alertes & notifications"]] },
-  { id:"21", cle:"Integrations", nom:"Intégrations & Matériels", maturite:"TechnicalPreview", ecrans:[], planifies:[["Matériels","Intégrations matérielles"],["Temps","Pointeuses & badgeuses"]] },
-  { id:"22", cle:"Systeme", nom:"Administration Système", maturite:"Functional", epingle:true, ecrans:[
-      { nom:"Sauvegarde & restauration", module:"Maintenance", sousModules:["Sauvegarde"], perm:"maintenance.read", tab:18 },
-      { nom:"Registre des postes & erreurs clients", module:"Diagnostic", sousModules:["Postes"], perm:"sync.read", tab:27 },
-      { nom:"Journalisation & traçabilité", module:"Journalisation", sousModules:["Journal d'audit"], perm:"audit.read", tab:4 } ], planifies:[] },
-];
-const domaine = id => DOMAINES.find(d => d.id === id);
-
-/* ======================= Les 50 entrees de ModuleCatalog (ordre, nom, description, priorite, statut, permission, onglet) =======================
-   dom = domaine cible (FunctionalArchitectureCatalog.LegacyModuleOrders) ; mod = module de rattachement dans l'arbre. */
+/* ======================= Les 50 entrees de ModuleCatalog.cs (ordre, nom, description, priorite, statut, permission, onglet) ======================= */
 const MODULES = [
-  { o:"1",    dom:"02", mod:"Utilisateurs",           n:"Administration & utilisateurs",        d:"Comptes, rôles, permissions et périmètres",                                       p:"P0", s:"dispo",    perm:"users.read",       tab:10 },
-  { o:"2",    dom:"02", mod:"Paramétrage",            n:"Paramétrage global",                   d:"Identité de l'établissement, réglages du poste et santé du système",              p:"P0", s:"dispo",    perm:"settings.read",    tab:9 },
-  { o:"3",    dom:"02", mod:"Organisation",           n:"Unités hôtelières",                    d:"Référentiel des unités et des établissements",                                    p:"P0", s:"dispo",    perm:"units.read",       tab:1 },
-  { o:"4",    dom:"03", mod:"Recettes",               n:"CA journalier (ERP)",                  d:"Saisie du jour, validation unité et DEC",                                         p:"P0", s:"dispo",    perm:"revenue.read",     tab:2 },
-  { o:"4.5",  dom:"06", mod:"Contrôle",               n:"Clôture journalière & Night Audit",    d:"Clôture de la date métier et Night Audit",                                        p:"P1", s:"dispo",    perm:"closing.read",     tab:5 },
-  { o:"5",    dom:"03", mod:"Trésorerie",             n:"Encaissements & trésorerie",           d:"Caisses, banques et ordres de paiement",                                          p:"P1", s:"dispo",    perm:"treasury.read",    tab:6 },
-  { o:"5.2",  dom:"03", mod:"Comptabilité",           n:"Comptabilité SCF",                     d:"Plan de comptes, journaux, écritures en partie double et balance",                p:"P1", s:"dispo",    perm:"accounting.read",  tab:11 },
-  { o:"5.4",  dom:"03", mod:"Fiscalité",              n:"Fiscalité DGI & SIFEC",                d:"TVA, déclarations, liasse et lien SIFEC",                                         p:"P2", s:"planifie" },
-  { o:"6",    dom:"03", mod:"Budget",                 n:"Budget & prévisions",                  d:"Objectifs, budgets mensuels et écarts",                                           p:"P1", s:"dispo",    perm:"budget.read",      tab:12 },
-  { o:"8",    dom:"05", mod:"Factures",               n:"Facturation",                          d:"Factures clients, avoirs et registre des ventes",                                 p:"P1", s:"dispo",    perm:"invoices.read",    tab:8 },
-  { o:"9",    dom:"03", mod:"Créances",               n:"Créances & recouvrement",              d:"Balance âgée, relances et risque client",                                         p:"P1", s:"dispo",    perm:"receivables.read", tab:13 },
-  { o:"9.2",  dom:"04", mod:"Clients",                n:"Clients",                              d:"Fichier clients et historique commercial",                                        p:"P1", s:"dispo",    perm:"customers.read",   tab:7 },
-  { o:"10",   dom:"06", mod:"Réservations & folios",  n:"Hébergement & occupation",             d:"Types de chambre, réservations, folios et taux d'occupation",                     p:"P1", s:"dispo",    perm:"lodging.read",     tab:15 },
-  { o:"10.1", dom:"06", mod:"Front Office",           n:"PMS front office",                     d:"Planning, arrivées, départs, clients présents, prévisionnel, hors service et night audit", p:"P1", s:"dispo", perm:"lodging.read", tab:30 },
-  { o:"10.2", dom:"08", mod:"Housekeeping",           n:"Housekeeping & chambres",              d:"Planning des équipes, inspection, minibar",                                       p:"P2", s:"dispo",    perm:"housekeeping.read", tab:21 },
-  { o:"10.4", dom:"04", mod:"CRM",                    n:"CRM & expérience client",              d:"Vue client 360°, segmentation, fidélité, campagnes et NPS",                       p:"P2", s:"dispo",    perm:"crm.read",         tab:23 },
-  { o:"10.6", dom:"09", mod:"Groupes & événements",   n:"Groupes & MICE",                       d:"Salles, événements, devis, BEO, allotements et rooming lists",                    p:"P2", s:"dispo",    perm:"mice.read",        tab:28 },
-  { o:"11",   dom:"11", mod:"Stocks",                 n:"Stocks & consommations",               d:"Magasins, articles, mouvements valorisés au PMP et inventaires physiques",        p:"P2", s:"dispo",    perm:"inventory.read",   tab:24 },
-  { o:"11.5", dom:"10", mod:"Cuisine",                n:"Cuisine, production & qualité",        d:"Fiches techniques, coût matière et relevés de température HACCP",                 p:"P2", s:"dispo",    perm:"kitchen.read",     tab:26 },
-  { o:"11.6", dom:"10", mod:"Points de vente",        n:"Points de vente (POS)",                d:"Plan de salle, tickets et transfert au folio",                                    p:"P2", s:"planifie" },
-  { o:"12",   dom:"12", mod:"Achats",                 n:"Achats & approvisionnements",          d:"Fournisseurs, bons de commande et réceptions entrées en stock",                   p:"P2", s:"dispo",    perm:"purchasing.read",  tab:25 },
-  { o:"12.5", dom:"12", mod:"Appels d'offres",        n:"Appels d'offres",                      d:"Lots, ouverture des plis et attribution",                                         p:"P2", s:"planifie" },
-  { o:"13",   dom:"14", mod:"Maintenance",            n:"Maintenance & interventions",          d:"Équipements, ordres de travail et préventif",                                     p:"P2", s:"planifie" },
-  { o:"13.5", dom:"21", mod:"Matériels",              n:"Intégrations matérielles",             d:"Serrures, PBX, TPE CIB et imprimantes",                                           p:"P2", s:"planifie" },
-  { o:"14.5", dom:"07", mod:"Tarification",           n:"Tarifs & conventions",                 d:"Plans tarifaires, périodes de tarif et conventions clients",                      p:"P1", s:"dispo",    perm:"tariffs.read",     tab:14 },
-  { o:"18",   dom:"04", mod:"Réclamations",           n:"Qualité & réclamations clients",       d:"Réclamations, délais et analyse des causes",                                      p:"P2", s:"planifie" },
-  { o:"20",   dom:"16", mod:"Contrats",               n:"Contrats & conventions",               d:"Contrats, allotements et échéances",                                              p:"P2", s:"planifie" },
-  { o:"20.2", dom:"04", mod:"Commercial",             n:"Commercial & partenariats",            d:"Prospection, partenariats et suivi commercial",                                   p:"P2", s:"planifie" },
-  { o:"21",   dom:"13", mod:"RH & paie",              n:"RH & paie",                            d:"Collaborateurs, contrats, temps et absences, paie algérienne",                    p:"P2", s:"dispo",    perm:"hr.read",          tab:22 },
-  { o:"21.2", dom:"21", mod:"Temps",                  n:"Pointeuses & badgeuses",               d:"Import des pointages et réconciliation",                                          p:"P2", s:"planifie" },
-  { o:"22",   dom:"15", mod:"Audit",                  n:"Audit & contrôle interne",             d:"Consultation des traces et piste d'audit",                                        p:"P0", s:"dispo",    perm:"audit.read",       tab:4 },
-  { o:"22.2", dom:"01", mod:"Mon travail",            n:"Workflows & validations",              d:"Circuits d'approbation par type de sujet et décisions étape par étape",           p:"P1", s:"dispo",    perm:"approvals.read",   tab:16 },
-  { o:"22.4", dom:"15", mod:"Contrôle interne",       n:"Checklists de contrôle",               d:"Modèles, exécution et suivi des écarts",                                          p:"P2", s:"planifie" },
-  { o:"22.6", dom:"15", mod:"Contrôle interne",       n:"Journal des anomalies",                d:"Déclaration, affectation et corrections",                                         p:"P2", s:"planifie" },
-  { o:"22.8", dom:"15", mod:"Contrôle interne",       n:"Décisions & instructions",             d:"Instructions de direction et échéances",                                          p:"P2", s:"planifie" },
-  { o:"23",   dom:"16", mod:"Conformité",             n:"Conformité hôtelière",                 d:"Fiches police, taxe de séjour, tourisme",                                         p:"P2", s:"planifie" },
-  { o:"23.2", dom:"16", mod:"Conformité",             n:"Protection des données",               d:"Registre des traitements et consentements",                                       p:"P2", s:"planifie" },
-  { o:"23.4", dom:"14", mod:"Patrimoine",             n:"Modules légaux",                       d:"Immobilisations, CASNOS, inventaire légal",                                       p:"P2", s:"planifie" },
-  { o:"23.6", dom:"16", mod:"Veille",                 n:"Veille juridique & réglementaire",     d:"Textes, mise en conformité et échéances",                                         p:"P2", s:"planifie" },
-  { o:"24",   dom:"20", mod:"Dashboards",             n:"Tableaux de bord directionnels",       d:"Indicateurs consolidés par période et unité",                                     p:"P0", s:"dispo",    perm:"dashboard.read",   tab:3 },
-  { o:"24.2", dom:"20", mod:"Dashboards",             n:"Dashboard PDG",                        d:"Vision groupe et alertes de direction",                                           p:"P0", s:"dispo",    perm:"dashboard.read",   tab:19 },
-  { o:"24.4", dom:"20", mod:"Dashboards",             n:"Cockpit DEC",                          d:"Pilotage exploitation et contrôles quotidiens",                                   p:"P0", s:"dispo",    perm:"dashboard.read",   tab:20 },
-  { o:"25",   dom:"20", mod:"BI",                     n:"Rapports automatiques",                d:"Catalogue de rapports paramétrables, export CSV et journal des exécutions",       p:"P1", s:"dispo",    perm:"reports.read",     tab:17 },
-  { o:"25.2", dom:"01", mod:"Communication",          n:"Alertes & notifications",              d:"Règles d'alerte et préférences de diffusion",                                     p:"P2", s:"planifie" },
-  { o:"25.4", dom:"20", mod:"KPI Engine",             n:"Comparatif inter-unités",              d:"Bibliothèque KPI, classement des unités et comparaisons N/N-1",                   p:"P2", s:"dispo",    perm:"dashboard.read",   tab:29 },
-  { o:"26",   dom:"18", mod:"Marina",                 n:"PortMaster",                           d:"Bateaux, emplacements, contrats et facturation",                                  p:"P2", s:"planifie" },
-  { o:"27",   dom:"17", mod:"GED",                    n:"Gestion documentaire",                 d:"GED, versions, signature et archivage légal",                                     p:"P2", s:"planifie" },
-  { o:"28",   dom:"22", mod:"Maintenance",            n:"Sauvegarde & restauration",            d:"État des sauvegardes, déclenchement à la demande et paliers de rétention",        p:"P1", s:"dispo",    perm:"maintenance.read", tab:18 },
-  { o:"29",   dom:"22", mod:"Diagnostic",             n:"Registre des postes & erreurs clients", d:"Postes déclarés, dernier contact et erreurs remontées par les clients",          p:"P1", s:"dispo",    perm:"sync.read",        tab:27 },
-  { o:"30",   dom:"22", mod:"Journalisation",         n:"Journalisation & traçabilité",         d:"Journal d'audit, recherche et export",                                            p:"P0", s:"dispo",    perm:"audit.read",       tab:4 },
+  { o:"1",    n:"Administration & utilisateurs",        d:"Comptes, rôles, permissions et périmètres",                                       p:"P0", s:"dispo",    perm:"users.read",        tab:10 },
+  { o:"2",    n:"Paramétrage global",                   d:"Identité de l'établissement, réglages du poste et santé du système",              p:"P0", s:"dispo",    perm:"settings.read",     tab:9 },
+  { o:"3",    n:"Unités hôtelières",                    d:"Référentiel des unités et des établissements",                                    p:"P0", s:"dispo",    perm:"units.read",        tab:1 },
+  { o:"4",    n:"CA journalier (ERP)",                  d:"Saisie du jour, validation unité et DEC",                                         p:"P0", s:"dispo",    perm:"revenue.read",      tab:2 },
+  { o:"4.5",  n:"Clôture journalière & Night Audit",    d:"Clôture de la date métier et Night Audit",                                        p:"P1", s:"dispo",    perm:"closing.read",      tab:5 },
+  { o:"5",    n:"Encaissements & trésorerie",           d:"Caisses, banques et ordres de paiement",                                          p:"P1", s:"dispo",    perm:"treasury.read",     tab:6 },
+  { o:"5.2",  n:"Comptabilité SCF",                     d:"Plan de comptes, journaux, écritures en partie double et balance",                p:"P1", s:"dispo",    perm:"accounting.read",   tab:11 },
+  { o:"5.4",  n:"Fiscalité DGI & SIFEC",                d:"TVA, déclarations, liasse et lien SIFEC",                                         p:"P2", s:"planifie" },
+  { o:"6",    n:"Budget & prévisions",                  d:"Objectifs, budgets mensuels et écarts",                                           p:"P1", s:"dispo",    perm:"budget.read",       tab:12 },
+  { o:"8",    n:"Facturation",                          d:"Factures clients, avoirs et registre des ventes",                                 p:"P1", s:"dispo",    perm:"invoices.read",     tab:8 },
+  { o:"9",    n:"Créances & recouvrement",              d:"Balance âgée, relances et risque client",                                         p:"P1", s:"dispo",    perm:"receivables.read",  tab:13 },
+  { o:"9.2",  n:"Clients",                              d:"Fichier clients et historique commercial",                                        p:"P1", s:"dispo",    perm:"customers.read",    tab:7 },
+  { o:"10",   n:"Hébergement & occupation",             d:"Types de chambre, réservations, folios et taux d'occupation",                     p:"P1", s:"dispo",    perm:"lodging.read",      tab:15 },
+  { o:"10.1", n:"PMS front office",                     d:"Planning, arrivées, départs, clients présents, prévisionnel, hors service et night audit", p:"P1", s:"dispo", perm:"lodging.read", tab:30 },
+  { o:"10.2", n:"Housekeeping & chambres",              d:"Planning des équipes, inspection, minibar",                                       p:"P2", s:"dispo",    perm:"housekeeping.read", tab:21 },
+  { o:"10.4", n:"CRM & expérience client",              d:"Vue client 360°, segmentation, fidélité, campagnes et NPS",                       p:"P2", s:"dispo",    perm:"crm.read",          tab:23 },
+  { o:"10.6", n:"Groupes & MICE",                       d:"Salles, événements, devis, BEO, allotements et rooming lists",                    p:"P2", s:"dispo",    perm:"mice.read",         tab:28 },
+  { o:"11",   n:"Stocks & consommations",               d:"Magasins, articles, mouvements valorisés au PMP et inventaires physiques",        p:"P2", s:"dispo",    perm:"inventory.read",    tab:24 },
+  { o:"11.5", n:"Cuisine, production & qualité",        d:"Fiches techniques, coût matière et relevés de température HACCP",                 p:"P2", s:"dispo",    perm:"kitchen.read",      tab:26 },
+  { o:"11.6", n:"Points de vente (POS)",                d:"Plan de salle, tickets et transfert au folio",                                    p:"P2", s:"planifie" },
+  { o:"12",   n:"Achats & approvisionnements",          d:"Fournisseurs, bons de commande et réceptions entrées en stock",                   p:"P2", s:"dispo",    perm:"purchasing.read",   tab:25 },
+  { o:"12.5", n:"Appels d'offres",                      d:"Lots, ouverture des plis et attribution",                                         p:"P2", s:"planifie" },
+  { o:"13",   n:"Maintenance & interventions",          d:"Équipements, ordres de travail et préventif",                                     p:"P2", s:"planifie" },
+  { o:"13.5", n:"Intégrations matérielles",             d:"Serrures, PBX, TPE CIB et imprimantes",                                           p:"P2", s:"planifie" },
+  { o:"14.5", n:"Tarifs & conventions",                 d:"Plans tarifaires, périodes de tarif et conventions clients",                      p:"P1", s:"dispo",    perm:"tariffs.read",      tab:14 },
+  { o:"18",   n:"Qualité & réclamations clients",       d:"Réclamations, délais et analyse des causes",                                      p:"P2", s:"planifie" },
+  { o:"20",   n:"Contrats & conventions",               d:"Contrats, allotements et échéances",                                              p:"P2", s:"planifie" },
+  { o:"20.2", n:"Commercial & partenariats",            d:"Prospection, partenariats et suivi commercial",                                   p:"P2", s:"planifie" },
+  { o:"21",   n:"RH & paie",                            d:"Collaborateurs, contrats, temps et absences, paie algérienne",                    p:"P2", s:"dispo",    perm:"hr.read",           tab:22 },
+  { o:"21.2", n:"Pointeuses & badgeuses",               d:"Import des pointages et réconciliation",                                          p:"P2", s:"planifie" },
+  { o:"22",   n:"Audit & contrôle interne",             d:"Consultation des traces et piste d'audit",                                        p:"P0", s:"dispo",    perm:"audit.read",        tab:4 },
+  { o:"22.2", n:"Workflows & validations",              d:"Circuits d'approbation par type de sujet et décisions étape par étape",           p:"P1", s:"dispo",    perm:"approvals.read",    tab:16 },
+  { o:"22.4", n:"Checklists de contrôle",               d:"Modèles, exécution et suivi des écarts",                                          p:"P2", s:"planifie" },
+  { o:"22.6", n:"Journal des anomalies",                d:"Déclaration, affectation et corrections",                                         p:"P2", s:"planifie" },
+  { o:"22.8", n:"Décisions & instructions",             d:"Instructions de direction et échéances",                                          p:"P2", s:"planifie" },
+  { o:"23",   n:"Conformité hôtelière",                 d:"Fiches police, taxe de séjour, tourisme",                                         p:"P2", s:"planifie" },
+  { o:"23.2", n:"Protection des données",               d:"Registre des traitements et consentements",                                       p:"P2", s:"planifie" },
+  { o:"23.4", n:"Modules légaux",                       d:"Immobilisations, CASNOS, inventaire légal",                                       p:"P2", s:"planifie" },
+  { o:"23.6", n:"Veille juridique & réglementaire",     d:"Textes, mise en conformité et échéances",                                         p:"P2", s:"planifie" },
+  { o:"24",   n:"Tableaux de bord directionnels",       d:"Indicateurs consolidés par période et unité",                                     p:"P0", s:"dispo",    perm:"dashboard.read",    tab:3 },
+  { o:"24.2", n:"Dashboard PDG",                        d:"Vision groupe et alertes de direction",                                           p:"P0", s:"dispo",    perm:"dashboard.read",    tab:19 },
+  { o:"24.4", n:"Cockpit DEC",                          d:"Pilotage exploitation et contrôles quotidiens",                                   p:"P0", s:"dispo",    perm:"dashboard.read",    tab:20 },
+  { o:"25",   n:"Rapports automatiques",                d:"Catalogue de rapports paramétrables, export CSV et journal des exécutions",       p:"P1", s:"dispo",    perm:"reports.read",      tab:17 },
+  { o:"25.2", n:"Alertes & notifications",              d:"Règles d'alerte et préférences de diffusion",                                     p:"P2", s:"planifie" },
+  { o:"25.4", n:"Comparatif inter-unités",              d:"Bibliothèque KPI, classement des unités et comparaisons N/N-1",                   p:"P2", s:"dispo",    perm:"dashboard.read",    tab:29 },
+  { o:"26",   n:"PortMaster",                           d:"Bateaux, emplacements, contrats et facturation",                                  p:"P2", s:"planifie" },
+  { o:"27",   n:"Gestion documentaire",                 d:"GED, versions, signature et archivage légal",                                     p:"P2", s:"planifie" },
+  { o:"28",   n:"Sauvegarde & restauration",            d:"État des sauvegardes, déclenchement à la demande et paliers de rétention",        p:"P1", s:"dispo",    perm:"maintenance.read",  tab:18 },
+  { o:"29",   n:"Registre des postes & erreurs clients", d:"Postes déclarés, dernier contact et erreurs remontées par les clients",          p:"P1", s:"dispo",    perm:"sync.read",         tab:27 },
+  { o:"30",   n:"Journalisation & traçabilité",         d:"Journal d'audit, recherche et export",                                            p:"P0", s:"dispo",    perm:"audit.read",        tab:4 },
 ];
 const module_ = o => MODULES.find(m => m.o === o);
+/* Chemin primaire de chaque onglet (FunctionalArchitectureCatalog.PrimaryPaths) : l'entree du catalogue qui donne son nom a l'ecran. */
+const PRIMAIRE = { 16:"22.2", 1:"3", 10:"1", 9:"2", 11:"5.2", 6:"5", 13:"9", 12:"6", 2:"4", 7:"9.2", 23:"10.4", 8:"8", 15:"10", 30:"10.1", 5:"4.5", 14:"14.5", 21:"10.2", 28:"10.6", 26:"11.5", 24:"11", 25:"12", 22:"21", 3:"24", 19:"24.2", 20:"24.4", 29:"25.4", 17:"25", 18:"28", 4:"30", 27:"29" };
+const ecranDeTab = tab => module_(PRIMAIRE[tab]);
+
+/* ======================= L'arbre Domaine -> Module -> Sous-module -> Ecran (FunctionalArchitectureCatalog.Tree.cs) =======================
+   S(libelle)            : sous-module planifie (aucun ecran : visible, jamais ouvrable)
+   S(libelle, tab)       : sous-module servi par l'onglet `tab` (chemin primaire ou alias) ; le nom de l'ecran est celui de PRIMAIRE[tab]
+   S(libelle, tab, nom)  : alias qui porte son propre libelle d'ecran (« Audit & contrôle interne » sous 15 = meme onglet 4 que la journalisation sous 22)
+   ordres                : entrees historiques (cartes) rattachees au module — c'est ce qui place une carte sous son module. */
+const S = (l, tab, ecran) => ({ l, tab, ecran });
+const DOMAINES = [
+  { id:"01", cle:"MonEspace", nom:"Mon Espace", maturite:"Planned", modules:[
+    { nom:"Mon travail", ordres:["22.2"], sous:[S("Tableau de bord personnel"), S("Mes tâches"), S("Mes validations", 16), S("Mes demandes"), S("Mes délégations"), S("Mon activité")] },
+    { nom:"Communication", ordres:["25.2"], sous:[S("Notifications"), S("Messagerie interne"), S("Mon agenda")] },
+    { nom:"Mes documents et favoris", ordres:[], sous:[S("Mes documents"), S("Mes favoris")] },
+    { nom:"Mon compte", ordres:[], sous:[S("Mon profil"), S("Mes préférences"), S("Ma sécurité")] } ] },
+  { id:"02", cle:"Administration", nom:"Administration & Socle ERP", maturite:"Functional", modules:[
+    { nom:"Organisation", ordres:["3"], sous:[S("Unités hôtelières", 1), S("Entreprise, établissements et services")] },
+    { nom:"Utilisateurs", ordres:["1"], sous:[S("Comptes et rôles", 10), S("Profils, périmètres et délégations")] },
+    { nom:"Référentiels", ordres:[], sous:[S("Référentiels partagés (TVA, devises, pays)")] },
+    { nom:"Paramétrage", ordres:["2"], sous:[S("Paramètres globaux", 9), S("Circuits de validation", 16)] },
+    { nom:"Sécurité", ordres:[], sous:[S("Sessions et politiques de sécurité")] } ] },
+  { id:"03", cle:"Finance", nom:"Finance & Comptabilité", maturite:"Functional", modules:[
+    { nom:"Comptabilité", ordres:["5.2"], sous:[S("Comptabilité générale", 11), S("Exercices et périodes", 11), S("Comptabilité auxiliaire", 11), S("États comptables", 11), S("Comptabilité analytique")] },
+    { nom:"Trésorerie", ordres:["5"], sous:[S("Encaissements et décaissements", 6), S("Banques et caisses", 6), S("Ordres de paiement", 6), S("Rapprochement bancaire et prévisions")] },
+    { nom:"Créances", ordres:["9"], sous:[S("Balance âgée et relances", 13), S("Contentieux et provisions")] },
+    { nom:"Budget", ordres:["6"], sous:[S("Budget vs réalisé", 12), S("Révisions, engagements et forecast")] },
+    { nom:"Fiscalité", ordres:["5.4"], sous:[S("Déclarations DGI et SIFEC")] },
+    { nom:"Recettes journalières", ordres:["4"], sous:[S("CA journalier", 2), S("Clôture journalière", 5)] } ] },
+  { id:"04", cle:"Commercial", nom:"Commercial, Clients & CRM", maturite:"Functional", modules:[
+    { nom:"Clients", ordres:["9.2"], sous:[S("Fichier clients", 7), S("Conventions et tarifs négociés", 14)] },
+    { nom:"CRM", ordres:["10.4"], sous:[S("Fiche client 360°", 23), S("Segmentation, fidélité et VIP", 23), S("Satisfaction et NPS", 23), S("Prospects et opportunités")] },
+    { nom:"Réclamations", ordres:["18"], sous:[S("Réclamations clients")] },
+    { nom:"Commercial et partenariats", ordres:["20.2"], sous:[S("Prospection et partenariats")] } ] },
+  { id:"05", cle:"Facturation", nom:"Facturation & Ventes", maturite:"Functional", modules:[
+    { nom:"Documents de vente", ordres:["8"], sous:[S("Factures", 8), S("Devis et pro forma"), S("Avoirs et notes de débit"), S("Facturation société, agence, groupe et consolidée")] },
+    { nom:"Règlements", ordres:[], sous:[S("Paiements et remboursements", 8), S("Remises et taxes"), S("Échéanciers")] },
+    { nom:"Alimentation du moteur comptable", ordres:[], sous:[S("Événements de vente vers la comptabilité")] } ] },
+  { id:"06", cle:"Hebergement", nom:"PMS / Hébergement", maturite:"Functional", modules:[
+    { nom:"Inventaire", ordres:["10"], sous:[S("Types, chambres et couchages", 15), S("Bâtiments, étages et équipements")] },
+    { nom:"Réservations", ordres:[], sous:[S("Disponibilité et réservations", 15)] },
+    { nom:"Folios", ordres:[], sous:[S("Folios, extras et acomptes", 15)] },
+    { nom:"Front Office", ordres:["10.1"], sous:[S("Arrivées et départs", 30), S("Clients présents et séjours", 30)] },
+    { nom:"Planning", ordres:[], sous:[S("Planning et prévisionnel", 30)] },
+    { nom:"Contrôle", ordres:["4.5"], sous:[S("Clôture journalière", 5), S("Night audit et date métier", 30)] } ] },
+  { id:"07", cle:"Revenue", nom:"Revenue Management & Distribution", maturite:"TechnicalPreview", modules:[
+    { nom:"Tarification", ordres:["14.5"], sous:[S("Plans tarifaires et périodes", 14), S("Conventions clients", 14), S("Promotions")] },
+    { nom:"Restrictions", ordres:[], sous:[S("Stop sell, durées de séjour, CTA et CTD", 30)] },
+    { nom:"Revenue Management", ordres:[], sous:[S("Règles de yield et surréservation", 30), S("Pickup, pace et cibles ADR/RevPAR")] },
+    { nom:"Distribution", ordres:[], sous:[S("Channel manager"), S("Booking engine")] } ] },
+  { id:"08", cle:"Housekeeping", nom:"Housekeeping", maturite:"Functional", modules:[
+    { nom:"Housekeeping", ordres:["10.2"], sous:[S("Planning et états des chambres", 21), S("Inspections", 21), S("Minibar", 21), S("Linge, objets trouvés et incidents")] } ] },
+  { id:"09", cle:"Evenementiel", nom:"Groupes, MICE & Événementiel", maturite:"Functional", modules:[
+    { nom:"Groupes", ordres:["10.6"], sous:[S("Allotements et rooming lists", 28), S("Tarifs groupes")] },
+    { nom:"Événements", ordres:[], sous:[S("Salles et événements", 28), S("Devis et BEO", 28), S("Facturation groupe", 28), S("Restauration, matériel et personnel")] } ] },
+  { id:"10", cle:"Restauration", nom:"F&B / Restauration", maturite:"TechnicalPreview", modules:[
+    { nom:"Fiches techniques", ordres:["11.5"], sous:[S("Recettes, portions et coût matière", 26)] },
+    { nom:"Hygiène", ordres:[], sous:[S("HACCP et températures", 26), S("Allergènes et traçabilité")] },
+    { nom:"Points de vente", ordres:["11.6"], sous:[S("POS et KDS")] },
+    { nom:"Contrôle F&B", ordres:[], sous:[S("Food cost, gaspillage et menu engineering")] } ] },
+  { id:"11", cle:"Stocks", nom:"Stocks & Économat", maturite:"Functional", modules:[
+    { nom:"Stocks", ordres:["11"], sous:[S("Articles, familles et magasins", 24), S("Mouvements et valorisation", 24), S("Inventaires physiques", 24), S("Lots, expiration, emplacements et rotation")] } ] },
+  { id:"12", cle:"Achats", nom:"Achats & Fournisseurs", maturite:"TechnicalPreview", modules:[
+    { nom:"Fournisseurs", ordres:["12"], sous:[S("Fiches fournisseurs", 25), S("Documents et évaluation")] },
+    { nom:"Commandes", ordres:[], sous:[S("Bons de commande et validation", 25)] },
+    { nom:"Réception", ordres:[], sous:[S("Réceptions et entrées en stock", 25), S("Contrôle et retours")] },
+    { nom:"Besoins et consultation", ordres:[], sous:[S("Expression de besoin et demandes d'achat"), S("Demandes de prix et comparatifs")] },
+    { nom:"Factures fournisseurs", ordres:[], sous:[S("Factures, avoirs et rapprochement à trois voies"), S("Échéances et propositions de paiement")] },
+    { nom:"Marchés", ordres:["12.5"], sous:[S("Appels d'offres")] } ] },
+  { id:"13", cle:"RessourcesHumaines", nom:"Ressources Humaines & Paie", maturite:"Functional", modules:[
+    { nom:"Personnel", ordres:["21"], sous:[S("Dossiers, contrats et affectations", 22), S("Carrière et documents")] },
+    { nom:"Temps", ordres:[], sous:[S("Pointages, présences et absences", 22), S("Planning, retards et heures supplémentaires")] },
+    { nom:"Congés", ordres:[], sous:[S("Demandes et validation", 22), S("Soldes et planning des congés")] },
+    { nom:"Paie", ordres:[], sous:[S("Variables, bulletins et clôture", 22), S("Acomptes, prêts, STC et génération comptable")] },
+    { nom:"Développement RH", ordres:[], sous:[S("Formation, discipline et santé")] } ] },
+  { id:"14", cle:"Maintenance", nom:"Maintenance & Patrimoine", maturite:"Planned", modules:[
+    { nom:"Maintenance", ordres:["13"], sous:[S("Équipements et ordres de travail"), S("Maintenance préventive")] },
+    { nom:"Patrimoine", ordres:["23.4"], sous:[S("Immobilisations et inventaire légal")] } ] },
+  { id:"15", cle:"Qualite", nom:"Qualité, Audit & Contrôle interne", maturite:"TechnicalPreview", modules:[
+    { nom:"Audit", ordres:["22"], sous:[S("Piste d'audit", 4, "Audit & contrôle interne"), S("Programme, missions et rapports")] },
+    { nom:"Contrôle interne", ordres:["22.4","22.6"], sous:[S("Checklists de contrôle"), S("Journal des anomalies")] },
+    { nom:"Décisions et instructions", ordres:["22.8"], sous:[S("Décisions, instructions et échéances")] },
+    { nom:"Risques et incidents", ordres:[], sous:[S("Registre des risques et incidents")] } ] },
+  { id:"16", cle:"Juridique", nom:"Juridique & Conformité", maturite:"Planned", modules:[
+    { nom:"Contrats et conventions", ordres:["20"], sous:[S("Contrats, allotements et échéances")] },
+    { nom:"Conformité hôtelière", ordres:["23"], sous:[S("Fiches police, taxe de séjour et tourisme")] },
+    { nom:"Protection des données", ordres:["23.2"], sous:[S("Registre des traitements et consentements")] },
+    { nom:"Veille juridique et réglementaire", ordres:["23.6"], sous:[S("Textes, mise en conformité et échéances")] } ] },
+  { id:"17", cle:"Documentaire", nom:"GED / Gestion documentaire", maturite:"Planned", modules:[
+    { nom:"Gestion documentaire", ordres:["27"], sous:[S("Documents, versions et liens métier"), S("Signature et archivage légal")] } ] },
+  { id:"18", cle:"Marina", nom:"PortMaster / Marina", maturite:"Planned", modules:[
+    { nom:"PortMaster", ordres:["26"], sous:[S("Bateaux et emplacements"), S("Contrats et facturation")] } ] },
+  { id:"19", cle:"Parking", nom:"Parking & Contrôle d'accès", maturite:"Planned", modules:[
+    { nom:"Parking", ordres:[], sous:[S("Abonnements et tickets")] },
+    { nom:"Contrôle d'accès", ordres:[], sous:[S("Badges, barrières et plage-piscine")] } ] },
+  { id:"20", cle:"Pilotage", nom:"Pilotage, KPI & BI", maturite:"Functional", modules:[
+    { nom:"Dashboards", ordres:["24","24.2","24.4"], sous:[S("Unité", 3), S("Groupe", 19), S("Exploitation (DEC)", 20), S("Dashboards F&B, RH et maintenance")] },
+    { nom:"KPI Engine", ordres:["25.4"], sous:[S("Bibliothèque KPI et comparatif inter-unités", 29), S("Analyse N/N-1 et budget/réalisé", 29), S("KPI maintenance")] },
+    { nom:"BI", ordres:["25"], sous:[S("Rapports", 17), S("Data Warehouse et historisation")] } ] },
+  { id:"21", cle:"Integrations", nom:"Intégrations & Matériels", maturite:"TechnicalPreview", modules:[
+    { nom:"Channel Manager Providers", ordres:[], sous:[S("Fournisseurs de distribution")] },
+    { nom:"Matériels", ordres:["13.5","21.2"], sous:[S("Serrures, TPE, PBX et imprimantes"), S("Pointeuses et badgeuses")] },
+    { nom:"Journal des interfaces", ordres:[], sous:[S("Journal des interfaces", 27)] },
+    { nom:"API externes et webhooks", ordres:[], sous:[S("API externes, webhooks et banques")] } ] },
+  { id:"22", cle:"Systeme", nom:"Administration Système", maturite:"Functional", epingle:true, modules:[
+    { nom:"Maintenance", ordres:["28","30"], sous:[S("Sauvegarde", 18), S("Journal d'audit", 4), S("Migrations, health checks et logs")] },
+    { nom:"Diagnostic", ordres:["29"], sous:[S("Postes", 27)] },
+    { nom:"Serveur", ordres:[], sous:[S("PostgreSQL, API, services et configuration")] },
+    { nom:"Déploiement", ordres:[], sous:[S("Serveur, client, postes et versions")] },
+    { nom:"Mises à jour et licence", ordres:[], sous:[S("Updates, rollback et licence")] } ] },
+];
+const domaine = id => DOMAINES.find(d => d.id === id);
+/* Placement d'une carte : PlacementForLegacyOrder -> (domaine, module, rang du module). */
+const PLACEMENT = new Map();
+DOMAINES.forEach((d, di) => d.modules.forEach((m, mi) => m.ordres.forEach(o => PLACEMENT.set(o, { dom:d, mod:m, rang:di * 100 + mi }))));
+MODULES.forEach(m => { const p = PLACEMENT.get(m.o); if (!p) throw new Error(`Ordre ${m.o} sans domaine`); m.dom = p.dom.id; m.mod = p.mod.nom; m.rang = p.rang; });
+/* Ecran servi par un sous-module : { tab, nom, perm } ou null (sous-module planifie). */
+const ecranDe = s => { if (!s.tab) return null; const e = ecranDeTab(s.tab); return { tab:s.tab, nom:s.ecran || e.n, perm:e.perm }; };
 
 /* ======================= Registre des signaux (HomeSignalCatalog, cf. concept.md § 4) =======================
-   Un signal = une carte + une route legere + la permission de la route + une portee (global / unite).
-   « urgent » n'est pose que sur un drapeau QUALIFIE PAR LE SERVEUR (IsLate, overdue, Freshness, IsCompliant=false, NeedsAttention).
-   « agir » : le verbe n'est imperatif que si le profil detient le droit d'agir ; sinon libelle neutre. */
+   Un signal = une carte (ordre) + une route legere + la permission de la route + une portee (global / unite).
+   « urgent » n'est pose que sur un drapeau QUALIFIE PAR LE SERVEUR (IsLate, OverdueArrivals/Departures, IsOverdue, Freshness, IsCompliant = false, NeedsAttention).
+   « has » : le verbe n'est imperatif que si le profil detient le droit d'agir ; sinon libelle neutre.
+   bandeau:true : le signal alimente aussi le bandeau (date metier) et se lit des que sa route est ouverte, meme si la carte est verrouillee. */
 const SIGNAUX = [
   { id:"validations", ordre:"22.2", perm:"approvals.decide", portee:"global", poids:100, route:"GET /approvals/instances/pending",
     ex:{ n:2 }, zero:{ n:0 },
@@ -585,11 +645,11 @@ const SIGNAUX = [
     ex:{ manquantes:1, attente:2 }, zero:{ manquantes:0, attente:0 },
     rendu:(v, has) => { const p = []; if (v.manquantes) p.push(`${v.manquantes} unité sans saisie`); if (v.attente) p.push(has("revenue.validate") ? `${v.attente} à valider` : `${v.attente} en attente de validation`);
       return p.length ? { texte:p.join(" · "), travail:true } : { texte:"Toutes les unités ont saisi et validé", travail:false }; } },
-  { id:"frontdesk", ordre:"10.1", perm:"lodging.read", portee:"unite", poids:95, route:"GET /lodging/front-desk?hotelUnitCode",
+  { id:"frontdesk", ordre:"10.1", perm:"lodging.read", portee:"unite", poids:95, route:"GET /lodging/front-desk?hotelUnitCode&date",
     ex:{ arr:12, dep:8, retard:3 }, zero:{ arr:0, dep:0, retard:0 },
     rendu:v => (v.arr || v.dep || v.retard) ? { texte:`${v.arr} arrivées · ${v.dep} départs${v.retard ? ` · ${v.retard} en retard` : ""}`, travail:true, urgent:v.retard > 0 } : { texte:"Aucun mouvement attendu aujourd'hui", travail:false } },
-  { id:"cloture", ordre:"4.5", perm:"lodging.read", portee:"unite", poids:85, route:"GET /lodging/business-date?hotelUnitCode",
-    ex:{ pending:2, late:true }, zero:{ pending:0, late:false },
+  { id:"cloture", ordre:"4.5", perm:"lodging.read", portee:"unite", poids:85, route:"GET /lodging/business-date?hotelUnitCode", bandeau:true,
+    ex:{ pending:2, late:true, date:"01/09/2026" }, zero:{ pending:0, late:false, date:"03/09/2026" },
     rendu:(v, has) => v.pending ? { texte:has("closing.close") ? `${v.pending} jours à clôturer` : `${v.pending} jours non clôturés`, travail:true, urgent:v.late } : { texte:"Date métier à jour", travail:false } },
   { id:"housekeeping", ordre:"10.2", perm:"housekeeping.read", portee:"unite", poids:70, route:"GET /housekeeping/board?hotelUnitCode&date",
     ex:{ sales:9, inspect:4 }, zero:{ sales:0, inspect:0 },
@@ -597,7 +657,7 @@ const SIGNAUX = [
   { id:"tresorerie", ordre:"5", perm:"treasury.read", portee:"global", poids:75, variantes:[
       { si:"treasury.approve", route:"GET /treasury/payment-orders?status=Draft", ex:{ n:3 }, zero:{ n:0 }, rendu:v => v.n ? { texte:`${v.n} ordres de paiement à approuver`, travail:true } : { texte:"Aucun ordre à approuver", travail:false } },
       { si:"treasury.write",   route:"GET /treasury/payment-orders?status=Approved", ex:{ n:2 }, zero:{ n:0 }, rendu:v => v.n ? { texte:`${v.n} ordres approuvés à régler`, travail:true } : { texte:"Aucun ordre à régler", travail:false } },
-      { route:"GET /treasury/receipts/summary?from=today&to=today", ex:{ total:"84 500,00", n:12 }, zero:{ total:"0,00", n:0 }, rendu:v => ({ texte:`Encaissé aujourd'hui : ${v.total} DA (${v.n} reçus)`, travail:false }) } ] },
+      { route:"GET /treasury/receipts/summary?from=today&to=today", ex:{ total:"84 500,00", n:12 }, zero:{ total:"0,00", n:0 }, rendu:v => ({ texte:`Encaissé aujourd'hui : ${v.total} DA (${v.n} reçus)`, travail:false, info:true }) } ] },
   { id:"creances", ordre:"9", perm:"receivables.read", portee:"global", poids:50, route:"GET /receivables/aging",
     ex:{ over90:"412 300,00" }, zero:{ over90:"0,00" },
     rendu:v => v.over90 !== "0,00" ? { texte:`Plus de 90 jours : ${v.over90} DA`, travail:true } : { texte:"Aucune créance de plus de 90 jours", travail:false } },
@@ -606,7 +666,7 @@ const SIGNAUX = [
   { id:"achats", ordre:"12", perm:"purchasing.read", portee:"global", poids:55, variantes:[
       { si:"purchasing.approve", route:"GET /purchasing/orders?status=Draft", ex:{ n:2 }, zero:{ n:0 }, rendu:v => v.n ? { texte:`${v.n} commandes à approuver`, travail:true } : { texte:"Aucune commande à approuver", travail:false } },
       { si:"purchasing.receive", route:"GET /purchasing/orders?status=Approved", ex:{ n:1 }, zero:{ n:0 }, rendu:v => v.n ? { texte:`${v.n} commande à réceptionner`, travail:true } : { texte:"Aucune réception attendue", travail:false } },
-      { route:"GET /purchasing/orders?status=Draft", ex:{ n:2 }, zero:{ n:0 }, rendu:v => ({ texte:`${v.n} commandes en brouillon`, travail:false }) } ] },
+      { route:"GET /purchasing/orders?status=Draft", ex:{ n:2 }, zero:{ n:0 }, rendu:v => ({ texte:`${v.n} commandes en brouillon`, travail:false, info:true }) } ] },
   { id:"rh", ordre:"21", perm:"hr.read", portee:"global", poids:65, route:"GET /hr/absences?status=Pending",
     ex:{ n:4 }, zero:{ n:0 },
     rendu:(v, has) => v.n ? { texte:has("hr.write") ? `${v.n} absences à approuver` : `${v.n} absences en attente`, travail:true } : { texte:"Aucune absence en attente", travail:false } },
@@ -616,12 +676,12 @@ const SIGNAUX = [
     ex:{ n:1 }, zero:{ n:0 }, rendu:v => v.n ? { texte:`${v.n} événement aujourd'hui`, travail:true } : { texte:"Aucun événement aujourd'hui", travail:false } },
   { id:"sauvegarde", ordre:"28", perm:"maintenance.read", portee:"global", poids:88, route:"GET /maintenance/backups/status",
     ex:{ age:"31 h", overdue:true }, zero:{ age:"2 h", overdue:false },
-    rendu:v => ({ texte:v.overdue ? `Sauvegarde en retard · dernière il y a ${v.age}` : `Dernière sauvegarde il y a ${v.age}`, travail:v.overdue, urgent:v.overdue }) },
+    rendu:v => ({ texte:v.overdue ? `Sauvegarde en retard · dernière il y a ${v.age}` : `Dernière sauvegarde il y a ${v.age}`, travail:v.overdue, urgent:v.overdue, info:!v.overdue }) },
   { id:"postes", ordre:"29", perm:"sync.read", portee:"global", poids:45, route:"GET /sync/stations",
-    ex:{ n:7, off:1 }, zero:{ n:7, off:0 }, rendu:v => v.off ? { texte:`${v.off} poste hors ligne sur ${v.n}`, travail:true } : { texte:`${v.n} postes en contact`, travail:false } },
+    ex:{ n:7, off:1 }, zero:{ n:7, off:0 }, rendu:v => v.off ? { texte:`${v.off} poste silencieux sur ${v.n}`, travail:true } : { texte:`${v.n} postes en contact`, travail:false, info:true } },
   { id:"activite", ordre:"30", perm:"audit.read", portee:"global", poids:10, route:"GET /audit?userId={moi}&action=auth.login.success&pageSize=1",
-    note:"paramètre userId à ajouter à RaqmiApiClient.GetAuditLogAsync (la route et IAuditQueryService l'acceptent déjà)",
-    ex:{ last:"01/09 à 08:12" }, zero:{ last:"01/09 à 08:12" }, rendu:v => ({ texte:`Votre dernière connexion : ${v.last}`, travail:false }) },
+    note:"lot C : paramètre userId à ajouter à RaqmiApiClient.GetAuditLogAsync (la route et IAuditQueryService l'acceptent déjà)",
+    ex:{ last:"02/09 à 18:41" }, zero:{ last:"02/09 à 18:41" }, rendu:v => ({ texte:`Votre dernière connexion : ${v.last}`, travail:false, info:true }) },
 ];
 
 /* ======================= Profils : clefs seedees par SecuritySeeder (reorg/phase-1) ======================= */
@@ -631,7 +691,7 @@ const PROFILS = {
     permissions:["settings.read","lodging.read","lodging.checkin","lodging.checkout","lodging.reserve","lodging.room_move","customers.read","crm.read","housekeeping.read"] },
   unite: { nom:"Directeur d'unité", utilisateur:"S. Merzouk", role:"unit.manager", unite:"HTL-01 · Alger centre",
     permissions:["units.read","revenue.read","revenue.write","dashboard.read","reports.export","closing.read","closing.close","customers.read","customers.write","invoices.read","invoices.write","settings.read","budget.read","budget.write","tariffs.read","tariffs.write",
-                 "lodging.read","lodging.checkin","lodging.checkout","lodging.reserve","lodging.room_move","lodging.noshow","lodging.cancel","lodging.night_audit","housekeeping.read","housekeeping.write","housekeeping.inspect","crm.read","crm.write","crm.loyalty",
+                 "lodging.read","lodging.write","lodging.checkin","lodging.checkout","lodging.reserve","lodging.room_move","lodging.noshow","lodging.cancel","lodging.night_audit","housekeeping.read","housekeeping.write","housekeeping.inspect","crm.read","crm.write","crm.loyalty",
                  "approvals.read","approvals.decide","reports.read","inventory.read","inventory.write","purchasing.read","purchasing.write","purchasing.receive","kitchen.read","kitchen.write","mice.read","mice.write"] },
   direction: { nom:"Direction générale", utilisateur:"D. Hamdani", role:"direction", unite:null,
     permissions:["units.read","revenue.read","dashboard.read","treasury.read","audit.read","reports.export","closing.read","treasury.approve","customers.read","invoices.read","settings.read","accounting.read","budget.read","budget.approve","receivables.read","tariffs.read",
@@ -655,17 +715,21 @@ const has = k => prof().tout || prof().permissions.includes(k);
 const uniteDuPoste = () => etat.uniteMode === "definie" ? "HTL-01 · Alger centre" : etat.uniteMode === "absente" ? null : prof().unite;
 const norm = s => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-/* ======================= Composeur (HomeComposer.Compose : fonction pure permissions × registre) ======================= */
+/* ======================= Composeur (HomeComposer.Compose : fonction pure permissions x registre) =======================
+   etat du slot : verrouille (carte cadenassee -> aucun appel, sauf signal de bandeau), cache (route fermee au profil -> rien),
+   sansUnite (portee unite sans unite du poste), pret (lu).  carteOuvrable decide si la valeur va sur la carte et dans « A traiter ». */
 function composer() {
   const slots = new Map();
   for (const s of SIGNAUX) {
     const carte = module_(s.ordre);
+    const carteOuvrable = has(carte.perm);
+    const routeOuverte = has(s.perm);
     let etatSlot, variante = null;
-    if (!has(carte.perm)) etatSlot = "verrouille";                 // la carte est cadenassee : aucun appel
-    else if (!has(s.perm)) etatSlot = "cache";                      // la route n'est pas ouverte au profil : rien
+    if (!routeOuverte) etatSlot = carteOuvrable ? "cache" : "verrouille";
+    else if (!carteOuvrable && !s.bandeau) etatSlot = "verrouille";
     else if (s.portee === "unite" && !uniteDuPoste()) etatSlot = "sansUnite";
     else { etatSlot = "pret"; variante = s.variantes ? s.variantes.find(v => !v.si || has(v.si)) : s; }
-    slots.set(s.ordre, { s, etat:etatSlot, variante });
+    slots.set(s.ordre, { s, etat:etatSlot, variante, carteOuvrable });
   }
   return slots;
 }
@@ -675,17 +739,17 @@ function lire(slot) {
   if (etat.sim === "erreur" && ["frontdesk","cockpit","tresorerie","rh"].includes(slot.s.id)) return { etat:"erreur" };
   const v = etat.sim === "vide" ? slot.variante.zero : slot.variante.ex;
   const r = slot.variante.rendu(v, has);
-  return { etat:"valeur", texte:r.texte, travail:!!r.travail, urgent:!!r.urgent };
+  return { etat:"valeur", texte:r.texte, travail:!!r.travail, urgent:!!r.urgent, info:!!r.info, brut:v };
 }
 
 /* ======================= Navigation (un seul chemin : NavigateToModule) ======================= */
 function ouvrirOnglet(tab, nom) {
-  const m = MODULES.find(x => x.tab === tab && x.n === nom) || MODULES.find(x => x.tab === tab);
+  const m = MODULES.find(x => x.tab === tab && x.n === nom) || ecranDeTab(tab);
   if (!m || !has(m.perm)) { statut(`« ${nom || m?.n} » n'est pas ouvert à votre profil.`, true); return; }
-  etat.ecran = { tab, nom:m.n, dom:m.dom, mod:m.mod };
+  etat.ecran = { tab, nom:nom || m.n, dom:m.dom, mod:m.mod };
   etat.deroules.add(m.dom);
   rendre();
-  statut(`NavigateToModule(${tab}) → ${m.n}.`);
+  statut(`NavigateToModule(${tab}) → ${nom || m.n}.`);
 }
 function allerRacine() { etat.ecran = null; rendre(); }
 function statut(msg, erreur = false) {
@@ -704,27 +768,36 @@ function actualiser() {
   }, 900);
 }
 
-/* ======================= Rendu : barre laterale (identique au shell) ======================= */
+/* ======================= Rendu : barre laterale (SidebarGroupTemplate : Domaine -> Module -> Ecran, ecrans dedoublonnes par onglet) ======================= */
+function sectionsVisibles(d) {
+  const sections = [];
+  for (const m of d.modules) {
+    const ecrans = [];
+    for (const s of m.sous) { const e = ecranDe(s); if (e && has(e.perm) && !ecrans.some(x => x.tab === e.tab)) ecrans.push(e); }
+    if (ecrans.length) sections.push({ module:m, ecrans });
+  }
+  return sections;
+}
 function rendreSidebar() {
   const aside = document.getElementById("sidebar");
-  const ouvrables = d => d.ecrans.filter(e => has(e.perm));
   const ligne = d => {
-    const ecr = ouvrables(d);
-    if (!ecr.length) return "";
+    const sections = sectionsVisibles(d);
+    if (!sections.length) return "";
+    const nb = new Set(sections.flatMap(s => s.ecrans.map(e => e.tab))).size;
     const deroule = etat.deroules.has(d.id);
     const point = d.maturite === "TechnicalPreview" ? `<span class="point preview" role="img" aria-label="Aperçu technique" title="Aperçu technique — noyau technique ou parcours incomplet"></span>` : "<span></span>";
     return `<div class="domaine">
-      <button type="button" class="dom-tete" aria-expanded="${deroule}" data-toggle="${d.id}" aria-label="Domaine ${d.nom}, ${ecr.length} écran${ecr.length > 1 ? "s" : ""}" title="${d.id} · ${d.nom}">
-        ${svg(d.cle, "ic thin")}<span class="nom">${d.nom}</span>${point}<span class="compteur">${ecr.length}</span>${svg("Chevron", "chevron", "0 0 9 7")}
+      <button type="button" class="dom-tete" aria-expanded="${deroule}" data-toggle="${d.id}" aria-label="Domaine ${d.nom}, ${nb} écran${nb > 1 ? "s" : ""}" title="${d.id} · ${d.nom}">
+        ${svg(d.cle, "ic thin")}<span class="nom">${d.nom}</span>${point}<span class="compteur">${nb}</span>${svg("Chevron", "chevron", "0 0 9 7")}
       </button>
-      <div class="ecrans" ${deroule ? "" : "hidden"}>${ecr.map(e => {
+      <div class="ecrans" ${deroule ? "" : "hidden"}>${sections.map(({ module, ecrans }) => `<div class="module-lib">${module.nom}</div>${ecrans.map(e => {
         const actif = etat.ecran && etat.ecran.tab === e.tab && etat.ecran.nom === e.nom;
-        return `<button type="button" class="nav-btn" data-open="${e.tab}|${e.nom}" ${actif ? 'aria-current="page"' : ""} aria-label="Ouvrir ${e.nom}${actif ? ", écran affiché" : ""}" title="${e.module} › ${e.sousModules[0]}">${e.nom}</button>`; }).join("")}
+        return `<button type="button" class="nav-btn" data-open="${e.tab}|${esc(e.nom)}" ${actif ? 'aria-current="page"' : ""} aria-label="Ouvrir ${esc(e.nom)}${actif ? ", écran affiché" : ""}" title="${d.id} ${esc(d.nom)} › ${esc(module.nom)} › ${esc(e.nom)}">${e.nom}</button>`; }).join("")}`).join("")}
       </div></div>`;
   };
   aside.innerHTML = `
     <p class="etiquette">Modules</p>
-    <button type="button" class="nav-btn" id="btn-racine" ${!etat.ecran ? 'aria-current="page"' : ""} aria-label="Mon Espace, accueil" title="Mon Espace (Alt+Origine)">${svg("MonEspace")}<span>Mon Espace</span></button>
+    <button type="button" class="nav-btn" id="btn-racine" ${!etat.ecran ? 'aria-current="page"' : ""} aria-label="Mon Espace, accueil" title="Mon Espace (Alt+Origine) — libellé cible de la spec § 2.1 ; le bouton dit encore « Accueil » dans le code">${svg("MonEspace")}<span>Mon Espace</span></button>
     <div class="recherche">${svg("Recherche")}<input type="search" placeholder="Rechercher un écran…  (Ctrl+K)" aria-label="Rechercher un écran"></div>
     <div class="domaines">${DOMAINES.filter(d => !d.epingle).map(ligne).join("")}</div>
     <div class="epingle">${DOMAINES.filter(d => d.epingle).map(ligne).join("")}</div>`;
@@ -747,7 +820,7 @@ function rendreAriane() {
   }
   const d = domaine(etat.ecran.dom);
   nav.hidden = false;
-  nav.innerHTML = `${svg(d.cle)}<button type="button" id="seg-dom" aria-label="Remonter à ${d.nom}">${d.nom}</button>${sep}<button type="button" aria-label="Remonter à ${etat.ecran.mod}">${etat.ecran.mod}</button>${sep}<span class="courant" aria-current="page">${etat.ecran.nom}</span>${d.maturite === "TechnicalPreview" ? badgeMat(d.maturite) : ""}`;
+  nav.innerHTML = `${svg(d.cle)}<button type="button" id="seg-dom" aria-label="Remonter à ${esc(d.nom)}">${d.nom}</button>${sep}<button type="button" aria-label="Remonter à ${esc(etat.ecran.mod)}">${etat.ecran.mod}</button>${sep}<span class="courant" aria-current="page">${etat.ecran.nom}</span>${d.maturite === "TechnicalPreview" ? badgeMat(d.maturite) : ""}`;
   nav.querySelector("#seg-dom").addEventListener("click", () => { etat.deroules.add(d.id); rendreSidebar(); document.querySelector(`[data-toggle="${d.id}"]`)?.focus(); });
 }
 
@@ -760,57 +833,59 @@ function filtreCarte(m) {
   if (etat.recherche) { const q = norm(etat.recherche); const d = domaine(m.dom); if (!norm(`${m.n} ${m.d} ${d.nom} ${m.mod} ${m.o}`).includes(q)) return false; }
   return true;
 }
-function rendreSignal(slot, lecture, carte) {
-  if (!slot) return `<div class="signal" aria-hidden="true"></div>`;
-  if (slot.etat === "sansUnite") return `<div class="signal sans-unite" title="Ce compteur est propre à une unité (${slot.s.route}). Définissez l'unité de ce poste dans Paramétrage global → Poste de travail."><span class="txt">Unité du poste non définie</span></div>`;
+function rendreSignal(slot, lecture) {
+  if (!slot || !slot.carteOuvrable || slot.etat === "cache" || slot.etat === "verrouille") return `<div class="signal" aria-hidden="true"></div>`;
+  if (slot.etat === "sansUnite") return `<div class="signal sans-unite" title="Ce compteur est propre à une unité (${esc(slot.s.route)}). Définissez l'unité de ce poste dans Paramétrage global → Poste de travail."><span class="txt">Unité du poste non définie</span></div>`;
   if (!lecture) return `<div class="signal" aria-hidden="true"></div>`;
   if (lecture.etat === "chargement") return `<div class="signal" aria-label="Chargement du compteur"><span class="squelette" style="width:120px"></span></div>`;
-  if (lecture.etat === "erreur") return `<div class="signal erreur" title="${slot.s.route} n'a pas répondu. F5 relance les compteurs de l'accueil.">${svg("Actualiser")}<span class="txt">Indisponible · réessayer (F5)</span></div>`;
-  const cls = lecture.urgent ? "urgent" : (lecture.travail ? "" : "vide");
-  return `<div class="signal ${cls}" title="${slot.s.route}"><span class="pt"></span><span class="txt">${lecture.texte}</span>${EX}</div>`;
+  if (lecture.etat === "erreur") return `<div class="signal erreur" title="${esc(slot.s.route)} n'a pas répondu. F5 relance les compteurs de l'accueil.">${svg("Actualiser")}<span class="txt">Indisponible · réessayer (F5)</span></div>`;
+  const cls = lecture.urgent ? "urgent" : lecture.travail ? "" : lecture.info ? "info" : "vide";
+  const tip = slot.s.route + (slot.s.note ? ` — ${slot.s.note}` : "");
+  return `<div class="signal ${cls}" title="${esc(tip)}"><span class="pt"></span><span class="txt">${lecture.texte}</span>${EX}</div>`;
 }
 function rendreAccueil(sec) {
   const p = prof(); const slots = composer(); const unite = uniteDuPoste();
   const lectures = new Map(); slots.forEach((slot, o) => lectures.set(o, lire(slot)));
 
-  /* --- Bandeau --- */
-  const cl = slots.get("4.5"); const lc = lectures.get("4.5");
+  /* --- Bandeau : la date metier vient de GET /lodging/business-date (lodging.read + unite du poste), carte Cloture ouvrable ou non --- */
+  const lc = lectures.get("4.5"); const sc = slots.get("4.5");
   let dateMetier = "";
-  if (has("lodging.read") && unite) {
-    if (lc && lc.etat === "valeur") dateMetier = `<span class="sep">·</span><span title="GET /lodging/business-date?hotelUnitCode (lodging.read)">date métier 01/09/2026${etat.sim === "vide" ? "" : ` · <span class="badge soumise">2 jours non clôturés</span>`}${EX}</span>`;
+  if (sc && sc.etat === "pret") {
+    if (lc && lc.etat === "valeur") dateMetier = `<span class="sep">·</span><span title="GET /lodging/business-date?hotelUnitCode (lodging.read) : BusinessDate, IsLate, PendingDays">date métier ${lc.brut.date}${lc.brut.pending ? ` · <span class="badge ${lc.brut.late ? "soumise" : "planned"}">${lc.brut.pending} jours non clôturés</span>` : ""}${EX}</span>`;
     else if (lc && lc.etat === "chargement") dateMetier = `<span class="sep">·</span><span class="squelette" style="width:90px"></span>`;
     else if (lc && lc.etat === "erreur") dateMetier = `<span class="sep">·</span><span style="color:var(--text-muted)">date métier indisponible</span>`;
   }
   const bandeau = `<div class="carte bandeau">
     <div>
       <h2 id="salutation">Bonjour, ${p.utilisateur}</h2>
-      <div class="date"><span>lundi 1<sup>er</sup> septembre 2026</span>${unite ? `<span class="sep">·</span><span title="Unité du poste, mémorisée par poste dans DesktopSettings (confort, jamais une sécurité)">${unite}</span>` : ""}${dateMetier}</div>
+      <div class="date"><span>jeudi 3 septembre 2026</span>${unite ? `<span class="sep">·</span><span title="Unité du poste, mémorisée par poste dans DesktopSettings (confort, jamais une sécurité)">${unite}</span>` : ""}${dateMetier}</div>
       <div class="liens">
-        <button type="button" class="btn fantome" title="Identité de session : GET /api/v1/me + réponse de connexion">Mon profil</button>
-        <button type="button" class="btn fantome" title="Thème, densité, URL API, unité du poste : Paramétrage global → Poste de travail (local)">Mes préférences</button>
-        <button type="button" class="btn fantome" title="Changer de mot de passe : POST /account/change-password">Ma sécurité</button>
+        <button type="button" class="btn fantome" title="Identité de session : GET /api/v1/me + réponse de connexion (ouvre Paramétrage global → Santé et session)">Mon profil</button>
+        <button type="button" class="btn fantome" title="Thème, densité, URL API, unité du poste : Paramétrage global → Poste de travail (réglages locaux)">Mes préférences</button>
+        <button type="button" class="btn fantome" title="Changer de mot de passe : POST /account/change-password (boîte de dialogue existante)">Ma sécurité</button>
       </div>
     </div>
     <div class="recherche-u">
       ${svg("Recherche", "ic loupe")}
-      <input id="recherche" type="search" value="${etat.recherche.replace(/"/g, "&quot;")}" placeholder="Rechercher un module, un sous-module, un écran…  (Ctrl+K)" aria-label="Rechercher un module, un sous-module ou un écran" autocomplete="off">
+      <input id="recherche" type="search" value="${esc(etat.recherche)}" placeholder="Rechercher un module, un sous-module, un écran…  (Ctrl+K)" aria-label="Rechercher un module, un sous-module ou un écran" autocomplete="off">
       <button type="button" class="effacer" id="effacer" aria-label="Effacer la recherche (Échap)" ${etat.recherche ? "" : "hidden"}>${svg("Croix", "ic", "0 0 9 9")}</button>
       <div class="aide">Navigation seulement : modules, sous-modules et écrans de l'arbre — pas les données. Entrée ouvre le premier écran.</div>
     </div>
   </div>`;
 
-  /* --- À traiter : projection des signaux « travail » --- */
+  /* --- À traiter : projection des signaux « travail » des cartes ouvrables --- */
   const prets = [...slots.values()].filter(x => x.etat === "pret");
-  const travail = prets.map(x => ({ slot:x, l:lectures.get(x.s.ordre) })).filter(x => x.l && x.l.etat === "valeur" && x.l.travail)
+  const pretsCartes = prets.filter(x => x.carteOuvrable);
+  const travail = pretsCartes.map(x => ({ slot:x, l:lectures.get(x.s.ordre) })).filter(x => x.l && x.l.etat === "valeur" && x.l.travail)
     .sort((a, b) => (b.l.urgent - a.l.urgent) || (b.slot.s.poids - a.slot.s.poids));
   const enErreur = prets.filter(x => lectures.get(x.s.ordre)?.etat === "erreur");
   const chargement = prets.some(x => lectures.get(x.s.ordre)?.etat === "chargement");
   let corps;
-  if (!prets.length) corps = `<div class="vide-inline">${svg("Corbeille")}<div><div class="titre">Aucun compteur pour votre profil</div><div class="indice">Vos écrans n'exposent pas de file de travail. Le catalogue ci-dessous reste votre sommaire ; les cartes verrouillées disent ce qui manque.</div></div></div>`;
+  if (!pretsCartes.length) corps = `<div class="vide-inline">${svg("Corbeille")}<div><div class="titre">Aucun compteur pour votre profil</div><div class="indice">Vos écrans n'exposent pas de file de travail. Le catalogue ci-dessous reste votre sommaire ; les cartes verrouillées disent ce qui manque.</div></div></div>`;
   else if (chargement) corps = `<div class="items">${[150,120,180].map(w => `<span class="item squelette-item" aria-hidden="true"><span class="squelette" style="width:${w}px"></span></span>`).join("")}</div>`;
   else if (!travail.length) corps = `<div class="vide-inline">${svg("Coche")}<div><div class="titre">Rien à traiter</div><div class="indice">Aucun signal en attente sur vos écrans. Les compteurs se relisent à l'ouverture de l'accueil ou avec F5.</div></div></div>`;
   else corps = `<div class="items">${travail.map(({ slot, l }) => { const m = module_(slot.s.ordre); const d = domaine(m.dom);
-      return `<button type="button" class="item ${l.urgent ? "urgent" : ""}" data-open="${m.tab}|${m.n}" aria-label="Ouvrir ${m.n} : ${l.texte}${l.urgent ? ", en retard" : ""}" title="${slot.s.route}">${svg(d.cle)}<b>${l.texte}</b><span class="mod">· ${m.mod}</span>${l.urgent ? `<span class="badge soumise">en retard</span>` : ""}${EX}</button>`; }).join("")}</div>`;
+      return `<button type="button" class="item ${l.urgent ? "urgent" : ""}" data-open="${m.tab}|${esc(m.n)}" aria-label="Ouvrir ${esc(m.n)} : ${esc(l.texte)}${l.urgent ? ", en retard" : ""}" title="${esc(slot.s.route)}">${svg(d.cle)}<b>${l.texte}</b><span class="mod">· ${m.n}</span>${l.urgent ? `<span class="badge soumise">en retard</span>` : ""}${EX}</button>`; }).join("")}</div>`;
   const avert = enErreur.length ? `<div class="avertissement" role="status">${enErreur.length} compteur${enErreur.length > 1 ? "s n'ont" : " n'a"} pas répondu (${enErreur.map(x => module_(x.s.ordre).n).join(", ")}). Les autres sont à jour.<button type="button" id="reessayer">Réessayer (F5)</button></div>` : "";
   const aTraiter = `<div class="carte a-traiter">
     <div class="tete"><p class="section-titre">À traiter</p>${prets.length ? `<span class="badge functional" title="Compteurs lus sur le serveur, jamais recalculés côté client (charte § 3.10)">${prets.length} compteur${prets.length > 1 ? "s" : ""} serveur</span>` : ""}
@@ -824,10 +899,10 @@ function rendreAccueil(sec) {
   const rail = `<div class="rail" role="group" aria-label="Domaines">
     <span class="lib">Domaines</span>
     <button type="button" data-dom="" aria-pressed="${!etat.domaine}" aria-label="Tous les domaines, 50 modules">Tous <span class="nb">50</span></button>
-    ${DOMAINES.map(d => `<button type="button" data-dom="${d.id}" aria-pressed="${etat.domaine === d.id}" aria-label="Domaine ${d.id} ${d.nom}, ${nbParDom(d.id)} module${nbParDom(d.id) > 1 ? "s" : ""}" title="${d.id} · ${d.nom} — ${MATURITE[d.maturite].libelle}">${svg(d.cle, "ic thin")}<span class="id">${d.id}</span><span class="nom">${d.nom}</span><span class="nb">${nbParDom(d.id)}</span></button>`).join("")}
+    ${DOMAINES.map(d => `<button type="button" data-dom="${d.id}" aria-pressed="${etat.domaine === d.id}" aria-label="Domaine ${d.id} ${esc(d.nom)}, ${nbParDom(d.id)} module${nbParDom(d.id) > 1 ? "s" : ""}, ${MATURITE[d.maturite].libelle}" title="${d.id} · ${esc(d.nom)} — ${MATURITE[d.maturite].libelle}">${svg(d.cle, "ic thin")}<span class="id">${d.id}</span><span class="nom">${d.nom}</span><span class="nb">${nbParDom(d.id)}</span></button>`).join("")}
   </div>`;
 
-  /* --- Filtres + avancement compact (les deux lectures, jamais additionnées) --- */
+  /* --- Filtres + avancement compact (les deux lectures, jamais additionnees) --- */
   const cnt = { dispo:31, api:0, partiel:0, planifie:19 };
   const mat = { Functional:0, TechnicalPreview:0, Planned:0, ProductionReady:0 }; DOMAINES.forEach(d => mat[d.maturite]++);
   const puce = (grp, val, lib, cur) => `<button type="button" class="puce-c" data-${grp}="${val}" aria-pressed="${cur === val}">${lib}</button>`;
@@ -855,45 +930,45 @@ function rendreAccueil(sec) {
       Domaines : <span class="pt" style="background:var(--mat-functional-accent)"></span>${mat.Functional} Fonctionnels · <span class="pt" style="background:var(--mat-preview-accent)"></span>${mat.TechnicalPreview} Aperçus techniques · <span class="pt" style="background:var(--mat-planned-accent)"></span>${mat.Planned} Planifiés · <span class="pt" style="background:var(--mat-ready-accent)"></span>${mat.ProductionReady} Prêt pour la production. Les deux lectures ne s'additionnent pas : l'une compte des écrans, l'autre des engagements.</div>
   </div>`;
 
-  /* --- Résultats de recherche : sous-modules et écrans (nœuds qui ne sont pas des cartes) --- */
+  /* --- Resultats de recherche : sous-modules et ecrans de l'arbre (les noeuds qui ne sont pas des cartes) --- */
   let resultats = "";
   if (etat.recherche) {
     const q = norm(etat.recherche); const hits = [];
-    for (const d of DOMAINES) {
-      for (const e of d.ecrans) for (const sm of e.sousModules) if (norm(`${sm} ${e.module} ${e.nom}`).includes(q)) hits.push({ d, e, sm, ouvrable:has(e.perm) });
-      for (const [mod, sm] of d.planifies) if (norm(`${sm} ${mod}`).includes(q)) hits.push({ d, sm, mod, planifie:true });
+    for (const d of DOMAINES) for (const m of d.modules) for (const s of m.sous) {
+      const e = ecranDe(s);
+      if (norm(`${s.l} ${m.nom} ${e ? e.nom : ""}`).includes(q)) hits.push({ d, m, s, e, ouvrable:!!e && has(e.perm) });
     }
-    if (hits.length) resultats = `<div class="carte resultats"><p class="section-titre">Sous-modules et écrans (${hits.length})</p>${hits.slice(0, 8).map(h => h.planifie
-      ? `<button type="button" class="res" disabled title="Sous-module planifié : visible dans l'arbre, jamais ouvrable tant qu'aucun écran ne le sert.">${svg(h.d.cle)}<span class="chemin">${h.d.id} ${h.d.nom} › ${h.mod} › <b>${h.sm}</b></span>${badgeMat("Planned")}</button>`
-      : `<button type="button" class="res" data-open="${h.e.tab}|${h.e.nom}" ${h.ouvrable ? "" : "disabled"} aria-label="${h.ouvrable ? "Ouvrir" : ""} ${h.sm}${h.ouvrable ? "" : ", accès non autorisé pour votre profil"}" title="${h.ouvrable ? `Ouvre ${h.e.nom} (onglet ${h.e.tab})` : `Demandez le droit ${h.e.perm} à votre administrateur`}">${svg(h.d.cle)}<span class="chemin">${h.d.id} ${h.d.nom} › ${h.e.module} › <b>${h.sm}</b></span><span>${h.ouvrable ? `<span class="badge dispo">Écran ${h.e.nom}</span>` : svg("Cadenas", "cadenas", "0 0 12 12")}</span></button>`).join("")}</div>`;
+    if (hits.length) resultats = `<div class="carte resultats"><p class="section-titre">Sous-modules et écrans (${hits.length})</p>${hits.slice(0, 8).map(h => !h.e
+      ? `<button type="button" class="res" disabled title="Sous-module planifié : visible dans l'arbre, jamais ouvrable tant qu'aucun écran ne le sert.">${svg(h.d.cle)}<span class="chemin">${h.d.id} ${h.d.nom} › ${h.m.nom} › <b>${h.s.l}</b></span>${badgeMat("Planned")}</button>`
+      : `<button type="button" class="res" data-open="${h.e.tab}|${esc(h.e.nom)}" ${h.ouvrable ? "" : "disabled"} aria-label="${h.ouvrable ? "Ouvrir " : ""}${esc(h.s.l)}${h.ouvrable ? "" : ", accès non autorisé pour votre profil"}" title="${h.ouvrable ? `Ouvre ${esc(h.e.nom)} (onglet ${h.e.tab})` : `Demandez le droit ${h.e.perm} à votre administrateur`}">${svg(h.d.cle)}<span class="chemin">${h.d.id} ${h.d.nom} › ${h.m.nom} › <b>${h.s.l}</b></span><span>${h.ouvrable ? `<span class="badge dispo">Écran ${h.e.nom}</span>` : svg("Cadenas", "cadenas", "0 0 12 12")}</span></button>`).join("")}${hits.length > 8 ? `<div class="plus">… et ${hits.length - 8} autre${hits.length - 8 > 1 ? "s" : ""} — précisez la recherche.</div>` : ""}</div>`;
   }
 
-  /* --- Catalogue vivant : 50 cartes groupées par domaine 01…22 --- */
+  /* --- Catalogue vivant : 50 cartes groupees par domaine 01…22, dans l'ordre Domaine -> rang du module -> catalogue --- */
   const visibles = MODULES.filter(filtreCarte);
   let catalogue = "";
   for (const d of DOMAINES) {
     if (etat.domaine && d.id !== etat.domaine) continue;
-    const cartes = visibles.filter(m => m.dom === d.id);
+    const cartes = visibles.filter(m => m.dom === d.id).sort((a, b) => a.rang - b.rang || MODULES.indexOf(a) - MODULES.indexOf(b));
     if (!cartes.length) { if (d.id === "19" && !etat.recherche && !etat.statut && !etat.prio && !etat.maturite) catalogue += `<div class="groupe-tete">${svg(d.cle, "ic thin")}<span class="nom"><span class="id">${d.id}</span>${d.nom}</span><span class="compteur">0 module</span>${badgeMat(d.maturite)}<span class="filet"></span></div><div class="catalogue-vide" style="margin-bottom:14px">Aucun module rattaché : c'est la promesse du catalogue, le domaine existe avant son premier écran.</div>`; continue; }
-    catalogue += `<div class="groupe-tete" role="heading" aria-level="3" aria-label="Domaine ${d.id} ${d.nom}, ${cartes.length} module${cartes.length > 1 ? "s" : ""}, ${MATURITE[d.maturite].libelle}">${svg(d.cle, "ic thin")}<span class="nom"><span class="id">${d.id}</span>${d.nom}</span><span class="compteur">${cartes.length} module${cartes.length > 1 ? "s" : ""}</span>${badgeMat(d.maturite)}<span class="filet"></span></div>
+    catalogue += `<div class="groupe-tete" role="heading" aria-level="3" aria-label="Domaine ${d.id} ${esc(d.nom)}, ${cartes.length} module${cartes.length > 1 ? "s" : ""}, ${MATURITE[d.maturite].libelle}">${svg(d.cle, "ic thin")}<span class="nom"><span class="id">${d.id}</span>${d.nom}</span><span class="compteur">${cartes.length} module${cartes.length > 1 ? "s" : ""}</span>${badgeMat(d.maturite)}<span class="filet"></span></div>
       <div class="cartes">${cartes.map(m => {
         const verrou = m.perm && !has(m.perm); const planifie = m.s === "planifie"; const cliquable = m.tab && !verrou;
-        const [sc, sl] = STATUT[m.s]; const slot = slots.get(m.o); const l = slot ? lectures.get(m.o) : null;
-        const nomA = verrou ? `${m.n}, accès non autorisé pour votre profil` : planifie ? `${m.n}, planifié` : `Ouvrir ${m.n}, ${sl}${l && l.etat === "valeur" ? `, ${l.texte}` : ""}`;
+        const [scl, sl] = STATUT[m.s]; const slot = slots.get(m.o); const l = slot ? lectures.get(m.o) : null;
+        const nomA = verrou ? `${m.n}, accès non autorisé pour votre profil` : planifie ? `${m.n}, planifié` : `Ouvrir ${m.n}, ${sl}${l && l.etat === "valeur" && slot.carteOuvrable ? `, ${l.texte}` : ""}`;
         const tip = verrou ? "Accès non autorisé pour votre profil" : planifie ? "Module planifié : aucun écran encore livré" : `${d.id} · ${d.nom} → ${m.mod}`;
-        return `<button type="button" class="cm ${m.s === "dispo" && !verrou ? "dispo" : ""} ${verrou ? "verrou" : ""}" ${cliquable ? `data-open="${m.tab}|${m.n}"` : "disabled"} aria-label="${nomA}" title="${tip}">
+        return `<button type="button" class="cm ${m.s === "dispo" && !verrou ? "dispo" : ""} ${verrou ? "verrou" : ""}" ${cliquable ? `data-open="${m.tab}|${esc(m.n)}"` : "disabled"} aria-label="${esc(nomA)}" title="${esc(tip)}">
           <div class="tete"><span class="chip">${svg(d.cle)}</span><span class="droite">${verrou ? svg("Cadenas", "ic cadenas", "0 0 12 12") : ""}${m.p}</span></div>
           <div class="titre">${m.n}</div>
           <div class="desc">${m.d}</div>
-          ${verrou ? `<div class="signal" aria-hidden="true"></div>` : rendreSignal(slot, l, m)}
-          <div class="bas"><span class="badge ${sc}">${sl}</span><span class="mod" title="${m.mod}">${m.mod}</span></div>
+          ${verrou ? `<div class="signal" aria-hidden="true"></div>` : rendreSignal(slot, l)}
+          <div class="bas"><span class="badge ${scl}">${sl}</span><span class="mod" title="${esc(m.mod)}">${m.mod}</span></div>
         </button>`; }).join("")}</div>`;
   }
-  if (!visibles.length) catalogue = `<div class="catalogue-vide"><b>Aucun module ne correspond à ${etat.recherche ? `« ${etat.recherche} »` : "ce filtre"}</b>${etat.recherche ? "Échap efface la recherche." : "Élargissez le statut, la priorité, la maturité ou le domaine."}</div>`;
+  if (!visibles.length) catalogue = `<div class="catalogue-vide"><b>Aucun module ne correspond à ${etat.recherche ? `« ${esc(etat.recherche)} »` : "ce filtre"}</b>${etat.recherche ? "Échap efface la recherche." : "Élargissez le statut, la priorité, la maturité ou le domaine."}</div>`;
 
   sec.innerHTML = `<div class="accueil">${bandeau}${aTraiter}${rail}${filtres}${resultats}<div>${catalogue}</div></div>`;
 
-  /* --- Câblage --- */
+  /* --- Cablage --- */
   const inp = sec.querySelector("#recherche");
   inp.addEventListener("input", () => { etat.recherche = inp.value; const pos = inp.selectionStart; rendreAccueil(sec); const i2 = sec.querySelector("#recherche"); i2.focus(); i2.setSelectionRange(pos, pos); });
   inp.addEventListener("keydown", ev => {

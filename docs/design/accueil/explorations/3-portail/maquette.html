@@ -584,7 +584,8 @@ const LODGING_TOUT = ["lodging.read","lodging.write","lodging.checkin","lodging.
 const UNITE_POSTE = { code:"ALG-CEN", nom:"Hôtel Riadh Alger Centre" };
 const PROFILS = {
   reception: { nom:"Réception", utilisateur:"Nadia Bouzid", login:"n.bouzid", roles:["reception"], roleLibelle:"Réception — rôle personnalisé à créer (décision 8)",
-    unite:true, permissions:["lodging.read","lodging.checkin","lodging.reserve","lodging.checkout","lodging.room_move","customers.read","crm.read","crm.write","housekeeping.read"],
+    /* settings.read est recommandé pour ce rôle comme pour tous les rôles seedés : l'unité du poste se règle dans Paramétrage → Poste de travail. */
+    unite:true, permissions:["lodging.read","lodging.checkin","lodging.reserve","lodging.checkout","lodging.room_move","customers.read","crm.read","crm.write","housekeeping.read","settings.read"],
     recents:[["06","PMS front office",0],["06","Hébergement & occupation",1],["04","CRM & expérience client",0]] },
   unite: { nom:"Directeur d'unité", utilisateur:"Samir Merzouk", login:"s.merzouk", roles:["unit.manager"], roleLibelle:"Directeur d'unité",
     unite:true, permissions:["units.read","revenue.read","revenue.write","dashboard.read","reports.export","closing.read","closing.close","customers.read","customers.write",
@@ -650,8 +651,8 @@ const CAPACITES = [
     ex:{ valeur:2, unite:"commandes", legende:"en brouillon, engagement de dépense à approuver" } },
   { id:"receptions", genre:"file", titre:"Commandes à réceptionner", icone:"Achats", route:"GET /purchasing/orders (CanReceive)", champ:"orders.Count", requis:[["purchasing.read"],["purchasing.receive"]], unite:false, ecran:["12","Achats & approvisionnements",1],
     ex:{ valeur:3, unite:"commandes", legende:"approuvées, livraison à réceptionner" } },
-  { id:"inventaires", genre:"file", titre:"Inventaires à valider", icone:"Stocks", route:"GET /inventory/counts?status=Counted", champ:"counts.Count", requis:[["inventory.read"],["inventory.validate"]], unite:false, ecran:["11","Stocks & consommations",3],
-    ex:{ valeur:0, unite:"", legende:"aucun inventaire compté en attente" } },
+  { id:"inventaires", genre:"file", titre:"Inventaires à valider", icone:"Stocks", route:"GET /inventory/counts?status=Draft", champ:"counts.Count", requis:[["inventory.read"],["inventory.validate"]], unite:false, ecran:["11","Stocks & consommations",3],
+    ex:{ valeur:0, unite:"", legende:"aucun inventaire en cours (brouillon) à valider" } },
   { id:"absences", genre:"file", titre:"Absences à approuver", icone:"RessourcesHumaines", route:"GET /hr/absences?status=Pending", champ:"absences.Count", requis:[["hr.read"],["hr.write"]], unite:false, ecran:["13","RH & paie",1],
     ex:{ valeur:3, unite:"demandes", legende:"d'absence en attente de décision" } },
   { id:"paie", genre:"file", titre:"Bulletins en brouillon", icone:"RessourcesHumaines", route:"GET /hr/payroll/periods", champ:"DraftPayslipCount", requis:[["hr.read"],["hr.payroll"]], unite:false, ecran:["13","RH & paie",2],
@@ -856,7 +857,7 @@ function rendrePortail(sec) {
       </div>
     </div>
     <dl class="identite">
-      <dt>Établissement</dt><dd>El Bahdja Hôtels ${etat.annotations ? `<span class="muted mono">GET /settings · CompanyName</span>` : ""}</dd>
+      <dt>Établissement</dt><dd>${c.reglagesPoste ? `El Bahdja Hôtels ${etat.annotations ? `<span class="muted mono">GET /settings · CompanyName</span>` : ""}` : `<span class="muted">— settings.read requis pour lire le nom de l'établissement</span>`}</dd>
       <dt>Unité de ce poste</dt><dd>${u ? `${u.code} · ${u.nom} <span class="muted">· réglage local, jamais un périmètre de sécurité</span>` : `<span class="muted">aucune · poste sans unité, lecture au niveau du groupe</span>`}</dd>
       <dt>Date métier</dt><dd>${c.dateMetier ? (charg ? `<span class="muted">…</span>` : `${DATE_COURTE} <span class="tag"><span class="badge validee">à jour</span></span> ${etat.annotations ? `<span class="muted mono">GET /lodging/business-date</span>` : ""}`) : `<span class="muted">— ${u ? "lodging.read requis pour la lire" : "par unité, choisissez une unité sur ce poste"}</span>`}</dd>
       <dt>Session</dt><dd>ouverte à 08:12 · expire à 09:12 <span class="muted">· jeton 60 min (ExpiresAt de la connexion)</span></dd>

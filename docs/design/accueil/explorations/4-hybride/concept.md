@@ -1,8 +1,10 @@
 # Exploration 4-hybride — accueil « Catalogue vivant »
 
-> **Statut** : exploration de design, version du 02/09/2026, branche `reorg/phase-1` (HEAD `e7dcaad`).
+> **Statut** : exploration de design, version du 03/09/2026, branche `reorg/phase-1` (HEAD `e7dcaad`).
 > Maquette de validation : `docs/design/accueil/explorations/4-hybride/maquette.html` (autonome, deux thèmes,
-> sept profils, quatre simulations de données). Rien n'est codé ; aucun autre fichier du dépôt n'est modifié.
+> sept profils, quatre simulations de données ; l'arbre de navigation y est recopié de
+> `FunctionalArchitectureCatalog.Tree.cs` et les 50 entrées de `ModuleCatalog.cs`). Rien n'est codé ; aucun autre
+> fichier du dépôt n'est modifié.
 >
 > Angle imposé : **évolution de l'accueil-catalogue existant**. On garde le repère des cartes par domaine, on les
 > rend vivantes, on ajoute une zone « À traiter » en tête et une recherche universelle, avec le minimum de rupture
@@ -48,13 +50,13 @@ la maturité par domaine (spécification du shell § 5.1 enfin livrée), un nom 
 | Aujourd'hui | Catalogue vivant | Pourquoi |
 |---|---|---|
 | Salutation « Bonjour, {DisplayName} » + date | **inchangé**, complété par l'unité du poste et la date métier quand elles existent | même `HomeGreetingText` / `HomeDateText` |
-| Carte « Architecture fonctionnelle » : 23 puces texte (~285 px) | **Rail des domaines** : 23 puces compactes avec l'icône du domaine, sur une ligne (~30 px) | libère ~250 px ; les 22 icônes existent (`ModuleGroupIcon.*`) |
+| Carte « Architecture fonctionnelle » : 23 puces texte (~285 px) | **Rail des domaines** : 23 puces compactes avec l'icône du domaine, sur une à deux lignes (30 à 66 px selon la largeur) | libère ~220 px ; les 22 icônes existent (`ModuleGroupIcon.*`) |
 | Carte « Avancement des modules » (~180 px) | **Ligne compacte** « Où en est le produit ? » : 31/50, mini-barre, deux lectures (modules / domaines), bouton *Détail* qui déplie l'ancien bandeau tel quel | l'information reste, elle n'est plus le premier écran |
 | Recherche 420 px sous le bandeau | **Recherche universelle** dans le bandeau, à droite de la salutation ; résultats « sous-modules et écrans » au-dessus des cartes | même `HomeSearchTextBox`, même `Ctrl+K`, même `Ctrl+F` |
 | Puces statut (5) + priorité (4) | **inchangées**, en compact, plus la rangée **Maturité** (spéc. § 5.1) | rangée prévue, jamais livrée |
 | Groupes « Domaine → Module » (~35 en-têtes) | **Un en-tête par domaine** (22 max) avec icône, compteur, **badge de maturité** ; le module devient un libellé discret en bas à droite de la carte | moins d'en-têtes, badge à sa place (§ 6.3 : jamais sur la carte) |
 | Carte : icône, priorité, cadenas, titre, description, pastille de statut + badge de maturité superposé | Carte : **même gabarit**, badge de maturité retiré (porté par l'en-tête), **ligne de signal** au-dessus de la pastille, `AutomationProperties.Name` posé | conforme à la spec § 5.1 ; corrige le nom accessible vide |
-| Aucun appel API sur l'accueil | **≤ 10 appels légers, séquentiels, dans un seul `RunAsync`**, uniquement pour les cartes ouvrables par le profil | charte § 3.1, § 3.10 |
+| Aucun appel API sur l'accueil | **Une passe séquentielle dans un seul `RunAsync`** : au plus 13 routes globales + 3 unitaires (administrateur avec unité de poste), typiquement 1 à 10 selon le profil, uniquement pour les cartes ouvrables | charte § 3.1, § 3.10 |
 | Aucune zone de travail | **« À traiter »** : projection des signaux non nuls, urgents d'abord ; états chargement / vide / erreur partielle explicites | charte § 3.5 |
 
 ---
@@ -67,12 +69,13 @@ la maturité par domaine (spécification du shell § 5.1 enfin livrée), un nom 
 ┌ Accueil (TabItem 0 · ScrollViewer) ───────────────────────────────────────────────────────────────┐
 │ ┌ Bandeau (CardBorder) ─────────────────────────────────────────────────────────────────────────┐ │
 │ │ Bonjour, Nadia B.                                  [🔍 Rechercher un module, un écran… Ctrl+K] │ │
-│ │ lundi 1er septembre 2026 · HTL-01 · date métier 01/09 [2 jours non clôturés]                   │ │
+│ │ jeudi 3 septembre 2026 · HTL-01 · date métier 01/09/2026 [2 jours non clôturés]                │ │
 │ │ Mon profil  Mes préférences  Ma sécurité            Navigation seulement — pas les données.     │ │
 │ └───────────────────────────────────────────────────────────────────────────────────────────────┘ │
 │ ┌ À TRAITER  [3 compteurs serveur]                                  actualisé à 08:12 [Actualiser] │
-│ │ [▌12 arrivées · 8 départs · 3 en retard · Front Office (en retard)] [9 chambres à nettoyer · 4 à │
-│ │  inspecter · Housekeeping] [▌2 jours non clôturés · Contrôle (en retard)]                        │
+│ │ [▌12 arrivées · 8 départs · 3 en retard · PMS front office (en retard)]                          │
+│ │ [9 chambres à nettoyer · 4 à inspecter · Housekeeping & chambres]                                │
+│ │  (la date métier reste dans le bandeau : la carte Clôture est fermée à ce profil)                │
 │ └───────────────────────────────────────────────────────────────────────────────────────────────┘ │
 │ Domaines  (Tous 50) (◈01 2) (◈02 3) (◈03 6) (◈04 4) (◈05 1) (◈06 3) (◈07 1) … (◈22 3)             │
 │ Statut  Tous·Disponibles·API prête·Partiels·Planifiés   Priorité  Toutes·P0·P1·P2   Maturité  …   │
@@ -92,9 +95,13 @@ la maturité par domaine (spécification du shell § 5.1 enfin livrée), un nom 
 └───────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Budget vertical estimé avant la première carte : bandeau ~110 px, « À traiter » ~90, rail 30, filtres 30,
-ligne produit 40, en-tête de groupe 34, marges ~60 → **≈ 395 px**, contre ≈ 760 aujourd'hui. À 760 px de haut,
-une rangée entière de cartes est visible ; à 1080 px, trois.
+Budget vertical avant la première carte, **mesuré sur la maquette à 1240 px de large, barre latérale repliée**
+(1 177 px utiles) : bandeau 129 px, « À traiter » 108, rail 66 (23 puces sur deux lignes ; une seule ligne, 30 px,
+dès ~1 900 px de large), filtres 25, ligne produit 38, en-tête de groupe 30, espacements ~85 → **≈ 480 px**,
+contre ≈ 760 aujourd'hui. À 1240 × 760 la première rangée de cartes apparaît sans défiler (≈ 130 px de ses
+176 visibles) ; à 1366 × 768 elle est presque entière ; à 1920 × 1080 (rail sur une ligne) deux rangées entières
+et le haut de la troisième. Le repli de « À traiter » quand le profil n'a aucun compteur (une ligne d'état vide,
+~70 px) rend ~40 px de plus ; c'est la seule section nouvelle, et son coût est la contrepartie du concept.
 
 ### 3.2 Les sections
 
@@ -121,7 +128,7 @@ unité) + un rendu de libellé. Le composeur (§ 8) décide, pour chaque profil,
 | Cockpit | 24.4 *Cockpit DEC* (20) | `GET /pilotage/dec-cockpit` | `dashboard.read` | globale | « 1 unité à surveiller · 2 j de clôture en retard · 1 recette rejetée » | `UnitHealth.NeedsAttention` | oui (`GetDecCockpitAsync`) — coût moyen, un seul appel |
 | Recettes du jour | 24 *Tableaux de bord directionnels* (3) | `GET /revenue/daily/dashboard` | `dashboard.read` | globale | « 1 unité sans saisie · 2 à valider » (`revenue.validate`) ou « … en attente de validation » | — | oui (`GetUnitDashboardAsync`) |
 | Front-desk | 10.1 *PMS front office* (30) | `GET /lodging/front-desk?hotelUnitCode&date` | `lodging.read` | unité | « 12 arrivées · 8 départs · 3 en retard » | `OverdueArrivals` / `OverdueDepartures` non vides | oui (`GetFrontDeskAsync`) |
-| Date métier | 4.5 *Clôture journalière* (5) + bandeau | `GET /lodging/business-date?hotelUnitCode` | `lodging.read` (la carte exige `closing.read`) | unité | « 2 jours à clôturer » (`closing.close`) ou « 2 jours non clôturés » | `IsLate` | oui (`GetBusinessDateAsync`) |
+| Date métier | bandeau **et** 4.5 *Clôture journalière* (5) | `GET /lodging/business-date?hotelUnitCode` | `lodging.read` — la route est lue dès que `lodging.read` + unité du poste, **même si la carte 4.5 est verrouillée** (`closing.read` absent) : le bandeau est sa cible première ; la carte et « À traiter » ne la reprennent que si la carte est ouvrable | unité | bandeau : « date métier 01/09/2026 · 2 jours non clôturés » ; carte : « 2 jours à clôturer » (`closing.close`) ou « 2 jours non clôturés » | `IsLate` | oui (`GetBusinessDateAsync`) |
 | Housekeeping | 10.2 *Housekeeping & chambres* (21) | `GET /housekeeping/board?hotelUnitCode&date` | `housekeeping.read` | unité | « 9 chambres à nettoyer · 4 à inspecter » (`DirtyRooms`, `AwaitingInspectionTasks`) | — | oui (`GetHousekeepingBoardAsync`) — coût moyen |
 | Trésorerie | 5 *Encaissements & trésorerie* (6) | variante par droit : `payment-orders?status=Draft` (`treasury.approve`), `?status=Approved` (`treasury.write`), sinon `receipts/summary` du jour | `treasury.read` | globale | « 3 ordres de paiement à approuver » / « 2 ordres approuvés à régler » / « Encaissé aujourd'hui : 84 500,00 DA (12 reçus) » | — | oui (`GetPaymentOrdersAsync`, `GetCashReceiptSummaryAsync`) |
 | Créances | 9 *Créances & recouvrement* (13) | `GET /receivables/aging` | `receivables.read` | globale | « Plus de 90 jours : 412 300,00 DA » (`Total.Over90`, champ serveur, pas une soustraction client) | — | oui (`GetAgingBalanceAsync`) — coût moyen |
@@ -131,8 +138,8 @@ unité) + un rendu de libellé. Le composeur (§ 8) décide, pour chaque profil,
 | Cuisine | 11.5 *Cuisine, production & qualité* (26) | `GET /kitchen/readings?nonCompliantOnly=true&from=today` | `kitchen.read` | globale | « 2 relevés HACCP non conformes aujourd'hui » | `IsCompliant = false` | oui (`GetTemperatureReadingsAsync`) |
 | MICE | 10.6 *Groupes & MICE* (28) | `GET /mice/events?from=today&to=today` | `mice.read` | globale | « 1 événement aujourd'hui » | — | oui (`GetEventsAsync`) |
 | Sauvegarde | 28 *Sauvegarde & restauration* (18) | `GET /maintenance/backups/status` | `maintenance.read` | globale | « Dernière sauvegarde il y a 6 h » / « Sauvegarde en retard · dernière il y a 31 h » | `IsOverdue` | oui (`GetBackupStatusAsync`) |
-| Postes | 29 *Registre des postes* (27) | `GET /sync/stations` | `sync.read` | globale | « 1 poste hors ligne sur 7 » / « 7 postes en contact » | `Freshness` | oui (`GetWorkstationsAsync`) |
-| Mon activité | 30 *Journalisation & traçabilité* (4) | `GET /audit?userId={moi}&action=auth.login.success&pageSize=1` | `audit.read` | globale | « Votre dernière connexion : 01/09 à 08:12 » (informatif, jamais « à traiter ») | — | **partiel** : route et `IAuditQueryService` acceptent `userId`, `RaqmiApiClient.GetAuditLogAsync` ne l'expose pas |
+| Postes | 29 *Registre des postes* (27) | `GET /sync/stations` | `sync.read` | globale | « 1 poste silencieux sur 7 » / « 7 postes en contact » (vocabulaire serveur : `Freshness` = Recent / Stale / Silent) | `Freshness` | oui (`GetWorkstationsAsync`) |
+| Mon activité | 30 *Journalisation & traçabilité* (4) | `GET /audit?userId={moi}&action=auth.login.success&pageSize=1` | `audit.read` | globale | « Votre dernière connexion : 02/09 à 18:41 » (informatif, jamais « à traiter ») | — | **partiel** : route et `IAuditQueryService` acceptent `userId`, `RaqmiApiClient.GetAuditLogAsync` ne l'expose pas |
 
 Ce qui **n'est pas** dans le registre, et pourquoi : notifications, messagerie, tâches, agenda, favoris,
 délégations, demandes (aucune table, aucune route) ; « mes absences / mes pointages » (aucun lien `User ↔ Employee`)
@@ -144,7 +151,9 @@ pas une file de travail).
 
 1. Un signal n'est lu que si **la carte est ouvrable** par le profil (`ModuleTile.IsClickable`) **et** que la
    route est ouverte (`HasPermission`, résolue avec `PermissionRegistry.AcceptedClaims` pour accepter clés
-   historiques et cibles). Un 403 est traité comme « Indisponible », jamais comme une valeur.
+   historiques et cibles). Un 403 est traité comme « Indisponible », jamais comme une valeur. Seule exception :
+   la date métier, dont la cible première est le bandeau — elle se lit avec `lodging.read` + unité du poste,
+   carte *Clôture* ouvrable ou non ; sans la carte, elle n'entre pas dans « À traiter » (il n'y aurait rien à ouvrir).
 2. Le chiffre est **celui du serveur** : compteur d'une liste renvoyée, champ agrégé (`Over90`, `PendingDays`,
    `DirtyRooms`) — jamais une soustraction ni un seuil client.
 3. Le **verbe** n'est impératif (« à approuver », « à valider », « à clôturer ») que si le profil détient le droit
@@ -176,9 +185,10 @@ Rafraîchissement : à l'ouverture de session (après `ApplyModulePermissions`),
 si la dernière lecture date de plus de 5 minutes (aligné sur le battement de poste, sans `Timer`), et sur `F5`
 (`RefreshHomeSignalsButton`, trouvé par `ShortcutRouter`). Toutes les lectures d'une passe sont **séquentielles
 dans un seul `context.RunAsync`** : le client est monothread par hypothèse, et `RunAsync` gèle `MainTabs` le
-temps de l'appel — une passe complète tient en une à deux secondes sur des routes légères. Si ce gel est jugé
-gênant, la seule alternative conforme est une variante `RunAsync(quiet: true)` du contrat de vue (même
-traduction d'erreurs, sans `SetBusy`) : décision à prendre par le propriétaire de la charte, pas par l'accueil.
+temps de l'appel — une passe complète tient en une à trois secondes sur des routes légères à moyennes. La seule
+alternative conforme à ce gel est une surcharge `RunAsync(quiet: true)` du contrat de vue (même traduction
+d'erreurs, même barre de progression, sans `SetBusy`), recommandée avec le lot B (§ 10, compromis 1) : décision
+du propriétaire de la charte, pas de l'accueil.
 
 ---
 
@@ -192,9 +202,9 @@ compte : la maquette lui donne une valeur par défaut plausible par profil et un
 
 | Profil | Permissions déterminantes | « À traiter » (exemple) | Cartes ouvrables / verrouillées | Ce que l'accueil lui apporte |
 |---|---|---|---|---|
-| **Réception** (rôle personnalisé à créer, README décision 8 : `lodging.*`, `customers.read`, `crm.read`, `housekeeping.read`, `settings.read`) | pas d'`approvals.read`, pas de `closing.read`, pas de `dashboard.read` | Front-desk (urgent si retards), Housekeeping ; date métier dans le bandeau (`lodging.read` + unité HTL-01) | 5 ouvrables (10, 10.1, 10.2, 9.2, 10.4, 2) ; 25 verrouillées dont *Clôture* et *Validations* ; 19 planifiées | l'écran de 7 h : arrivées, retards, chambres à préparer, puis la carte *PMS front office* à un clic |
+| **Réception** (rôle personnalisé à créer, README décision 8 : `lodging.*`, `customers.read`, `crm.read`, `housekeeping.read`, `settings.read`) | pas d'`approvals.read`, pas de `closing.read`, pas de `dashboard.read` | Front-desk (urgent si retards), Housekeeping ; date métier dans le bandeau (`lodging.read` + unité HTL-01), sans entrée « À traiter » pour la clôture puisque la carte lui est fermée | 6 ouvrables (2, 9.2, 10, 10.1, 10.2, 10.4) ; 25 verrouillées dont *Clôture* et *Validations* ; 19 planifiées | l'écran de 7 h : arrivées, retards, chambres à préparer, puis la carte *PMS front office* à un clic |
 | **Directeur d'unité** (`unit.manager`) | `approvals.decide`, `dashboard.read`, `closing.close`, `purchasing.receive`, `kitchen.read`, `mice.read` ; **pas** `treasury.*`, `hr.read`, `audit.read`, `receivables.read`, `revenue.validate` | Validations, Cockpit (urgent si `NeedsAttention`), Front-desk, Clôture « à clôturer », Housekeeping, Recettes « en attente de validation » (pas de `revenue.validate`), Stocks, Achats « à réceptionner », Cuisine, MICE | 22 ouvrables ; verrouillées : 5, 5.2, 9, 21, 22/30, 1, 28, 29 | une file d'exploitation complète, sans un chiffre qu'il ne peut pas lire ailleurs |
-| **Direction générale** (`direction`) | `approvals.decide`, `treasury.approve`, `purchasing.approve`, `hr.read` (sans `hr.write`), `audit.read`, `maintenance.read`, `sync.read` ; **pas** `users.read` | Sauvegarde (urgent si `IsOverdue`), Validations, Cockpit, Recettes « à valider » ? — non : **« en attente de validation »** (pas de `revenue.validate`), Trésorerie « à approuver », Créances > 90 j, Achats « à approuver », RH « en attente », Stocks, Postes ; *Mon activité* informatif | 29 ouvrables ; seule *Administration & utilisateurs* verrouillée ; unité du poste non définie → cartes PMS/HK « Unité du poste non définie » | le cockpit avant le cockpit : ce qui attend sa décision et ce qui cloche dans le système |
+| **Direction générale** (`direction`) | `approvals.decide`, `treasury.approve`, `purchasing.approve`, `hr.read` (sans `hr.write`), `audit.read`, `maintenance.read`, `sync.read` ; **pas** `users.read` | Sauvegarde (urgent si `IsOverdue`), Validations, Cockpit, Recettes « en attente de validation » (libellé neutre : pas de `revenue.validate`), Trésorerie « à approuver », Créances > 90 j, Achats « à approuver », RH « en attente » (pas de `hr.write`), Stocks, Cuisine, MICE, Postes ; *Mon activité* informatif | 29 ouvrables ; seule *Administration & utilisateurs* verrouillée ; unité du poste non définie → cartes PMS/HK « Unité du poste non définie » | le cockpit avant le cockpit : ce qui attend sa décision et ce qui cloche dans le système |
 | **Administrateur** (`system.administrator`) | tout | Sauvegarde, Validations, Cockpit, Trésorerie, Créances, Achats, RH « à approuver », Stocks, Cuisine, Postes… | 31 ouvrables, aucun cadenas ; unité du poste non définie par défaut | la santé du système en tête (sauvegarde, postes), la densité compacte lui est destinée |
 | **Lecture seule** (`reader`) | lectures d'exploitation/finance ; **pas** `treasury.read`, `hr.read`, `audit.read`, `approvals.decide`, `maintenance.read`, `sync.read` | Cockpit, Recettes « en attente de validation », Créances, Stocks, Achats « en brouillon », Cuisine, MICE — tous en libellé neutre | 23 ouvrables ; *Validations* ouvrable sans compteur (`approvals.read` seul : `/pending` renverrait 403, donc **pas d'appel**) | un observatoire honnête : elle voit ce qui attend, sans qu'on lui demande d'agir |
 | **Caisse** (`cashier`) | `treasury.write`, `revenue.write`, `lodging.*`, `housekeeping.*`, `crm.*`, `approvals.read` ; **pas** `units.read`, `dashboard.read`, `customers.read`, `invoices.read` | Trésorerie « 2 ordres approuvés à régler », Front-desk, Housekeeping (unité du poste HTL-01 saisie dans Paramétrage, puisque `units.read` manque) | 8 ouvrables ; *Validations* sans compteur | la caisse du jour et les mouvements de l'hôtel ; rien qui prétende venir d'un tableau de bord qu'elle n'a pas |
@@ -281,8 +291,12 @@ libellés impératif/neutre selon le droit d'agir ; ordre de « À traiter » (u
 - `HomeSignalLoader` (Desktop) : pour chaque slot `Ready`, appelle la méthode `RaqmiApiClient` de la route,
   passe la réponse à `HomeSignalProjections`, écrit `ModuleTile.Signal` (nouvelle propriété `INotifyPropertyChanged`
   : `Loading / Value / Empty / Error / NeedsUnit / None`). Toutes les lectures d'une passe dans **un**
-  `context.RunAsync`, séquentielles ; une exception par route est absorbée en `Error` sur la tuile et comptée pour
-  le bandeau d'avertissement, sans interrompre la passe — les erreurs de session (401) remontent normalement.
+  `context.RunAsync`, séquentielles, dans l'ordre du poids (validations, front-desk, cockpit, sauvegarde… ;
+  *Mon activité* en dernier) ; une exception par route est absorbée en `Error` sur la tuile et comptée pour le
+  bandeau d'avertissement, sans interrompre la passe — les erreurs de session (401) remontent normalement. Taille
+  d'une passe (maquette, unité du poste « selon le profil ») : 3 routes pour Réception (dont la date métier du
+  bandeau), 4 pour Caisse, 1 pour RH, 7 pour Lecture seule, 10 pour un directeur d'unité, 13 pour la direction,
+  13 (+3 unitaires si une unité de poste est définie) pour l'administrateur.
 - « À traiter » est un `ItemsControl` lié à une `CollectionViewSource` filtrée sur `Signal.IsWork`, triée
   `IsUrgent` puis `Weight` : pas de seconde collection.
 - Points de contact `MainWindow` : `LoginButton_Click` (238-242) → `HomeView.OnSessionOpened(displayName)` puis
@@ -316,7 +330,7 @@ libellés impératif/neutre selon le droit d'agir ; ordre de « À traiter » (u
 | Lot | Contenu | Réseau | Rupture |
 |---|---|---|---|
 | **A — Catalogue compact** | `HomeView` extraite, rail des domaines, ligne produit + détail, badge et icône dans l'en-tête de groupe, filtre de maturité, badge retiré de la carte, noms accessibles, textes « 49 » | aucun | visuelle seulement ; toutes les fonctions actuelles présentes |
-| **B — Signaux** | `HomeComposer`, `HomeSignalProjections`, `HomeSignalLoader`, `ModuleTile.Signal`, ligne de signal, « À traiter », états, `RefreshHomeSignalsButton`, tests | ≤ 10 appels légers séquentiels par passe | aucune pour qui ignore la zone : le catalogue est en dessous |
+| **B — Signaux** | `HomeComposer`, `HomeSignalProjections`, `HomeSignalLoader`, `ModuleTile.Signal`, ligne de signal, « À traiter », états, `RefreshHomeSignalsButton`, tests ; **prérequis recommandé** : surcharge `RunAsync(action, quiet: true)` du contrat de vue (§ 10, compromis 1) | jusqu'à 13 appels globaux par passe, séquentiels, légers à moyens | aucune pour qui ignore la zone : le catalogue est en dessous |
 | **C — Unité du poste et recherche universelle** | `DesktopSettings.UniteDuPoste` + réglage, signaux de portée unité, date métier du bandeau, résultats « sous-modules et écrans » branchés sur `NavigationTreeBuilder`, `userId` de l'audit | + 3 routes unitaires | — |
 
 ---
@@ -353,16 +367,21 @@ libellés impératif/neutre selon le droit d'agir ; ordre de « À traiter » (u
 
 **Ce qu'il gagne**
 
-- Des cartes visibles sans défiler à la taille par défaut (≈ 395 px d'en-tête au lieu de ≈ 760).
+- La première rangée de cartes visible sans défiler à la taille par défaut (≈ 480 px d'en-tête au lieu de ≈ 760,
+  mesuré sur la maquette), deux rangées entières à 1080 px de haut.
 - Ce qui l'attend, en tête, sans ouvrir dix écrans — et rien qu'il ne puisse déjà lire dans ces écrans.
 - Une recherche qui trouve « Night audit » ou « Balance âgée » (sous-modules), pas seulement des titres de cartes.
 - La maturité par domaine, le filtre de maturité, des noms accessibles sur les 50 cartes.
 
 **Compromis assumés**
 
-1. **Gel pendant la passe de signaux** : `RunAsync` désactive `MainTabs` ; une passe de 4 à 10 routes légères tient
-   en une à deux secondes, la barre de progression le montre. Si c'est trop, la réponse est dans le contrat de vue
-   (`quiet`), pas dans un `try/catch` maison.
+1. **Gel pendant la passe de signaux** : `RunAsync` désactive `MainTabs` (`SetBusy`) ; une passe de 2 à 16 routes
+   (13 globales + 3 unitaires pour un administrateur avec unité de poste), légères à moyennes, tient en une à
+   trois secondes, la barre de progression le montre, et la barre latérale reste active. Recommandation : livrer
+   avec le lot B une surcharge `RunAsync(action, quiet: true)` — même traduction des erreurs, même barre de
+   progression, mais sans `SetBusy` : la passe ne fait que lire, il n'y a aucune double soumission à prévenir. La
+   décision appartient au propriétaire de la charte ; sans elle, le gel de une à trois secondes est accepté tel
+   quel, jamais contourné par un `try/catch` maison.
 2. **Coût serveur à l'ouverture de session** : `dec-cockpit`, `housekeeping/board` et `receivables/aging` sont
    « moyens ». Ils ne partent que pour les profils qui ouvrent ces cartes, une fois par ouverture d'accueil et au
    plus toutes les cinq minutes. Les routes lourdes (`kpis/dashboard`, `group-dashboard`, `tape-chart`) sont
@@ -383,8 +402,8 @@ libellés impératif/neutre selon le droit d'agir ; ordre de « À traiter » (u
 
 ## 11. Questions ouvertes
 
-1. **Gel de `MainTabs` pendant la passe** : accepter (une à deux secondes, barre de progression) ou ajouter une
-   variante silencieuse à `ModuleViewContext.RunAsync` ?
+1. **Gel de `MainTabs` pendant la passe** : accepter (une à trois secondes, barre de progression) ou ajouter la
+   surcharge `quiet` à `ModuleViewContext.RunAsync` (recommandée, § 10) ?
 2. **Cockpit DEC sur l'accueil** : signal « moyen-lourd » mais un seul appel et la meilleure file de travail pour
    direction / contrôle / unité — le garder dans le lot B ou le différer au clic ?
 3. **Unité du poste** : réglage local seul (lot C) ou d'abord une affectation utilisateur ↔ unité serveur ?

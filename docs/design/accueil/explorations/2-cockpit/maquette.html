@@ -9,11 +9,12 @@
   Aucune dependance reseau, aucune police externe, aucune donnee reelle : tout chiffre affiche est un
   EXEMPLE, annote comme tel, et cite la route API et la permission qui l'alimenteraient.
 
-  Ce qu'elle montre : le shell (en-tete 76 px, barre laterale 248 px, fil d'Ariane) autour de
-  l'onglet 0 refondu en cockpit ; sept profils commutables composes a partir des PERMISSIONS du
-  SecuritySeeder (jamais d'un role code en dur) ; les deux themes de ThemePalette ; les deux densites ;
-  les etats chargement / erreur / vide / a la demande / sans unite ; le catalogue des 50 modules
-  conserve, replie en pied de page (Ctrl+K l'ouvre).
+  Ce qu'elle montre : le shell (en-tete 76 px, barre laterale 248 px deployee autour du cockpit -
+  parti pris du concept, une condition de SyncSidebarToTab - et fil d'Ariane masque a la racine comme
+  aujourd'hui) autour de l'onglet 0 refondu en cockpit ; sept profils commutables composes a partir
+  des PERMISSIONS du SecuritySeeder (jamais d'un role code en dur) ; les deux themes de ThemePalette ;
+  les deux densites ; les etats chargement / erreur / vide / a la demande / sans unite ; le catalogue
+  des 50 modules conserve, replie en pied de page (Ctrl+K l'ouvre).
 -->
 <style>
   /* ============ Palette : brushes de RaqmiTheme.xaml / ThemePalette.Sombre, clef par clef ============ */
@@ -184,7 +185,8 @@
   .avert { background:var(--status-submitted-bg); border:1px solid var(--status-submitted-fg); color:var(--status-submitted-fg); border-radius:8px; padding:8px 14px; font-weight:600; font-size:12.5px; grid-column:1 / -1; }
 
   /* Instruments */
-  .instruments { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:12px; }
+  /* 208 px : un montant N2 a dix chiffres tient en 27 px SemiBold sans troncature (172 px) ; la devise est dans la legende. */
+  .instruments { display:grid; grid-template-columns:repeat(auto-fill, minmax(208px, 1fr)); gap:12px; }
   .instr { height:var(--tile-h); background:var(--surface); border:1px solid var(--panel-border); border-radius:10px; padding:11px 14px 10px; display:flex; flex-direction:column; justify-content:space-between; text-align:left; box-shadow:0 2px 10px var(--shadow); transition:transform .13s cubic-bezier(.2,.7,.3,1), box-shadow .13s, border-color .13s; position:relative; min-width:0; }
   .instr:hover:not(:disabled) { border-color:var(--accent); transform:translateY(-2px); box-shadow:0 4px 14px var(--shadow-hover); }
   .instr:disabled { background:var(--surface-subtle); box-shadow:none; }
@@ -196,7 +198,8 @@
   .instr .valeur { font-size:27px; font-weight:600; line-height:1.05; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   [data-densite="compact"] .instr .valeur { font-size:18px; }
   .instr .valeur .u { font-size:11.5px; font-weight:600; color:var(--text-muted); margin-left:3px; }
-  .instr .legende { font-size:11.5px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .instr .legende { font-size:11.5px; color:var(--text-muted); line-height:1.2; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  [data-densite="compact"] .instr .legende { -webkit-line-clamp:1; }
   .instr .tri { display:flex; gap:14px; align-items:baseline; }
   .instr .tri .mini { display:flex; flex-direction:column; }
   .instr .tri .mini b { font-size:18px; font-weight:600; line-height:1.1; }
@@ -227,7 +230,7 @@
   .files-vide { font-size:12px; color:var(--text-muted); margin:6px 0 0 2px; }
 
   /* Alertes + unites */
-  .duo { display:grid; grid-template-columns:5fr 7fr; gap:18px; align-items:stretch; }
+  .duo { display:grid; grid-template-columns:minmax(300px, 5fr) 7fr; gap:18px; align-items:stretch; }
   .duo > .carte { padding:16px 18px; display:flex; flex-direction:column; min-height:220px; position:relative; }
   .alertes { display:flex; flex-direction:column; gap:4px; }
   .alerte { display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; padding:7px 10px; border-radius:6px; text-align:left; min-height:44px; }
@@ -337,8 +340,8 @@
   </div>
   <div class="grp"><span>Barre latérale</span>
     <span class="seg" role="group" aria-label="Barre latérale">
-      <button type="button" data-sidebar="replie" aria-pressed="true" title="Comportement actuel de l'onglet 0 (SyncSidebarToTab) : parti pris du concept">Repliée (proposé)</button>
-      <button type="button" data-sidebar="deploye" aria-pressed="false" title="Pour comparaison : le shell autour du cockpit">Déployée</button>
+      <button type="button" data-sidebar="deploye" aria-pressed="true" title="Parti pris du concept : le cockpit cède le rôle de sommaire à la barre latérale (une condition de SyncSidebarToTab à changer)">Déployée (proposé)</button>
+      <button type="button" data-sidebar="replie" aria-pressed="false" title="Pour comparaison : comportement actuel de l'onglet 0 (barre repliée à 0 px)">Repliée (aujourd'hui)</button>
     </span>
   </div>
   <div class="grp"><span>Densité</span>
@@ -375,7 +378,7 @@
   </div>
 </header>
 
-<div class="app replie" id="app">
+<div class="app" id="app">
   <aside class="carte" id="sidebar" aria-label="Modules"></aside>
   <main>
     <nav class="ariane" id="ariane" aria-label="Fil d'Ariane" hidden></nav>
@@ -469,9 +472,11 @@ const UNITE_DATA = {
 
 /* Donnees groupe : /revenue/daily/dashboard (J et J-1), /pilotage/dec-cockpit, /kpis/alerts, /kpis/dashboard (a la demande), et le reste */
 const GROUPE = {
-  recettes: { j:{ total:"3 412 600,00", saisies:3, unites:4, attente:2, manquantes:1 }, veille:{ total:"4 060 900,00", saisies:4, attente:0 } },
+  /* Coherence des exemples : la veille (01/09) = somme des lignes UnitHealth ci-dessous (HTL-04 sans saisie) ;
+     PendingValidations = HTL-02 01/09 (742 100,00) + HTL-02 30/08 (474 200,00) ; ClosingBacklog = HTL-04 (30/08, 31/08, 01/09) + HTL-02 (01/09). */
+  recettes: { veille:{ total:"3 562 200,00", saisies:3, unites:4, attente:1, manquantes:1 }, j:{ total:"486 200,00", saisies:1, unites:4 } },
   dec: {
-    pendingCount:2, pendingAmount:"1 216 300,00", backlogDays:2, oldest:{ unit:"HTL-04", date:"30/08", age:3 }, rejected:1, opCount:2, opAmount:"2 640 000,00",
+    pendingCount:2, pendingAmount:"1 216 300,00", backlogDays:4, oldest:{ unit:"HTL-04", date:"30/08", age:3 }, rejected:1, opCount:2, opAmount:"2 640 000,00",
     unites:[
       { code:"HTL-01", nom:"Alger centre", recette:"1 215 300,00", statut:"Validated", provisoire:false, clos:true,  occ:"96/123",  taux:"78 %", attention:false },
       { code:"HTL-02", nom:"Oran",         recette:"742 100,00",   statut:"Submitted", provisoire:false, clos:false, occ:"54/84",   taux:"64 %", attention:false },
@@ -538,14 +543,15 @@ const EX = (route, perm, ecran) => `Exemple — ${route} · ${perm} · ouvre « 
 
 /* ======================= Registre des instruments (miroir de CockpitRegistry) ======================= */
 const INSTRUMENTS = [
-  { id:"recettes", lib:"Recettes J", perm:"dashboard.read", scope:"global", tier:1, tab:3, icone:"Finance", route:"GET /revenue/daily/dashboard?date=J puis J-1",
-    rend:p => ({ valeur:GROUPE.recettes.j.total, u:"DZD", legende:`Veille ${GROUPE.recettes.veille.total} · ${GROUPE.recettes.j.saisies}/${GROUPE.recettes.j.unites} unités saisies`, pill:GROUPE.recettes.j.attente ? { cls:"soumise", lib:`${GROUPE.recettes.j.attente} en attente` } : null }) },
+  /* Les recettes se saisissent en fin de journee : le grand chiffre est J-1, la journee en cours est la legende. */
+  { id:"recettes", lib:"Recettes J-1", perm:"dashboard.read", scope:"global", tier:1, tab:3, icone:"Finance", route:"GET /revenue/daily/dashboard?date=J-1 puis J (GrandTotal, UnitsWithEntry, UnitsPendingValidation)",
+    rend:p => ({ valeur:GROUPE.recettes.veille.total, legende:`DZD · ${GROUPE.recettes.veille.saisies}/${GROUPE.recettes.veille.unites} unités saisies · J en cours : ${GROUPE.recettes.j.saisies}/${GROUPE.recettes.j.unites}, ${GROUPE.recettes.j.total}`, pill:GROUPE.recettes.veille.attente ? { cls:"soumise", lib:`${GROUPE.recettes.veille.attente} en attente` } : null }) },
   { id:"recettes-resume", lib:"Recettes J", perm:"revenue.read", sauf:"dashboard.read", scope:"global", tier:1, tab:2, icone:"Finance", route:"GET /revenue/daily/summary?from=J&to=J",
     rend:p => ({ valeur:String(GROUPE.recettesResume.entries), u:"saisie", legende:`${GROUPE.recettesResume.draft} brouillon · ${GROUPE.recettesResume.submitted} soumise · total serveur après soumission`, pill:{ cls:"brouillon", lib:"Brouillon" } }) },
   { id:"encaissements", lib:"Encaissements J", perm:"treasury.read", scope:"global", tier:2, tab:6, icone:"Finance", route:"GET /treasury/receipts/summary?from=J&to=J puis J-1",
-    rend:p => a(p, "dashboard.read") ? ({ valeur:GROUPE.encaissements.j.total, u:"DZD", legende:`Veille ${GROUPE.encaissements.veille.total} · ${GROUPE.encaissements.j.confirmes} confirmés` }) : ({ valeur:GROUPE.caisse.j.total, u:"DZD", legende:`Veille ${GROUPE.caisse.veille.total} · ${GROUPE.caisse.j.confirmes} confirmés · ${GROUPE.caisse.j.brouillons} brouillons` }) },
-  { id:"creances", lib:"Créances", perm:"receivables.read", scope:"global", tier:2, tab:13, icone:"Finance", route:"GET /receivables/aging",
-    rend:p => ({ valeur:GROUPE.creances.total, u:"DZD", legende:`> 90 j : ${GROUPE.creances.over90} · ${GROUPE.creances.clients} clients` }) },
+    rend:p => a(p, "dashboard.read") ? ({ valeur:GROUPE.encaissements.j.total, legende:`DZD · veille ${GROUPE.encaissements.veille.total} · ${GROUPE.encaissements.j.confirmes} confirmés` }) : ({ valeur:GROUPE.caisse.j.total, legende:`DZD · veille ${GROUPE.caisse.veille.total} · ${GROUPE.caisse.j.confirmes} confirmés · ${GROUPE.caisse.j.brouillons} brouillons` }) },
+  { id:"creances", lib:"Créances", perm:"receivables.read", scope:"global", tier:2, tab:13, icone:"Finance", route:"GET /receivables/aging (Total.Total, Total.Over90, Customers)",
+    rend:p => ({ valeur:GROUPE.creances.total, legende:`DZD · > 90 j : ${GROUPE.creances.over90} · ${GROUPE.creances.clients} clients` }) },
   { id:"fo", lib:"Front office", perm:"lodging.read", scope:"unite", tier:1, tab:30, icone:"Hebergement", route:"GET /lodging/front-desk?hotelUnitCode&date",
     rend:p => { const d = ud(p).fo; return { tri:[ { lib:"Arrivées", val:d.arr }, { lib:"Départs", val:d.dep }, { lib:"Présents", val:d.inhouse } ], legende:`${d.arrLate + d.depLate} en retard (${d.arrLate} arrivées, ${d.depLate} départs)` }; } },
   { id:"occupation", lib:"Occupation J", perm:"lodging.read", scope:"unite", tier:1, tab:15, icone:"Hebergement", route:"GET /lodging/front-desk (Occupancy)",
@@ -555,9 +561,8 @@ const INSTRUMENTS = [
   { id:"events", lib:"Événements J", perm:"mice.read", scope:"global", tier:2, tab:28, icone:"Evenementiel", route:"GET /mice/events?from=J&to=J[&hotelUnitCode]",
     rend:p => { const u = uniteDe(p); const ev = u ? UNITE_DATA[u].events : [].concat(...Object.values(UNITE_DATA).map(x => x.events)); return { valeur:String(ev.length), legende:ev.length ? ev[0] : "Aucun événement programmé aujourd'hui" }; } },
   { id:"stocks", lib:"Stocks sous minimum", perm:"inventory.read", scope:"global", tier:2, tab:24, icone:"Stocks", route:"GET /inventory/low-stock",
-    rend:p => ({ valeur:String(a(p, "dashboard.read") || a(p, "*") ? GROUPE.stocks : 3), u:"articles", legende:"Lignes renvoyées par le serveur, tous magasins" }) },
-  { id:"absences", lib:"Absences à approuver", perm:"hr.read", scope:"global", tier:2, tab:22, icone:"RessourcesHumaines", route:"GET /hr/absences?status=Pending",
-    rend:p => ({ valeur:String(p.absencesVides ? 0 : GROUPE.absences), legende:p.absencesVides ? "Aucune demande en attente" : "Demandes en statut Pending" }) },
+    rend:p => ({ valeur:String(GROUPE.stocks), u:"articles", legende:"Lignes renvoyées par le serveur, tous magasins" }) },
+  /* Les absences a approuver sont une FILE (rangee « A decider »), pas un instrument : une seule fois a l'ecran. */
   { id:"paie", lib:"Paie", perm:"hr.read", scope:"global", tier:2, tab:22, icone:"RessourcesHumaines", route:"GET /hr/payroll/periods (dernière période)",
     rend:p => ({ valeur:GROUPE.paie.periode, legende:`${GROUPE.paie.brouillons} bulletins en brouillon`, pill:{ cls:"brouillon", lib:GROUPE.paie.statut } }) },
   { id:"effectif", lib:"Effectif", perm:"hr.read", scope:"global", tier:2, tab:22, icone:"RessourcesHumaines", route:"GET /hr/employees (lignes actives)",
@@ -585,22 +590,23 @@ const FILES = [
   { id:"cloture", perm:"dashboard.read", lib:"Journées à clôturer", constat:"Journées non clôturées", agit:["closing.close"], tab:p => a(p, "closing.read") ? 5 : 20, route:"GET /pilotage/dec-cockpit (ClosingBacklogDayCount, OldestClosingDelay)",
     n:p => GROUPE.dec.backlogDays, sub:p => `Plus ancien : ${GROUPE.dec.oldest.unit} · ${GROUPE.dec.oldest.date} (${GROUPE.dec.oldest.age} j)` },
   { id:"rejets", perm:"dashboard.read", lib:"Recettes rejetées à corriger", constat:"Recettes rejetées", agit:["revenue.write"], tab:p => a(p, "revenue.read") ? 2 : 20, route:"GET /pilotage/dec-cockpit (RejectedCount)",
-    n:p => GROUPE.dec.rejected, sub:p => "HTL-02 · 30/08 · motif serveur" },
+    n:p => GROUPE.dec.rejected, sub:p => "HTL-01 · 29/08 · motif renvoyé par le serveur" },
   { id:"op-approuver", perm:"dashboard.read", lib:"OP à approuver", constat:"OP en attente d'approbation", agit:["treasury.approve"], tab:p => a(p, "treasury.read") ? 6 : 20, route:"GET /pilotage/dec-cockpit (PendingPaymentOrderCount, PendingPaymentOrderAmount)",
     n:p => GROUPE.dec.opCount, sub:p => `${GROUPE.dec.opAmount} DZD` },
   { id:"op-regler", perm:"treasury.read", sauf:"dashboard.read", lib:"OP à régler", constat:"OP approuvés non réglés", agit:["treasury.write"], tab:6, route:"GET /treasury/payment-orders?status=Approved (lignes)",
     n:p => GROUPE.opRegler.n, sub:p => `${GROUPE.opRegler.montant} DZD` },
   { id:"rec-brouillon", perm:"revenue.read", sauf:"dashboard.read", lib:"Recettes à soumettre", constat:"Recettes en brouillon", agit:["revenue.write"], tab:2, route:"GET /revenue/daily/summary?from=J&to=J (DraftCount)",
     n:p => GROUPE.recettesResume.draft, sub:p => "Saisie du jour non soumise" },
-  { id:"cmd-approuver", perm:"purchasing.approve", lib:"Commandes à approuver", constat:"Commandes en brouillon", agit:["purchasing.approve"], tab:25, route:"GET /purchasing/orders?status=Draft (lignes)",
+  /* Regle unique : `perm` = clef de LECTURE qui affiche la file ; `agit` = clefs d'ACTION qui donnent le verbe (sinon constat). */
+  { id:"cmd-approuver", perm:"purchasing.read", lib:"Commandes à approuver", constat:"Commandes en brouillon", agit:["purchasing.approve"], tab:25, route:"GET /purchasing/orders?status=Draft (lignes)",
     n:p => GROUPE.commandesApprouver, sub:p => "Brouillons fournisseurs" },
-  { id:"cmd-recevoir", perm:"purchasing.receive", lib:"Commandes à réceptionner", constat:"Commandes livrables", agit:["purchasing.receive"], tab:25, route:"GET /purchasing/orders?status=Approved (CanReceive)",
+  { id:"cmd-recevoir", perm:"purchasing.read", lib:"Commandes à réceptionner", constat:"Commandes livrables", agit:["purchasing.receive"], tab:25, route:"GET /purchasing/orders?status=Approved (lignes CanReceive)",
     n:p => GROUPE.commandesRecevoir, sub:p => "Approuvées, réception attendue" },
-  { id:"inventaires", perm:"inventory.read", lib:p => a(p, "inventory.validate") ? "Inventaires à valider" : "Inventaires à compter", constat:"Inventaires ouverts", agit:["inventory.validate","inventory.write"], tab:24, route:"GET /inventory/counts?status=Open (lignes)",
+  { id:"inventaires", perm:"inventory.read", lib:p => a(p, "inventory.validate") ? "Inventaires à valider" : "Inventaires à compter", constat:"Inventaires ouverts", agit:["inventory.validate","inventory.write"], tab:24, route:"GET /inventory/counts?status=Draft (lignes)",
     n:p => GROUPE.inventairesOuverts, sub:p => "Magasin cuisine · ouvert le 31/08" },
-  { id:"absences", perm:"hr.write", lib:"Absences à approuver", constat:"Absences en attente", agit:["hr.write"], tab:22, route:"GET /hr/absences?status=Pending (lignes)",
-    n:p => p.absencesVides ? 0 : GROUPE.absences, sub:p => p.absencesVides ? "Aucune demande en attente" : "Demandes en statut Pending" },
-  { id:"bulletins", perm:"hr.payroll", lib:"Bulletins à finaliser", constat:"Bulletins en brouillon", agit:["hr.payroll"], tab:22, route:"GET /hr/payroll/periods (DraftPayslipCount)",
+  { id:"absences", perm:"hr.read", lib:"Absences à approuver", constat:"Absences en attente", agit:["hr.write"], tab:22, route:"GET /hr/absences?status=Requested (lignes)",
+    n:p => p.absencesVides ? 0 : GROUPE.absences, sub:p => p.absencesVides ? "Aucune demande en attente" : "Demandes en statut Requested" },
+  { id:"bulletins", perm:"hr.read", lib:"Bulletins à finaliser", constat:"Bulletins en brouillon", agit:["hr.payroll"], tab:22, route:"GET /hr/payroll/periods (DraftPayslipCount de la dernière période)",
     n:p => GROUPE.paie.brouillons, sub:p => `${GROUPE.paie.periode} · période en brouillon` },
   { id:"arr-assigner", perm:"lodging.read", scope:"unite", lib:"Arrivées à assigner", constat:"Arrivées non assignées", agit:["lodging.checkin"], tab:30, route:"GET /lodging/arrivals?hotelUnitCode&date (UnassignedCount)",
     n:p => ud(p).arrivees.unassigned, sub:p => "Sans chambre attribuée" },
@@ -611,7 +617,7 @@ const FILES = [
 ];
 
 /* ======================= Etat ======================= */
-const etat = { profil:"direction", theme:"clair", sidebar:"replie", densite:"confortable", etatDonnees:"donnees", uniteChoisie:undefined, kpiCharge:{}, heure:"08:42" };
+const etat = { profil:"direction", theme:"clair", sidebar:"deploye", densite:"confortable", etatDonnees:"donnees", uniteChoisie:undefined, kpiCharge:{}, heure:"08:42" };
 const profil = () => PROFILS[etat.profil];
 
 /* ======================= Composeur (miroir de CockpitComposer.Compose) ======================= */
@@ -636,20 +642,19 @@ function rendreSidebar() {
       ${svg(d.cle, "ic thin")}<span class="nom">${d.nom}</span>${point}<span class="compteur">${o.length}</span>${svg("Chevron", "chevron", "0 0 9 7")}</button></div>`; };
   aside.innerHTML = `
     <p class="etiquette">Modules</p>
-    <button type="button" class="nav-btn" aria-current="page" aria-label="Mon Espace, accueil" title="Accueil — Cockpit (Alt+Origine)">${svg("MonEspace")}<span>Mon Espace</span></button>
+    <button type="button" class="nav-btn" aria-current="page" aria-label="Accueil, cockpit du jour" title="Accueil — cockpit du jour (Alt+Origine). Libellé « Accueil » tant que l'onglet 0 est un cockpit ; « Mon Espace » reste une carte du cockpit (question 3 de navigation-shell.md).">${svg("Pilotage")}<span>Accueil</span></button>
     <div class="recherche">${svg("Recherche")}<input type="search" placeholder="Rechercher un écran…  (Ctrl+K)" aria-label="Rechercher un écran"></div>
     <div class="domaines">${DOMAINES.filter(d => !d.epingle).map(ligne).join("")}</div>
     <div class="epingle">${DOMAINES.filter(d => d.epingle).map(ligne).join("")}</div>
     <div class="session-strip ${etat.etatDonnees === "erreur" ? "erreur" : ""}"><span class="etiquette">Session</span><span class="dot"></span><span>${etat.etatDonnees === "erreur" ? "Créances : le serveur a répondu 503 (aging). Les autres instruments sont à jour." : `Prêt. Connecté en tant que ${prof.utilisateur}.`}</span></div>`;
 }
 
-/* ======================= Rendu : fil d'Ariane (masque sur l'onglet 0 comme aujourd'hui) ======================= */
+/* ======================= Rendu : fil d'Ariane ======================= */
+/* Masque a la racine, comme aujourd'hui (UpdateBreadcrumb) : le cockpit est la racine, il n'a rien
+   au-dessus de lui. Il reapparait des qu'un ecran est ouvert (non rendu dans cette maquette). */
 function rendreAriane() {
   const nav = document.getElementById("ariane");
-  if (etat.sidebar === "replie") { nav.hidden = true; nav.innerHTML = ""; return; }
-  nav.hidden = false;
-  nav.innerHTML = `${svg("MonEspace")}<span class="seg">Mon Espace</span>${svg("Chevron", "sep", "0 0 9 7")}<span class="courant" aria-current="page">Cockpit</span>
-    <span class="badge planned" title="Le fil d'Ariane est masqué sur l'onglet 0 aujourd'hui (UpdateBreadcrumb) ; affiché ici pour situer le cockpit dans le shell.">Comparaison : fil d'Ariane visible</span>`;
+  nav.hidden = true; nav.innerHTML = "";
 }
 
 /* ======================= Rendu : cockpit ======================= */
@@ -672,8 +677,9 @@ function rendreBandeau(prof, comp) {
     bd ? `<span title="GET /lodging/business-date?hotelUnitCode=${unite} · lodging.read">Date métier ${unite} : ${bd.date}${bd.late ? ` <span class="retard">· en retard de ${bd.pending} jour${bd.pending > 1 ? "s" : ""}</span>` : " · à jour"}</span>` : "",
     a(prof, "dashboard.read") ? `<span title="GET /pilotage/dec-cockpit (OldestClosingDelay)">Retard de clôture le plus ancien : <span class="retard">${GROUPE.dec.oldest.unit} · ${GROUPE.dec.oldest.date} (${GROUPE.dec.oldest.age} j)</span></span>` : "",
   ].filter(Boolean).join("<span aria-hidden='true'>·</span>");
+  /* Deux avertissements pilotes par l'etat, jamais par un role : unite du poste (reglage local) ; unite choisie alors que les files sont groupe. */
   const avert = prof.uniteSource === "poste" && unite ? `<div class="avert" role="note">Périmètre : unité du poste (${nomUnite(unite)}), réglage local de ce poste — pas un périmètre de sécurité.</div>`
-    : (a(prof, "dashboard.read") && !a(prof, "treasury.read") && a(prof, "revenue.write")) ? `<div class="avert" role="note">Vous voyez les files de toutes les unités : aucune affectation utilisateur↔unité n'existe. Votre unité de travail est surlignée.</div>` : "";
+    : (a(prof, "dashboard.read") && unite) ? `<div class="avert" role="note">Les files « À décider » et la santé des unités couvrent toutes les unités : aucune affectation utilisateur↔unité n'existe. ${nomUnite(unite)} est surlignée, pas filtrée.</div>` : "";
   return `<div class="carte bandeau">
     <div>
       <h2>Bonjour, ${prof.utilisateur}</h2>
@@ -753,8 +759,8 @@ function rendreFiles(prof, comp) {
 function rendreAlertes(prof, comp) {
   const kpi = a(prof, "dashboard.read");
   const lignes = [];
-  if (kpi && !prof.alertesVides) GROUPE.alertes.filter(al => !comp.unite || !al.unite || al.unite === comp.unite || prof.permissions.includes("*") && false).forEach(al => {
-    if (comp.unite && al.unite && al.unite !== comp.unite) return;
+  /* /kpis/alerts?unitId= : le serveur filtre par unite ; les alertes de groupe (sans unite) restent. */
+  if (kpi && !prof.alertesVides) GROUPE.alertes.filter(al => !comp.unite || !al.unite || al.unite === comp.unite).forEach(al => {
     lignes.push({ sev:al.sev === "Critical" ? "critical" : "watch", sevlib:al.sev === "Critical" ? "Critique" : "À surveiller", titre:`${al.kpi} · ${al.unite ? nomUnite(al.unite) : "Groupe"}`, msg:`${al.valeur} — ${al.seuil}`, meta:al.owner, tab:29, route:"GET /kpis/alerts?from=J-1&to=J" + (comp.unite ? "&unitId" : "") + " · dashboard.read" });
   });
   if (kpi) GROUPE.dec.unites.filter(u => u.attention).forEach(u => lignes.push({ sev:"signal", sevlib:"Signal", titre:`${u.code} · ${u.nom} demande attention`, msg:"Aucune recette hier et journée non clôturée (santé du jour, Cockpit DEC)", meta:"DEC", tab:20, route:"GET /pilotage/dec-cockpit (UnitHealth.NeedsAttention) · dashboard.read" }));

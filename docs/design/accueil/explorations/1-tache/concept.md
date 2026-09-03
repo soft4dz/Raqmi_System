@@ -43,7 +43,7 @@ Ce que ce concept **n'est pas** : ni un portail « Mon Espace » au sens de `nav
 │ (Poste de travail) (Catalogue des modules)                                       ← sélecteur de section │
 │                                                                                                          │
 │ Bonjour, Samir Merzouk                       Unité [ALG-CEN · Hôtel Riadh Alger Centre ▾]  ⟳ Actualiser │
-│ lundi 1 septembre 2026 · date métier 01/09/2026 · à jour                     actualisé à 08:12 (F5)     │
+│ mardi 1 septembre 2026 · date métier 31/08/2026 · 1 journée à clôturer       actualisé à 08:12 (F5)     │
 │ 3 en retard · 8 à faire aujourd'hui · 3 à surveiller          [Mon profil] [Mes préférences] [Ma sécurité]│
 │                                                                                                          │
 │ ● EN RETARD · 3                                                                                          │
@@ -72,9 +72,14 @@ Ce que ce concept **n'est pas** : ni un portail « Mon Espace » au sens de `nav
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Hauteur estimée à 1240 × 760 : sélecteur 34 + bandeau ~120 + bande 1 ~150 + bande 2 ~150 = ~455 px
-avant la bande 3 : **les deux bandes urgentes sont visibles sans défiler**, là où l'accueil actuel
-n'affiche aucune carte de module sans défilement.
+Hauteur mesurée sur la maquette à 1240 × 760 (en-tête 76, marge 24, sélecteur 34, bandeau ≈ 175,
+en-tête de bande 22, carte ≈ 190 avec légende sur deux lignes, espacements 20) : la bande « En
+retard » se termine vers 580 px et la première rangée d'« Aujourd'hui » commence au-dessus du pli
+(≈ 100 px visibles avant le bandeau de session). **Le bandeau et la bande urgente sont entiers sans
+défiler**, là où l'accueil actuel n'affiche aucune carte de module sans défilement à cette taille ;
+à 1080 px de haut, les trois bandes tiennent. La densité Compact (carte 88 px de minimum, padding
+12/10, espacements 14) gagne ≈ 50 px sur les deux premières bandes, pas davantage : elle retire de
+l'air, jamais de texte.
 
 ### 2.2 Sections
 
@@ -206,6 +211,10 @@ Remarques d'honnêteté :
   pas des agrégats ; ils sont présentés comme tels (« 3 commandes ») et jamais additionnés.
 - **`GrandTotal` n'est affiché que sur l'appel `status=Confirmed`** ; le sens de `GrandTotal` sans
   filtre n'est pas documenté et la carte ne le devine pas.
+- **La date métier est celle du serveur** : `BusinessDate` est le lendemain de la dernière journée
+  clôturée (`BusinessDay.Resolve`), `IsLate` vaut `BusinessDate < CalendarDate` et `PendingDays` en
+  est l'écart. Le bandeau affiche donc « date métier 31/08 · 1 journée à clôturer » quand le
+  calendrier dit 01/09 — le client ne compare aucune date, il relaie trois champs.
 - **Le cockpit DEC est groupe-entier** : ses cartes portent l'étiquette « Groupe » même chez un
   directeur d'unité. La clôture *de son unité* vient de `/lodging/business-date` (étiquette code
   d'unité). Deux cartes, deux périmètres nommés, pas de fusion.

@@ -1,0 +1,1281 @@
+<!doctype html>
+<html lang="fr" data-theme="clair" data-densite="confortable">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette de référence — Mon Espace · Mon travail (accueil Raqmi System)</title>
+<!--
+  Maquette de REFERENCE de l'accueil refondu (docs/design/accueil/refonte-accueil.md).
+  Autonome : aucune dependance reseau, aucune police externe. Les couleurs sont les brushes de
+  RaqmiTheme.xaml / ThemePalette.Sombre, clef par clef ; les SVG reprennent les geometries ModuleGroupIcon.* ;
+  l'arbre de navigation est recopie de FunctionalArchitectureCatalog.Tree.cs et les 50 entrees de ModuleCatalog.cs.
+
+  TOUTES LES DONNEES SONT DES EXEMPLES : aucun chiffre ne vient d'un serveur. Chaque carte porte en info-bulle la
+  route et le champ qui l'alimenteraient. Les droits par profil sont ceux de SecuritySeeder (HEAD e7dcaad) ; le
+  profil Reception est un role personnalise a creer (README, decision 8).
+
+  Le composeur JavaScript (composer / projeter) est le miroir de HomeComposer / HomeProjection : une fonction pure
+  des permissions et des reponses, sans aucun seuil ni calcul metier.
+-->
+<style>
+  /* ============ Palette : brushes de RaqmiTheme.xaml (clair) / ThemePalette.Sombre ============ */
+  :root, [data-theme="clair"] {
+    --structure:#071525; --structure-elevated:#0C2135; --header-fg:#FFFFFF; --header-muted:#9FC3DC;
+    --app-bg:#F4F7FA; --surface:#FFFFFF; --surface-subtle:#EEF4F8; --surface-hover:#E4EDF4;
+    --panel-border:#DCE6EF; --field-border:#7A8FA3; --border-strong:#B9CCDD;
+    --text:#0F2337; --text-2:#4A6A87; --text-muted:#5B6C7E; --text-label:#475569; --placeholder:#5C7188;
+    --accent:#0AA3AD; --accent-hover:#0DB6C1; --accent-pressed:#088790;
+    --accent-action:#07767D; --accent-action-hover:#08838B; --accent-action-fg:#FFFFFF;
+    --accent-soft:#E1F4F5; --accent-selection:rgba(10,163,173,.18);
+    --primary:#073B78; --secondary:#145CAB; --danger:#C0392B; --danger-soft:#FBECEA; --danger-border:#EFC9C4;
+    --focus:#073B78; --focus-on-filled:#FFFFFF; --focus-on-dark:#FFFFFF;
+    --disabled-bg:#E5EBF1; --disabled-fg:#576C82; --disabled-border:#DDE5EC;
+    --module-active:rgba(10,163,173,.10);
+    --row-hover:#F0F6FA; --row-alt:#FAFCFE; --grid-header-fg:#5B7591;
+    --shadow:rgba(7,21,37,.07);
+    --mat-planned-bg:#E8EEF4; --mat-planned-fg:#46617B; --mat-planned-accent:#7798B5;
+    --mat-preview-bg:#FBEBC8; --mat-preview-fg:#8A5A08; --mat-preview-accent:#BF8B16;
+    --mat-functional-bg:#DDF2F4; --mat-functional-fg:#096B73; --mat-functional-accent:#0AA3AD;
+    --mat-ready-bg:#DCF3E5; --mat-ready-fg:#14713C; --mat-ready-accent:#1F9D57;
+    --status-available-bg:#DCF3E5; --status-available-fg:#14713C;
+    --status-planned-bg:#E8EEF4; --status-planned-fg:#46617B;
+    --status-draft-bg:#E2E8F0; --status-draft-fg:#475569;
+    --status-submitted-bg:#FCEFC7; --status-submitted-fg:#92600A;
+    --status-validated-bg:#DBF2E3; --status-validated-fg:#187A41;
+    --status-rejected-bg:#FBE3E1; --status-rejected-fg:#B3261E;
+    --progress-available:#1F9D57; --progress-planned:#7798B5;
+  }
+  [data-theme="sombre"] {
+    --structure:#050F1C; --structure-elevated:#0C1B2B; --header-fg:#EAF2F9; --header-muted:#8FB0CA;
+    --app-bg:#0E1826; --surface:#152233; --surface-subtle:#1B2B3E; --surface-hover:#22344A;
+    --panel-border:#26374D; --field-border:#62748D; --border-strong:#4B6E93;
+    --text:#E6EEF7; --text-2:#AFC3D6; --text-muted:#98AFC6; --text-label:#C2D2E1; --placeholder:#8DA4BC;
+    --accent:#22C4CE; --accent-hover:#3ED5DE; --accent-pressed:#16A8B1;
+    --accent-action:#2FCBD6; --accent-action-hover:#4CDAE3; --accent-action-fg:#062227;
+    --accent-soft:#0E3B40; --accent-selection:rgba(34,196,206,.24);
+    --primary:#5B9BE8; --secondary:#6FAEF0; --danger:#F4776A; --danger-soft:#3A1A17; --danger-border:#5E2D28;
+    --focus:#7FB6F5; --focus-on-filled:#08222A; --focus-on-dark:#EAF2F9;
+    --disabled-bg:#1C2938; --disabled-fg:#8195AB; --disabled-border:#26374D;
+    --module-active:rgba(34,196,206,.15);
+    --row-hover:#1B2B3E; --row-alt:#182637; --grid-header-fg:#9CB3C9;
+    --shadow:rgba(0,0,0,.35);
+    --mat-planned-bg:#212F3F; --mat-planned-fg:#A8BCD0; --mat-planned-accent:#506D91;
+    --mat-preview-bg:#3A2D12; --mat-preview-fg:#EFC15C; --mat-preview-accent:#E5B23A;
+    --mat-functional-bg:#0E3439; --mat-functional-fg:#4FD3DC; --mat-functional-accent:#22C4CE;
+    --mat-ready-bg:#11321F; --mat-ready-fg:#68D397; --mat-ready-accent:#3FBF74;
+    --status-available-bg:#11321F; --status-available-fg:#68D397;
+    --status-planned-bg:#212F3F; --status-planned-fg:#A8BCD0;
+    --status-draft-bg:#26313E; --status-draft-fg:#C4D0DC;
+    --status-submitted-bg:#3B2E11; --status-submitted-fg:#F5C761;
+    --status-validated-bg:#11321F; --status-validated-fg:#68D397;
+    --status-rejected-bg:#3A1A19; --status-rejected-fg:#F58C82;
+    --progress-available:#3FBF74; --progress-planned:#506D91;
+  }
+
+  /* ============ Base ============ */
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; }
+  body { font-family: Manrope, "Noto Kufi Arabic", "Segoe UI", sans-serif; font-size:13px; color:var(--text); background:var(--app-bg); display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+  button { font:inherit; color:inherit; cursor:pointer; border:0; background:none; }
+  button:focus-visible, [tabindex]:focus-visible, input:focus-visible, select:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+  svg.ic { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+  svg.ic.thin { stroke-width:1.4; }
+  [hidden] { display:none !important; }
+  .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+
+  /* ============ Barre de la maquette (hors produit) ============ */
+  .maquette-bar { background:var(--structure-elevated); color:var(--header-fg); font-size:12px; padding:8px 24px; display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; border-bottom:1px solid rgba(255,255,255,.08); }
+  .maquette-bar strong { color:var(--header-muted); font-weight:600; letter-spacing:.02em; text-transform:uppercase; font-size:10.5px; }
+  .maquette-bar .grp { display:flex; align-items:center; gap:6px; }
+  .maquette-bar .seg { display:inline-flex; border:1px solid rgba(255,255,255,.22); border-radius:15px; overflow:hidden; }
+  .maquette-bar .seg button { padding:5px 11px; color:var(--header-fg); font-weight:600; font-size:12px; }
+  .maquette-bar .seg button[aria-pressed="true"] { background:var(--accent); color:#062227; }
+  .maquette-bar .note { margin-left:auto; color:var(--header-muted); }
+
+  /* ============ En-tete (76 px, StructureBrush) ============ */
+  header.entete { height:76px; flex:none; background:var(--structure); color:var(--header-fg); display:flex; align-items:center; padding:0 24px; gap:12px; }
+  .marque { width:42px; height:42px; border-radius:11px; background:rgba(255,255,255,.10); display:grid; place-items:center; font-weight:600; font-size:20px; }
+  .entete h1 { font-size:21px; font-weight:600; margin:0; line-height:1.15; }
+  .entete .signature { font-size:12px; color:var(--header-muted); }
+  .entete .session { margin-left:auto; display:flex; align-items:center; gap:14px; font-size:12px; color:var(--header-muted); }
+  .entete .session b { color:var(--header-fg); font-weight:600; }
+  .entete .ghost { border:1px solid rgba(255,255,255,.25); border-radius:8px; padding:6px 10px; color:var(--header-fg); font-size:12px; display:inline-flex; gap:8px; align-items:center; }
+  .entete .ghost:focus-visible { outline-color:var(--focus-on-dark); }
+
+  /* ============ Corps : barre laterale + contenu ============ */
+  .app { flex:1; display:grid; grid-template-columns:248px 1fr; grid-template-rows:minmax(0, 1fr); gap:20px; padding:24px 24px 0; min-height:0; }
+  .app.racine { grid-template-columns:1fr; }            /* SyncSidebarToTab : barre repliee a 0 px sur l'onglet 0 */
+  .app.racine aside { display:none; }
+  .carte { background:var(--surface); border:1px solid var(--panel-border); border-radius:10px; }
+  aside { padding:18px 14px; display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+  .etiquette { font-size:11px; font-weight:600; color:var(--text-muted); margin:0 0 10px 14px; }
+  .nav-btn { width:100%; height:40px; display:flex; align-items:center; gap:10px; padding:0 10px 0 14px; border-radius:6px; color:var(--text-2); font-size:13px; text-align:left; position:relative; }
+  .nav-btn:hover { background:var(--surface-subtle); }
+  .nav-btn[aria-current="page"] { background:var(--module-active); color:var(--text); font-weight:600; }
+  .nav-btn[aria-current="page"]::before { content:""; position:absolute; left:0; top:9px; bottom:9px; width:3px; border-radius:1.5px; background:var(--accent); }
+  .recherche { position:relative; margin-top:12px; }
+  .recherche input { width:100%; min-height:34px; padding:0 32px; border:1px solid var(--field-border); border-radius:8px; background:var(--surface); color:var(--text); font:inherit; }
+  .recherche input::placeholder { color:var(--placeholder); }
+  .recherche svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--placeholder); }
+  .domaines { margin-top:14px; overflow:auto; flex:1; min-height:0; padding-right:4px; }
+  .domaine { margin-bottom:2px; }
+  .dom-tete { width:100%; height:36px; display:grid; grid-template-columns:auto 1fr auto auto auto; align-items:center; padding:0 10px; border-radius:6px; color:var(--text); font-size:12.5px; font-weight:600; text-align:left; }
+  [data-densite="compact"] .dom-tete { height:32px; }
+  .dom-tete:hover { background:var(--surface-subtle); }
+  .dom-tete svg.ic { color:var(--text-muted); margin-right:10px; }
+  .dom-tete .nom { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dom-tete .compteur { background:var(--surface-subtle); color:var(--text-2); font-size:10.5px; font-weight:400; border-radius:8px; padding:1px 7px; margin-left:8px; }
+  .dom-tete .chevron { width:9px; height:7px; margin-left:8px; color:var(--text-muted); transition:transform .12s; transform:rotate(-90deg); }
+  .dom-tete[aria-expanded="true"] .chevron { transform:rotate(0); }
+  .point { width:7px; height:7px; border-radius:50%; margin-left:8px; display:inline-block; }
+  .point.preview { background:var(--mat-preview-accent); }
+  .ecrans { margin:2px 0 8px; }
+  .ecrans .nav-btn { height:34px; margin-left:8px; width:calc(100% - 8px); font-size:12.5px; margin-bottom:2px; }
+  [data-densite="compact"] .ecrans .nav-btn { height:30px; }
+  .epingle { border-top:1px solid var(--panel-border); margin-top:10px; padding-top:8px; }
+  .epingle:empty { display:none; }
+
+  /* ============ Bandeau de session (toutes les vues) ============ */
+  .session-zone { padding:14px 24px 24px; flex:none; }
+  .busy { height:4px; border-radius:2px; background:transparent; overflow:hidden; }
+  .busy.actif { background:var(--surface-hover); }
+  .busy.actif::after { content:""; display:block; height:100%; width:30%; background:var(--accent-action); animation:glisse 1.2s linear infinite; }
+  @keyframes glisse { from { transform:translateX(-100%); } to { transform:translateX(340%); } }
+  .session-strip { border-top:1px solid var(--panel-border); padding:10px 8px 8px; display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-2); border-radius:0 0 6px 6px; transition:background .3s; }
+  .session-strip .etiquette { margin:0 4px 0 0; }
+  .session-strip .dot { width:7px; height:7px; border-radius:50%; background:var(--accent); }
+  .session-strip.erreur .dot { background:var(--danger); }
+  .session-strip.erreur span:last-child { color:var(--danger); }
+  .session-strip.flash-info { background:var(--accent-soft); }
+  .session-strip.flash-erreur { background:var(--danger-soft); }
+
+  /* ============ Fil d'Ariane (masque sur l'onglet 0) ============ */
+  .ariane { height:32px; display:flex; align-items:center; gap:6px; font-size:12.5px; margin-bottom:12px; flex:none; }
+  .ariane svg.ic { color:var(--text-2); }
+  .ariane button { color:var(--text-2); font-weight:600; padding:3px 6px; border-radius:5px; }
+  .ariane button:hover { background:var(--surface-subtle); color:var(--text); }
+  .ariane .courant { color:var(--text); font-weight:600; padding:3px 6px; }
+  .ariane .sep { width:9px; height:7px; color:var(--text-muted); transform:rotate(-90deg); }
+  .ariane .badge { margin-left:auto; }
+
+  /* ============ Badges et pastilles (Status* / Maturity*) ============ */
+  .badge { display:inline-flex; align-items:center; border-radius:9px; padding:2.5px 9px; font-size:10.5px; font-weight:600; white-space:nowrap; }
+  .badge.planned { background:var(--mat-planned-bg); color:var(--mat-planned-fg); }
+  .badge.preview { background:var(--mat-preview-bg); color:var(--mat-preview-fg); }
+  .badge.functional { background:var(--mat-functional-bg); color:var(--mat-functional-fg); }
+  .badge.ready { background:var(--mat-ready-bg); color:var(--mat-ready-fg); }
+  .badge.dispo { background:var(--status-available-bg); color:var(--status-available-fg); }
+  .badge.planifie { background:var(--status-planned-bg); color:var(--status-planned-fg); }
+  .badge.draft { background:var(--status-draft-bg); color:var(--status-draft-fg); }
+  .badge.soumise { background:var(--status-submitted-bg); color:var(--status-submitted-fg); }
+  .badge.validee { background:var(--status-validated-bg); color:var(--status-validated-fg); }
+  .badge.rejetee { background:var(--status-rejected-bg); color:var(--status-rejected-fg); }
+  .badge.neutre { background:var(--surface-subtle); color:var(--text-2); }
+
+  /* ============ Boutons de la charte ============ */
+  .btn { min-height:36px; padding:7px 15px; border-radius:6px; font-weight:600; font-size:13px; display:inline-flex; align-items:center; gap:8px; }
+  .btn.secondaire { background:var(--surface); border:1px solid var(--panel-border); color:var(--primary); }
+  .btn.secondaire:hover { background:var(--surface-subtle); border-color:var(--border-strong); }
+  .btn.primaire { background:var(--accent-action); color:var(--accent-action-fg); padding:7px 18px; }
+  .btn.primaire:hover { background:var(--accent-action-hover); }
+  .btn.primaire:focus-visible { outline-color:var(--focus-on-filled); outline-offset:-3px; }
+  .btn.fantome { min-height:34px; padding:6px 12px; color:var(--secondary); }
+  .btn.fantome:hover { background:var(--surface-subtle); }
+  .btn:disabled { color:var(--disabled-fg); background:var(--disabled-bg); border:1px solid var(--disabled-border); cursor:default; }
+  .puce { border:1px solid var(--panel-border); background:var(--surface); border-radius:15px; padding:6px 14px; font-size:12.5px; font-weight:600; color:var(--text-2); display:inline-flex; gap:8px; align-items:center; }
+  .puce:hover { background:var(--surface-subtle); border-color:var(--border-strong); }
+  .puce[aria-pressed="true"] { background:var(--accent-action); border-color:var(--accent-action); color:var(--accent-action-fg); }
+  .puce[aria-pressed="true"]:focus-visible { outline-color:var(--focus-on-filled); outline-offset:-3px; }
+  .puce.compacte { padding:4px 11px; font-size:11.5px; }
+  .puce .attenue { font-weight:400; color:var(--text-muted); }
+  .puce[aria-pressed="true"] .attenue { color:var(--accent-action-fg); opacity:.85; }
+
+  /* ============ Ecran (contenu de l'onglet) ============ */
+  main { min-width:0; min-height:0; display:flex; flex-direction:column; }
+  #ecran { flex:1; min-height:0; overflow:auto; }           /* = ScrollViewer de l'onglet */
+  .accueil { display:flex; flex-direction:column; gap:20px; padding:0 6px 24px 0; }
+  [data-densite="compact"] .accueil { gap:14px; }
+
+  /* Onglets de section : styles SectionTabControl / SectionTabItem (TreasuryView.xaml:11-87) */
+  .sections { display:flex; border-bottom:1px solid var(--panel-border); align-items:flex-end; }
+  .sections .onglet { padding:9px 18px; font-size:13px; font-weight:600; color:var(--text-2); border-radius:6px 6px 0 0; position:relative; display:inline-flex; gap:8px; align-items:center; }
+  .sections .onglet:hover { background:var(--surface-subtle); }
+  .sections .onglet[aria-selected="true"] { color:var(--primary); }
+  .sections .onglet[aria-selected="true"]::after { content:""; position:absolute; left:0; right:0; bottom:-1px; height:2.5px; background:var(--accent); }
+  .sections .exemple { margin-left:auto; font-size:11.5px; color:var(--text-muted); padding-bottom:8px; }
+
+  /* Bandeau */
+  .bandeau { padding:22px 24px 18px; display:grid; grid-template-columns:1fr auto; gap:16px 32px; align-items:start; }
+  [data-densite="compact"] .bandeau { padding:16px 20px 14px; }
+  .bandeau h2 { font-size:26px; font-weight:600; margin:0; line-height:1.15; }
+  .bandeau .date { font-size:13px; color:var(--text-2); margin-top:7px; }
+  .bandeau .synthese { font-size:12.5px; color:var(--text-2); margin-top:8px; }
+  .bandeau .synthese b { color:var(--text); font-weight:600; }
+  .bandeau .liens { display:flex; gap:4px; margin-top:12px; margin-left:-12px; flex-wrap:wrap; }
+  .bandeau .droite { display:flex; flex-direction:column; gap:10px; min-width:320px; }
+  .bandeau dl { margin:0; display:grid; grid-template-columns:auto 1fr; gap:6px 14px; align-items:center; }
+  .bandeau dt { font-size:11px; font-weight:600; color:var(--text-label); }
+  .bandeau dd { margin:0; font-size:12.5px; color:var(--text); font-weight:600; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .bandeau dd .muet { color:var(--text-muted); font-weight:400; }
+  .bandeau .actions { display:flex; align-items:center; gap:12px; justify-content:flex-end; }
+  .bandeau .actualise { font-size:11.5px; color:var(--text-muted); }
+
+  /* Encarts d'avertissement (WarningBanner promu de TreasuryView) */
+  .avert { background:var(--status-submitted-bg); border:1px solid var(--status-submitted-fg); border-radius:8px; padding:9px 14px; color:var(--status-submitted-fg); font-size:13px; font-weight:600; display:flex; gap:10px; align-items:center; }
+  .avert svg.ic { color:var(--status-submitted-fg); }
+  .avert .lien { margin-left:auto; color:var(--status-submitted-fg); text-decoration:underline; font-weight:600; white-space:nowrap; }
+
+  /* Bandes */
+  .bande-tete { display:flex; align-items:center; gap:8px; font-size:11px; font-weight:600; color:var(--text-muted); margin:0 0 10px; letter-spacing:.02em; }
+  .bande-tete .pt { width:8px; height:8px; border-radius:50%; }
+  .bande-tete .nb { border-radius:8px; padding:1px 7px; font-size:10.5px; font-weight:600; }
+  .bande-tete .suffixe { font-weight:400; }
+  .bande-tete.attenue { margin-bottom:0; }
+  .bande.retard .pt { background:var(--status-submitted-fg); } .bande.retard .nb { background:var(--status-submitted-bg); color:var(--status-submitted-fg); }
+  .bande.jour .pt { background:var(--accent); } .bande.jour .nb { background:var(--surface-subtle); color:var(--text-2); }
+  .bande.veille .pt { background:var(--text-muted); } .bande.veille .nb { background:var(--status-draft-bg); color:var(--status-draft-fg); }
+  .files { display:grid; grid-template-columns:repeat(auto-fill, minmax(222px, 1fr)); gap:12px; }
+  [data-densite="compact"] .files { gap:10px; }
+  .file { padding:16px 14px 14px; min-height:104px; display:flex; flex-direction:column; gap:5px; }
+  [data-densite="compact"] .file { padding:12px 12px 10px; min-height:88px; }
+  .file .tete { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--text-muted); font-weight:600; }
+  .file .tete svg { color:var(--text-muted); }
+  .file .tete .cible-nom { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .file .perimetre { margin-left:auto; background:var(--surface-subtle); color:var(--text-2); border-radius:8px; padding:1px 7px; font-size:10.5px; font-weight:600; white-space:nowrap; }
+  .file.suivi .perimetre, .file.zero .perimetre { background:var(--surface); }
+  .file .compte { font-size:27px; font-weight:600; line-height:1.15; margin-top:6px; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .file .compte .montant { font-size:13px; font-weight:600; color:var(--text-2); }
+  .file .libelle { font-size:13.5px; font-weight:600; }
+  .file .legende { font-size:11.5px; color:var(--text-muted); }
+  .file .cta { margin-top:auto; padding-top:10px; display:flex; align-items:center; gap:8px; }
+  .btn-file { min-height:32px; padding:5px 12px; border-radius:6px; font-weight:600; font-size:12.5px; display:inline-flex; align-items:center; gap:6px; }
+  .btn-file.act { background:var(--surface); border:1px solid var(--panel-border); color:var(--primary); }
+  .btn-file.act:hover { background:var(--surface-subtle); border-color:var(--border-strong); }
+  .btn-file.voir { color:var(--secondary); padding-left:8px; }
+  .btn-file.voir:hover { background:var(--surface-hover); }
+  .btn-file:disabled { color:var(--disabled-fg); background:var(--disabled-bg); border:1px solid var(--disabled-border); cursor:default; }
+  .btn-file .cadenas { width:12px; height:12px; stroke-width:1.3; }
+  .file.suivi, .file.zero { background:var(--surface-subtle); }
+  .file.suivi .compte, .file.zero .compte { color:var(--text-2); }
+  .file.indispo .compte { color:var(--text-muted); }
+  .squelette { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+  .squelette span { display:block; height:10px; border-radius:5px; background:var(--surface-subtle); animation:pulse 1.2s ease-in-out infinite; }
+  .squelette span:nth-child(1) { width:34%; height:22px; } .squelette span:nth-child(2) { width:70%; } .squelette span:nth-child(3) { width:52%; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.55; } }
+  .vide-bande { border:1px dashed var(--panel-border); border-radius:10px; padding:16px; display:flex; flex-direction:column; align-items:center; gap:2px; pointer-events:none; }
+  .vide-bande svg { width:28px; height:28px; stroke-width:1.3; color:var(--text-muted); margin-bottom:4px; }
+  .vide-bande .titre { font-size:14px; font-weight:600; color:var(--text-2); }
+  .vide-bande .indice { font-size:12px; color:var(--text-muted); text-align:center; max-width:640px; }
+
+  .section-titre { font-size:11px; font-weight:600; color:var(--text-muted); margin:0 0 10px; letter-spacing:.02em; }
+  .raccourcis { display:flex; gap:8px; flex-wrap:wrap; }
+  .produit { padding:18px 22px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .produit .texte { flex:1; min-width:280px; }
+  .produit .texte .t { font-size:13.5px; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .produit .texte .t svg { color:var(--accent-pressed); }
+  .produit .texte .s { font-size:12.5px; color:var(--text-2); margin-top:4px; display:flex; flex-wrap:wrap; gap:4px 10px; align-items:center; }
+  .produit .texte .c { font-size:11.5px; color:var(--text-muted); margin-top:4px; }
+  .produit .mini { display:flex; gap:3px; height:8px; width:220px; }
+  .produit .mini span { border-radius:4px; }
+  .mdot { width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:5px; vertical-align:middle; }
+
+  /* ============ Section Catalogue (ModuleCatalogView) ============ */
+  .catalogue-sec { display:flex; flex-direction:column; gap:18px; }
+  .carte-p { padding:22px 18px; }
+  .avancement { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-top:14px; }
+  .stat .lib { display:flex; align-items:center; gap:7px; font-size:11.5px; font-weight:600; color:var(--text-2); }
+  .stat .val { font-size:27px; font-weight:600; margin:2px 0 0 15px; }
+  .stat .pt { width:8px; height:8px; border-radius:50%; }
+  .barre { display:flex; gap:3px; height:10px; margin-top:20px; }
+  .barre span { border-radius:5px; }
+  .legende-barre { font-size:12.5px; color:var(--text-2); margin-top:12px; }
+  .legende-barre + .legende-barre { margin-top:6px; }
+  .tete-carte { display:flex; align-items:center; }
+  .tete-carte .droite { margin-left:auto; font-size:12px; font-weight:600; color:var(--text-muted); }
+  .recherche-cat { position:relative; max-width:460px; }
+  .recherche-cat input { width:100%; min-height:36px; padding:0 34px; border:1px solid var(--field-border); border-radius:6px; background:var(--surface); color:var(--text); font:inherit; }
+  .recherche-cat input::placeholder { color:var(--placeholder); }
+  .recherche-cat svg { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--placeholder); }
+  .recherche-cat .effacer { position:absolute; right:6px; top:50%; transform:translateY(-50%); width:24px; height:24px; border-radius:12px; display:grid; place-items:center; color:var(--text-muted); }
+  .recherche-cat .effacer:hover { background:var(--surface-subtle); }
+  .filtres-ligne { display:flex; flex-wrap:wrap; gap:0 8px; align-items:center; }
+  .filtres-ligne .lib { font-size:11px; font-weight:600; color:var(--text-muted); margin:0 10px 8px 0; }
+  .filtres-ligne .puce { margin:0 0 8px 0; }
+  .resultats { padding:12px 16px 8px; }
+  .res-ligne { width:100%; display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; min-height:34px; padding:0 10px; border-radius:6px; font-size:12.5px; text-align:left; color:var(--text); }
+  .res-ligne:hover { background:var(--surface-subtle); }
+  .res-ligne svg.ic { color:var(--text-muted); }
+  .res-ligne .chemin { color:var(--text-2); }
+  .res-ligne .chemin b { color:var(--text); font-weight:600; }
+  .res-ligne .droite { display:flex; align-items:center; gap:8px; }
+  .res-ligne .cadenas { width:12px; height:12px; color:var(--text-muted); stroke-width:1.3; }
+  .res-ligne.inerte { cursor:default; }
+  .res-ligne.inerte:hover { background:transparent; }
+  .groupe-tete { display:grid; grid-template-columns:auto auto auto auto 1fr; align-items:center; gap:10px; margin:14px 0 12px; }
+  .groupe-tete svg.ic { color:var(--text-muted); }
+  .groupe-tete .nom { font-size:13.5px; font-weight:600; }
+  .groupe-tete .compteur { background:var(--surface-subtle); color:var(--text-2); font-size:11px; border-radius:9px; padding:2px 9px; }
+  .groupe-tete .filet { border-top:1px solid var(--panel-border); margin:0 4px 0 4px; }
+  .groupe-vide { font-size:12px; color:var(--text-muted); margin:0 0 6px 26px; }
+  .cartes-modules { display:flex; gap:14px; flex-wrap:wrap; }
+  .carte-module { width:224px; height:176px; padding:16px 14px; display:flex; flex-direction:column; gap:6px; box-shadow:0 2px 10px var(--shadow); position:relative; text-align:left; transition:transform .12s, border-color .12s; }
+  .carte-module:hover { border-color:var(--accent); transform:translateY(-2px); }
+  .carte-module:disabled { background:var(--surface-subtle); box-shadow:none; cursor:default; transform:none; border-color:var(--panel-border); }
+  .carte-module:disabled.verrou { background:var(--disabled-bg); }
+  .carte-module .ico { width:34px; height:34px; border-radius:9px; background:var(--accent-soft); display:grid; place-items:center; color:var(--accent-pressed); }
+  .carte-module:disabled .ico { background:var(--surface); color:var(--text-muted); }
+  .carte-module .haut { display:flex; justify-content:space-between; align-items:flex-start; }
+  .carte-module .haut .prio { font-size:10.5px; font-weight:600; color:var(--text-muted); margin-top:3px; display:flex; gap:6px; align-items:center; }
+  .carte-module .haut .cadenas { width:12px; height:12px; stroke-width:1.3; color:var(--text-muted); }
+  .carte-module .t { font-size:13.5px; font-weight:600; margin-top:4px; line-height:1.25; }
+  .carte-module .d { font-size:11.5px; color:var(--text-muted); flex:1; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .carte-module .pied { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .carte-module .module { font-size:10.5px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cat-vide { font-size:13px; color:var(--text-muted); margin:18px 2px 10px; }
+
+  /* ============ Ecran cible (stub du shell) ============ */
+  .ecran { padding:20px; display:flex; flex-direction:column; gap:16px; }
+  .ecran-tete { display:flex; align-items:flex-start; gap:12px; }
+  .ecran-tete h2 { font-size:21px; font-weight:600; margin:0; }
+  .ecran-tete .sous { font-size:12.5px; color:var(--text-2); margin-top:4px; }
+  .ecran-tete .actions { margin-left:auto; display:flex; gap:8px; }
+  .onglets { display:flex; border-bottom:1px solid var(--panel-border); }
+  .onglet { padding:9px 18px; font-size:13px; font-weight:600; color:var(--text-2); border-radius:6px 6px 0 0; position:relative; }
+  .onglet:hover { background:var(--surface-subtle); }
+  .onglet[aria-selected="true"] { color:var(--primary); }
+  .onglet[aria-selected="true"]::after { content:""; position:absolute; left:0; right:0; bottom:-1px; height:2.5px; background:var(--accent); }
+  .filtres { background:var(--surface-subtle); border:1px solid var(--panel-border); border-radius:8px; padding:12px 16px; display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap; }
+  .champ { display:flex; flex-direction:column; gap:6px; }
+  .champ label { font-size:12px; font-weight:600; color:var(--text-label); }
+  .champ input { min-height:34px; padding:0 10px; border:1px solid var(--field-border); border-radius:6px; background:var(--surface); color:var(--text); font:inherit; width:180px; }
+  .grille { border:1px solid var(--panel-border); border-radius:8px; overflow:hidden; position:relative; min-height:230px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; font-weight:600; color:var(--grid-header-fg); font-size:12px; height:40px; padding:0 12px; border-bottom:1px solid var(--panel-border); background:var(--surface); }
+  td { height:40px; padding:0 12px; border-bottom:1px solid var(--panel-border); }
+  [data-densite="compact"] th { height:34px; } [data-densite="compact"] td { height:32px; }
+  tr:nth-child(even) td { background:var(--row-alt); }
+  tbody tr:hover td { background:var(--row-hover); }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .vide { position:absolute; inset:40px 0 0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; pointer-events:none; }
+  .vide svg { width:32px; height:32px; stroke-width:1.3; color:var(--text-muted); margin-bottom:6px; }
+  .vide .titre { font-size:14px; font-weight:600; color:var(--text-2); }
+  .vide .indice { font-size:12px; color:var(--text-muted); text-align:center; }
+
+  @media (max-width: 980px) { .app { grid-template-columns:220px 1fr; } .avancement { grid-template-columns:repeat(2,1fr); } .bandeau { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<div class="maquette-bar" role="region" aria-label="Commandes de la maquette">
+  <strong>Maquette de référence</strong>
+  <div class="grp"><span>Profil</span>
+    <span class="seg" role="group" aria-label="Profil">
+      <button type="button" data-profil="reception" aria-pressed="true">Réception</button>
+      <button type="button" data-profil="unit" aria-pressed="false">Directeur d'unité</button>
+      <button type="button" data-profil="direction" aria-pressed="false">Direction générale</button>
+      <button type="button" data-profil="caisse" aria-pressed="false">Caisse</button>
+      <button type="button" data-profil="rh" aria-pressed="false">RH</button>
+      <button type="button" data-profil="admin" aria-pressed="false">Administrateur</button>
+      <button type="button" data-profil="lecture" aria-pressed="false">Lecture seule</button>
+    </span>
+  </div>
+  <div class="grp"><span>Thème</span>
+    <span class="seg" role="group" aria-label="Thème">
+      <button type="button" data-theme="clair" aria-pressed="true">Clair</button>
+      <button type="button" data-theme="sombre" aria-pressed="false">Sombre</button>
+    </span>
+  </div>
+  <div class="grp"><span>Densité</span>
+    <span class="seg" role="group" aria-label="Densité">
+      <button type="button" data-densite="confortable" aria-pressed="true">Confortable</button>
+      <button type="button" data-densite="compact" aria-pressed="false">Compact</button>
+    </span>
+  </div>
+  <div class="grp"><span>Unité du poste</span>
+    <span class="seg" role="group" aria-label="Unité du poste">
+      <button type="button" data-unite="oui" aria-pressed="true">Réglée (ALG-CEN)</button>
+      <button type="button" data-unite="non" aria-pressed="false">Non réglée</button>
+    </span>
+  </div>
+  <div class="grp"><span>Simulation</span>
+    <span class="seg" role="group" aria-label="Simulation des données">
+      <button type="button" data-sim="charge" aria-pressed="true">Chargé</button>
+      <button type="button" data-sim="chargement" aria-pressed="false">Chargement</button>
+      <button type="button" data-sim="erreur" aria-pressed="false">Deux sources en erreur</button>
+      <button type="button" data-sim="vide" aria-pressed="false">Rien en attente</button>
+    </span>
+  </div>
+  <span class="note">Données fictives, annotées « exemple » · voir refonte-accueil.md</span>
+</div>
+
+<header class="entete">
+  <div class="marque" aria-hidden="true">Q</div>
+  <div>
+    <h1>Raqmi System</h1>
+    <div class="signature">Un système. Toute votre entreprise.</div>
+  </div>
+  <div class="session">
+    <span id="entete-session"></span>
+    <button type="button" class="ghost" title="Basculer l'apparence (réglage par poste)" id="btn-theme">
+      <svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8,2.2 A5.8,5.8 0 1 0 8.01,2.2 M8,2.2 V13.8 A5.8,5.8 0 0 0 8,2.2 Z"/></svg>
+      <span id="lbl-theme">Sombre</span>
+    </button>
+    <button type="button" class="ghost" title="Changer mon mot de passe (boîte existante)">Mot de passe</button>
+    <button type="button" class="ghost" title="Raccourcis clavier (F1)">F1</button>
+    <button type="button" class="ghost" title="Déconnexion (ResetState des vues)">Déconnexion</button>
+  </div>
+</header>
+
+<div class="app racine" id="app">
+  <aside class="carte" id="sidebar" aria-label="Modules"></aside>
+  <main>
+    <nav class="ariane" id="ariane" aria-label="Fil d'Ariane" hidden></nav>
+    <section id="ecran"></section>
+  </main>
+</div>
+
+<div class="session-zone">
+  <div class="busy" id="busy" aria-hidden="true"></div>
+  <div class="session-strip" id="session-strip" role="status" aria-live="polite">
+    <span class="etiquette">Session</span><span class="dot"></span><span id="session-texte">Prêt.</span>
+  </div>
+</div>
+
+<script>
+/* ======================= Icones : geometries ModuleGroupIcon.* du theme + utilitaires au trait ======================= */
+const ICONES = {
+  MonEspace: "M8,1.8 A6.2,6.2 0 1 0 8.01,1.8 M8,5 A2,2 0 1 0 8.01,5 M4.3,12.6 A4.2,4.2 0 0 1 11.7,12.6",
+  Administration: "M5.6,1.8 H10.4 V5.4 H5.6 Z M8,5.4 V8 M3.6,8 H12.4 M3.6,8 V10.4 M12.4,8 V10.4 M1.4,10.4 H5.8 V14.2 H1.4 Z M10.2,10.4 H14.6 V14.2 H10.2 Z",
+  Finance: "M1.5,4.5 H14.5 V11.5 H1.5 Z M8,5.9 A2.1,2.1 0 1 0 8.01,5.9 M3.9,8 H4.1 M11.9,8 H12.1",
+  Commercial: "M1.5,3.4 H14.5 V12.6 H1.5 Z M5.2,6 A1.5,1.5 0 1 0 5.21,6 M3.4,11.2 A1.9,1.9 0 0 1 7,11.2 M9,6.6 H12.2 M9,9.4 H12.2",
+  Facturation: "M3,1.8 H13 V14.2 L10.5,12.7 L8,14.2 L5.5,12.7 L3,14.2 Z M5.6,5.4 H10.4 M5.6,8.2 H8.8",
+  Hebergement: "M1.6,3.2 V13.6 M1.6,6.4 H12.8 A1.6,1.6 0 0 1 14.4,8 V13.6 M1.6,11.2 H14.4 M5.2,6.4 V11.2",
+  Revenue: "M1.8,12.4 L6.2,8 L9.2,11 L14.2,6 M10.6,6 H14.2 V9.6",
+  Housekeeping: "M13.6,2.4 L8.6,7.4 M7.75,6.55 L3.1,8.7 L7.3,12.9 L9.45,8.25 Z M8.6,7.4 L5.2,10.8",
+  Evenementiel: "M2.2,3.6 H13.8 V14 H2.2 Z M2.2,7 H13.8 M5.4,1.8 V4.8 M10.6,1.8 V4.8 M5,10.4 H8.4",
+  Restauration: "M2.6,11.2 A5.4,5.4 0 0 1 13.4,11.2 M8,4 V5.8 M1.4,11.2 H14.6 M3.6,13.6 H12.4",
+  Stocks: "M1.6,8.4 H8 V14.2 H1.6 Z M8,8.4 H14.4 V14.2 H8 Z M4.8,2.6 H11.2 V8.4 H4.8 Z",
+  Achats: "M2.4,5.4 L8,2.6 L13.6,5.4 V10.6 L8,13.4 L2.4,10.6 Z M2.4,5.4 L8,8.2 L13.6,5.4 M8,8.2 V13.4",
+  RessourcesHumaines: "M5.6,6 A2.2,2.2 0 1 0 5.61,6 M1.9,13.8 V12.6 A3.4,3.4 0 0 1 5.3,9.2 H6 A3.4,3.4 0 0 1 9.4,12.6 V13.8 M11.2,6.2 A1.8,1.8 0 1 0 11.21,6.2 M11.6,9.4 A3.2,3.2 0 0 1 14.2,12.5 V13.8",
+  Maintenance: "M9.8,4.2 A0.7,0.7 0 0 0 9.8,5.1 L10.9,6.2 A0.7,0.7 0 0 0 11.8,6.2 L14.3,3.7 A4,4 0 0 1 9,9 L4.4,13.6 A1.4,1.4 0 0 1 2.4,11.6 L7,7 A4,4 0 0 1 12.3,1.7 Z",
+  Qualite: "M5.8,3 H3 V14.2 H13 V3 H10.2 M5.8,1.8 H10.2 V4.2 H5.8 Z M5.6,9.2 L7.4,11 L10.6,7.4",
+  Juridique: "M8,2.4 V13.6 M4.6,13.6 H11.4 M2.6,5 H13.4 M2.6,5 L1.2,9 H4 Z M13.4,5 L12,9 H14.8 Z",
+  Documentaire: "M1.8,13.2 V3.8 H6 L7.4,5.8 H14.2 V13.2 Z",
+  Marina: "M2.2,11.2 H13.8 L12.2,14.2 H3.8 Z M8,1.8 V11.2 M8,3.2 L12.6,9.4 H8",
+  Parking: "M1.6,12 V8.6 L3.6,4.6 H12.4 L14.4,8.6 V12 M1.6,8.6 H14.4 M4.4,10.7 A1.3,1.3 0 1 0 4.41,10.7 M11.6,10.7 A1.3,1.3 0 1 0 11.61,10.7",
+  Pilotage: "M2.2,11.5 A5.8,5.8 0 0 1 13.8,11.5 M8,11.5 L10.9,7.7 M3.4,8.6 L4.3,9.3 M8,5.7 V6.8",
+  Integrations: "M4.4,6.4 H11.6 V9.4 A3.6,3.6 0 0 1 4.4,9.4 Z M6,2.8 V6.4 M10,2.8 V6.4 M8,13 V14.6",
+  Systeme: "M8,5.5 A2.5,2.5 0 1 0 8.01,5.5 M8,1.4 V3 M8,13 V14.6 M1.4,8 H3 M13,8 H14.6 M3.6,3.6 L4.7,4.7 M11.3,11.3 L12.4,12.4 M12.4,3.6 L11.3,4.7 M4.7,11.3 L3.6,12.4",
+  Recherche: "M6.5,2.6 A3.9,3.9 0 1 0 6.51,2.6 M9.3,9.3 L13.4,13.4",
+  Chevron: "M0.6,1.6 L4.5,5.5 L8.4,1.6",
+  Cadenas: "M3.4,5.4 V4 A2.6,2.6 0 0 1 8.6,4 V5.4 M2.2,5.4 H9.8 V10.6 H2.2 Z",
+  Corbeille: "M2,9 L4,3 H12 L14,9 V13 H2 Z M2,9 H5.5 L6.8,11 H9.2 L10.5,9 H14",
+  Coche: "M2.5,8.5 L6.2,12.2 L13.5,4.5",
+  Actualiser: "M13.2,8 A5.2,5.2 0 1 1 11.7,4.3 M11.9,1.8 V4.6 H9.1",
+  Plus: "M8,3 V13 M3,8 H13",
+  Fleche: "M3,8 H13 M9.5,4.5 L13,8 L9.5,11.5",
+  Alerte: "M8,2.2 L14.4,13.4 H1.6 Z M8,6.4 V9.8 M8,11.6 V11.8",
+  Oeil: "M1.6,8 C3.2,4.9 5.4,3.4 8,3.4 C10.6,3.4 12.8,4.9 14.4,8 C12.8,11.1 10.6,12.6 8,12.6 C5.4,12.6 3.2,11.1 1.6,8 Z M8,6 A2,2 0 1 0 8.01,6",
+  Croix: "M4,4 L12,12 M12,4 L4,12",
+};
+const svg = (cle, classes = "ic", vb = "0 0 16 16") =>
+  `<svg class="${classes}" viewBox="${vb}" aria-hidden="true" focusable="false"><path d="${ICONES[cle]}"/></svg>`;
+
+/* ======================= Maturite (libelles a source unique : FunctionalMaturityMapper.Label) ======================= */
+const MATURITE = {
+  Planned:          { cls:"planned",    libelle:"Planifié" },
+  TechnicalPreview: { cls:"preview",    libelle:"Aperçu technique" },
+  Functional:       { cls:"functional", libelle:"Fonctionnel" },
+  ProductionReady:  { cls:"ready",      libelle:"Prêt pour la production" },
+};
+const badge = (m, extra = "") => `<span class="badge ${MATURITE[m].cls} ${extra}">${MATURITE[m].libelle}</span>`;
+
+/* ======================= L'arbre Domaine → Module → Sous-module → Ecran (FunctionalArchitectureCatalog.Tree.cs) =======================
+   ecran = ecran primaire (onglet, nom de la carte, permission de lecture, numero historique) ; alias = second chemin vers un onglet ;
+   ni l'un ni l'autre = noeud PLANIFIE (visible, jamais ouvrable). */
+const E = (tab, nom, perm, ordre) => ({ tab, nom, perm, ordre });
+const TREE = [
+  { id:"01", cle:"MonEspace", nom:"Mon Espace", maturite:"Planned", modules:[
+    { nom:"Mon travail", sous:[ { nom:"Tableau de bord personnel" }, { nom:"Mes tâches" },
+      { nom:"Mes validations", ecran:E(16, "Workflows & validations", "approvals.read", "22.2") },
+      { nom:"Mes demandes" }, { nom:"Mes délégations" }, { nom:"Mon activité" } ] },
+    { nom:"Communication", sous:[ { nom:"Notifications" }, { nom:"Messagerie interne" }, { nom:"Mon agenda" } ] },
+    { nom:"Mes documents et favoris", sous:[ { nom:"Mes documents" }, { nom:"Mes favoris" } ] },
+    { nom:"Mon compte", sous:[ { nom:"Mon profil" }, { nom:"Mes préférences" }, { nom:"Ma sécurité" } ] } ] },
+  { id:"02", cle:"Administration", nom:"Administration & Socle ERP", maturite:"Functional", modules:[
+    { nom:"Organisation", sous:[ { nom:"Unités hôtelières", ecran:E(1, "Unités hôtelières", "units.read", "3") }, { nom:"Entreprise, établissements et services" } ] },
+    { nom:"Utilisateurs", sous:[ { nom:"Comptes et rôles", ecran:E(10, "Administration & utilisateurs", "users.read", "1") }, { nom:"Profils, périmètres et délégations" } ] },
+    { nom:"Référentiels", sous:[ { nom:"Référentiels partagés (TVA, devises, pays)" } ] },
+    { nom:"Paramétrage", sous:[ { nom:"Paramètres globaux", ecran:E(9, "Paramétrage global", "settings.read", "2") }, { nom:"Circuits de validation", alias:16 } ] },
+    { nom:"Sécurité", sous:[ { nom:"Sessions et politiques de sécurité" } ] } ] },
+  { id:"03", cle:"Finance", nom:"Finance & Comptabilité", maturite:"Functional", modules:[
+    { nom:"Comptabilité", sous:[ { nom:"Comptabilité générale", ecran:E(11, "Comptabilité SCF", "accounting.read", "5.2") }, { nom:"Exercices et périodes", alias:11 }, { nom:"Comptabilité auxiliaire", alias:11 }, { nom:"États comptables", alias:11 }, { nom:"Comptabilité analytique" } ] },
+    { nom:"Trésorerie", sous:[ { nom:"Encaissements et décaissements", ecran:E(6, "Encaissements & trésorerie", "treasury.read", "5") }, { nom:"Banques et caisses", alias:6 }, { nom:"Ordres de paiement", alias:6 }, { nom:"Rapprochement bancaire et prévisions" } ] },
+    { nom:"Créances", sous:[ { nom:"Balance âgée et relances", ecran:E(13, "Créances & recouvrement", "receivables.read", "9") }, { nom:"Contentieux et provisions" } ] },
+    { nom:"Budget", sous:[ { nom:"Budget vs réalisé", ecran:E(12, "Budget & prévisions", "budget.read", "6") }, { nom:"Révisions, engagements et forecast" } ] },
+    { nom:"Fiscalité", sous:[ { nom:"Déclarations DGI et SIFEC" } ] },
+    { nom:"Recettes journalières", sous:[ { nom:"CA journalier", ecran:E(2, "CA journalier (ERP)", "revenue.read", "4") }, { nom:"Clôture journalière", alias:5 } ] } ] },
+  { id:"04", cle:"Commercial", nom:"Commercial, Clients & CRM", maturite:"Functional", modules:[
+    { nom:"Clients", sous:[ { nom:"Fichier clients", ecran:E(7, "Clients", "customers.read", "9.2") }, { nom:"Conventions et tarifs négociés", alias:14 } ] },
+    { nom:"CRM", sous:[ { nom:"Fiche client 360°", ecran:E(23, "CRM & expérience client", "crm.read", "10.4") }, { nom:"Segmentation, fidélité et VIP", alias:23 }, { nom:"Satisfaction et NPS", alias:23 }, { nom:"Prospects et opportunités" } ] },
+    { nom:"Réclamations", sous:[ { nom:"Réclamations clients" } ] },
+    { nom:"Commercial et partenariats", sous:[ { nom:"Prospection et partenariats" } ] } ] },
+  { id:"05", cle:"Facturation", nom:"Facturation & Ventes", maturite:"Functional", modules:[
+    { nom:"Documents de vente", sous:[ { nom:"Factures", ecran:E(8, "Facturation", "invoices.read", "8") }, { nom:"Devis et pro forma" }, { nom:"Avoirs et notes de débit" }, { nom:"Facturation société, agence, groupe et consolidée" } ] },
+    { nom:"Règlements", sous:[ { nom:"Paiements et remboursements", alias:8 }, { nom:"Remises et taxes" }, { nom:"Échéanciers" } ] },
+    { nom:"Alimentation du moteur comptable", sous:[ { nom:"Événements de vente vers la comptabilité" } ] } ] },
+  { id:"06", cle:"Hebergement", nom:"PMS / Hébergement", maturite:"Functional", modules:[
+    { nom:"Inventaire", sous:[ { nom:"Types, chambres et couchages", ecran:E(15, "Hébergement & occupation", "lodging.read", "10") }, { nom:"Bâtiments, étages et équipements" } ] },
+    { nom:"Réservations", sous:[ { nom:"Disponibilité et réservations", alias:15 } ] },
+    { nom:"Folios", sous:[ { nom:"Folios, extras et acomptes", alias:15 } ] },
+    { nom:"Front Office", sous:[ { nom:"Arrivées et départs", ecran:E(30, "PMS front office", "lodging.read", "10.1") }, { nom:"Clients présents et séjours", alias:30 } ] },
+    { nom:"Planning", sous:[ { nom:"Planning et prévisionnel", alias:30 } ] },
+    { nom:"Contrôle", sous:[ { nom:"Clôture journalière", ecran:E(5, "Clôture journalière & Night Audit", "closing.read", "4.5") }, { nom:"Night audit et date métier", alias:30 } ] } ] },
+  { id:"07", cle:"Revenue", nom:"Revenue Management & Distribution", maturite:"TechnicalPreview", modules:[
+    { nom:"Tarification", sous:[ { nom:"Plans tarifaires et périodes", ecran:E(14, "Tarifs & conventions", "tariffs.read", "14.5") }, { nom:"Conventions clients", alias:14 }, { nom:"Promotions" } ] },
+    { nom:"Restrictions", sous:[ { nom:"Stop sell, durées de séjour, CTA et CTD", alias:30 } ] },
+    { nom:"Revenue Management", sous:[ { nom:"Règles de yield et surréservation", alias:30 }, { nom:"Pickup, pace et cibles ADR/RevPAR" } ] },
+    { nom:"Distribution", sous:[ { nom:"Channel manager" }, { nom:"Booking engine" } ] } ] },
+  { id:"08", cle:"Housekeeping", nom:"Housekeeping", maturite:"Functional", modules:[
+    { nom:"Housekeeping", sous:[ { nom:"Planning et états des chambres", ecran:E(21, "Housekeeping & chambres", "housekeeping.read", "10.2") }, { nom:"Inspections", alias:21 }, { nom:"Minibar", alias:21 }, { nom:"Linge, objets trouvés et incidents" } ] } ] },
+  { id:"09", cle:"Evenementiel", nom:"Groupes, MICE & Événementiel", maturite:"Functional", modules:[
+    { nom:"Groupes", sous:[ { nom:"Allotements et rooming lists", ecran:E(28, "Groupes & MICE", "mice.read", "10.6") }, { nom:"Tarifs groupes" } ] },
+    { nom:"Événements", sous:[ { nom:"Salles et événements", alias:28 }, { nom:"Devis et BEO", alias:28 }, { nom:"Facturation groupe", alias:28 }, { nom:"Restauration, matériel et personnel" } ] } ] },
+  { id:"10", cle:"Restauration", nom:"F&B / Restauration", maturite:"TechnicalPreview", modules:[
+    { nom:"Fiches techniques", sous:[ { nom:"Recettes, portions et coût matière", ecran:E(26, "Cuisine, production & qualité", "kitchen.read", "11.5") } ] },
+    { nom:"Hygiène", sous:[ { nom:"HACCP et températures", alias:26 }, { nom:"Allergènes et traçabilité" } ] },
+    { nom:"Points de vente", sous:[ { nom:"POS et KDS" } ] },
+    { nom:"Contrôle F&B", sous:[ { nom:"Food cost, gaspillage et menu engineering" } ] } ] },
+  { id:"11", cle:"Stocks", nom:"Stocks & Économat", maturite:"Functional", modules:[
+    { nom:"Stocks", sous:[ { nom:"Articles, familles et magasins", ecran:E(24, "Stocks & consommations", "inventory.read", "11") }, { nom:"Mouvements et valorisation", alias:24 }, { nom:"Inventaires physiques", alias:24 }, { nom:"Lots, expiration, emplacements et rotation" } ] } ] },
+  { id:"12", cle:"Achats", nom:"Achats & Fournisseurs", maturite:"TechnicalPreview", modules:[
+    { nom:"Fournisseurs", sous:[ { nom:"Fiches fournisseurs", ecran:E(25, "Achats & approvisionnements", "purchasing.read", "12") }, { nom:"Documents et évaluation" } ] },
+    { nom:"Commandes", sous:[ { nom:"Bons de commande et validation", alias:25 } ] },
+    { nom:"Réception", sous:[ { nom:"Réceptions et entrées en stock", alias:25 }, { nom:"Contrôle et retours" } ] },
+    { nom:"Besoins et consultation", sous:[ { nom:"Expression de besoin et demandes d'achat" }, { nom:"Demandes de prix et comparatifs" } ] },
+    { nom:"Factures fournisseurs", sous:[ { nom:"Factures, avoirs et rapprochement à trois voies" }, { nom:"Échéances et propositions de paiement" } ] },
+    { nom:"Marchés", sous:[ { nom:"Appels d'offres" } ] } ] },
+  { id:"13", cle:"RessourcesHumaines", nom:"Ressources Humaines & Paie", maturite:"Functional", modules:[
+    { nom:"Personnel", sous:[ { nom:"Dossiers, contrats et affectations", ecran:E(22, "RH & paie", "hr.read", "21") }, { nom:"Carrière et documents" } ] },
+    { nom:"Temps", sous:[ { nom:"Pointages, présences et absences", alias:22 }, { nom:"Planning, retards et heures supplémentaires" } ] },
+    { nom:"Congés", sous:[ { nom:"Demandes et validation", alias:22 }, { nom:"Soldes et planning des congés" } ] },
+    { nom:"Paie", sous:[ { nom:"Variables, bulletins et clôture", alias:22 }, { nom:"Acomptes, prêts, STC et génération comptable" } ] },
+    { nom:"Développement RH", sous:[ { nom:"Formation, discipline et santé" } ] } ] },
+  { id:"14", cle:"Maintenance", nom:"Maintenance & Patrimoine", maturite:"Planned", modules:[
+    { nom:"Maintenance", sous:[ { nom:"Équipements et ordres de travail" }, { nom:"Maintenance préventive" } ] },
+    { nom:"Patrimoine", sous:[ { nom:"Immobilisations et inventaire légal" } ] } ] },
+  { id:"15", cle:"Qualite", nom:"Qualité, Audit & Contrôle interne", maturite:"TechnicalPreview", modules:[
+    { nom:"Audit", sous:[ { nom:"Piste d'audit", alias:4 }, { nom:"Programme, missions et rapports" } ] },
+    { nom:"Contrôle interne", sous:[ { nom:"Checklists de contrôle" }, { nom:"Journal des anomalies" } ] },
+    { nom:"Décisions et instructions", sous:[ { nom:"Décisions, instructions et échéances" } ] },
+    { nom:"Risques et incidents", sous:[ { nom:"Registre des risques et incidents" } ] } ] },
+  { id:"16", cle:"Juridique", nom:"Juridique & Conformité", maturite:"Planned", modules:[
+    { nom:"Contrats et conventions", sous:[ { nom:"Contrats, allotements et échéances" } ] },
+    { nom:"Conformité hôtelière", sous:[ { nom:"Fiches police, taxe de séjour et tourisme" } ] },
+    { nom:"Protection des données", sous:[ { nom:"Registre des traitements et consentements" } ] },
+    { nom:"Veille juridique et réglementaire", sous:[ { nom:"Textes, mise en conformité et échéances" } ] } ] },
+  { id:"17", cle:"Documentaire", nom:"GED / Gestion documentaire", maturite:"Planned", modules:[
+    { nom:"Gestion documentaire", sous:[ { nom:"Documents, versions et liens métier" }, { nom:"Signature et archivage légal" } ] } ] },
+  { id:"18", cle:"Marina", nom:"PortMaster / Marina", maturite:"Planned", modules:[
+    { nom:"PortMaster", sous:[ { nom:"Bateaux et emplacements" }, { nom:"Contrats et facturation" } ] } ] },
+  { id:"19", cle:"Parking", nom:"Parking & Contrôle d'accès", maturite:"Planned", modules:[
+    { nom:"Parking", sous:[ { nom:"Abonnements et tickets" } ] },
+    { nom:"Contrôle d'accès", sous:[ { nom:"Badges, barrières et plage-piscine" } ] } ] },
+  { id:"20", cle:"Pilotage", nom:"Pilotage, KPI & BI", maturite:"Functional", modules:[
+    { nom:"Dashboards", sous:[ { nom:"Unité", ecran:E(3, "Tableaux de bord directionnels", "dashboard.read", "24") }, { nom:"Groupe", ecran:E(19, "Dashboard PDG", "dashboard.read", "24.2") }, { nom:"Exploitation (DEC)", ecran:E(20, "Cockpit DEC", "dashboard.read", "24.4") }, { nom:"Dashboards F&B, RH et maintenance" } ] },
+    { nom:"KPI Engine", sous:[ { nom:"Bibliothèque KPI et comparatif inter-unités", ecran:E(29, "Comparatif inter-unités", "dashboard.read", "25.4") }, { nom:"Analyse N/N-1 et budget/réalisé", alias:29 }, { nom:"KPI maintenance" } ] },
+    { nom:"BI", sous:[ { nom:"Rapports", ecran:E(17, "Rapports automatiques", "reports.read", "25") }, { nom:"Data Warehouse et historisation" } ] } ] },
+  { id:"21", cle:"Integrations", nom:"Intégrations & Matériels", maturite:"TechnicalPreview", modules:[
+    { nom:"Channel Manager Providers", sous:[ { nom:"Fournisseurs de distribution" } ] },
+    { nom:"Matériels", sous:[ { nom:"Serrures, TPE, PBX et imprimantes" }, { nom:"Pointeuses et badgeuses" } ] },
+    { nom:"Journal des interfaces", sous:[ { nom:"Journal des interfaces", alias:27 } ] },
+    { nom:"API externes et webhooks", sous:[ { nom:"API externes, webhooks et banques" } ] } ] },
+  { id:"22", cle:"Systeme", nom:"Administration Système", maturite:"Functional", epingle:true, modules:[
+    { nom:"Maintenance", sous:[ { nom:"Sauvegarde", ecran:E(18, "Sauvegarde & restauration", "maintenance.read", "28") }, { nom:"Journal d'audit", ecran:E(4, "Journalisation & traçabilité", "audit.read", "30") }, { nom:"Migrations, health checks et logs" } ] },
+    { nom:"Diagnostic", sous:[ { nom:"Postes", ecran:E(27, "Registre des postes & erreurs clients", "sync.read", "29") } ] },
+    { nom:"Serveur", sous:[ { nom:"PostgreSQL, API, services et configuration" } ] },
+    { nom:"Déploiement", sous:[ { nom:"Serveur, client, postes et versions" } ] },
+    { nom:"Mises à jour et licence", sous:[ { nom:"Updates, rollback et licence" } ] } ] },
+];
+const domaine = id => TREE.find(d => d.id === id);
+/* Chemin primaire de chaque onglet (FunctionalArchitectureCatalog.TryGetPrimaryPath) */
+const ECRANS = {};
+for (const d of TREE) for (const m of d.modules) for (const s of m.sous) if (s.ecran) ECRANS[s.ecran.tab] = { d, m, s, e:s.ecran };
+const ecransDuDomaine = d => d.modules.flatMap(m => m.sous.filter(s => s.ecran).map(s => s.ecran));
+
+/* Sous-onglets reels des vues (navigation-shell.md § 4.2) : le stub d'ecran cible les affiche */
+const SOUS_ONGLETS = {
+  30:["Planning","Arrivées","Départs","Clients présents","Prévisionnel","Hors service","Règles de vente","Night audit"],
+  6:["Encaissements","Ordres de paiement","Comptes bancaires"], 21:["Tableau des chambres","Planning des équipes","Minibar"],
+  22:["Collaborateurs","Temps & absences","Paie du mois","Référentiel"], 9:["Établissement","Poste de travail","Santé du système"],
+  24:["Stock courant","Mouvements","Articles & magasins","Inventaires"], 25:["Bons de commande","Réception","Fournisseurs"],
+  26:["Fiches techniques","Relevés HACCP","Points de contrôle"], 16:["En attente de ma décision","Circuits","Historique"],
+  15:["Réception","Nouvelle réservation","Planning","Folio","Chambres & occupation"], 13:["Balance âgée","Relances","Risque client"],
+  29:["Bibliothèque","Comparatif inter-unités","Alertes","Paramétrage"], 23:["Vue 360","Segments","Fidélité","Campagnes","Satisfaction","Contacts"],
+};
+
+/* ======================= Les 50 entrees de ModuleCatalog.cs (ordre editorial) ======================= */
+const C = (ordre, nom, desc, prio, statut, perm = null, tab = null) => ({ ordre, nom, desc, prio, statut, perm, tab });
+const CATALOGUE = [
+  C("1","Administration & utilisateurs","Comptes, rôles, permissions et périmètres","P0","Disponible","users.read",10),
+  C("2","Paramétrage global","Identité de l'établissement, réglages du poste et santé du système","P0","Disponible","settings.read",9),
+  C("3","Unités hôtelières","Référentiel des unités et des établissements","P0","Disponible","units.read",1),
+  C("4","CA journalier (ERP)","Saisie du jour, validation unité et DEC","P0","Disponible","revenue.read",2),
+  C("4.5","Clôture journalière & Night Audit","Clôture de la date métier et Night Audit","P1","Disponible","closing.read",5),
+  C("5","Encaissements & trésorerie","Caisses, banques et ordres de paiement","P1","Disponible","treasury.read",6),
+  C("5.2","Comptabilité SCF","Plan de comptes, journaux, écritures en partie double et balance","P1","Disponible","accounting.read",11),
+  C("5.4","Fiscalité DGI & SIFEC","TVA, déclarations, liasse et lien SIFEC","P2","Planifié"),
+  C("6","Budget & prévisions","Objectifs, budgets mensuels et écarts","P1","Disponible","budget.read",12),
+  C("8","Facturation","Factures clients, avoirs et registre des ventes","P1","Disponible","invoices.read",8),
+  C("9","Créances & recouvrement","Balance âgée, relances et risque client","P1","Disponible","receivables.read",13),
+  C("9.2","Clients","Fichier clients et historique commercial","P1","Disponible","customers.read",7),
+  C("10","Hébergement & occupation","Types de chambre, réservations, folios et taux d'occupation","P1","Disponible","lodging.read",15),
+  C("10.1","PMS front office","Planning, arrivées, départs, clients présents, prévisionnel, hors service et night audit","P1","Disponible","lodging.read",30),
+  C("10.2","Housekeeping & chambres","Planning des équipes, inspection, minibar","P2","Disponible","housekeeping.read",21),
+  C("10.4","CRM & expérience client","Vue client 360°, segmentation, fidélité, campagnes et NPS","P2","Disponible","crm.read",23),
+  C("10.6","Groupes & MICE","Salles, événements, devis, BEO, allotements et rooming lists","P2","Disponible","mice.read",28),
+  C("11","Stocks & consommations","Magasins, articles, mouvements valorisés au PMP et inventaires physiques","P2","Disponible","inventory.read",24),
+  C("11.5","Cuisine, production & qualité","Fiches techniques, coût matière et relevés de température HACCP","P2","Disponible","kitchen.read",26),
+  C("11.6","Points de vente (POS)","Plan de salle, tickets et transfert au folio","P2","Planifié"),
+  C("12","Achats & approvisionnements","Fournisseurs, bons de commande et réceptions entrées en stock","P2","Disponible","purchasing.read",25),
+  C("12.5","Appels d'offres","Lots, ouverture des plis et attribution","P2","Planifié"),
+  C("13","Maintenance & interventions","Équipements, ordres de travail et préventif","P2","Planifié"),
+  C("13.5","Intégrations matérielles","Serrures, PBX, TPE CIB et imprimantes","P2","Planifié"),
+  C("14.5","Tarifs & conventions","Plans tarifaires, périodes de tarif et conventions clients","P1","Disponible","tariffs.read",14),
+  C("18","Qualité & réclamations clients","Réclamations, délais et analyse des causes","P2","Planifié"),
+  C("20","Contrats & conventions","Contrats, allotements et échéances","P2","Planifié"),
+  C("20.2","Commercial & partenariats","Prospection, partenariats et suivi commercial","P2","Planifié"),
+  C("21","RH & paie","Collaborateurs, contrats, temps et absences, paie algérienne","P2","Disponible","hr.read",22),
+  C("21.2","Pointeuses & badgeuses","Import des pointages et réconciliation","P2","Planifié"),
+  C("22","Audit & contrôle interne","Consultation des traces et piste d'audit","P0","Disponible","audit.read",4),
+  C("22.2","Workflows & validations","Circuits d'approbation par type de sujet et décisions étape par étape","P1","Disponible","approvals.read",16),
+  C("22.4","Checklists de contrôle","Modèles, exécution et suivi des écarts","P2","Planifié"),
+  C("22.6","Journal des anomalies","Déclaration, affectation et corrections","P2","Planifié"),
+  C("22.8","Décisions & instructions","Instructions de direction et échéances","P2","Planifié"),
+  C("23","Conformité hôtelière","Fiches police, taxe de séjour, tourisme","P2","Planifié"),
+  C("23.2","Protection des données","Registre des traitements et consentements","P2","Planifié"),
+  C("23.4","Modules légaux","Immobilisations, CASNOS, inventaire légal","P2","Planifié"),
+  C("23.6","Veille juridique & réglementaire","Textes, mise en conformité et échéances","P2","Planifié"),
+  C("24","Tableaux de bord directionnels","Indicateurs consolidés par période et unité","P0","Disponible","dashboard.read",3),
+  C("24.2","Dashboard PDG","Vision groupe et alertes de direction","P0","Disponible","dashboard.read",19),
+  C("24.4","Cockpit DEC","Pilotage exploitation et contrôles quotidiens","P0","Disponible","dashboard.read",20),
+  C("25","Rapports automatiques","Catalogue de rapports paramétrables, export CSV et journal des exécutions","P1","Disponible","reports.read",17),
+  C("25.2","Alertes & notifications","Règles d'alerte et préférences de diffusion","P2","Planifié"),
+  C("25.4","Comparatif inter-unités","Bibliothèque KPI, classement des unités et comparaisons N/N-1","P2","Disponible","dashboard.read",29),
+  C("26","PortMaster","Bateaux, emplacements, contrats et facturation","P2","Planifié"),
+  C("27","Gestion documentaire","GED, versions, signature et archivage légal","P2","Planifié"),
+  C("28","Sauvegarde & restauration","État des sauvegardes, déclenchement à la demande et paliers de rétention","P1","Disponible","maintenance.read",18),
+  C("29","Registre des postes & erreurs clients","Postes déclarés, dernier contact et erreurs remontées par les clients","P1","Disponible","sync.read",27),
+  C("30","Journalisation & traçabilité","Journal d'audit, recherche et export","P0","Disponible","audit.read",4),
+];
+/* Rattachement des 50 numeros historiques aux 22 domaines (FunctionalArchitectureCatalog.Domains) */
+const DOMAINE_PAR_ORDRE = {};
+[["01",["22.2","25.2"]],["02",["1","2","3"]],["03",["4","5","5.2","5.4","6","9"]],["04",["9.2","10.4","18","20.2"]],["05",["8"]],
+ ["06",["4.5","10","10.1"]],["07",["14.5"]],["08",["10.2"]],["09",["10.6"]],["10",["11.5","11.6"]],["11",["11"]],["12",["12","12.5"]],
+ ["13",["21"]],["14",["13","23.4"]],["15",["22","22.4","22.6","22.8"]],["16",["20","23","23.2","23.6"]],["17",["27"]],["18",["26"]],
+ ["19",[]],["20",["24","24.2","24.4","25","25.4"]],["21",["13.5","21.2"]],["22",["28","29","30"]]]
+  .forEach(([id, ordres]) => ordres.forEach(o => DOMAINE_PAR_ORDRE[o] = id));
+/* Module d'accueil d'une entree historique (ModuleNode.LegacyModuleOrders) */
+const MODULE_PAR_ORDRE = { "22.2":"Mon travail","25.2":"Communication","1":"Utilisateurs","2":"Paramétrage","3":"Organisation","4":"Recettes journalières","5":"Trésorerie","5.2":"Comptabilité","5.4":"Fiscalité","6":"Budget","9":"Créances","9.2":"Clients","10.4":"CRM","18":"Réclamations","20.2":"Commercial et partenariats","8":"Documents de vente","4.5":"Contrôle","10":"Inventaire","10.1":"Front Office","14.5":"Tarification","10.2":"Housekeeping","10.6":"Groupes","11.5":"Fiches techniques","11.6":"Points de vente","11":"Stocks","12":"Fournisseurs","12.5":"Marchés","21":"Personnel","13":"Maintenance","23.4":"Patrimoine","22":"Audit","22.4":"Contrôle interne","22.6":"Contrôle interne","22.8":"Décisions et instructions","20":"Contrats et conventions","23":"Conformité hôtelière","23.2":"Protection des données","23.6":"Veille juridique et réglementaire","27":"Gestion documentaire","26":"PortMaster","24":"Dashboards","24.2":"Dashboards","24.4":"Dashboards","25":"BI","25.4":"KPI Engine","13.5":"Matériels","21.2":"Matériels","28":"Maintenance","29":"Diagnostic","30":"Maintenance" };
+const STATUT_CLS = { "Disponible":"dispo", "Planifié":"planifie" };
+const MATURITE_MODULE = { "Disponible":"Functional", "Planifié":"Planned" };   // FunctionalMaturityMapper.FromLegacyStatus
+const normaliser = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+/* ======================= Profils : droits seedes (SecuritySeeder), pas des projections documentaires ======================= */
+const LODGING_TOUT = ["lodging.read","lodging.write","lodging.checkin","lodging.reserve","lodging.checkout","lodging.change_rate","lodging.room_move","lodging.override_restriction","lodging.overbooking","lodging.noshow","lodging.cancel","lodging.manage_rooms","lodging.manage_rates","lodging.night_audit"];
+const PROFILS = {
+  reception: { nom:"Réception", utilisateur:"Nadia Bouzid", role:"Réception (rôle personnalisé à créer — README, décision 8)", siege:false,
+    permissions:["lodging.read","lodging.checkin","lodging.checkout","lodging.reserve","lodging.room_move","customers.read","crm.read","housekeeping.read","settings.read"],
+    recents:[30,15,23] },
+  unit: { nom:"Directeur d'unité", utilisateur:"Samir Merzouk", role:"unit.manager", siege:false,
+    permissions:["units.read","revenue.read","revenue.write","dashboard.read","reports.export","closing.read","closing.close","customers.read","customers.write","invoices.read","invoices.write","settings.read","budget.read","budget.write","tariffs.read","tariffs.write",...LODGING_TOUT,"housekeeping.read","housekeeping.write","housekeeping.inspect","crm.read","crm.write","crm.loyalty","approvals.read","approvals.decide","reports.read","inventory.read","inventory.write","purchasing.read","purchasing.write","purchasing.receive","kitchen.read","kitchen.write","mice.read","mice.write"],
+    recents:[30,5,15] },
+  direction: { nom:"Direction générale", utilisateur:"Djamel Hamdani", role:"direction", siege:true,
+    permissions:["units.read","revenue.read","dashboard.read","treasury.read","audit.read","reports.export","closing.read","treasury.approve","customers.read","invoices.read","settings.read","accounting.read","budget.read","budget.approve","receivables.read","tariffs.read","lodging.read","housekeeping.read","crm.read","approvals.read","approvals.decide","reports.read","maintenance.read","hr.read","inventory.read","inventory.validate","purchasing.read","purchasing.approve","kitchen.read","mice.read","sync.read","kpi.admin"],
+    recents:[19,6,12] },
+  caisse: { nom:"Caisse", utilisateur:"Yacine Ferhat", role:"cashier", siege:false,
+    permissions:["revenue.read","revenue.write","treasury.read","treasury.write","settings.read","lodging.read","lodging.checkin","lodging.reserve","lodging.checkout","lodging.room_move","lodging.noshow","lodging.cancel","lodging.night_audit","housekeeping.read","housekeeping.write","crm.read","crm.write","approvals.read"],
+    recents:[6,30,2] },
+  rh: { nom:"RH", utilisateur:"Nawel Saïdi", role:"hr.manager", siege:true,
+    permissions:["units.read","settings.read","approvals.read","hr.read","hr.write","hr.payroll","hr.payroll.close"],
+    recents:[22,1] },
+  admin: { nom:"Administrateur", utilisateur:"Admin. système", role:"system.administrator", siege:true, tout:true, permissions:[],
+    recents:[10,9,18] },
+  lecture: { nom:"Lecture seule", utilisateur:"Lamia Ouali", role:"reader", siege:false,
+    permissions:["units.read","revenue.read","dashboard.read","closing.read","customers.read","invoices.read","settings.read","accounting.read","budget.read","receivables.read","tariffs.read","lodging.read","housekeeping.read","crm.read","approvals.read","inventory.read","purchasing.read","kitchen.read","mice.read"],
+    recents:[19,3,13] },
+};
+const UNITES = [ { code:"ALG-CEN", nom:"Hôtel Riadh Alger Centre" }, { code:"ORN-COR", nom:"Hôtel Corniche Oran" }, { code:"TIP-AZU", nom:"Résidence Azur Tipaza" }, { code:"BEJ-CAP", nom:"Marina Cap Carbone Béjaïa" } ];
+
+/* ======================= Donnees d'EXEMPLE (aucune ne vient d'un serveur) ======================= */
+const DONNEES_CHARGE = {
+  settings:        { company:"Groupe Riadh Hôtels", currency:"DA" },
+  businessDate:    { businessDate:"31/08/2026", lastClosedDate:"30/08/2026", isLate:true, pendingDays:1 },   // BusinessDay.Resolve : Date = LastClosed + 1 ; IsLate = Date < CalendarDate
+  frontDesk:       { arrivals:14, overdueArrivals:2, departures:9, overdueDepartures:1, inHouse:31, occupancy:74 },
+  arrivalBoard:    { unassigned:3, roomsToPrepare:5, notReady:2 },
+  departureBoard:  { pendingCount:2, outstandingBalance:"27 400,00" },
+  board:           { totalRooms:42, dirtyRooms:6, awaitingInspection:3, outOfOrder:1, cleanRooms:30 },
+  pending:         { count:2, oldest:"OP-2026-0187" },
+  dec:             { pendingValidationCount:3, pendingValidationAmount:"2 456 300,00", oldestAgeDays:4, closingBacklogDayCount:2, oldestClosingDelay:"ORN-COR · 30/08 · J-2", rejectedCount:1, pendingPaymentOrderCount:4, pendingPaymentOrderAmount:"1 180 000,00" },
+  revenueDashboard:{ grandTotal:"3 562 200,00", unitsWithEntry:3, totalUnits:4, unitsMissing:1, unitsPendingValidation:2 },
+  revenueSummary:  { draftCount:1 },
+  paymentOrdersApproved: { count:2 },
+  receipts:        { draftCount:3 },
+  receiptsConfirmed: { confirmedCount:12, grandTotal:"412 500,00" },
+  aging:           { over90:"236 400,00", total:"1 962 800,00", asOf:"01/09/2026" },
+  lowStock:        { count:5 },
+  countsDraft:     { count:1 },
+  poDraft:         { count:2 },
+  poApproved:      { count:3, canReceive:2 },
+  haccp:           { count:1 },
+  absences:        { count:4 },
+  payroll:         { period:"2026-08", draft:17, total:58 },
+  events:          { count:2, first:"Séminaire Numidia · Salle Tassili" },
+  backup:          { isOverdue:true, ageHours:31, threshold:26, lastBackup:"31/08/2026 01:05" },
+  stations:        { count:6, distinctVersions:2, notRecent:1 },
+};
+/* Simulation « Rien en attente » : le serveur ne renvoie rien de dépassé ni d'en attente */
+const DONNEES_VIDE = {
+  ...DONNEES_CHARGE,
+  businessDate:    { businessDate:"01/09/2026", lastClosedDate:"31/08/2026", isLate:false, pendingDays:0 },
+  frontDesk:       { arrivals:0, overdueArrivals:0, departures:0, overdueDepartures:0, inHouse:18, occupancy:43 },
+  arrivalBoard:    { unassigned:0, roomsToPrepare:0, notReady:0 },
+  departureBoard:  { pendingCount:0, outstandingBalance:"0,00" },
+  board:           { totalRooms:42, dirtyRooms:0, awaitingInspection:0, outOfOrder:0, cleanRooms:42 },
+  pending:         { count:0, oldest:"" },
+  dec:             { pendingValidationCount:0, pendingValidationAmount:"0,00", oldestAgeDays:0, closingBacklogDayCount:0, oldestClosingDelay:"", rejectedCount:0, pendingPaymentOrderCount:0, pendingPaymentOrderAmount:"0,00" },
+  revenueDashboard:{ grandTotal:"3 562 200,00", unitsWithEntry:4, totalUnits:4, unitsMissing:0, unitsPendingValidation:0 },
+  revenueSummary:  { draftCount:0 }, paymentOrdersApproved:{ count:0 }, receipts:{ draftCount:0 }, receiptsConfirmed:{ confirmedCount:0, grandTotal:"0,00" },
+  aging:           { over90:"0,00", total:"1 962 800,00", asOf:"01/09/2026" },
+  lowStock:{ count:0 }, countsDraft:{ count:0 }, poDraft:{ count:0 }, poApproved:{ count:0, canReceive:0 }, haccp:{ count:0 }, absences:{ count:0 },
+  payroll:         { period:"2026-09", draft:0, total:58 }, events:{ count:0, first:"" },
+  backup:          { isOverdue:false, ageHours:6, threshold:26, lastBackup:"01/09/2026 01:05" }, stations:{ count:6, distinctVersions:1, notRecent:0 },
+};
+const SOURCES_EN_ERREUR = new Set(["dec", "board"]);   // simulation « deux sources en erreur »
+/* Sources dans l'ORDRE D'APPEL (du plus leger au plus lourd) et l'ecran cible nomme dans l'encart d'echec */
+const SOURCES = [
+  ["businessDate","Clôture journalière"],["pending","Validations"],["frontDesk","PMS front office"],["arrivalBoard","PMS front office"],["departureBoard","PMS front office"],
+  ["board","Housekeeping"],["revenueSummary","CA journalier"],["receipts","Trésorerie"],["receiptsConfirmed","Trésorerie"],["lowStock","Stocks"],["paymentOrdersApproved","Trésorerie"],
+  ["poDraft","Achats"],["poApproved","Achats"],["countsDraft","Stocks"],["absences","RH & paie"],["payroll","RH & paie"],["events","Groupes & MICE"],["haccp","Cuisine"],
+  ["backup","Sauvegarde"],["stations","Postes"],["revenueDashboard","Tableau de bord"],["aging","Créances"],["dec","Cockpit DEC"],
+];
+const NOM_SOURCE = Object.fromEntries(SOURCES);
+const DA = () => donnees().settings.currency;
+
+/* ======================= Registre des files de travail (miroir de HomeWorkQueueCatalog, refonte-accueil.md § 3.4) =======================
+   lecture = permission qui compose la carte ; action = permission qui donne le verbe (null = information) ;
+   cible = onglet de l'ecran qui agit (sa permission de lecture verrouille le bouton) ; repli = onglet de repli si la cible est fermee ;
+   perimetre = unite (exige l'unite du poste) | groupe | moi | systeme ; bande = retard | jour | veille (surchargee par un booleen serveur : IsLate, IsOverdue). */
+const FILES = [
+  { id:"arrivals-late", libelle:"Arrivées en retard", bande:"retard", perimetre:"unite", lecture:"lodging.read", action:"lodging.checkin", source:"frontDesk", cible:30, verbe:"Traiter",
+    route:"GET /lodging/front-desk → OverdueArrivals.Count", projeter:d => ({ compte:d.frontDesk.overdueArrivals, legende:"réservations dont la date d'arrivée est passée (candidates no-show)" }) },
+  { id:"departures-late", libelle:"Départs en retard", bande:"retard", perimetre:"unite", lecture:"lodging.read", action:"lodging.checkout", source:"frontDesk", cible:30, verbe:"Traiter",
+    route:"GET /lodging/front-desk → OverdueDepartures.Count (FolioBalance est par ligne : pas de montant)", projeter:d => ({ compte:d.frontDesk.overdueDepartures, legende:"séjours dont la date de départ est passée" }) },
+  { id:"closing-unit", libelle:"Journée à clôturer", bande:"retard", perimetre:"unite", lecture:"lodging.read", action:"closing.close", source:"businessDate", cible:5, repli:30, verbe:"Clôturer",
+    route:"GET /lodging/business-date → IsLate, PendingDays, LastClosedDate", projeter:d => ({ compte:d.businessDate.pendingDays, legende:`dernière clôture ${d.businessDate.lastClosedDate} · J-${d.businessDate.pendingDays}`, bande:d.businessDate.isLate ? "retard" : "masquee", libelle:d.businessDate.pendingDays > 1 ? "Journées à clôturer" : "Journée à clôturer" }) },
+  { id:"dec-backlog", libelle:"Journées non clôturées", bande:"retard", perimetre:"groupe", lecture:"dashboard.read", action:"closing.close", source:"dec", cible:20, verbe:"Ouvrir le cockpit",
+    route:"GET /pilotage/dec-cockpit → ClosingBacklogDayCount, OldestClosingDelay (placement éditorial documenté)", projeter:d => ({ compte:d.dec.closingBacklogDayCount, legende:d.dec.closingBacklogDayCount ? `la plus ancienne : ${d.dec.oldestClosingDelay}` : "toutes les unités sont à jour" }) },
+  { id:"dec-rejected", libelle:"Recettes rejetées à corriger", bande:"retard", perimetre:"groupe", lecture:"dashboard.read", action:"revenue.write", source:"dec", cible:2, repli:20, verbe:"Corriger",
+    route:"GET /pilotage/dec-cockpit → RejectedCount (placement éditorial documenté)", projeter:d => ({ compte:d.dec.rejectedCount, legende:"journées rejetées par le DEC, en attente de nouvelle saisie" }) },
+  { id:"aging-90", libelle:"Créances à plus de 90 jours", bande:"retard", perimetre:"groupe", lecture:"receivables.read", action:null, source:"aging", cible:13, verbe:"Voir la balance",
+    route:"GET /receivables/aging → Total.Over90 (tranche serveur, aucune soustraction client)", projeter:d => ({ compte:`${d.aging.over90} ${DA()}`, brut:parseFloat(d.aging.over90.replace(/\s/g,"").replace(",",".")), legende:`tranche > 90 j · encours total ${d.aging.total} ${DA()} au ${d.aging.asOf}` }) },
+  { id:"backup", libelle:"Sauvegarde", bande:"veille", perimetre:"systeme", lecture:"maintenance.read", action:"maintenance.backup", source:"backup", cible:18, verbe:"Sauvegarder",
+    route:"GET /maintenance/backups/status → IsOverdue, AgeHours, OverdueThresholdHours, LastBackup", projeter:d => ({ compte:`${d.backup.ageHours} h`, brut:d.backup.ageHours, legende:`${d.backup.isOverdue ? "en retard" : "à l'heure"} · seuil ${d.backup.threshold} h · dernière ${d.backup.lastBackup}`, bande:d.backup.isOverdue ? "retard" : "veille", libelle:d.backup.isOverdue ? "Sauvegarde en retard" : "Dernière sauvegarde", verbe:d.backup.isOverdue ? "Sauvegarder" : "Voir" }) },
+
+  { id:"arrivals", libelle:"Arrivées du jour", bande:"jour", perimetre:"unite", lecture:"lodging.read", action:"lodging.checkin", source:"frontDesk", cible:30, verbe:"Ouvrir les arrivées",
+    route:"GET /lodging/front-desk → Arrivals.Count ; InHouseCount ; Occupancy.OccupancyRatePercent", projeter:d => ({ compte:d.frontDesk.arrivals, legende:`${d.frontDesk.inHouse} clients présents · occupation ${d.frontDesk.occupancy} %` }) },
+  { id:"arrivals-unassigned", libelle:"Arrivées sans chambre affectée", bande:"jour", perimetre:"unite", lecture:"lodging.read", action:"lodging.checkin", source:"arrivalBoard", cible:30, verbe:"Affecter",
+    route:"GET /lodging/arrivals → UnassignedCount ; RoomsToPrepare ; NotReadyCount", projeter:d => ({ compte:d.arrivalBoard.unassigned, legende:`${d.arrivalBoard.roomsToPrepare} chambres à préparer · ${d.arrivalBoard.notReady} pas prêtes` }) },
+  { id:"departures", libelle:"Départs du jour", bande:"jour", perimetre:"unite", lecture:"lodging.read", action:"lodging.checkout", source:"frontDesk", cible:30, verbe:"Ouvrir les départs",
+    route:"GET /lodging/front-desk → Departures.Count", projeter:d => ({ compte:d.frontDesk.departures, legende:"check-out attendus sur la date métier" }) },
+  { id:"departures-balance", libelle:"Départs avec solde à régler", bande:"jour", perimetre:"unite", lecture:"lodging.read", action:"lodging.checkout", source:"departureBoard", cible:30, verbe:"Encaisser",
+    route:"GET /lodging/departures → PendingCount, OutstandingBalance (agrégat serveur)", projeter:d => ({ compte:d.departureBoard.pendingCount, montant:d.departureBoard.pendingCount ? `${d.departureBoard.outstandingBalance} ${DA()}` : null, legende:"folios ouverts à solder avant le départ" }) },
+  { id:"hk-dirty", libelle:"Chambres à préparer", bande:"jour", perimetre:"unite", lecture:"housekeeping.read", action:"housekeeping.write", source:"board", cible:21, verbe:"Ouvrir le tableau",
+    route:"GET /housekeeping/board → DirtyRooms ; CleanRooms / TotalRooms", projeter:d => ({ compte:d.board.dirtyRooms, legende:`${d.board.cleanRooms} propres sur ${d.board.totalRooms} chambres actives` }) },
+  { id:"hk-inspect", libelle:"Chambres à inspecter", bande:"jour", perimetre:"unite", lecture:"housekeeping.read", action:"housekeeping.inspect", source:"board", cible:21, verbe:"Inspecter",
+    route:"GET /housekeeping/board → AwaitingInspectionTasks", projeter:d => ({ compte:d.board.awaitingInspection, legende:"tâches terminées en attente de contrôle" }) },
+  { id:"approvals", libelle:"Validations en attente de ma décision", bande:"jour", perimetre:"moi", lecture:"approvals.decide", action:"approvals.decide", source:"pending", cible:16, verbe:"Décider",
+    route:"GET /approvals/instances/pending (filtré par rôle côté serveur ; approvals.read seul → 403, donc aucun appel) → Count", projeter:d => ({ compte:d.pending.count, legende:`ordres de paiement — seul sujet en circuit aujourd'hui${d.pending.count ? ` · le plus ancien : ${d.pending.oldest}` : ""}` }) },
+  { id:"dec-revenue", libelle:"Recettes à valider (DEC)", bande:"jour", perimetre:"groupe", lecture:"dashboard.read", action:"revenue.validate", source:"dec", cible:2, repli:20, verbe:"Valider",
+    route:"GET /pilotage/dec-cockpit → PendingValidationCount, PendingValidationAmount ; OldestAgeDays", projeter:d => ({ compte:d.dec.pendingValidationCount, montant:d.dec.pendingValidationCount ? `${d.dec.pendingValidationAmount} ${DA()}` : null, legende:d.dec.pendingValidationCount ? `journées soumises · la plus ancienne depuis ${d.dec.oldestAgeDays} j` : "aucune journée soumise" }) },
+  { id:"dec-po", libelle:"Ordres de paiement à approuver", bande:"jour", perimetre:"groupe", lecture:"dashboard.read", action:"treasury.approve", source:"dec", cible:6, repli:20, verbe:"Approuver",
+    route:"GET /pilotage/dec-cockpit → PendingPaymentOrderCount, PendingPaymentOrderAmount", projeter:d => ({ compte:d.dec.pendingPaymentOrderCount, montant:d.dec.pendingPaymentOrderCount ? `${d.dec.pendingPaymentOrderAmount} ${DA()}` : null, legende:"ordres en brouillon à approuver" }) },
+  { id:"revenue-yesterday", libelle:"Recettes J-1", bande:"jour", perimetre:"groupe", lecture:"dashboard.read", action:null, source:"revenueDashboard", cible:3, verbe:"Voir le tableau",
+    route:"GET /revenue/daily/dashboard?date=J-1 → GrandTotal, UnitsWithEntry / TotalUnits, UnitsMissing, UnitsPendingValidation", projeter:d => ({ compte:`${d.revenueDashboard.grandTotal} ${DA()}`, brut:1, legende:`${d.revenueDashboard.unitsWithEntry}/${d.revenueDashboard.totalUnits} unités saisies · ${d.revenueDashboard.unitsMissing} sans saisie · ${d.revenueDashboard.unitsPendingValidation} à valider` }) },
+  { id:"revenue-draft", libelle:"Recettes en brouillon à soumettre", bande:"jour", perimetre:"unite", lecture:"revenue.read", action:"revenue.write", source:"revenueSummary", cible:2, verbe:"Soumettre",
+    route:"GET /revenue/daily/summary?from=J-1&to=J&hotelUnitCode → DraftCount", projeter:d => ({ compte:d.revenueSummary.draftCount, legende:"journées J-1 et J saisies, non soumises" }) },
+  { id:"po-pay", libelle:"Ordres de paiement à régler", bande:"jour", perimetre:"groupe", lecture:"treasury.read", action:"treasury.write", source:"paymentOrdersApproved", cible:6, verbe:"Régler",
+    route:"GET /treasury/payment-orders?status=Approved → nombre de lignes (pas de montant agrégé)", projeter:d => ({ compte:d.paymentOrdersApproved.count, legende:"approuvés, en attente de paiement" }) },
+  { id:"receipts-draft", libelle:"Encaissements en brouillon", bande:"jour", perimetre:"uniteOuGroupe", lecture:"treasury.read", action:"treasury.write", source:"receipts", cible:6, verbe:"Confirmer",
+    route:"GET /treasury/receipts/summary?from=J&to=J[&hotelUnitCode] → DraftCount", projeter:d => ({ compte:d.receipts.draftCount, legende:"reçus saisis aujourd'hui, non confirmés" }) },
+  { id:"receipts-today", libelle:"Encaissé aujourd'hui", bande:"jour", perimetre:"uniteOuGroupe", lecture:"treasury.read", action:null, source:"receiptsConfirmed", cible:6, verbe:"Voir",
+    route:"GET /treasury/receipts/summary?from=J&to=J[&hotelUnitCode]&status=Confirmed → GrandTotal, ConfirmedCount", projeter:d => ({ compte:`${d.receiptsConfirmed.grandTotal} ${DA()}`, brut:d.receiptsConfirmed.confirmedCount, legende:`${d.receiptsConfirmed.confirmedCount} encaissements confirmés` }) },
+  { id:"counts-draft", libelle:"Inventaires à valider", bande:"jour", perimetre:"groupe", lecture:"inventory.read", action:"inventory.validate", source:"countsDraft", cible:24, verbe:"Valider",
+    route:"GET /inventory/counts?status=Draft → nombre", projeter:d => ({ compte:d.countsDraft.count, legende:"comptages terminés, écarts non générés" }) },
+  { id:"po-approve", libelle:"Commandes d'achat à approuver", bande:"jour", perimetre:"groupe", lecture:"purchasing.read", action:"purchasing.approve", source:"poDraft", cible:25, verbe:"Approuver",
+    route:"GET /purchasing/orders?status=Draft → nombre (pas de montant agrégé)", projeter:d => ({ compte:d.poDraft.count, legende:"commandes en brouillon" }) },
+  { id:"po-receive", libelle:"Commandes à réceptionner", bande:"jour", perimetre:"groupe", lecture:"purchasing.read", action:"purchasing.receive", source:"poApproved", cible:25, verbe:"Réceptionner",
+    route:"GET /purchasing/orders?status=Approved → lignes dont CanReceive (drapeau serveur)", projeter:d => ({ compte:d.poApproved.canReceive, legende:`sur ${d.poApproved.count} commandes approuvées` }) },
+  { id:"haccp", libelle:"Relevés HACCP non conformes", bande:"jour", perimetre:"groupe", lecture:"kitchen.read", action:"kitchen.write", source:"haccp", cible:26, verbe:"Traiter",
+    route:"GET /kitchen/readings?nonCompliantOnly=true&from=J&to=J → nombre", projeter:d => ({ compte:d.haccp.count, legende:"relevés du jour hors plage, action corrective à saisir" }) },
+  { id:"absences", libelle:"Absences à approuver", bande:"jour", perimetre:"groupe", lecture:"hr.read", action:"hr.write", source:"absences", cible:22, verbe:"Approuver",
+    route:"GET /hr/absences?status=Requested (AbsenceStatus.Requested) → nombre", projeter:d => ({ compte:d.absences.count, legende:"demandes au statut Requested" }) },
+  { id:"payroll", libelle:"Bulletins en brouillon", bande:"jour", perimetre:"groupe", lecture:"hr.read", action:"hr.payroll", source:"payroll", cible:22, verbe:"Ouvrir la paie",
+    route:"GET /hr/payroll/periods → première période Status ≠ Closed : DraftPayslipCount / PayslipCount", projeter:d => ({ compte:d.payroll.draft, legende:`période ${d.payroll.period} · ${d.payroll.total} bulletins` }) },
+  { id:"events-today", libelle:"Événements du jour", bande:"jour", perimetre:"unite", lecture:"mice.read", action:null, source:"events", cible:28, verbe:"Voir",
+    route:"GET /mice/events?hotelUnitCode&from=J&to=J → nombre ; premier Title · FunctionSpaceLabel", projeter:d => ({ compte:d.events.count, legende:d.events.count ? d.events.first : "aucune salle réservée sur la date métier" }) },
+
+  { id:"hk-ooo", libelle:"Chambres hors service", bande:"veille", perimetre:"unite", lecture:"housekeeping.read", action:null, source:"board", cible:21, verbe:"Voir",
+    route:"GET /housekeeping/board → OutOfOrderRooms", projeter:d => ({ compte:d.board.outOfOrder, legende:"chambres indisponibles à la vente" }) },
+  { id:"low-stock", libelle:"Articles sous le minimum", bande:"veille", perimetre:"groupe", lecture:"inventory.read", action:null, source:"lowStock", cible:24, verbe:"Voir",
+    route:"GET /inventory/low-stock → nombre de lignes", projeter:d => ({ compte:d.lowStock.count, legende:"quantité inférieure au minimum du magasin" }) },
+  { id:"workstations", libelle:"Postes en service", bande:"veille", perimetre:"systeme", lecture:"sync.read", action:null, source:"stations", cible:27, verbe:"Voir",
+    route:"GET /sync/stations → Workstations.Count, DistinctAppVersions ; Freshness ≠ Recent", projeter:d => ({ compte:d.stations.count, legende:`${d.stations.distinctVersions} version${d.stations.distinctVersions > 1 ? "s" : ""} d'application · ${d.stations.notRecent} poste${d.stations.notRecent > 1 ? "s" : ""} sans contact récent` }) },
+];
+
+/* ======================= Etat de la maquette ======================= */
+const etat = {
+  profil:"reception", theme:"clair", densite:"confortable", uniteReglee:true, uniteCode:"ALG-CEN",
+  simulation:"charge", section:"travail", racine:true, courant:null, deroules:new Set(), heure:"08:12",
+  recherche:"", filtreDomaine:null, filtreStatut:null, filtrePrio:null, filtreMaturite:null,
+};
+const donnees = () => etat.simulation === "vide" ? DONNEES_VIDE : DONNEES_CHARGE;
+/* has = HasModulePermission, ici sur les cles historiques du seeder ; le composeur reel resout aussi les cles cibles par PermissionRegistry.AcceptedClaims */
+const has = cle => { const p = PROFILS[etat.profil]; return !!p.tout || p.permissions.includes(cle); };
+const uniteCourante = () => etat.uniteReglee ? etat.uniteCode : null;
+const nomUnite = code => (UNITES.find(u => u.code === code) || {}).nom;
+
+/* ======================= Composeur (miroir de HomeComposer : fonction pure des permissions) ======================= */
+function composer() {
+  const slots = []; let unitairesIgnorees = 0;
+  for (const q of FILES) {
+    if (!has(q.lecture)) continue;
+    const mode = q.action === null ? "info" : (has(q.action) ? "faire" : "suivi");
+    if (q.perimetre === "unite" && !uniteCourante()) { unitairesIgnorees++; continue; }
+    let tab = q.cible, verrou = false;
+    if (!has(ECRANS[tab].e.perm)) { if (q.repli && has(ECRANS[q.repli].e.perm)) tab = q.repli; else verrou = true; }
+    slots.push({ q, mode, tab, verrou, cible:ECRANS[tab] });
+  }
+  return { slots, unitairesIgnorees };
+}
+/* Projection (miroir de HomeProjection : fonction pure des reponses, bande finale = registre ou booleen serveur) */
+function projeter(slot) {
+  const q = slot.q;
+  if (etat.simulation === "chargement") return { etat:"chargement", bande:q.bande, libelle:q.libelle };
+  if (etat.simulation === "erreur" && SOURCES_EN_ERREUR.has(q.source)) return { etat:"indisponible", bande:q.bande, libelle:q.libelle };
+  const r = q.projeter(donnees());
+  const brut = typeof r.compte === "number" ? r.compte : (r.brut ?? 1);
+  return { etat:"pret", compte:r.compte, brut, montant:r.montant || null, legende:r.legende, bande:r.bande || q.bande, libelle:r.libelle || q.libelle, verbe:r.verbe || q.verbe };
+}
+const ORDRE_MODE = { faire:0, suivi:1, info:2 };
+function cartesParBande() {
+  const { slots, unitairesIgnorees } = composer();
+  const bandes = { retard:[], jour:[], veille:[] };
+  const lisibles = { retard:0, jour:0, veille:0 }, composees = { retard:0, jour:0, veille:0 };
+  for (const q of FILES) if (has(q.lecture)) lisibles[q.bande]++;
+  for (const s of slots) {
+    composees[s.q.bande]++;
+    const p = projeter(s);
+    if (p.bande === "masquee") continue;
+    const zero = p.etat === "pret" && p.brut === 0;
+    if (zero && p.bande !== "jour") continue;
+    bandes[p.bande].push({ ...s, ...p, zero });
+  }
+  for (const b of Object.values(bandes)) b.sort((a, c) => ORDRE_MODE[a.mode] - ORDRE_MODE[c.mode]);
+  const raison = b => lisibles[b] === 0 ? "NoQueues" : (composees[b] === 0 ? "UnitMissing" : "AllClear");
+  return { bandes, unitairesIgnorees, raisons:{ retard:raison("retard"), jour:raison("jour"), veille:raison("veille") }, nbSlots:slots.length };
+}
+
+/* ======================= Rendu : une carte de file ======================= */
+const PERIMETRE_LIB = { unite:() => uniteCourante() || "Unité", groupe:() => "Groupe · toutes unités", moi:() => "Ma décision", systeme:() => "Système", uniteOuGroupe:() => uniteCourante() || "Groupe · toutes unités" };
+function rendreCarte(c) {
+  const lib = c.libelle;
+  const perim = PERIMETRE_LIB[c.q.perimetre]();
+  const tete = `<div class="tete">${svg(c.cible.d.cle, "ic thin")}<span class="cible-nom">${c.cible.e.nom}</span><span class="perimetre" title="Périmètre de la donnée">${perim}</span></div>`;
+  const titre = `title="Exemple — ${c.q.route.replace(/"/g, "&quot;")}"`;
+  if (c.etat === "chargement") {
+    return `<article class="carte file" ${titre} aria-label="${lib}, chargement" aria-busy="true">${tete}<div class="squelette" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="libelle">${lib}</div><div class="cta"><button type="button" class="btn-file voir" disabled>Chargement…</button></div></article>`;
+  }
+  if (c.etat === "indisponible") {
+    return `<article class="carte file indispo" ${titre} aria-label="${lib}, indisponible">${tete}<div class="compte">—</div><div class="libelle">${lib}</div>
+      <div class="legende">F5 pour réessayer · détail dans le bandeau de session</div>
+      <div class="cta"><span class="badge rejetee">Indisponible</span></div></article>`;
+  }
+  const modeCls = c.mode === "suivi" ? "suivi" : (c.zero ? "zero" : "");
+  const verbe = c.mode === "faire" ? c.verbe : (c.mode === "suivi" ? "Voir" : c.verbe);
+  const btnCls = c.mode === "faire" ? "act" : "voir";
+  const bouton = c.verrou
+    ? `<button type="button" class="btn-file ${btnCls}" disabled title="Accès non autorisé pour votre profil (${c.cible.e.perm})" aria-label="${verbe} — accès non autorisé pour votre profil">${svg("Cadenas", "cadenas", "0 0 12 12")}${verbe}</button>`
+    : `<button type="button" class="btn-file ${btnCls}" data-open="${c.tab}" aria-label="${verbe} — ${lib}, ouvre ${c.cible.e.nom}">${verbe} ${svg("Fleche")}</button>`;
+  const suiviBadge = c.mode === "suivi" ? `<span class="badge draft" title="Vous pouvez lire cette file, pas agir dessus (${c.q.action} absent).">Suivi</span>` : "";
+  const modeMot = c.mode === "faire" ? "à faire" : (c.mode === "suivi" ? "suivi" : "information");
+  return `<article class="carte file ${modeCls}" ${titre} aria-label="${lib}, ${c.compte}${c.montant ? ", " + c.montant : ""}, ${perim}, ${modeMot}">
+    ${tete}<div class="compte">${c.compte}${c.montant ? `<span class="montant">${c.montant}</span>` : ""}</div>
+    <div class="libelle">${lib}</div><div class="legende">${c.legende}</div>
+    <div class="cta">${bouton}${suiviBadge}</div></article>`;
+}
+const VIDES = {
+  retard: { titre:"Rien en retard", indice:"Les arrivées, départs, clôtures, rejets et sauvegardes en retard apparaîtront ici.", picto:"Coche" },
+  jour:   { titre:"Rien à traiter", picto:"Corbeille", indices:{
+            NoQueues:"Aucune file de travail n'est ouverte à votre profil. Vos écrans restent accessibles par la barre latérale et le catalogue.",
+            UnitMissing:"Vos files dépendent d'une unité : fixez l'unité de ce poste dans Paramétrage global › Poste de travail.",
+            AllClear:"Aucune file composée n'a de chiffre à montrer." } },
+  veille: { titre:"Rien à surveiller", indice:"Chambres hors service, articles sous le minimum et postes apparaîtront ici.", picto:"Oeil" },
+};
+function rendreBande(cle, libelle, cartes, raison) {
+  const sansVerbe = cartes.length > 0 && !cartes.some(c => c.mode === "faire" && c.etat === "pret");
+  const suffixe = sansVerbe ? `<span class="suffixe">· suivi seulement</span>` : "";
+  /* Sans aucune file lisible, ou sans unite alors que seules des files unitaires etaient lisibles, la bande ne pretend
+     pas « rien en retard » : rien n'a ete lu. Une ligne attenuee dit pourquoi (Aujourd'hui garde sa boite, raison typee). */
+  if (cartes.length === 0 && raison !== "AllClear" && cle !== "jour") {
+    const pourquoi = raison === "NoQueues" ? "aucune file ouverte à votre profil" : "dépend de l'unité du poste, non définie";
+    return `<section class="bande ${cle}" aria-labelledby="bande-${cle}"><h3 class="bande-tete attenue" id="bande-${cle}"><span class="pt" aria-hidden="true"></span>${libelle}<span class="suffixe">· ${pourquoi}</span></h3></section>`;
+  }
+  let contenu;
+  if (cartes.length) contenu = `<div class="files">${cartes.map(rendreCarte).join("")}</div>`;
+  else {
+    const v = VIDES[cle]; const indice = v.indices ? v.indices[raison] : v.indice;
+    contenu = `<div class="vide-bande" aria-live="polite">${svg(v.picto)}<div class="titre">${v.titre}</div><div class="indice">${indice}</div></div>`;
+  }
+  return `<section class="bande ${cle}" aria-labelledby="bande-${cle}">
+    <h3 class="bande-tete" id="bande-${cle}" aria-label="${libelle}, ${cartes.length} file${cartes.length > 1 ? "s" : ""}"><span class="pt" aria-hidden="true"></span>${libelle}<span class="nb" aria-hidden="true">${cartes.length}</span>${suffixe}</h3>${contenu}</section>`;
+}
+
+/* ======================= Rendu : section « Mon travail » ======================= */
+function rendreOngletsSection() {
+  return `<div class="sections" role="tablist" aria-label="Sections de Mon Espace">
+    <button type="button" class="onglet" role="tab" data-section="travail" aria-selected="${etat.section === "travail"}">${svg("MonEspace")}Mon travail</button>
+    <button type="button" class="onglet" role="tab" data-section="catalogue" aria-selected="${etat.section === "catalogue"}">Catalogue des modules</button>
+    <span class="exemple">${etat.section === "travail" ? "Exemple · chiffres fictifs · l'info-bulle de chaque carte donne la route et le champ" : "Section = l'accueil-catalogue actuel extrait tel quel + corrections navigation-shell § 5.1"}</span>
+  </div>`;
+}
+function rendreTravail(sec) {
+  const prof = PROFILS[etat.profil];
+  const { bandes, unitairesIgnorees, raisons, nbSlots } = cartesParBande();
+  const unite = uniteCourante();
+  const d = donnees();
+  const enChargement = etat.simulation === "chargement";
+  const nbFaire = Object.values(bandes).flat().filter(c => c.mode === "faire" && c.etat === "pret").length;
+
+  const synthese = enChargement
+    ? `Chargement des files de travail…`
+    : `<b>${bandes.retard.length}</b> en retard · <b>${bandes.jour.length}</b> aujourd'hui · <b>${bandes.veille.length}</b> à surveiller${nbSlots > 0 && nbFaire === 0 ? " · suivi seulement" : ""}`;
+
+  const uneUnitaireLisible = FILES.some(q => q.perimetre === "unite" && has(q.lecture));
+  const ligneUnite = uneUnitaireLisible   /* la ligne n'existe que si une file unitaire est lisible : rien a regler sinon (RH) */
+    ? `<dt>Unité du poste</dt><dd>${unite ? `${unite}${has("units.read") ? ` <span class="muet">· ${nomUnite(unite)}</span>` : ""}` : `<span class="muet">— non définie</span>`}
+        ${has("settings.read") ? `<button type="button" class="btn fantome" data-open="9" title="Paramétrage global › Poste de travail (réglage par poste : DesktopSettings.StationUnitCode)">${unite ? "Changer" : "Définir"}</button>` : ""}</dd>`
+    : "";
+  let ligneDate = "";
+  if (has("lodging.read")) {
+    if (!unite) ligneDate = `<dt>Date métier</dt><dd><span class="muet">— unité du poste non définie</span></dd>`;
+    else if (enChargement) ligneDate = `<dt>Date métier ${unite}</dt><dd><span class="muet">chargement…</span></dd>`;
+    else if (etat.simulation === "erreur" && SOURCES_EN_ERREUR.has("businessDate")) ligneDate = `<dt>Date métier ${unite}</dt><dd><span class="muet">— indisponible</span></dd>`;
+    else ligneDate = `<dt>Date métier ${unite}</dt><dd title="Exemple — GET /lodging/business-date → BusinessDate, IsLate, PendingDays">${d.businessDate.businessDate} ${d.businessDate.isLate ? `<span class="badge soumise">en retard · ${d.businessDate.pendingDays} jour${d.businessDate.pendingDays > 1 ? "s" : ""}</span>` : `<span class="badge validee">à jour</span>`}</dd>`;
+  }
+
+  const sourcesEchouees = etat.simulation === "erreur" ? [...new Set(composer().slots.filter(s => SOURCES_EN_ERREUR.has(s.q.source)).map(s => NOM_SOURCE[s.q.source]))] : [];
+  const nbEchecs = etat.simulation === "erreur" ? [...new Set(composer().slots.map(s => s.q.source))].filter(s => SOURCES_EN_ERREUR.has(s)).length : 0;
+
+  sec.innerHTML = `<div class="accueil">
+    ${rendreOngletsSection()}
+
+    <div class="carte bandeau" role="region" aria-label="Bandeau de Mon Espace">
+      <div>
+        <h2>Bonjour, ${prof.utilisateur}</h2>
+        <div class="date">mardi 1 septembre 2026${has("settings.read") ? ` · ${d.settings.company}` : ""}</div>
+        <div class="synthese" aria-live="polite" title="Nombre de files, pas d'objets">${synthese}</div>
+        <div class="liens">
+          <button type="button" class="btn fantome" data-open="9" ${has("settings.read") ? "" : "disabled"} title="Ouvre Paramétrage global (section Santé du système, qui rend GET /api/v1/me)">Mon profil</button>
+          <button type="button" class="btn fantome" data-open="9" ${has("settings.read") ? "" : "disabled"} title="Ouvre Paramétrage global (section Poste de travail : apparence, densité, URL API, unité du poste)">Mes préférences</button>
+          <button type="button" class="btn fantome" data-securite title="Ouvre la boîte « Changer mon mot de passe » existante (POST /account/change-password)">Ma sécurité</button>
+        </div>
+      </div>
+      <div class="droite">
+        <dl>${ligneUnite}${ligneDate}</dl>
+        <div class="actions">
+          <span class="actualise">${enChargement ? "actualisation en cours" : `actualisé à ${etat.heure}`} · ${prof.role.split(" (")[0]}</span>
+          <button type="button" class="btn secondaire" id="btn-refresh" ${enChargement ? "disabled" : ""} title="Actualiser les files de travail (F5 — RefreshHomeButton)">${svg("Actualiser")}Actualiser</button>
+        </div>
+      </div>
+    </div>
+
+    ${unitairesIgnorees > 0 ? `<div class="avert" role="status">${svg("Alerte")}<span>Ce poste n'est rattaché à aucune unité : arrivées, départs, chambres, date métier et événements ne sont pas affichés.</span><button type="button" class="lien" data-open="9">Paramétrage global › Poste de travail</button></div>` : ""}
+    ${nbEchecs > 0 ? `<div class="avert" role="status" aria-live="polite">${svg("Alerte")}<span>${nbEchecs} compteur${nbEchecs > 1 ? "s n'ont" : " n'a"} pas répondu (${sourcesEchouees.join(", ")}). Les autres sont à jour.</span><button type="button" class="lien" id="btn-retry">Réessayer (F5)</button></div>` : ""}
+
+    ${rendreBande("retard", "En retard", bandes.retard, raisons.retard)}
+    ${rendreBande("jour", "Aujourd'hui", bandes.jour, raisons.jour)}
+    ${rendreBande("veille", "À surveiller", bandes.veille, raisons.veille)}
+
+    ${rendreRecents(prof)}
+    ${rendreProduit()}
+  </div>`;
+  brancher(sec);
+  sec.querySelector("#btn-refresh").addEventListener("click", actualiser);
+  sec.querySelector("#btn-retry")?.addEventListener("click", actualiser);
+  sec.querySelector("[data-securite]")?.addEventListener("click", () => setStatus("Boîte « Changer mon mot de passe » : hors maquette (POST /account/change-password existant)."));
+}
+function rendreRecents(prof) {
+  const items = prof.recents.map(tab => ECRANS[tab]).filter(r => r && has(r.e.perm)).slice(0, 6);
+  if (!items.length) return "";
+  return `<div><p class="section-titre">Derniers écrans ouverts (ce poste)</p><div class="raccourcis">
+    ${items.map(r => `<button type="button" class="puce" data-open="${r.e.tab}" aria-label="Ouvrir ${r.e.nom}, ${r.m.nom}, ${r.d.nom}" title="${r.d.id} · ${r.d.nom} › ${r.m.nom} — DesktopSettings.RecentTabs (réglage par poste)">${svg(r.d.cle)}${r.e.nom}<span class="attenue">· ${r.m.nom}</span></button>`).join("")}
+  </div></div>`;
+}
+function rendreProduit() {
+  const compte = { Planned:0, TechnicalPreview:0, Functional:0, ProductionReady:0 };
+  TREE.forEach(d => compte[d.maturite]++);
+  const dispo = CATALOGUE.filter(c => c.statut === "Disponible").length;
+  return `<div class="carte produit" role="region" aria-label="Où en est le produit ?">
+    <div class="texte"><div class="t">${svg("Pilotage")}Où en est le produit ?</div>
+      <div class="s"><span><b>${dispo}</b> modules disponibles sur ${CATALOGUE.length}</span><span>·</span>
+        <span><span class="mdot" style="background:var(--mat-functional-accent)"></span>${compte.Functional} fonctionnels</span>
+        <span><span class="mdot" style="background:var(--mat-preview-accent)"></span>${compte.TechnicalPreview} aperçus techniques</span>
+        <span><span class="mdot" style="background:var(--mat-planned-accent)"></span>${compte.Planned} planifiés</span>
+        <span><span class="mdot" style="background:var(--mat-ready-accent)"></span>${compte.ProductionReady} prêt pour la production</span></div>
+      <div class="c">chiffres du catalogue embarqué (ModuleCatalog, FunctionalArchitectureCatalog), pas du serveur — les deux échelles ne s'additionnent pas</div></div>
+    <div class="mini" aria-hidden="true"><span style="flex:${dispo};background:var(--progress-available)"></span><span style="flex:${CATALOGUE.length - dispo};background:var(--progress-planned)"></span></div>
+    <button type="button" class="btn secondaire" data-section="catalogue">Ouvrir le catalogue des modules ${svg("Fleche")}</button>
+  </div>`;
+}
+
+/* ======================= Rendu : section « Catalogue des modules » (ModuleCatalogView) ======================= */
+function estOuvrable(c) { return c.tab !== null && (!c.perm || has(c.perm)); }
+function rendreCatalogue(sec) {
+  const q = etat.recherche.trim(), nq = normaliser(q);
+  const compteStatut = s => CATALOGUE.filter(c => c.statut === s).length;
+  const dispo = compteStatut("Disponible"), planif = compteStatut("Planifié");
+  const compteDom = { Planned:0, TechnicalPreview:0, Functional:0, ProductionReady:0 }; TREE.forEach(d => compteDom[d.maturite]++);
+
+  const correspond = c => {
+    const dom = domaine(DOMAINE_PAR_ORDRE[c.ordre]);
+    if (etat.filtreDomaine && dom.id !== etat.filtreDomaine) return false;
+    if (etat.filtreStatut && c.statut !== etat.filtreStatut) return false;
+    if (etat.filtrePrio && c.prio !== etat.filtrePrio) return false;
+    if (etat.filtreMaturite && MATURITE_MODULE[c.statut] !== etat.filtreMaturite) return false;
+    if (nq && !normaliser(`${c.nom} ${c.desc} ${dom.nom} ${MODULE_PAR_ORDRE[c.ordre]} ${c.ordre}`).includes(nq)) return false;
+    return true;
+  };
+  const visibles = CATALOGUE.filter(correspond);
+  const filtreActif = !!(etat.filtreDomaine || etat.filtreStatut || etat.filtrePrio || etat.filtreMaturite || nq);
+
+  /* Recherche universelle : NavigationTreeBuilder.Build(Tree, ..., NavigationFilter.Home with { SearchText, IncludeAliases }) */
+  let resultats = "";
+  if (nq) {
+    const hits = [];
+    for (const d of TREE) for (const m of d.modules) for (const s of m.sous) {
+      const e = s.ecran || (s.alias ? ECRANS[s.alias].e : null);
+      if (normaliser(`${d.id} ${d.nom} ${m.nom} ${s.nom} ${e ? e.nom + " " + e.ordre : ""}`).includes(nq)) hits.push({ d, m, s, e });
+    }
+    const ligne = h => {
+      const chemin = `<span class="chemin">${h.d.nom} › ${h.m.nom} › <b>${h.s.nom}</b></span>`;
+      if (!h.e) return `<div class="res-ligne inerte" aria-label="${h.s.nom}, planifié, aucun écran">${svg(h.d.cle)}${chemin}<span class="droite">${badge("Planned")}</span></div>`;
+      const ok = has(h.e.perm);
+      return ok
+        ? `<button type="button" class="res-ligne" data-open="${h.e.tab}" aria-label="Ouvrir ${h.e.nom}, ${h.s.nom}">${svg(h.d.cle)}${chemin}<span class="droite"><span class="badge neutre">Écran · ${h.e.nom}</span></span></button>`
+        : `<div class="res-ligne inerte" title="Accès non autorisé pour votre profil (${h.e.perm})" aria-label="${h.e.nom}, accès non autorisé pour votre profil">${svg(h.d.cle)}${chemin}<span class="droite">${svg("Cadenas", "cadenas", "0 0 12 12")}<span class="badge neutre">${h.e.nom}</span></span></div>`;
+    };
+    resultats = `<div class="carte resultats" role="region" aria-label="Sous-modules et écrans">
+      <p class="section-titre">Sous-modules et écrans (${hits.length}) <span style="font-weight:400">· navigation seulement — aucune donnée n'est cherchée · Entrée ouvre le premier écran ouvrable</span></p>
+      ${hits.length ? hits.slice(0, 10).map(ligne).join("") + (hits.length > 10 ? `<p class="groupe-vide">… et ${hits.length - 10} autres : précisez la recherche.</p>` : "") : `<p class="groupe-vide" style="margin-left:0">Aucun sous-module ni écran ne correspond à « ${q} ».</p>`}
+    </div>`;
+  }
+
+  const chips = (lib, cle, options) => `<div class="filtres-ligne" role="group" aria-label="${lib}"><span class="lib">${lib}</span>
+    ${options.map(([val, txt, title]) => `<button type="button" class="puce compacte" data-filtre="${cle}" data-val="${val ?? ""}" aria-pressed="${(etat[cle] ?? null) === val}" ${title ? `title="${title}"` : ""}>${txt}</button>`).join("")}</div>`;
+
+  const groupes = TREE.map(d => {
+    const cartes = visibles.filter(c => DOMAINE_PAR_ORDRE[c.ordre] === d.id);
+    const total = CATALOGUE.filter(c => DOMAINE_PAR_ORDRE[c.ordre] === d.id).length;
+    if (cartes.length === 0 && (filtreActif || total > 0)) return "";
+    const tete = `<h3 class="groupe-tete" aria-label="Domaine ${d.id} ${d.nom}, ${total} module${total > 1 ? "s" : ""}, ${MATURITE[d.maturite].libelle}">${svg(d.cle, "ic thin")}<span class="nom">${d.id} ${d.nom}</span><span class="compteur">${total} module${total > 1 ? "s" : ""}</span>${badge(d.maturite)}<span class="filet"></span></h3>`;
+    if (total === 0) return tete + `<p class="groupe-vide">Aucun module rattaché : c'est la promesse du catalogue.</p>`;
+    return tete + `<div class="cartes-modules">${cartes.map(c => {
+      const verrou = c.perm && !has(c.perm); const inactif = c.tab === null || verrou;
+      const nomA11y = verrou ? `${c.nom}, accès non autorisé pour votre profil` : (c.tab === null ? `${c.nom}, planifié, aucun écran` : `Ouvrir ${c.nom}, ${c.statut}`);
+      return `<button type="button" class="carte carte-module ${verrou ? "verrou" : ""}" ${inactif ? "disabled" : ""} ${c.tab !== null ? `data-open="${c.tab}"` : ""} title="${verrou ? "Accès non autorisé pour votre profil" : c.desc}" aria-label="${nomA11y}">
+        <div class="haut"><span class="ico">${svg(d.cle)}</span><span class="prio">${verrou ? svg("Cadenas", "cadenas", "0 0 12 12") : ""}${c.prio}</span></div>
+        <div class="t">${c.nom}</div><div class="d">${c.desc}</div>
+        <div class="pied"><span class="badge ${STATUT_CLS[c.statut]}">${c.statut}</span><span class="module" title="Module de l'arbre">${MODULE_PAR_ORDRE[c.ordre]}</span></div></button>`; }).join("")}</div>`;
+  }).join("");
+
+  sec.innerHTML = `<div class="accueil">
+    ${rendreOngletsSection()}
+    <div class="catalogue-sec">
+      <div class="carte carte-p">
+        <div class="tete-carte"><div><p class="section-titre" style="margin:0">Architecture fonctionnelle</p><div style="font-size:12.5px;color:var(--text-2);margin-top:5px">22 domaines métier · choisissez votre espace de travail</div></div>
+          <span class="droite" style="color:var(--accent)">${etat.filtreDomaine ? `${etat.filtreDomaine}  ${domaine(etat.filtreDomaine).nom}  →  modules` : "Tous les domaines  →  modules"}</span></div>
+        <div class="filtres-ligne" role="group" aria-label="Domaine" style="margin-top:16px">
+          <button type="button" class="puce" data-filtre="filtreDomaine" data-val="" aria-pressed="${etat.filtreDomaine === null}">Tous <span class="attenue">${CATALOGUE.length}</span></button>
+          ${TREE.map(d => { const n = CATALOGUE.filter(c => DOMAINE_PAR_ORDRE[c.ordre] === d.id).length; return `<button type="button" class="puce" data-filtre="filtreDomaine" data-val="${d.id}" aria-pressed="${etat.filtreDomaine === d.id}" title="${d.nom}">${d.id} ${d.nom}<span class="attenue">${n}</span></button>`; }).join("")}
+        </div>
+      </div>
+
+      <div class="carte carte-p">
+        <div class="tete-carte"><p class="section-titre" style="margin:0">Avancement des modules</p><span class="droite">${Math.round(dispo * 100 / CATALOGUE.length)} % du périmètre déjà utilisable</span></div>
+        <div class="avancement">
+          <div class="stat"><div class="lib"><span class="pt" style="background:var(--progress-available)"></span>Disponible</div><div class="val">${dispo}</div></div>
+          <div class="stat"><div class="lib"><span class="pt" style="background:var(--mat-functional-accent)"></span>API prête</div><div class="val">0</div></div>
+          <div class="stat"><div class="lib"><span class="pt" style="background:var(--mat-preview-accent)"></span>Partiel</div><div class="val">0</div></div>
+          <div class="stat"><div class="lib"><span class="pt" style="background:var(--progress-planned)"></span>Planifié</div><div class="val">${planif}</div></div>
+        </div>
+        <div class="barre" aria-hidden="true"><span style="flex:${dispo};background:var(--progress-available)"></span><span style="flex:${planif};background:var(--progress-planned)"></span></div>
+        <div class="legende-barre">${dispo} modules disponibles sur ${CATALOGUE.length} · 0 avec API livrée, écran à venir · 0 partiellement couverts · ${planif} planifiés</div>
+        <div class="legende-barre">Domaines : <span class="mdot" style="background:var(--mat-functional-accent)"></span>${compteDom.Functional} fonctionnels · <span class="mdot" style="background:var(--mat-preview-accent)"></span>${compteDom.TechnicalPreview} aperçus techniques · <span class="mdot" style="background:var(--mat-planned-accent)"></span>${compteDom.Planned} planifiés · <span class="mdot" style="background:var(--mat-ready-accent)"></span>${compteDom.ProductionReady} prêt pour la production — les deux échelles ne s'additionnent pas.</div>
+        <div class="recherche-cat" style="margin-top:20px">${svg("Recherche")}<input id="home-search" type="search" value="${q.replace(/"/g, "&quot;")}" placeholder="Rechercher un module, un écran…  (Ctrl+K)" aria-label="Rechercher un module ou un écran" title="HomeSearchTextBox : filtre les ${CATALOGUE.length} modules et cherche dans l'arbre Domaine › Module › Sous-module › Écran"><button type="button" class="effacer" id="home-search-clear" title="Effacer la recherche (Échap)" aria-label="Effacer la recherche" ${q ? "" : "hidden"}>${svg("Croix", "ic", "0 0 16 16")}</button></div>
+        <div style="margin-top:12px">
+          ${chips("Statut", "filtreStatut", [[null,"Tous",`Afficher les ${CATALOGUE.length} modules`],["Disponible","Disponibles","Écrans utilisables dès maintenant"],["API prête","API prête","Backend livré et testé, écran client à venir"],["Partiel","Partiels","Partiellement couverts par l'existant"],["Planifié","Planifiés","Pas encore développés"]])}
+          ${chips("Priorité", "filtrePrio", [[null,"Toutes"],["P0","P0","Socle et pilote"],["P1","P1","Cœur de l'ERP"],["P2","P2","Extensions"]])}
+          ${chips("Maturité", "filtreMaturite", [[null,"Toutes"],["Functional","Fonctionnel"],["TechnicalPreview","Aperçu technique"],["Planned","Planifié"]])}
+        </div>
+      </div>
+
+      ${resultats}
+      <div>${groupes}${visibles.length === 0 ? `<p class="cat-vide">${nq ? `Aucun module ne correspond à « ${q} ». Échap efface la recherche.` : `Aucun module ne correspond à ces filtres. Revenez à « Tous » pour voir les ${CATALOGUE.length} modules.`}</p>` : ""}</div>
+    </div>
+  </div>`;
+  brancher(sec);
+  const champ = sec.querySelector("#home-search");
+  champ.addEventListener("input", ev => { const pos = ev.target.selectionStart; etat.recherche = ev.target.value; rendreCatalogue(sec); const c2 = sec.querySelector("#home-search"); c2.focus(); c2.setSelectionRange(pos, pos); });
+  champ.addEventListener("keydown", ev => {
+    if (ev.key === "Escape" && champ.value) { ev.preventDefault(); etat.recherche = ""; rendreCatalogue(sec); sec.querySelector("#home-search").focus(); }
+    if (ev.key === "Enter") { const premier = sec.querySelector(".resultats [data-open]") || sec.querySelector(".carte-module[data-open]:not(:disabled)"); if (premier) ouvrir(+premier.dataset.open); else setStatus("Aucun écran ouvrable ne correspond à cette recherche."); }
+  });
+  sec.querySelector("#home-search-clear")?.addEventListener("click", () => { etat.recherche = ""; rendreCatalogue(sec); sec.querySelector("#home-search").focus(); });
+  sec.querySelectorAll("[data-filtre]").forEach(b => b.addEventListener("click", () => { etat[b.dataset.filtre] = b.dataset.val === "" ? null : b.dataset.val; rendreCatalogue(sec); }));
+}
+
+/* ======================= Rendu : ecran cible (stub du shell, ouvert par une carte ou la barre laterale) ======================= */
+const LIGNES_FICTIVES = {
+  30: { colonnes:["Réservation","Client","Chambre","Nuits","Statut","Montant dû"],
+    lignes:[["RSV-2026-0398","K. Amrani","118 · Twin","2","soumise|Arrivée dépassée","0,00"],["RSV-2026-0402","Sté Numidia Conseil","301 · Suite","3","soumise|Arrivée dépassée","0,00"],["RSV-2026-0412","A. Benali","204 · Double vue mer","2","validee|Confirmée","18 500,00"],["RSV-2026-0415","S. Haddad","— à affecter","1","validee|Confirmée","9 200,00"]] },
+};
+function rendreEcran(sec) {
+  const { d, m, e } = etat.courant;
+  const onglets = SOUS_ONGLETS[e.tab] || [];
+  const idx = Math.min(etat.courant.onglet, Math.max(onglets.length - 1, 0));
+  const donneesEcran = LIGNES_FICTIVES[e.tab];
+  sec.className = "carte ecran";
+  sec.innerHTML = `
+    <div class="ecran-tete">
+      <div><h2>${e.nom}</h2><div class="sous">${d.nom} › ${m.nom}. Écran cible ouvert depuis Mon Espace par NavigateToModule(${e.tab}) — v1 : l'onglet, pas le sous-onglet.</div></div>
+      <div class="actions"><button type="button" class="btn secondaire" title="Actualiser (F5)">${svg("Actualiser")}Actualiser</button><button type="button" class="btn secondaire">Exporter CSV</button></div>
+    </div>
+    ${onglets.length ? `<div class="onglets" role="tablist" aria-label="Sous-onglets de ${e.nom}">${onglets.map((s, i) => `<button type="button" class="onglet" role="tab" aria-selected="${i === idx}" data-onglet="${i}">${s}</button>`).join("")}</div>` : ""}
+    <div class="filtres">
+      <div class="champ"><label for="f-date">Date métier</label><input id="f-date" type="text" value="01/09/2026"></div>
+      <div class="champ"><label for="f-rech">Recherche</label><input id="f-rech" type="text" placeholder="Nom, référence…"></div>
+      <div class="actions" style="margin-left:auto;display:flex;gap:8px"><button type="button" class="btn fantome" title="Ctrl+N">${svg("Plus")}Nouveau</button><button type="button" class="btn primaire" title="Ctrl+S">Enregistrer</button></div>
+    </div>
+    <div class="grille">
+      <table>
+        <thead><tr>${(donneesEcran ? donneesEcran.colonnes : ["Référence","Libellé","Unité","Date","Statut","Montant"]).map((c, i, a) => `<th class="${i === a.length - 1 ? "num" : ""}">${c}</th>`).join("")}</tr></thead>
+        <tbody>${donneesEcran ? donneesEcran.lignes.map(l => `<tr>${l.map((c, i, a) => { if (c.includes("|")) { const [cls, lib] = c.split("|"); return `<td><span class="badge ${cls}">${lib}</span></td>`; } return `<td class="${i === a.length - 1 ? "num" : ""}">${c}</td>`; }).join("")}</tr>`).join("") : ""}</tbody>
+      </table>
+      ${donneesEcran ? "" : `<div class="vide" aria-live="polite">${svg("Corbeille")}<div class="titre">Aucun élément pour « ${onglets[idx] || e.nom} »</div><div class="indice">Écran cible (maquette) — choisissez une date métier ou créez un élément avec « Nouveau » (Ctrl+N).</div></div>`}
+    </div>`;
+  sec.querySelectorAll("[data-onglet]").forEach(b => b.addEventListener("click", () => { etat.courant.onglet = +b.dataset.onglet; rendreAriane(); rendreEcran(sec); }));
+}
+
+/* ======================= Rendu : barre laterale et fil d'Ariane (shell inchange) ======================= */
+function rendreSidebar() {
+  const aside = document.getElementById("sidebar");
+  const ligneDomaine = d => {
+    const ouvrables = ecransDuDomaine(d).filter(e => has(e.perm));
+    if (ouvrables.length === 0) return "";
+    const deroule = etat.deroules.has(d.id);
+    const point = d.maturite === "TechnicalPreview" ? `<span class="point preview" role="img" aria-label="Aperçu technique"></span>` : "<span></span>";
+    return `<div class="domaine">
+      <button type="button" class="dom-tete" aria-expanded="${deroule}" data-toggle="${d.id}" aria-label="Domaine ${d.nom}, ${ouvrables.length} écran${ouvrables.length > 1 ? "s" : ""}" title="${d.id} · ${d.nom}">
+        ${svg(d.cle, "ic thin")}<span class="nom">${d.nom}</span>${point}<span class="compteur">${ouvrables.length}</span>${svg("Chevron", "chevron", "0 0 9 7")}</button>
+      <div class="ecrans" ${deroule ? "" : "hidden"}>${ouvrables.map(e => { const actif = !etat.racine && etat.courant && etat.courant.e === e;
+        return `<button type="button" class="nav-btn" data-open="${e.tab}" ${actif ? 'aria-current="page"' : ""} aria-label="Ouvrir ${e.nom}${actif ? ", écran affiché" : ""}" title="${ECRANS[e.tab].m.nom} › ${ECRANS[e.tab].s.nom}">${e.nom}</button>`; }).join("")}</div></div>`;
+  };
+  aside.innerHTML = `<p class="etiquette">Modules</p>
+    <button type="button" class="nav-btn" id="btn-racine" ${etat.racine ? 'aria-current="page"' : ""} aria-label="Mon Espace, accueil" title="Mon Espace (Alt+Origine) — libellé retenu par refonte-accueil.md § 1.3">${svg("MonEspace")}<span>Mon Espace</span></button>
+    <div class="recherche">${svg("Recherche")}<input type="search" placeholder="Rechercher un écran…  (Ctrl+K)" aria-label="Rechercher un écran"></div>
+    <div class="domaines">${TREE.filter(d => !d.epingle).map(ligneDomaine).join("")}</div>
+    <div class="epingle">${TREE.filter(d => d.epingle).map(ligneDomaine).join("")}</div>`;
+  aside.querySelector("#btn-racine").addEventListener("click", allerRacine);
+  aside.querySelectorAll("[data-toggle]").forEach(b => b.addEventListener("click", () => { const id = b.dataset.toggle; etat.deroules.has(id) ? etat.deroules.delete(id) : etat.deroules.add(id); rendreSidebar(); }));
+  brancher(aside);
+}
+function rendreAriane() {
+  const nav = document.getElementById("ariane");
+  if (etat.racine || !etat.courant) { nav.hidden = true; nav.innerHTML = ""; return; }
+  const { d, m, s, e } = etat.courant;
+  const sep = svg("Chevron", "sep", "0 0 9 7");
+  nav.hidden = false;
+  nav.innerHTML = `${svg(d.cle)}<button type="button" data-seg="dom" aria-label="Remonter à ${d.nom}">${d.id} ${d.nom}</button>${sep}<button type="button" data-seg="mod" aria-label="Remonter à ${m.nom}">${m.nom}</button>${sep}<span style="color:var(--text-2);font-weight:600;padding:3px 6px">${s.nom}</span>${sep}<span class="courant" aria-current="page">${e.nom}</span>${d.maturite === "TechnicalPreview" ? badge(d.maturite) : ""}`;
+  nav.querySelector('[data-seg="dom"]').addEventListener("click", () => { etat.deroules.add(d.id); rendreSidebar(); document.querySelector(`[data-toggle="${d.id}"]`)?.focus(); });
+  nav.querySelector('[data-seg="mod"]').addEventListener("click", () => ouvrir(e.tab));
+}
+
+/* ======================= Navigation : un seul chemin (NavigateToModule, garde CanOpenModule) ======================= */
+function brancher(racine) {
+  racine.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => ouvrir(+b.dataset.open)));
+  racine.querySelectorAll("[data-section]").forEach(b => b.addEventListener("click", () => { etat.section = b.dataset.section; rendre(); if (etat.section === "catalogue" && b.closest(".produit")) document.getElementById("home-search")?.focus(); }));
+}
+function ouvrir(tab) {
+  const cible = ECRANS[tab];
+  if (!cible || !has(cible.e.perm)) { setStatus(`« ${cible ? cible.e.nom : "?"} » n'est pas ouvert à votre profil (CanOpenModule).`, true); return; }
+  etat.racine = false; etat.courant = { ...cible, onglet:0 }; etat.deroules.add(cible.d.id);
+  rendre(); document.getElementById("ecran").scrollTop = 0;
+}
+function allerRacine() { etat.racine = true; etat.courant = null; etat.section = "travail"; rendre(); document.getElementById("ecran").scrollTop = 0; }
+
+/* ======================= Bandeau de session (SetStatus / FlashSessionStrip) ======================= */
+let flashTimer = null;
+function setStatus(message, erreur = false) {
+  const strip = document.getElementById("session-strip");
+  document.getElementById("session-texte").textContent = message;
+  strip.classList.toggle("erreur", erreur);
+  strip.classList.remove("flash-info", "flash-erreur"); void strip.offsetWidth;
+  strip.classList.add(erreur ? "flash-erreur" : "flash-info");
+  clearTimeout(flashTimer); flashTimer = setTimeout(() => strip.classList.remove("flash-info", "flash-erreur"), erreur ? 1600 : 900);
+}
+function actualiser() {
+  if (!etat.racine) { setStatus("Cet écran n'a rien à actualiser (maquette)."); return; }
+  const h = new Date(); etat.heure = `${String(h.getHours()).padStart(2, "0")}:${String(h.getMinutes()).padStart(2, "0")}`;
+  rendre();
+  if (etat.simulation === "erreur") setStatus("API 503 : Service Unavailable — le cockpit DEC et le tableau housekeeping n'ont pas répondu (exemple). Les autres files sont à jour.", true);
+  else if (etat.simulation === "chargement") setStatus("Chargement des files de travail…");
+  else setStatus(`Files de travail actualisées à ${etat.heure} (exemple).`);
+}
+
+/* ======================= Rendu global ======================= */
+function rendre() {
+  const prof = PROFILS[etat.profil];
+  document.documentElement.dataset.theme = etat.theme;
+  document.documentElement.dataset.densite = etat.densite;
+  document.getElementById("app").classList.toggle("racine", etat.racine);
+  document.getElementById("entete-session").innerHTML = `<b>${prof.utilisateur}</b> · ${prof.nom} · ${DONNEES_CHARGE.settings.company}`;
+  document.getElementById("lbl-theme").textContent = etat.theme === "clair" ? "Sombre" : "Clair";
+  document.getElementById("busy").classList.toggle("actif", etat.racine && etat.simulation === "chargement");
+  for (const [attr, val] of [["profil", etat.profil], ["theme", etat.theme], ["densite", etat.densite], ["unite", etat.uniteReglee ? "oui" : "non"], ["sim", etat.simulation]])
+    document.querySelectorAll(`.maquette-bar [data-${attr}]`).forEach(b => b.setAttribute("aria-pressed", b.dataset[attr] === val));
+  const sec = document.getElementById("ecran");
+  rendreSidebar(); rendreAriane();
+  if (etat.racine) { sec.className = ""; etat.section === "catalogue" ? rendreCatalogue(sec) : rendreTravail(sec); }
+  else rendreEcran(sec);
+}
+
+document.querySelectorAll(".maquette-bar [data-profil]").forEach(b => b.addEventListener("click", () => { etat.profil = b.dataset.profil; etat.deroules.clear(); etat.uniteReglee = !PROFILS[etat.profil].siege; allerRacine(); setStatus(`Prêt. Connecté en tant que ${PROFILS[etat.profil].utilisateur} (${PROFILS[etat.profil].role}).`); }));
+document.querySelectorAll(".maquette-bar [data-theme]").forEach(b => b.addEventListener("click", () => { etat.theme = b.dataset.theme; rendre(); }));
+document.querySelectorAll(".maquette-bar [data-densite]").forEach(b => b.addEventListener("click", () => { etat.densite = b.dataset.densite; rendre(); }));
+document.querySelectorAll(".maquette-bar [data-unite]").forEach(b => b.addEventListener("click", () => { etat.uniteReglee = b.dataset.unite === "oui"; rendre(); }));
+document.querySelectorAll(".maquette-bar [data-sim]").forEach(b => b.addEventListener("click", () => { etat.simulation = b.dataset.sim; actualiser(); }));
+document.getElementById("btn-theme").addEventListener("click", () => { etat.theme = etat.theme === "clair" ? "sombre" : "clair"; rendre(); setStatus("Apparence appliquée aux écrans non encore ouverts ; redémarrage conseillé pour les autres (RedemarrageConseille)."); });
+document.addEventListener("keydown", ev => {
+  if (ev.altKey && ev.key === "Home") { ev.preventDefault(); allerRacine(); }
+  if (ev.key === "F5") { ev.preventDefault(); actualiser(); }
+  if (ev.ctrlKey && ev.key.toLowerCase() === "k") { ev.preventDefault(); if (etat.racine) { etat.section = "catalogue"; rendre(); document.getElementById("home-search")?.focus(); } else document.querySelector("#sidebar input")?.focus(); }
+  if (ev.ctrlKey && ev.key === "Tab" && etat.racine) { ev.preventDefault(); etat.section = etat.section === "travail" ? "catalogue" : "travail"; rendre(); }
+});
+
+rendre();
+setStatus(`Prêt. Connecté en tant que ${PROFILS[etat.profil].utilisateur} (${PROFILS[etat.profil].role}).`);
+</script>
+</body>
+</html>
