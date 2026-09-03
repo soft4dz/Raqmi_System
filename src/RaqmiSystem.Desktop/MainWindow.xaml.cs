@@ -194,6 +194,7 @@ public partial class MainWindow : Window
         LoginCardBorder.Visibility = isAuthenticated ? Visibility.Collapsed : Visibility.Visible;
         MainContentGrid.Visibility = isAuthenticated ? Visibility.Visible : Visibility.Collapsed;
         HeaderSessionPanel.Visibility = isAuthenticated ? Visibility.Visible : Visibility.Collapsed;
+        GlobalSearchButton.Visibility = isAuthenticated ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // Unique chemin de navigation entre modules : selection de l'onglet + remise en
