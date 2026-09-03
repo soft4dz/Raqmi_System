@@ -84,6 +84,13 @@ public sealed class ModuleTile : INotifyPropertyChanged
     /// <summary>Rang du module dans l'arbre : l'ordre des groupes de l'accueil.</summary>
     public int HomeGroupRank { get; }
 
+    /// <summary>
+    /// Module de l'arbre auquel la carte appartient (« Front Office »). Le catalogue
+    /// regroupe par domaine ; le module reste lisible en pied de carte plutot que de
+    /// disparaitre avec les en-tetes composes « Domaine → Module ».
+    /// </summary>
+    public string ModuleLabel => placement.Module.Label;
+
     public string Name => Entry.Name;
 
     public string Description => Entry.Description;
@@ -115,6 +122,7 @@ public sealed class ModuleTile : INotifyPropertyChanged
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsClickable));
             OnPropertyChanged(nameof(ToolTipText));
+            OnPropertyChanged(nameof(AccessibleName));
         }
     }
 
@@ -149,6 +157,18 @@ public sealed class ModuleTile : INotifyPropertyChanged
     public string ToolTipText => isLocked
         ? AccessDeniedToolTip
         : Entry.StatusNote ?? Entry.Description;
+
+    /// <summary>
+    /// Phrase annoncee par le lecteur d'ecran sur la carte du catalogue. Le bouton de
+    /// la carte n'a pas de <c>Content</c> (toute la mise en forme vit dans son gabarit) :
+    /// sans ce nom, les 50 cartes seraient muettes. Il dit d'abord ce qui empeche
+    /// d'ouvrir, puis seulement le statut.
+    /// </summary>
+    public string AccessibleName => isLocked
+        ? $"{Entry.Name}, {AccessDeniedToolTip.ToLowerInvariant()}"
+        : Entry.TabIndex is null
+            ? $"{Entry.Name}, {StatusLabel.ToLowerInvariant()}, aucun écran"
+            : $"Ouvrir {Entry.Name}, {StatusLabel.ToLowerInvariant()}";
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

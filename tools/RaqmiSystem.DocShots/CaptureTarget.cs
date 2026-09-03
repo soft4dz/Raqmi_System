@@ -33,7 +33,7 @@ internal sealed record CaptureTarget(
                 "Socle",
                 "P0",
                 "Disponible",
-                "Sommaire des 49 modules de l'ERP, leur famille et leur avancement reel.",
+                "Sommaire des 50 modules de l'ERP, leur domaine et leur avancement reel.",
                 null,
                 Array.Empty<string>())
         };

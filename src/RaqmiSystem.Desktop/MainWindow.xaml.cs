@@ -77,7 +77,6 @@ public partial class MainWindow : Window
         // onglet pendant l'analyse du XAML, ce qui declenche MainTabs_SelectionChanged,
         // qui lit deja ces collections (voir MainWindow.Navigation.cs).
         sidebarGroups = ModuleNavigationGroup.Build(FunctionalArchitectureCatalog.Tree);
-        functionalDomainOptions = FunctionalDomainOption.Build(moduleTiles);
         tilesByTab = BuildTilesByTab(moduleTiles);
 
         InitializeComponent();
@@ -163,10 +162,16 @@ public partial class MainWindow : Window
             CultureInfo.GetCultureInfo("fr-FR"));
     }
 
+    // Une cle est detenue des qu'une des claims que le SERVEUR accepte pour elle figure
+    // dans le jeton (PermissionRegistry.AcceptedClaims) : c'est la regle exacte des
+    // politiques de l'API. La comparer litteralement verrouillerait chez un role
+    // personnalise porteur de cles cibles des ecrans que l'API lui ouvre - un masquage
+    // qui ment, alors que le masquage n'est de toute facon jamais une securite.
     private bool HasModulePermission(string permission)
     {
         return currentUserPermissions is null
-            || currentUserPermissions.Contains(permission, StringComparer.OrdinalIgnoreCase);
+            || PermissionRegistry.AcceptedClaims(permission)
+                .Any(claim => currentUserPermissions.Contains(claim, StringComparer.OrdinalIgnoreCase));
     }
 
     // Source unique de verite de l'etat des boutons d'ecriture des onglets Unites

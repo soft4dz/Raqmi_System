@@ -96,7 +96,7 @@ public partial class MainWindow
     // ========================== Raccourcis de navigation ==========================
 
     // Ctrl+K : aller a un module. Le champ de recherche de la barre laterale filtre les
-    // 49 modules sur leur nom, leur description et leur famille ; le focus y est mis avec
+    // modules sur leur nom, leur description et leur famille ; le focus y est mis avec
     // la saisie precedente selectionnee, pour que taper remplace au lieu d'ajouter.
     private void GoToModuleShortcut_Executed(object sender, ExecutedRoutedEventArgs e)
     {
@@ -105,12 +105,11 @@ public partial class MainWindow
             return;
         }
 
-        // Sur l'accueil la barre laterale est repliee par design (l'ecran EST le sommaire
-        // des modules) : c'est la recherche du catalogue qui joue le meme role.
+        // Sur l'accueil la barre laterale est repliee par design (la racine EST le
+        // sommaire) : c'est la recherche du catalogue qui joue le meme role.
         if (MainTabs.SelectedIndex == HomeTabIndex)
         {
-            HomeSearchTextBox.Focus();
-            HomeSearchTextBox.SelectAll();
+            ModuleCatalogView.FocusSearch();
             return;
         }
 
