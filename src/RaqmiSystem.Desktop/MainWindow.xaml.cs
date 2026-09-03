@@ -77,7 +77,6 @@ public partial class MainWindow : Window
         // onglet pendant l'analyse du XAML, ce qui declenche MainTabs_SelectionChanged,
         // qui lit deja ces collections (voir MainWindow.Navigation.cs).
         sidebarGroups = ModuleNavigationGroup.Build(FunctionalArchitectureCatalog.Tree);
-        functionalDomainOptions = FunctionalDomainOption.Build(moduleTiles);
         tilesByTab = BuildTilesByTab(moduleTiles);
 
         InitializeComponent();
@@ -138,7 +137,6 @@ public partial class MainWindow : Window
         OtherTextBox.Text = "0";
         UnitTypeComboBox.ItemsSource = Enum.GetValues<HotelUnitType>();
         ResetUnitForm();
-        RefreshHomeDate();
         InitializeNavigation();
         SetStatus("Connectez-vous pour charger les données de l'API.");
     }
@@ -155,18 +153,31 @@ public partial class MainWindow : Window
         HeaderSessionPanel.Visibility = isAuthenticated ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    // Date du jour en toutes lettres ("vendredi 29 août 2026") sur l'accueil.
-    private void RefreshHomeDate()
+    // « Ma sécurité » de Mon Espace : la meme boite que le bouton de l'en-tete, jamais
+    // une seconde implementation du changement de mot de passe.
+    private void HomeView_ChangePasswordRequested()
     {
-        HomeDateTextBlock.Text = DateTime.Today.ToString(
-            "dddd d MMMM yyyy",
-            CultureInfo.GetCultureInfo("fr-FR"));
+        ShowChangePasswordDialog(isMandatory: false);
     }
 
+    // L'unite de ce poste vient d'etre reglee dans Parametrage global : les files unitaires
+    // de Mon Espace en dependent, et attendre les cinq minutes de fraicheur ferait croire
+    // que le reglage n'a pas pris.
+    private void SettingsView_StationUnitChanged()
+    {
+        HomeView.InvalidateWorkQueues();
+    }
+
+    // Une cle est detenue des qu'une des claims que le SERVEUR accepte pour elle figure
+    // dans le jeton (PermissionRegistry.AcceptedClaims) : c'est la regle exacte des
+    // politiques de l'API. La comparer litteralement verrouillerait chez un role
+    // personnalise porteur de cles cibles des ecrans que l'API lui ouvre - un masquage
+    // qui ment, alors que le masquage n'est de toute facon jamais une securite.
     private bool HasModulePermission(string permission)
     {
         return currentUserPermissions is null
-            || currentUserPermissions.Contains(permission, StringComparer.OrdinalIgnoreCase);
+            || PermissionRegistry.AcceptedClaims(permission)
+                .Any(claim => currentUserPermissions.Contains(claim, StringComparer.OrdinalIgnoreCase));
     }
 
     // Source unique de verite de l'etat des boutons d'ecriture des onglets Unites
@@ -237,8 +248,7 @@ public partial class MainWindow : Window
             // de lecture du profil sur les cartes et la sidebar.
             currentUserPermissions = login.User.Permissions;
             currentUserId = login.User.Id;
-            HomeGreetingTextBlock.Text = $"Bonjour, {login.User.DisplayName}";
-            RefreshHomeDate();
+            HomeView.OpenSession(login.User);
             ApplyModulePermissions();
 
             // Memorisation uniquement apres une connexion REUSSIE, pour ne jamais
@@ -292,6 +302,16 @@ public partial class MainWindow : Window
         if (mustChangePassword && apiClient.IsAuthenticated)
         {
             ShowChangePasswordDialog(isMandatory: true);
+        }
+
+        // Les files de travail de Mon Espace en dernier, et HORS du RunApiActionAsync de
+        // la connexion, pour la meme raison que la boite ci-dessus : LoadAsync fait UNE
+        // RunAsync PAR SOURCE, et les imbriquer rallumerait MainTabs a chaque source
+        // terminee alors que la connexion est encore en cours. L'ecran est deja affiche :
+        // ses cartes se remplissent au fil des reponses.
+        if (apiClient.IsAuthenticated)
+        {
+            await HomeView.LoadAsync();
         }
     }
 
@@ -398,6 +418,17 @@ public partial class MainWindow : Window
         DecCockpitView.NavigateRequested -= DecCockpitView_NavigateRequested;
         DecCockpitView.NavigateRequested += DecCockpitView_NavigateRequested;
 
+        // Mon Espace suit la meme regle : il compose ses files des seules cles du jeton,
+        // demande la navigation, et delegue « Ma sécurité » a la boite deja existante.
+        HomeView.Initialize(context);
+        HomeView.ChangePasswordRequested -= HomeView_ChangePasswordRequested;
+        HomeView.ChangePasswordRequested += HomeView_ChangePasswordRequested;
+
+        // L'unite du poste s'ecrit dans Parametrage global, et les files unitaires de
+        // Mon Espace en dependent : la fenetre fait le lien, les deux vues s'ignorent.
+        SettingsView.StationUnitChanged -= SettingsView_StationUnitChanged;
+        SettingsView.StationUnitChanged += SettingsView_StationUnitChanged;
+
         // Nouvelle session : aucune vue n'a encore charge ses donnees.
         loadedModuleTabs.Clear();
     }
@@ -479,12 +510,13 @@ public partial class MainWindow : Window
         ResetUnitForm();
         ResetAmounts();
 
-        // L'ecran d'accueil revient a son etat par defaut : salutation neutre,
-        // toutes les cartes et boutons de modules de nouveau accessibles.
+        // L'ecran d'accueil revient a son etat par defaut : salutation neutre, files de
+        // travail videes, toutes les cartes et boutons de modules de nouveau accessibles.
+        // Les reglages du POSTE (unite, derniers ecrans) survivent : ils ne sont pas ceux
+        // de la personne qui part.
         currentUserPermissions = null;
         currentUserId = null;
-        HomeGreetingTextBlock.Text = "Bonjour";
-        RefreshHomeDate();
+        HomeView.ResetState();
         ApplyModulePermissions();
 
         // A la reconnexion, la session reprendra sur l'ecran d'accueil.

@@ -160,6 +160,11 @@ internal static class ThemeManager
 
             dictionnaire["GridRowHeight"] = compact ? 32d : 40d;
             dictionnaire["GridHeaderHeight"] = compact ? 34d : 40d;
+
+            // Cartes de file de travail de l'accueil : meme mecanique, memes raisons.
+            // Compact retire de l'air autour du chiffre, jamais une taille de police.
+            dictionnaire["WorkCardPadding"] = compact ? new Thickness(12, 10, 12, 10) : new Thickness(16, 14, 16, 14);
+            dictionnaire["WorkCardMinHeight"] = compact ? 88d : 104d;
         }
 
         DensiteAppliquee = densite;

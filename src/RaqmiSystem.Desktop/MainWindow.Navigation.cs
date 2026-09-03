@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Automation;
@@ -28,7 +28,7 @@ namespace RaqmiSystem.Desktop;
 /// </summary>
 public partial class MainWindow
 {
-    // Ordre des onglets de MainTabs : 0=Accueil, 1=Unités hôtelières,
+    // Ordre des onglets de MainTabs : 0=Mon Espace, 1=Unités hôtelières,
     // 2=Recettes journalières, 3=Tableau de bord, 4=Journal d'audit,
     // 5=Clôture journalière, 6=Trésorerie, 7=Clients, 8=Facturation,
     // 9=Paramétrage global, 10=Administration & utilisateurs,
@@ -51,21 +51,12 @@ public partial class MainWindow
     private const double SidebarWidth = 248;
     private const double SidebarGapWidth = 20;
 
-    // Ecran d'accueil : les 50 modules du catalogue, exposes une seule fois et
-    // filtres via une vue (pas de reconstruction de collection, donc pas de
-    // clignotement quand on change de filtre ou de profil).
+    // Les 50 modules du catalogue, exposes une seule fois et partages par la barre
+    // laterale et le catalogue de l'onglet 0 : une seule collection, donc pas de
+    // clignotement quand un changement de profil repose les cadenas, et jamais deux
+    // etats differents du meme module sur deux surfaces.
     private readonly IReadOnlyList<ModuleTile> moduleTiles =
         ModuleCatalog.Entries.Select((entry, index) => new ModuleTile(entry, index)).ToList();
-
-    private ICollectionView? moduleCatalogView;
-    private ModuleStatus? moduleStatusFilter;
-    private string? modulePriorityFilter;
-    private string? functionalDomainFilter;
-    private readonly IReadOnlyList<FunctionalDomainOption> functionalDomainOptions;
-
-    // Recherche du catalogue d'accueil, deja normalisee (sans accent ni casse) pour ne
-    // pas la recalculer a chaque tuile testee. Null = pas de recherche en cours.
-    private string? moduleSearchFilter;
 
     // Barre laterale : un groupe par domaine qui possede un ecran ouvrable, construit une
     // fois depuis l'arbre complet. Ce qu'un groupe montre est rejoue a chaque changement
@@ -128,9 +119,13 @@ public partial class MainWindow
     // InitializeComponent, par InitializeDefaults.
     private void InitializeNavigation()
     {
-        EnsureMaturityBadgeStyles();
-        InitializeModuleCatalog();
-        FunctionalDomainItemsControl.ItemsSource = functionalDomainOptions;
+        // Mon Espace vit dans sa propre vue : la fenetre lui prete les tuiles qu'elle
+        // partage avec la barre laterale et les cles du profil, et garde pour elle le
+        // seul chemin de navigation. Hors session, l'abonnement suffit : le contexte de
+        // vue, lui, arrive a la connexion (InitializeModuleViews).
+        HomeView.InitializeCatalog(moduleTiles, GrantedPermissionKeys, CanOpenModule);
+        HomeView.NavigateRequested -= HomeNavigateRequested;
+        HomeView.NavigateRequested += HomeNavigateRequested;
 
         // Deux zones de lecture : les domaines métier défilent, l'administration
         // système reste épinglée en pied de panneau.
@@ -143,26 +138,6 @@ public partial class MainWindow
         NavigateToModule(HomeTabIndex);
     }
 
-    // Les styles « MaturityBadge.<niveau> » sont livres par le theme. Tant qu'un niveau n'y
-    // est pas, la fenetre enregistre sous la meme cle le repli declare dans ses ressources
-    // (la pastille de statut actuelle) : la reference dynamique posee par MaturityBadge
-    // resout alors le repli, et bascule d'elle-meme sur le style du theme le jour ou il
-    // existe, sans toucher ni au gabarit ni a ce code.
-    private void EnsureMaturityBadgeStyles()
-    {
-        foreach (var maturity in Enum.GetValues<FunctionalMaturity>())
-        {
-            var key = MaturityBadge.StyleKey(maturity);
-
-            if (System.Windows.Application.Current?.TryFindResource(key) is Style)
-            {
-                continue;
-            }
-
-            Resources[key] = FindResource($"MaturityBadgeFallback.{maturity}");
-        }
-    }
-
     // ==================== Navigation entre onglets ====================
 
     // Unique chemin de navigation entre modules : selection de l'onglet + remise en
@@ -172,6 +147,14 @@ public partial class MainWindow
     {
         MainTabs.SelectedIndex = tabIndex;
         SyncSidebarToTab(tabIndex);
+
+        // Les « derniers ecrans ouverts » de Mon Espace sont ceux de CE POSTE : l'accueil
+        // lui-meme n'en est pas un, et ce ne sont pas des favoris par compte - il n'en
+        // existe pas cote serveur.
+        if (tabIndex != HomeTabIndex)
+        {
+            HomeView.RecordVisit(tabIndex);
+        }
     }
 
     // Aligne la barre laterale et le fil d'Ariane sur l'onglet affiche : surbrillance du
@@ -179,10 +162,10 @@ public partial class MainWindow
     // 3px, teinte douce, texte en semi-gras), ouverture de son domaine, et repli complet
     // du panneau sur l'accueil.
     //
-    // L'accueil ne montre PAS la barre laterale : cet ecran est deja le sommaire des
-    // 50 modules, un second sommaire a cote ferait doublon et volerait aux cartes la
-    // largeur dont elles ont besoin. Partout ailleurs elle est la, avec son bouton
-    // « Accueil » comme chemin de retour.
+    // Mon Espace ne montre PAS la barre laterale : la racine EST le sommaire, un second
+    // sommaire a cote ferait doublon et volerait aux cartes la largeur dont elles ont
+    // besoin. Partout ailleurs elle est la, avec son bouton « Mon Espace » comme chemin
+    // de retour.
     private void SyncSidebarToTab(int tabIndex)
     {
         var isHome = tabIndex == HomeTabIndex;
@@ -318,6 +301,13 @@ public partial class MainWindow
 
         switch (tabIndex)
         {
+            case HomeTabIndex:
+                // Mon Espace n'est pas « charge une fois » : on y revient dix fois par
+                // jour, et un compteur perime est pire qu'un rechargement borne et
+                // annonce. Au-dela de cinq minutes seulement, et sans aucun Timer.
+                loadedModuleTabs.Remove(HomeTabIndex);
+                await HomeView.RefreshIfStaleAsync();
+                break;
             case 5:
                 await ClosingView.LoadAsync();
                 break;
@@ -418,6 +408,22 @@ public partial class MainWindow
         NavigateToModule(tabIndex);
     }
 
+    // Ouverture demandee depuis l'onglet 0 (carte du catalogue, resultat de recherche,
+    // plus tard carte de file de travail). Meme garde que partout ailleurs : la vue
+    // demande, la fenetre decide.
+    private void HomeNavigateRequested(int tabIndex)
+    {
+        if (!CanOpenModule(tabIndex))
+        {
+            return;
+        }
+
+        // La recherche de la barre laterale a rempli son office : elle revient a son
+        // etat normal, ou le module qui vient de s'ouvrir se voit dans sa famille.
+        ModuleSearchTextBox.Clear();
+        NavigateToModule(tabIndex);
+    }
+
     private void ShowHomeButton_Click(object sender, RoutedEventArgs e)
     {
         ModuleSearchTextBox.Clear();
@@ -502,6 +508,10 @@ public partial class MainWindow
 
         ApplyWriteActionStates();
         RefreshSidebar();
+
+        // Les cadenas des cartes sont poses sur les tuiles partagees ; la liste des
+        // resultats de recherche du catalogue, elle, doit etre recalculee.
+        HomeView.RefreshPermissions();
     }
 
     // Le bouton de la barre laterale n'existe que si le profil peut ouvrir l'ecran
@@ -516,10 +526,34 @@ public partial class MainWindow
     // Les cles du profil, telles que l'elagage les compare (sans casse, comme
     // HasModulePermission). Hors session, toutes : l'accueil est alors dans son etat
     // par defaut, et la barre laterale avec lui.
-    private IReadOnlySet<string> GrantedPermissionKeys() =>
-        currentUserPermissions is null
-            ? AllPermissionKeys
-            : currentUserPermissions.ToHashSet(StringComparer.OrdinalIgnoreCase);
+    //
+    // Le jeton porte les cles que le serveur y a mises ; l'arbre de navigation, lui, est
+    // ecrit avec les cles CIBLES (domaine.ressource.action). Comparer les deux
+    // litteralement masquerait a un role personnalise des ecrans que l'API lui ouvre :
+    // l'ensemble est donc etendu de toute cle cible dont une claim acceptee est detenue,
+    // exactement la regle que les politiques appliquent cote serveur.
+    private IReadOnlySet<string> GrantedPermissionKeys()
+    {
+        if (currentUserPermissions is null)
+        {
+            return AllPermissionKeys;
+        }
+
+        // Les claims du jeton sont figees avant l'extension : une cle ajoutee ici ne doit
+        // jamais en justifier une autre.
+        var claims = currentUserPermissions.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var granted = new HashSet<string>(claims, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var key in AllPermissionKeys)
+        {
+            if (PermissionRegistry.AcceptedClaims(key).Any(claims.Contains))
+            {
+                granted.Add(key);
+            }
+        }
+
+        return granted;
+    }
 
     // ==================== Barre laterale ====================
 
@@ -607,189 +641,4 @@ public partial class MainWindow
             : Visibility.Collapsed;
     }
 
-    // ==================== Accueil : carte d'avancement des modules ====================
-
-    // Prepare la liste des 50 modules regroupee Domaine → Module dans l'ordre de l'arbre
-    // (regroupement et tri par la vue, filtres statut/priorite/domaine/recherche
-    // appliques par MatchesModuleFilters) et le bandeau d'avancement.
-    private void InitializeModuleCatalog()
-    {
-        var source = new CollectionViewSource { Source = moduleTiles };
-        source.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ModuleTile.HomeGroup)));
-
-        // Les groupes apparaissent dans l'ordre des premieres tuiles rencontrees : trier
-        // par rang de module, puis par rang de catalogue, donne l'ordre de l'arbre entre
-        // les groupes et l'ordre editorial du catalogue a l'interieur de chacun.
-        source.SortDescriptions.Add(new SortDescription(nameof(ModuleTile.HomeGroupRank), ListSortDirection.Ascending));
-        source.SortDescriptions.Add(new SortDescription(nameof(ModuleTile.CatalogIndex), ListSortDirection.Ascending));
-
-        moduleCatalogView = source.View;
-        moduleCatalogView.Filter = MatchesModuleFilters;
-        ModuleCatalogItemsControl.ItemsSource = moduleCatalogView;
-
-        RefreshModuleProgress();
-        RefreshModuleCatalogEmptyState();
-    }
-
-    // Compteurs par statut, largeurs proportionnelles de la barre segmentee et
-    // libelles de synthese : la reponse directe a "ou en est le produit ?".
-    private void RefreshModuleProgress()
-    {
-        var total = ModuleCatalog.Entries.Count;
-        var available = ModuleCatalog.CountOf(ModuleStatus.Disponible);
-        var apiReady = ModuleCatalog.CountOf(ModuleStatus.ApiPrete);
-        var partial = ModuleCatalog.CountOf(ModuleStatus.Partiel);
-        var planned = ModuleCatalog.CountOf(ModuleStatus.Planifie);
-
-        ModuleCountAvailableTextBlock.Text = available.ToString(CultureInfo.CurrentCulture);
-        ModuleCountApiTextBlock.Text = apiReady.ToString(CultureInfo.CurrentCulture);
-        ModuleCountPartialTextBlock.Text = partial.ToString(CultureInfo.CurrentCulture);
-        ModuleCountPlannedTextBlock.Text = planned.ToString(CultureInfo.CurrentCulture);
-
-        ModuleProgressAvailableColumn.Width = new GridLength(available, GridUnitType.Star);
-        ModuleProgressApiColumn.Width = new GridLength(apiReady, GridUnitType.Star);
-        ModuleProgressPartialColumn.Width = new GridLength(partial, GridUnitType.Star);
-        ModuleProgressPlannedColumn.Width = new GridLength(planned, GridUnitType.Star);
-
-        var availableShare = total == 0 ? 0 : (int)Math.Round(available * 100d / total);
-        ModuleProgressHeadlineTextBlock.Text = $"{availableShare} % du périmètre déjà utilisable";
-
-        // Les quatre statuts restent distincts dans la legende : les additionner
-        // ("livres cote serveur") surestimerait le travail fait, car "Partiel"
-        // recouvre des situations tres differentes (API seule, fonction absorbee
-        // par un autre ecran, outillage serveur hors application).
-        ModuleProgressCaptionTextBlock.Text =
-            $"{available} modules disponibles sur {total}  ·  {apiReady} avec API livrée, écran à venir  ·  {partial} partiellement couverts  ·  {planned} planifiés";
-    }
-
-    // Filtre courant de la vue : domaine, recherche, puis statut, puis priorite. Les
-    // criteres se croisent - chercher « tva » dans les seuls modules disponibles est une
-    // question legitime, et remplacer un critere par un autre y repondrait mal.
-    private bool MatchesModuleFilters(object item)
-    {
-        if (item is not ModuleTile tile)
-        {
-            return false;
-        }
-
-        if (functionalDomainFilter is not null
-            && !string.Equals(tile.FunctionalDomainId, functionalDomainFilter, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        if (moduleSearchFilter is { } search && !tile.SearchText.Contains(search, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        if (moduleStatusFilter is { } status && tile.Status != status)
-        {
-            return false;
-        }
-
-        return modulePriorityFilter is null
-            || string.Equals(tile.Priority, modulePriorityFilter, StringComparison.Ordinal);
-    }
-
-    private void FunctionalDomainFilter_Checked(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement { DataContext: FunctionalDomainOption option })
-        {
-            return;
-        }
-
-        functionalDomainFilter = option.Id;
-
-        if (FunctionalDomainBreadcrumbTextBlock is not null)
-        {
-            FunctionalDomainBreadcrumbTextBlock.Text = option.Id is null
-                ? "Tous les domaines  →  modules"
-                : $"{option.Id}  {option.Name}  →  modules";
-        }
-
-        ApplyModuleCatalogFilters();
-    }
-
-    // ==================== Accueil : recherche dans le catalogue ====================
-
-    private void HomeSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        var query = HomeSearchTextBox.Text;
-
-        moduleSearchFilter = string.IsNullOrWhiteSpace(query)
-            ? null
-            : NavigationSearch.Normalize(query);
-
-        ClearHomeSearchButton.Visibility = query.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-        ApplyModuleCatalogFilters();
-    }
-
-    // Echap efface la saisie sans quitter le champ - meme geste que dans la barre
-    // laterale, pour que le clavier se comporte pareil des deux cotes.
-    private void HomeSearchTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key != Key.Escape || HomeSearchTextBox.Text.Length == 0)
-        {
-            return;
-        }
-
-        HomeSearchTextBox.Clear();
-        e.Handled = true;
-    }
-
-    private void ClearHomeSearchButton_Click(object sender, RoutedEventArgs e)
-    {
-        HomeSearchTextBox.Clear();
-        HomeSearchTextBox.Focus();
-    }
-
-    private void ModuleStatusFilterChip_Checked(object sender, RoutedEventArgs e)
-    {
-        // Les puces par defaut sont cochees pendant InitializeComponent, donc
-        // avant la creation de la vue : ces premiers evenements sont sans objet.
-        if (moduleCatalogView is null)
-        {
-            return;
-        }
-
-        var tag = (sender as RadioButton)?.Tag as string;
-        moduleStatusFilter = Enum.TryParse<ModuleStatus>(tag, out var status) ? status : null;
-        ApplyModuleCatalogFilters();
-    }
-
-    private void ModulePriorityFilterChip_Checked(object sender, RoutedEventArgs e)
-    {
-        if (moduleCatalogView is null)
-        {
-            return;
-        }
-
-        var tag = (sender as RadioButton)?.Tag as string;
-        modulePriorityFilter = string.IsNullOrEmpty(tag) ? null : tag;
-        ApplyModuleCatalogFilters();
-    }
-
-    private void ApplyModuleCatalogFilters()
-    {
-        moduleCatalogView?.Refresh();
-        RefreshModuleCatalogEmptyState();
-    }
-
-    // Un etat vide utile dit comment en sortir (charte, regle 3.5). Ici la sortie
-    // depend de ce qui a vide la liste : effacer la recherche, ou elargir les puces.
-    private void RefreshModuleCatalogEmptyState()
-    {
-        var isEmpty = moduleCatalogView is null || moduleCatalogView.IsEmpty;
-        ModuleCatalogEmptyTextBlock.Visibility = isEmpty ? Visibility.Visible : Visibility.Collapsed;
-
-        if (!isEmpty)
-        {
-            return;
-        }
-
-        ModuleCatalogEmptyTextBlock.Text = moduleSearchFilter is null
-            ? $"Aucun module ne correspond à ces filtres. Revenez à « Tous » pour voir les {ModuleCatalog.Entries.Count} modules."
-            : $"Aucun module ne correspond à « {HomeSearchTextBox.Text.Trim()} ». Échap efface la recherche.";
-    }
 }

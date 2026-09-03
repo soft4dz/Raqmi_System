@@ -1,0 +1,525 @@
+<UserControl x:Class="RaqmiSystem.Desktop.Views.ModuleCatalogView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:desktop="clr-namespace:RaqmiSystem.Desktop"
+             FontFamily="{StaticResource AppFontFamily}">
+
+    <!-- =========================== Catalogue des modules ===========================
+         Seconde section de l'onglet 0. C'est le sommaire du produit : les 50 entrees
+         de ModuleCatalog, regroupees PAR DOMAINE, filtrees par domaine, statut,
+         priorite et maturite, plus une recherche qui descend jusqu'aux ecrans et aux
+         noeuds planifies de l'arbre.
+
+         Ce que le profil ne peut pas ouvrir y reste visible, cadenasse : l'accueil
+         repond a « ou en est le produit ? », il n'est pas un menu (c'est la barre
+         laterale qui elague). Le masquage n'est jamais une securite : chaque onglet
+         reste garde par ApplyModuleAccess et chaque route par sa politique.
+         ============================================================================= -->
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Padding="0,0,6,0">
+        <StackPanel Margin="2,0,0,0">
+
+            <!-- Navigation cible visible : Domaine → Module. Le selecteur filtre les
+                 cartes sans changer les ecrans historiques. -->
+            <Border Style="{StaticResource CardBorder}" Padding="22,18">
+                <StackPanel>
+                    <Grid>
+                        <StackPanel>
+                            <TextBlock Text="Architecture fonctionnelle"
+                                       Style="{StaticResource HomeSectionLabel}"
+                                       Margin="0"
+                                       AutomationProperties.HeadingLevel="Level2" />
+                            <TextBlock Text="22 domaines métier · choisissez votre espace de travail"
+                                       Style="{StaticResource SubtitleText}"
+                                       Margin="0,5,0,0" />
+                        </StackPanel>
+                        <!-- AccentPressed et non AccentBrush : l'accent de marque ne
+                             porte jamais de texte (charte 1.2, 3,06:1 sur blanc). -->
+                        <TextBlock x:Name="FunctionalDomainBreadcrumbTextBlock"
+                                   Text="Tous les domaines  →  modules"
+                                   HorizontalAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource AccentPressedBrush}" />
+                    </Grid>
+
+                    <ItemsControl x:Name="FunctionalDomainItemsControl" Margin="0,16,0,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <RadioButton GroupName="FunctionalDomainFilter"
+                                             Content="{Binding DisplayLabel}"
+                                             ToolTip="{Binding Name}"
+                                             Checked="FunctionalDomainFilter_Checked">
+                                    <RadioButton.Style>
+                                        <Style TargetType="RadioButton"
+                                               BasedOn="{StaticResource FilterChip}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Id}" Value="{x:Null}">
+                                                    <Setter Property="IsChecked" Value="True" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </RadioButton.Style>
+                                </RadioButton>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- ============== Bandeau d'avancement + filtres ============== -->
+            <StackPanel Margin="0,20,0,0">
+
+                <Border Style="{StaticResource CardBorder}" Padding="22,18">
+                    <StackPanel>
+                        <Grid>
+                            <TextBlock Text="Avancement des modules"
+                                       Style="{StaticResource HomeSectionLabel}"
+                                       Margin="0"
+                                       AutomationProperties.HeadingLevel="Level2" />
+                            <TextBlock x:Name="ModuleProgressHeadlineTextBlock"
+                                       Style="{StaticResource HomeProgressHeadlineText}"
+                                       HorizontalAlignment="Right" />
+                        </Grid>
+
+                        <!-- Compteurs par statut -->
+                        <UniformGrid Columns="4" Margin="0,14,0,0">
+                            <StackPanel Margin="0,0,16,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Style="{StaticResource HomeStatDot}"
+                                             Fill="{StaticResource ModuleProgressAvailableBrush}" />
+                                    <TextBlock Text="Disponible"
+                                               Style="{StaticResource HomeStatLabelText}" />
+                                </StackPanel>
+                                <TextBlock x:Name="ModuleCountAvailableTextBlock"
+                                           Text="0"
+                                           Style="{StaticResource HomeStatValueText}" />
+                            </StackPanel>
+
+                            <StackPanel Margin="0,0,16,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Style="{StaticResource HomeStatDot}"
+                                             Fill="{StaticResource ModuleProgressApiBrush}" />
+                                    <TextBlock Text="API prête"
+                                               Style="{StaticResource HomeStatLabelText}" />
+                                </StackPanel>
+                                <TextBlock x:Name="ModuleCountApiTextBlock"
+                                           Text="0"
+                                           Style="{StaticResource HomeStatValueText}" />
+                            </StackPanel>
+
+                            <StackPanel Margin="0,0,16,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Style="{StaticResource HomeStatDot}"
+                                             Fill="{StaticResource ModuleProgressPartialBrush}" />
+                                    <TextBlock Text="Partiel"
+                                               Style="{StaticResource HomeStatLabelText}" />
+                                </StackPanel>
+                                <TextBlock x:Name="ModuleCountPartialTextBlock"
+                                           Text="0"
+                                           Style="{StaticResource HomeStatValueText}" />
+                            </StackPanel>
+
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Style="{StaticResource HomeStatDot}"
+                                             Fill="{StaticResource ModuleProgressPlannedBrush}" />
+                                    <TextBlock Text="Planifié"
+                                               Style="{StaticResource HomeStatLabelText}" />
+                                </StackPanel>
+                                <TextBlock x:Name="ModuleCountPlannedTextBlock"
+                                           Text="0"
+                                           Style="{StaticResource HomeStatValueText}" />
+                            </StackPanel>
+                        </UniformGrid>
+
+                        <!-- Barre segmentee : une portion par statut, largeurs
+                             proportionnelles fixees par le code-behind. -->
+                        <Grid Margin="0,20,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition x:Name="ModuleProgressAvailableColumn" Width="*" />
+                                <ColumnDefinition x:Name="ModuleProgressApiColumn" Width="*" />
+                                <ColumnDefinition x:Name="ModuleProgressPartialColumn" Width="*" />
+                                <ColumnDefinition x:Name="ModuleProgressPlannedColumn" Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource HomeProgressSegment}"
+                                    Background="{StaticResource ModuleProgressAvailableBrush}" />
+                            <Border Grid.Column="1"
+                                    Style="{StaticResource HomeProgressSegment}"
+                                    Background="{StaticResource ModuleProgressApiBrush}" />
+                            <Border Grid.Column="2"
+                                    Style="{StaticResource HomeProgressSegment}"
+                                    Background="{StaticResource ModuleProgressPartialBrush}" />
+                            <Border Grid.Column="3"
+                                    Style="{StaticResource HomeProgressSegment}"
+                                    Background="{StaticResource ModuleProgressPlannedBrush}"
+                                    Margin="0" />
+                        </Grid>
+
+                        <TextBlock x:Name="ModuleProgressCaptionTextBlock"
+                                   Text=""
+                                   Style="{StaticResource HomeProgressCaptionText}" />
+
+                        <!-- Seconde lecture, celle des DOMAINES : les deux echelles ne
+                             s'additionnent jamais (un domaine fonctionnel peut contenir
+                             un module planifie, et l'inverse). D'ou deux lignes et non
+                             une somme. -->
+                        <StackPanel x:Name="DomainMaturityPanel"
+                                    Orientation="Horizontal"
+                                    Margin="0,10,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Recherche du catalogue. Meme moteur que la barre laterale
+                     (NavigationSearch, sans accent ni casse) : ce qu'une surface trouve,
+                     l'autre le trouve. Elle croise les puces plutot que de les
+                     remplacer, et cherche des ECRANS, jamais des donnees. -->
+                <Grid Margin="0,20,0,0" MaxWidth="420" HorizontalAlignment="Left">
+                    <TextBox x:Name="HomeSearchTextBox"
+                             Tag="Rechercher un module, un écran…  (Ctrl+K)"
+                             MinHeight="36"
+                             Padding="34,0,34,0"
+                             Width="420"
+                             ToolTip="Chercher parmi les modules du catalogue et les écrans de l'arbre de navigation — pas dans vos données"
+                             TextChanged="HomeSearchTextBox_TextChanged"
+                             PreviewKeyDown="HomeSearchTextBox_PreviewKeyDown" />
+                    <Path Width="16"
+                          Height="16"
+                          Stretch="None"
+                          Data="M6.5,2.6 A3.9,3.9 0 1 0 6.51,2.6 M9.3,9.3 L13.4,13.4"
+                          Stroke="{StaticResource TextPlaceholderBrush}"
+                          StrokeThickness="1.5"
+                          StrokeStartLineCap="Round"
+                          StrokeEndLineCap="Round"
+                          HorizontalAlignment="Left"
+                          VerticalAlignment="Center"
+                          Margin="11,0,0,0"
+                          IsHitTestVisible="False" />
+                    <Button x:Name="ClearHomeSearchButton"
+                            Style="{StaticResource SearchClearButton}"
+                            Visibility="Collapsed"
+                            ToolTip="Effacer la recherche (Échap)"
+                            Click="ClearHomeSearchButton_Click" />
+                </Grid>
+
+                <!-- Filtres : statut, puis priorite, puis maturite du domaine -->
+                <WrapPanel Margin="0,12,0,0">
+                    <RadioButton x:Name="ModuleFilterAllChip"
+                                 Style="{StaticResource FilterChip}"
+                                 GroupName="ModuleStatusFilter"
+                                 Content="Tous"
+                                 Tag=""
+                                 IsChecked="True"
+                                 ToolTip="Afficher tous les modules du catalogue"
+                                 Checked="ModuleStatusFilterChip_Checked" />
+                    <RadioButton x:Name="ModuleFilterAvailableChip"
+                                 Style="{StaticResource FilterChip}"
+                                 GroupName="ModuleStatusFilter"
+                                 Content="Disponibles"
+                                 Tag="Disponible"
+                                 ToolTip="Écrans utilisables dès maintenant"
+                                 Checked="ModuleStatusFilterChip_Checked" />
+                    <RadioButton x:Name="ModuleFilterApiChip"
+                                 Style="{StaticResource FilterChip}"
+                                 GroupName="ModuleStatusFilter"
+                                 Content="API prête"
+                                 Tag="ApiPrete"
+                                 ToolTip="Backend livré et testé, écran client à venir"
+                                 Checked="ModuleStatusFilterChip_Checked" />
+                    <RadioButton x:Name="ModuleFilterPartialChip"
+                                 Style="{StaticResource FilterChip}"
+                                 GroupName="ModuleStatusFilter"
+                                 Content="Partiels"
+                                 Tag="Partiel"
+                                 ToolTip="Partiellement couverts par l'existant"
+                                 Checked="ModuleStatusFilterChip_Checked" />
+                    <RadioButton x:Name="ModuleFilterPlannedChip"
+                                 Style="{StaticResource FilterChip}"
+                                 GroupName="ModuleStatusFilter"
+                                 Content="Planifiés"
+                                 Tag="Planifie"
+                                 ToolTip="Pas encore développés"
+                                 Checked="ModuleStatusFilterChip_Checked" />
+                </WrapPanel>
+
+                <WrapPanel Margin="0,2,0,0">
+                    <TextBlock Text="Priorité"
+                               Style="{StaticResource FilterRowLabelText}" />
+                    <RadioButton x:Name="ModulePriorityAllChip"
+                                 Style="{StaticResource FilterChipCompact}"
+                                 GroupName="ModulePriorityFilter"
+                                 Content="Toutes"
+                                 Tag=""
+                                 IsChecked="True"
+                                 Checked="ModulePriorityFilterChip_Checked" />
+                    <RadioButton x:Name="ModulePriorityP0Chip"
+                                 Style="{StaticResource FilterChipCompact}"
+                                 GroupName="ModulePriorityFilter"
+                                 Content="P0"
+                                 Tag="P0"
+                                 ToolTip="Socle et pilote"
+                                 Checked="ModulePriorityFilterChip_Checked" />
+                    <RadioButton x:Name="ModulePriorityP1Chip"
+                                 Style="{StaticResource FilterChipCompact}"
+                                 GroupName="ModulePriorityFilter"
+                                 Content="P1"
+                                 Tag="P1"
+                                 ToolTip="Cœur de l'ERP"
+                                 Checked="ModulePriorityFilterChip_Checked" />
+                    <RadioButton x:Name="ModulePriorityP2Chip"
+                                 Style="{StaticResource FilterChipCompact}"
+                                 GroupName="ModulePriorityFilter"
+                                 Content="P2"
+                                 Tag="P2"
+                                 ToolTip="Extensions"
+                                 Checked="ModulePriorityFilterChip_Checked" />
+                </WrapPanel>
+
+                <!-- Maturite : celle du DOMAINE, pas du module. La rangee due depuis
+                     navigation-shell 5.1 ; elle se croise avec les autres puces. -->
+                <WrapPanel Margin="0,2,0,0">
+                    <TextBlock Text="Maturité"
+                               Style="{StaticResource FilterRowLabelText}" />
+                    <RadioButton x:Name="ModuleMaturityAllChip"
+                                 Style="{StaticResource FilterChipCompact}"
+                                 GroupName="ModuleMaturityFilter"
+                                 Content="Toutes"
+                                 Tag=""
+                                 IsChecked="True"
+                                 Checked="ModuleMaturityFilterChip_Checked" />
+                    <RadioButton x:Name="ModuleMaturityFunctionalChip"
+                                 Style="{StaticResource FilterChipCompact}"
+                                 GroupName="ModuleMaturityFilter"
+                                 Content="Fonctionnel"
+                                 Tag="Functional"
+                                 ToolTip="Domaines dont le parcours métier se tient"
+                                 Checked="ModuleMaturityFilterChip_Checked" />
+                    <RadioButton x:Name="ModuleMaturityPreviewChip"
+                                 Style="{StaticResource FilterChipCompact}"
+                                 GroupName="ModuleMaturityFilter"
+                                 Content="Aperçu technique"
+                                 Tag="TechnicalPreview"
+                                 ToolTip="Domaines dont le socle existe, le parcours non"
+                                 Checked="ModuleMaturityFilterChip_Checked" />
+                    <RadioButton x:Name="ModuleMaturityPlannedChip"
+                                 Style="{StaticResource FilterChipCompact}"
+                                 GroupName="ModuleMaturityFilter"
+                                 Content="Planifié"
+                                 Tag="Planned"
+                                 ToolTip="Domaines encore à construire"
+                                 Checked="ModuleMaturityFilterChip_Checked" />
+                </WrapPanel>
+            </StackPanel>
+
+            <!-- ============== Resultats de la recherche universelle ============== -->
+            <!-- Au-dessus des cartes : la recherche descend au niveau des ecrans et des
+                 sous-modules planifies, que les cartes ne montrent pas. Entree ouvre le
+                 premier resultat ouvrable. -->
+            <StackPanel x:Name="SearchResultsPanel"
+                        Margin="0,20,0,0"
+                        Visibility="Collapsed">
+                <TextBlock x:Name="SearchResultsHeaderTextBlock"
+                           Style="{StaticResource HomeSectionLabel}"
+                           Margin="0,0,0,8"
+                           AutomationProperties.HeadingLevel="Level2" />
+
+                <ItemsControl x:Name="SearchResultsItemsControl">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Style="{StaticResource ModuleNavSubButton}"
+                                    Margin="0,0,0,2"
+                                    HorizontalAlignment="Left"
+                                    IsEnabled="{Binding IsOpenable}"
+                                    ToolTip="{Binding ToolTipText}"
+                                    ToolTipService.ShowOnDisabled="True"
+                                    AutomationProperties.Name="{Binding AccessibleName}"
+                                    Click="SearchResult_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16"
+                                          Height="16"
+                                          Stretch="None"
+                                          Stroke="{StaticResource TextMutedBrush}"
+                                          StrokeThickness="1.4"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,9,0"
+                                          Data="{Binding IconKey, Converter={StaticResource ModuleGroupIconConverter}}" />
+                                    <TextBlock Text="{Binding Label}"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Path}"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               VerticalAlignment="Center"
+                                               Margin="10,0,0,0" />
+                                    <!-- Deux echelles, deux marqueurs, jamais melanges :
+                                         la MATURITE (teinte reservee, navigation-shell
+                                         § 6.3) ne badge que les noeuds sans ecran, et
+                                         l'OUVRABILITE porte une pastille neutre ou le
+                                         cadenas. Un badge vert « Accès refusé » ferait
+                                         dire a la couleur le contraire du mot. -->
+                                    <Border x:Name="maturityBadge"
+                                            desktop:MaturityBadge.Maturity="{Binding Maturity}"
+                                            Margin="10,0,0,0"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed">
+                                        <TextBlock Text="{Binding MaturityLabel}" />
+                                    </Border>
+
+                                    <Border x:Name="screenPill"
+                                            Background="{StaticResource SurfaceSubtleBrush}"
+                                            CornerRadius="9"
+                                            Padding="8,2"
+                                            Margin="10,0,0,0"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed">
+                                        <TextBlock Text="Écran"
+                                                   FontSize="10.5"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                                    </Border>
+
+                                    <StackPanel x:Name="lockedPill"
+                                                Orientation="Horizontal"
+                                                Margin="10,0,0,0"
+                                                VerticalAlignment="Center"
+                                                Visibility="Collapsed">
+                                        <Path Style="{StaticResource ModuleCardLockIcon}"
+                                              VerticalAlignment="Center" />
+                                        <TextBlock Text="Accès refusé"
+                                                   FontSize="10.5"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="6,0,0,0" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Button>
+
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding HasScreen}" Value="False">
+                                    <Setter TargetName="maturityBadge" Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsOpenable}" Value="True">
+                                    <Setter TargetName="screenPill" Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsLocked}" Value="True">
+                                    <Setter TargetName="lockedPill" Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <!-- ================= Modules groupes par domaine ================= -->
+            <StackPanel Margin="0,6,0,0">
+                <ItemsControl x:Name="ModuleCatalogItemsControl">
+                    <!-- ItemsPanel : disposition des cartes A L'INTERIEUR d'un domaine
+                         (grille fluide). GroupStyle.Panel : disposition des sections
+                         elles-memes (les unes sous les autres). -->
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <!-- Gabarit unique : toute la mise en forme de la carte vit dans
+                             le style ModuleCatalogCard du theme. Le badge de maturite
+                             n'est plus pose sur la carte : la maturite est une propriete
+                             du DOMAINE, et son badge vit une seule fois, dans l'en-tete
+                             de domaine (navigation-shell 6.3). -->
+                        <DataTemplate>
+                            <Button Style="{StaticResource ModuleCatalogCard}"
+                                    IsEnabled="{Binding IsClickable}"
+                                    ToolTip="{Binding ToolTipText}"
+                                    Click="ModuleTile_Click" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                    <ItemsControl.GroupStyle>
+                        <GroupStyle HeaderTemplate="{StaticResource ModuleCatalogGroupHeaderTemplate}">
+                            <GroupStyle.Panel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Vertical" />
+                                </ItemsPanelTemplate>
+                            </GroupStyle.Panel>
+                        </GroupStyle>
+                    </ItemsControl.GroupStyle>
+                </ItemsControl>
+
+                <TextBlock x:Name="ModuleCatalogEmptyTextBlock"
+                           Text="Aucun module ne correspond à ce filtre."
+                           Style="{StaticResource ModuleCatalogEmptyText}"
+                           Visibility="Collapsed" />
+
+                <!-- Un domaine de la cartographie cible auquel aucune entree du catalogue
+                     historique n'est rattachee garde son en-tete : c'est la promesse du
+                     catalogue, et la cacher ferait croire que le domaine n'existe pas.
+                     Masque des qu'un filtre est actif - il ne repond a aucun. -->
+                <ItemsControl x:Name="EmptyDomainsItemsControl" Visibility="Collapsed">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <Grid Margin="0,14,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Path Width="16"
+                                          Height="16"
+                                          Stretch="None"
+                                          Stroke="{StaticResource TextMutedBrush}"
+                                          StrokeThickness="1.4"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,9,0"
+                                          IsHitTestVisible="False"
+                                          Data="{Binding IconKey, Converter={StaticResource ModuleGroupIconConverter}}" />
+
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Title}"
+                                               FontSize="13.5"
+                                               FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               VerticalAlignment="Center"
+                                               AutomationProperties.HeadingLevel="Level2" />
+
+                                    <Border Grid.Column="2"
+                                            desktop:MaturityBadge.Maturity="{Binding Maturity}"
+                                            Margin="10,0,0,0"
+                                            VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding MaturityLabel}" />
+                                    </Border>
+
+                                    <Border Grid.Column="3"
+                                            BorderBrush="{StaticResource PanelBorderBrush}"
+                                            BorderThickness="0,1,0,0"
+                                            Margin="14,0,4,0"
+                                            VerticalAlignment="Center" />
+                                </Grid>
+
+                                <TextBlock Text="Aucun module rattaché aujourd'hui : le domaine est au catalogue, ses écrans restent à construire."
+                                           Style="{StaticResource ModuleCatalogEmptyText}"
+                                           Margin="2,0,0,10" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
