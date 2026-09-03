@@ -605,6 +605,21 @@ public partial class MainWindow : Window
         NavigateToModule(tabIndex);
     }
 
+    // Raccourcis de l'espace personnel. Le Tag porte l'index de l'onglet cible ;
+    // CanOpenModule reste l'unique garde, exactement comme pour le catalogue et
+    // la barre laterale, afin qu'un raccourci ne contourne jamais le RBAC.
+    private void HomeNavigate_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: object tag }
+            || !int.TryParse(tag.ToString(), out var tabIndex)
+            || !CanOpenModule(tabIndex))
+        {
+            return;
+        }
+
+        NavigateToModule(tabIndex);
+    }
+
     // Ordre des onglets de MainTabs : 0=Accueil, 1=Unités hôtelières,
     // 2=Recettes journalières, 3=Tableau de bord, 4=Journal d'audit,
     // 5=Clôture journalière, 6=Trésorerie, 7=Clients, 8=Facturation,

@@ -551,12 +551,188 @@
                                                Text=""
                                                Style="{StaticResource HomeDateText}"
                                                Margin="0,7,0,2" />
-                                    <TextBlock Text="Où en est votre ERP, module par module."
+                                    <TextBlock Text="Voici ce qui demande votre attention aujourd’hui."
                                                Style="{StaticResource SubtitleText}" />
                                 </StackPanel>
 
-                                <!-- ============== Bandeau d'avancement + filtres ============== -->
+                                <!-- ==================== Espace de travail personnel ==================== -->
                                 <StackPanel Style="{StaticResource HomeRevealDelayedStyle}"
+                                            Margin="0,24,0,0">
+                                    <UniformGrid Columns="4">
+                                        <Button Style="{StaticResource HomeSummaryCard}"
+                                                Tag="16"
+                                                IsEnabled="{Binding IsEnabled, ElementName=ApprovalsTabItem}"
+                                                Click="HomeNavigate_Click">
+                                            <StackPanel>
+                                                <TextBlock Text="Validations" Style="{StaticResource HomeSummaryLabel}" />
+                                                <TextBlock Text="À consulter" Style="{StaticResource HomeSummaryValue}" />
+                                                <TextBlock Text="Ouvrir ma file" Style="{StaticResource HomeSummaryHint}" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Style="{StaticResource HomeSummaryCard}"
+                                                Tag="20"
+                                                IsEnabled="{Binding IsEnabled, ElementName=DecCockpitTabItem}"
+                                                Click="HomeNavigate_Click">
+                                            <StackPanel>
+                                                <TextBlock Text="Tâches urgentes" Style="{StaticResource HomeSummaryLabel}" />
+                                                <TextBlock Text="À contrôler" Style="{StaticResource HomeSummaryValue}" />
+                                                <TextBlock Text="Voir le cockpit" Style="{StaticResource HomeSummaryHint}" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Style="{StaticResource HomeSummaryCard}"
+                                                Tag="29"
+                                                IsEnabled="{Binding IsEnabled, ElementName=KpiTabItem}"
+                                                Click="HomeNavigate_Click">
+                                            <StackPanel>
+                                                <TextBlock Text="Alertes" Style="{StaticResource HomeSummaryLabel}" />
+                                                <TextBlock Text="KPI &amp; écarts" Style="{StaticResource HomeSummaryValue}" />
+                                                <TextBlock Text="Analyser les signaux" Style="{StaticResource HomeSummaryHint}" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Style="{StaticResource HomeSummaryCard}"
+                                                Tag="5"
+                                                IsEnabled="{Binding IsEnabled, ElementName=ClosingTabItem}"
+                                                Click="HomeNavigate_Click">
+                                            <StackPanel>
+                                                <TextBlock Text="Échéances" Style="{StaticResource HomeSummaryLabel}" />
+                                                <TextBlock Text="Clôture du jour" Style="{StaticResource HomeSummaryValue}" />
+                                                <TextBlock Text="Contrôler la journée" Style="{StaticResource HomeSummaryHint}" />
+                                            </StackPanel>
+                                        </Button>
+                                    </UniformGrid>
+
+                                    <Grid Margin="0,16,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="16" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <Border Style="{StaticResource CardBorder}" Padding="20,18">
+                                            <StackPanel>
+                                                <DockPanel Margin="0,0,0,14">
+                                                    <Button Content="Voir tout"
+                                                            DockPanel.Dock="Right"
+                                                            Style="{StaticResource HomeTextActionButton}"
+                                                            Tag="16"
+                                                            IsEnabled="{Binding IsEnabled, ElementName=ApprovalsTabItem}"
+                                                            Click="HomeNavigate_Click" />
+                                                    <TextBlock Text="À traiter aujourd’hui"
+                                                               Style="{StaticResource SectionTitleText}" />
+                                                </DockPanel>
+                                                <Border Style="{StaticResource HomeWorkItem}">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel>
+                                                            <TextBlock Text="Validations en attente" Style="{StaticResource HomeWorkItemTitle}" />
+                                                            <TextBlock Text="Factures, achats et décisions selon vos droits" Style="{StaticResource HomeWorkItemDetail}" />
+                                                        </StackPanel>
+                                                        <Button Grid.Column="1" Content="Ouvrir" Style="{StaticResource SecondaryButton}"
+                                                                Tag="16" IsEnabled="{Binding IsEnabled, ElementName=ApprovalsTabItem}"
+                                                                Click="HomeNavigate_Click" />
+                                                    </Grid>
+                                                </Border>
+                                                <Border Style="{StaticResource HomeWorkItem}">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel>
+                                                            <TextBlock Text="Contrôles d’exploitation" Style="{StaticResource HomeWorkItemTitle}" />
+                                                            <TextBlock Text="Recettes, clôture, trésorerie et anomalies" Style="{StaticResource HomeWorkItemDetail}" />
+                                                        </StackPanel>
+                                                        <Button Grid.Column="1" Content="Contrôler" Style="{StaticResource SecondaryButton}"
+                                                                Tag="20" IsEnabled="{Binding IsEnabled, ElementName=DecCockpitTabItem}"
+                                                                Click="HomeNavigate_Click" />
+                                                    </Grid>
+                                                </Border>
+                                                <Border Style="{StaticResource HomeWorkItem}" Margin="0">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel>
+                                                            <TextBlock Text="Arrivées et départs" Style="{StaticResource HomeWorkItemTitle}" />
+                                                            <TextBlock Text="Accéder aux opérations PMS de la journée" Style="{StaticResource HomeWorkItemDetail}" />
+                                                        </StackPanel>
+                                                        <Button Grid.Column="1" Content="Voir" Style="{StaticResource SecondaryButton}"
+                                                                Tag="30" IsEnabled="{Binding IsEnabled, ElementName=PmsTabItem}"
+                                                                Click="HomeNavigate_Click" />
+                                                    </Grid>
+                                                </Border>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <Border Grid.Column="2" Style="{StaticResource CardBorder}" Padding="20,18">
+                                            <StackPanel>
+                                                <DockPanel Margin="0,0,0,16">
+                                                    <Button Content="Ouvrir le pilotage"
+                                                            DockPanel.Dock="Right"
+                                                            Style="{StaticResource HomeTextActionButton}"
+                                                            Tag="19"
+                                                            IsEnabled="{Binding IsEnabled, ElementName=GroupDashboardTabItem}"
+                                                            Click="HomeNavigate_Click" />
+                                                    <TextBlock Text="Pilotage de mon unité" Style="{StaticResource SectionTitleText}" />
+                                                </DockPanel>
+                                                <UniformGrid Columns="3">
+                                                    <StackPanel Margin="0,0,12,0">
+                                                        <TextBlock Text="CA du jour" Style="{StaticResource HomeSummaryLabel}" />
+                                                        <TextBlock Text="—" Style="{StaticResource HomeKpiValue}" />
+                                                        <TextBlock Text="Donnée au chargement" Style="{StaticResource HomeSummaryHint}" />
+                                                    </StackPanel>
+                                                    <StackPanel Margin="0,0,12,0">
+                                                        <TextBlock Text="Occupation" Style="{StaticResource HomeSummaryLabel}" />
+                                                        <TextBlock Text="—" Style="{StaticResource HomeKpiValue}" />
+                                                        <TextBlock Text="Donnée au chargement" Style="{StaticResource HomeSummaryHint}" />
+                                                    </StackPanel>
+                                                    <StackPanel>
+                                                        <TextBlock Text="RevPAR" Style="{StaticResource HomeSummaryLabel}" />
+                                                        <TextBlock Text="—" Style="{StaticResource HomeKpiValue}" />
+                                                        <TextBlock Text="Donnée au chargement" Style="{StaticResource HomeSummaryHint}" />
+                                                    </StackPanel>
+                                                </UniformGrid>
+                                                <Border Background="{StaticResource SurfaceSubtleBrush}"
+                                                        CornerRadius="8" Height="108" Margin="0,22,0,0">
+                                                    <Grid>
+                                                        <Path Stroke="{StaticResource AccentBrush}" StrokeThickness="2"
+                                                              Stretch="Fill" Margin="22,28"
+                                                              Data="M0,55 C45,52 70,66 108,46 C150,25 184,39 222,35 C267,30 301,48 350,19" />
+                                                        <TextBlock Text="Tendance disponible dans le tableau de bord"
+                                                                   Style="{StaticResource HomeSummaryHint}"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,10" />
+                                                    </Grid>
+                                                </Border>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+
+                                    <Border Style="{StaticResource CardBorder}" Padding="20,18" Margin="0,16,0,0">
+                                        <StackPanel>
+                                            <TextBlock Text="Mes actions rapides" Style="{StaticResource SectionTitleText}" Margin="0,0,0,14" />
+                                            <UniformGrid Columns="6">
+                                                <Button Content="Nouvelle réservation" Style="{StaticResource HomeQuickActionButton}" Tag="30" IsEnabled="{Binding IsEnabled, ElementName=PmsTabItem}" Click="HomeNavigate_Click" />
+                                                <Button Content="Check-in" Style="{StaticResource HomeQuickActionButton}" Tag="30" IsEnabled="{Binding IsEnabled, ElementName=PmsTabItem}" Click="HomeNavigate_Click" />
+                                                <Button Content="Saisir le CA" Style="{StaticResource HomeQuickActionButton}" Tag="2" IsEnabled="{Binding IsEnabled, ElementName=RevenueTabItem}" Click="HomeNavigate_Click" />
+                                                <Button Content="Créer une facture" Style="{StaticResource HomeQuickActionButton}" Tag="8" IsEnabled="{Binding IsEnabled, ElementName=InvoicesTabItem}" Click="HomeNavigate_Click" />
+                                                <Button Content="Demande d’achat" Style="{StaticResource HomeQuickActionButton}" Tag="25" IsEnabled="{Binding IsEnabled, ElementName=PurchasingTabItem}" Click="HomeNavigate_Click" />
+                                                <Button Content="Signaler un incident" Style="{StaticResource HomeQuickActionButton}" Tag="4" IsEnabled="{Binding IsEnabled, ElementName=AuditTabItem}" Click="HomeNavigate_Click" />
+                                            </UniformGrid>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+
+                                <!-- ============== Bandeau d'avancement + filtres ============== -->
+                                <Expander Style="{StaticResource HomeCatalogExpander}"
+                                          Header="Tous les modules"
+                                          IsExpanded="False"
+                                          Margin="0,18,0,0">
+                                <StackPanel>
+                                <StackPanel
                                             Margin="0,26,0,0">
 
                                     <Border Style="{StaticResource CardBorder}" Padding="22,18">
@@ -797,6 +973,8 @@
                                                Style="{StaticResource ModuleCatalogEmptyText}"
                                                Visibility="Collapsed" />
                                 </StackPanel>
+                                </StackPanel>
+                                </Expander>
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>

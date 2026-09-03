@@ -1247,6 +1247,96 @@
         <Setter Property="Margin" Value="0,0,0,12" />
     </Style>
 
+    <!-- Cartes du portail personnel : plus compactes que les anciennes cartes
+         de catalogue et orientees vers une action concrete. -->
+    <Style x:Key="HomeSummaryCard" TargetType="Button">
+        <Setter Property="Margin" Value="0,0,12,0" />
+        <Setter Property="Padding" Value="18,15" />
+        <Setter Property="MinHeight" Value="104" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="card" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="9" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="card" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            <Setter TargetName="card" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="card" Property="BorderBrush" Value="{StaticResource FocusRingBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="card" Property="Background" Value="{StaticResource DisabledBackgroundBrush}" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="HomeSummaryLabel" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+    </Style>
+    <Style x:Key="HomeSummaryValue" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="19" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="Margin" Value="0,5,0,2" />
+    </Style>
+    <Style x:Key="HomeSummaryHint" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="10.5" />
+        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+    </Style>
+    <Style x:Key="HomeKpiValue" TargetType="TextBlock" BasedOn="{StaticResource HomeSummaryValue}">
+        <Setter Property="FontSize" Value="23" />
+        <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+    </Style>
+    <Style x:Key="HomeWorkItem" TargetType="Border">
+        <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="Padding" Value="0,11" />
+    </Style>
+    <Style x:Key="HomeWorkItemTitle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    </Style>
+    <Style x:Key="HomeWorkItemDetail" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+        <Setter Property="Margin" Value="0,3,12,0" />
+    </Style>
+    <Style x:Key="HomeTextActionButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+        <Setter Property="FontSize" Value="11.5" />
+        <Setter Property="MinHeight" Value="30" />
+        <Setter Property="Padding" Value="11,4" />
+    </Style>
+    <Style x:Key="HomeQuickActionButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+        <Setter Property="Margin" Value="0,0,10,0" />
+        <Setter Property="MinHeight" Value="62" />
+        <Setter Property="Padding" Value="10,8" />
+        <Setter Property="FontSize" Value="11.5" />
+    </Style>
+    <Style x:Key="HomeCatalogExpander" TargetType="Expander">
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
     <!-- Convertisseurs de l'ecran d'accueil (classes du projet Desktop). -->
     <desktop:ModuleGroupIconConverter x:Key="ModuleGroupIconConverter" />
     <desktop:ModuleCountLabelConverter x:Key="ModuleCountLabelConverter" />
