@@ -76,6 +76,7 @@ public partial class MainWindow : Window
     // l'utilisateur l'avait laissee, pas la replier arbitrairement.
     private readonly HashSet<ModuleNavigationGroup> groupsExpandedBeforeSearch = [];
     private bool isSidebarSearchActive;
+    private bool isSidebarCollapsed;
 
     // Permissions de l'utilisateur connecte (cles "units.read", "revenue.read", ...).
     // Null tant que personne n'est connecte : l'ecran d'accueil est alors dans son
@@ -226,9 +227,9 @@ public partial class MainWindow : Window
             }
         }
 
-        SidebarBorder.Visibility = Visibility.Visible;
-        SidebarColumn.Width = new GridLength(SidebarWidth);
-        SidebarGapColumn.Width = new GridLength(SidebarGapWidth);
+        SidebarBorder.Visibility = isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        SidebarColumn.Width = isSidebarCollapsed ? new GridLength(0) : new GridLength(SidebarWidth);
+        SidebarGapColumn.Width = isSidebarCollapsed ? new GridLength(0) : new GridLength(SidebarGapWidth);
     }
 
     // Un module ne s'ouvre que s'il a un ecran connu du catalogue ET que le profil a
@@ -365,6 +366,7 @@ public partial class MainWindow : Window
         ApplyModuleAccess(PermissionCatalog.InventoryRead, InventoryTabItem);
         ApplyModuleAccess(PermissionCatalog.PurchasingRead, PurchasingTabItem);
         ApplyModuleAccess(PermissionCatalog.KitchenRead, KitchenTabItem);
+        ApplyModuleAccess(PermissionCatalog.KitchenRead, PosTabItem);
         ApplyModuleAccess(PermissionCatalog.CrmRead, CrmTabItem);
         // Sans cette ligne l'onglet RH restait le SEUL module ouvert a tout profil
         // connecte, y compris par le cycle clavier Ctrl+Tab : les donnees de paie
@@ -624,6 +626,16 @@ public partial class MainWindow : Window
         }
 
         ModuleSearchTextBox.Focus();
+    }
+
+    private void SidebarToggleButton_Click(object sender, RoutedEventArgs e)
+    {
+        isSidebarCollapsed = !isSidebarCollapsed;
+        SidebarBorder.Visibility = isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        SidebarColumn.Width = isSidebarCollapsed ? new GridLength(0) : new GridLength(SidebarWidth);
+        SidebarGapColumn.Width = isSidebarCollapsed ? new GridLength(0) : new GridLength(SidebarGapWidth);
+        SidebarToggleButton.ToolTip = isSidebarCollapsed ? "Ouvrir la navigation" : "Replier la navigation";
+        SidebarToggleIcon.RenderTransform = new ScaleTransform(isSidebarCollapsed ? -1 : 1, 1, 8, 8);
     }
 
     // Ordre des onglets de MainTabs : 0=Accueil, 1=Unités hôtelières,

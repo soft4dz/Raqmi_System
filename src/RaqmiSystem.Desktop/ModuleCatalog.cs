@@ -45,8 +45,8 @@ public static class ModuleCatalog
     public const int ExpectedTotal = 50;
     public const int ExpectedAvailable = 31;
     public const int ExpectedApiReady = 0;
-    public const int ExpectedPartial = 0;
-    public const int ExpectedPlanned = 19;
+    public const int ExpectedPartial = 1;
+    public const int ExpectedPlanned = 18;
 
     // Libelles affiches des groupes fonctionnels (ordre d'apparition).
     public static class Groups
@@ -213,7 +213,8 @@ public static class ModuleCatalog
             "P2", ModuleStatus.Disponible, PermissionCatalog.KitchenRead, 26),
         new ModuleCatalogEntry("11.6", Groups.Exploitation, "Points de vente (POS)",
             "Plan de salle, tickets et transfert au folio",
-            "P2", ModuleStatus.Planifie),
+            "P2", ModuleStatus.Partiel, PermissionCatalog.KitchenRead, 31,
+            "Comptoir local livré : articles, ticket, quantités et paiement. Persistance serveur et transfert au folio à venir."),
         // Perimetre livre, dit tel quel : fournisseurs, bons de commande numerotes a
         // l'approbation et receptions qui alimentent le stock. Les demandes d'achat, les
         // demandes de prix et les factures fournisseurs sont HORS perimetre - la

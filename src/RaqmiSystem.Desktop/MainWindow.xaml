@@ -168,6 +168,16 @@
                                FontSize="13"
                                VerticalAlignment="Center"
                                Margin="0,0,18,0" />
+                    <Button x:Name="SidebarToggleButton"
+                            Style="{StaticResource HeaderIconButton}"
+                            Margin="0,0,10,0"
+                            ToolTip="Replier la navigation"
+                            Click="SidebarToggleButton_Click">
+                        <Path x:Name="SidebarToggleIcon" Width="16" Height="16" Stretch="None"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Data="M2,3 H14 V13 H2 Z M6,3 V13 M9,6 L12,8 L9,10" />
+                    </Button>
                     <!-- Bascule jour/nuit. Dans l'en-tete et non dans le parametrage :
                          c'est un geste d'ambiance, lie a l'heure et a l'eclairage du
                          lieu, pas un reglage qu'on va chercher une fois pour toutes.
@@ -2041,6 +2051,10 @@
                          vente, celui-ci tient l'exploitation quotidienne. -->
                     <TabItem x:Name="PmsTabItem" Header="PMS front office">
                         <views:PmsView x:Name="PmsView" />
+                    </TabItem>
+
+                    <TabItem x:Name="PosTabItem" Header="Points de vente">
+                        <views:PosView x:Name="PosView" />
                     </TabItem>
                 </TabControl>
 

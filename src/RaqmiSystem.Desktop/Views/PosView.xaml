@@ -1,0 +1,65 @@
+<UserControl x:Class="RaqmiSystem.Desktop.Views.PosView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontFamily="{StaticResource AppFontFamily}">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*" />
+            <ColumnDefinition Width="18" />
+            <ColumnDefinition Width="*" MinWidth="330" />
+        </Grid.ColumnDefinitions>
+
+        <Border Style="{StaticResource CardBorder}" Padding="22">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="16"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <DockPanel>
+                    <Button Content="Nouveau ticket" DockPanel.Dock="Right" Style="{StaticResource SecondaryButton}" Click="NewTicket_Click" />
+                    <StackPanel>
+                        <TextBlock Text="Point de vente" Style="{StaticResource PageTitleText}" />
+                        <TextBlock Text="Sélectionnez un article pour l’ajouter au ticket courant" Style="{StaticResource SubtitleText}" />
+                    </StackPanel>
+                </DockPanel>
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                    <WrapPanel>
+                        <Button Style="{StaticResource PosProductButton}" Tag="Café|180" Click="Product_Click"><StackPanel><TextBlock Text="☕" FontSize="25"/><TextBlock Text="Café"/><TextBlock Text="180 DA" Style="{StaticResource CaptionText}"/></StackPanel></Button>
+                        <Button Style="{StaticResource PosProductButton}" Tag="Thé|150" Click="Product_Click"><StackPanel><TextBlock Text="♨" FontSize="25"/><TextBlock Text="Thé"/><TextBlock Text="150 DA" Style="{StaticResource CaptionText}"/></StackPanel></Button>
+                        <Button Style="{StaticResource PosProductButton}" Tag="Eau minérale|120" Click="Product_Click"><StackPanel><TextBlock Text="◉" FontSize="25"/><TextBlock Text="Eau minérale"/><TextBlock Text="120 DA" Style="{StaticResource CaptionText}"/></StackPanel></Button>
+                        <Button Style="{StaticResource PosProductButton}" Tag="Jus frais|350" Click="Product_Click"><StackPanel><TextBlock Text="◍" FontSize="25"/><TextBlock Text="Jus frais"/><TextBlock Text="350 DA" Style="{StaticResource CaptionText}"/></StackPanel></Button>
+                        <Button Style="{StaticResource PosProductButton}" Tag="Petit déjeuner|1200" Click="Product_Click"><StackPanel><TextBlock Text="☀" FontSize="25"/><TextBlock Text="Petit déjeuner"/><TextBlock Text="1 200 DA" Style="{StaticResource CaptionText}"/></StackPanel></Button>
+                        <Button Style="{StaticResource PosProductButton}" Tag="Sandwich club|950" Click="Product_Click"><StackPanel><TextBlock Text="▤" FontSize="25"/><TextBlock Text="Sandwich club"/><TextBlock Text="950 DA" Style="{StaticResource CaptionText}"/></StackPanel></Button>
+                        <Button Style="{StaticResource PosProductButton}" Tag="Plat du jour|1800" Click="Product_Click"><StackPanel><TextBlock Text="◯" FontSize="25"/><TextBlock Text="Plat du jour"/><TextBlock Text="1 800 DA" Style="{StaticResource CaptionText}"/></StackPanel></Button>
+                        <Button Style="{StaticResource PosProductButton}" Tag="Dessert|650" Click="Product_Click"><StackPanel><TextBlock Text="◇" FontSize="25"/><TextBlock Text="Dessert"/><TextBlock Text="650 DA" Style="{StaticResource CaptionText}"/></StackPanel></Button>
+                    </WrapPanel>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <Border Grid.Column="2" Style="{StaticResource CardBorder}" Padding="22">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="12"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <DockPanel>
+                    <TextBlock Text="Ticket courant" Style="{StaticResource SectionTitleText}" />
+                    <TextBlock x:Name="TicketNumberText" Text="#LOCAL-001" DockPanel.Dock="Right" Style="{StaticResource CaptionText}" />
+                </DockPanel>
+                <DataGrid x:Name="TicketGrid" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" CanUserAddRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Article" Binding="{Binding Name}" Width="*" />
+                        <DataGridTextColumn Header="Qté" Binding="{Binding Quantity}" Width="50" />
+                        <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat={}{0:N0} DA}" Width="100" />
+                    </DataGrid.Columns>
+                </DataGrid>
+                <StackPanel Grid.Row="3" Margin="0,18,0,0">
+                    <DockPanel Margin="0,0,0,16">
+                        <TextBlock Text="TOTAL" Style="{StaticResource LabelText}" VerticalAlignment="Center" />
+                        <TextBlock x:Name="TotalText" Text="0 DA" DockPanel.Dock="Right" FontSize="25" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}" />
+                    </DockPanel>
+                    <UniformGrid Columns="2">
+                        <Button Content="Espèces" Style="{StaticResource PrimaryButton}" Margin="0,0,6,0" Tag="Espèces" Click="Pay_Click" />
+                        <Button Content="Carte / CIB" Style="{StaticResource SecondaryButton}" Margin="6,0,0,0" Tag="Carte / CIB" Click="Pay_Click" />
+                    </UniformGrid>
+                    <TextBlock x:Name="PosStatusText" Text="Ticket local — non encore transmis au serveur" Style="{StaticResource CaptionText}" Margin="0,12,0,0" TextAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

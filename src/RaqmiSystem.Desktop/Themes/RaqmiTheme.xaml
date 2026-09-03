@@ -1420,6 +1420,13 @@
         <Setter Property="Padding" Value="10,8" />
         <Setter Property="FontSize" Value="11.5" />
     </Style>
+    <Style x:Key="PosProductButton" TargetType="Button" BasedOn="{StaticResource HomeSummaryCard}">
+        <Setter Property="Width" Value="150" />
+        <Setter Property="Height" Value="118" />
+        <Setter Property="Margin" Value="0,0,12,12" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
     <Style x:Key="HomeCatalogExpander" TargetType="Expander">
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
         <Setter Property="FontWeight" Value="SemiBold" />
