@@ -29,10 +29,24 @@ public sealed record HomeCatalogSearchResult(
     /// <summary>Ouvrable = un ecran existe ET le profil a le droit de le lire.</summary>
     public bool IsOpenable => TabIndex is not null && !IsLocked;
 
-    /// <summary>« Écran », « Accès non autorisé » ou « Planifié » : le mot double toujours l'icone.</summary>
-    public string StateLabel => TabIndex is null
-        ? MaturityLabel
-        : IsLocked ? "Accès refusé" : "Écran";
+    /// <summary>
+    /// Un ecran existe derriere ce resultat. Faux = noeud planifie de l'arbre : le SEUL cas
+    /// ou le badge de maturite s'affiche.
+    /// </summary>
+    /// <remarks>
+    /// Les deux echelles ne se melangent pas : la maturite est une propriete du DOMAINE
+    /// (navigation-shell § 6.3), l'ouvrabilite est une propriete du profil. Peindre « Écran »
+    /// ou « Accès refusé » dans la teinte de maturite ferait porter au vert « Fonctionnel »
+    /// deux mots opposes sur la meme liste - la couleur ne dirait plus rien.
+    /// </remarks>
+    public bool HasScreen => TabIndex is not null;
+
+    /// <summary>Le chemin, ou le refus quand l'ecran n'est pas ouvrable pour ce profil.</summary>
+    public string ToolTipText => IsLocked
+        ? ModuleTile.AccessDeniedToolTip
+        : TabIndex is null
+            ? $"{Path} · {MaturityLabel} · aucun écran"
+            : Path;
 
     public string AccessibleName => TabIndex is null
         ? $"{Label}, {Path}, {MaturityLabel}, aucun écran"

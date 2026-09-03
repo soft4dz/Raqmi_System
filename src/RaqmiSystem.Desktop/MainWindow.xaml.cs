@@ -160,6 +160,14 @@ public partial class MainWindow : Window
         ShowChangePasswordDialog(isMandatory: false);
     }
 
+    // L'unite de ce poste vient d'etre reglee dans Parametrage global : les files unitaires
+    // de Mon Espace en dependent, et attendre les cinq minutes de fraicheur ferait croire
+    // que le reglage n'a pas pris.
+    private void SettingsView_StationUnitChanged()
+    {
+        HomeView.InvalidateWorkQueues();
+    }
+
     // Une cle est detenue des qu'une des claims que le SERVEUR accepte pour elle figure
     // dans le jeton (PermissionRegistry.AcceptedClaims) : c'est la regle exacte des
     // politiques de l'API. La comparer litteralement verrouillerait chez un role
@@ -415,6 +423,11 @@ public partial class MainWindow : Window
         HomeView.Initialize(context);
         HomeView.ChangePasswordRequested -= HomeView_ChangePasswordRequested;
         HomeView.ChangePasswordRequested += HomeView_ChangePasswordRequested;
+
+        // L'unite du poste s'ecrit dans Parametrage global, et les files unitaires de
+        // Mon Espace en dependent : la fenetre fait le lien, les deux vues s'ignorent.
+        SettingsView.StationUnitChanged -= SettingsView_StationUnitChanged;
+        SettingsView.StationUnitChanged += SettingsView_StationUnitChanged;
 
         // Nouvelle session : aucune vue n'a encore charge ses donnees.
         loadedModuleTabs.Clear();

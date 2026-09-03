@@ -420,6 +420,57 @@
                             Background="{StaticResource PanelBorderBrush}"
                             Margin="0,20,0,18" />
 
+                    <!-- Unite de ce poste. Un seul endroit ecrit ce reglage : « Mon Espace »
+                         l'affiche et renvoie ici, il ne le modifie pas. La liste n'est
+                         proposee qu'avec units.read ; sans elle le code se saisit, et c'est
+                         justement pourquoi l'encart ci-dessous ne promet pas que le serveur
+                         verifie ce code. -->
+                    <TextBlock Text="Unité de ce poste" Style="{StaticResource LabelText}" />
+
+                    <TextBlock x:Name="StationUnitCurrentTextBlock"
+                               Style="{StaticResource DetailValueText}"
+                               TextWrapping="Wrap" />
+
+                    <WrapPanel Margin="0,10,0,0">
+                        <ComboBox x:Name="StationUnitComboBox"
+                                  Width="260"
+                                  Margin="0,0,8,8"
+                                  Tag="Unité de ce poste"
+                                  ToolTip="Unité hôtelière à laquelle ce poste est rattaché"
+                                  AutomationProperties.Name="Unité de ce poste"
+                                  DisplayMemberPath="Label"
+                                  SelectedValuePath="Code"
+                                  Visibility="Collapsed" />
+                        <TextBox x:Name="StationUnitTextBox"
+                                 Width="200"
+                                 Margin="0,0,8,8"
+                                 MaxLength="40"
+                                 Tag="Code de l'unité (ALG-CEN)"
+                                 ToolTip="Code exact de l'unité hôtelière à laquelle ce poste est rattaché"
+                                 AutomationProperties.Name="Code de l'unité de ce poste" />
+                        <Button x:Name="SaveStationUnitButton"
+                                Style="{StaticResource SecondaryButton}"
+                                Content="Enregistrer l'unité"
+                                Margin="0,0,8,8"
+                                ToolTip="Rattacher ce poste à cette unité"
+                                Click="SaveStationUnitButton_Click" />
+                        <Button x:Name="ClearStationUnitButton"
+                                Style="{StaticResource GhostButton}"
+                                Content="Retirer l'unité"
+                                Margin="0,0,0,8"
+                                ToolTip="Ce poste ne sera plus rattaché à aucune unité"
+                                ToolTipService.ShowOnDisabled="True"
+                                Click="ClearStationUnitButton_Click" />
+                    </WrapPanel>
+
+                    <TextBlock Text="Confort de ce poste, jamais un périmètre : le serveur reste seul juge de ce que votre compte a le droit de lire. Ce code est transmis tel quel aux compteurs de Mon Espace — les routes qui l'exigent (date métier, front office, housekeeping) refusent un code inconnu et la carte affiche « Indisponible », celles qui ne font que filtrer dessus (recettes, encaissements, événements) répondraient zéro. Saisissez le code exact de votre unité."
+                               Style="{StaticResource FieldHintText}"
+                               Margin="0,0,0,0" />
+
+                    <Border Height="1"
+                            Background="{StaticResource PanelBorderBrush}"
+                            Margin="0,20,0,18" />
+
                     <!-- Apparence. Le bouton de l'en-tete suffit au quotidien (clair
                          ou sombre, un clic) ; il n'a pas de troisieme etat, et c'est
                          ici qu'on rend la main a Windows. -->

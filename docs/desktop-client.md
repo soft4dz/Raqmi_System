@@ -52,10 +52,16 @@ monothread et ne fait pas d'appel que personne n'a demandé.
 `DesktopSettings` (`%APPDATA%\RaqmiSystem\desktop-settings.json`) gagne deux entrées **par poste**,
 comme l'apparence et la densité — jamais par compte :
 
-- `StationUnitCode` : l'unité à laquelle ce poste est rattaché. Sans elle, aucune file unitaire n'est
-  composée et un encart le dit. C'est un confort de poste, **jamais un périmètre de sécurité** : le
-  serveur reste seul juge de ce que le jeton donne le droit de lire, et un code faux donne des cartes
-  « Indisponible » avec le message du serveur, jamais un chiffre inventé.
+- `StationUnitCode` : l'unité à laquelle ce poste est rattaché. Le réglage s'écrit dans **un seul
+  endroit**, `Paramétrage global › Poste de travail` (liste des unités si `units.read`, code saisi
+  sinon) ; Mon Espace l'affiche et y renvoie, il ne l'écrit pas. Sans unité, aucune file unitaire
+  n'est composée et un encart le dit. C'est un confort de poste, **jamais un périmètre de sécurité** :
+  le serveur reste seul juge de ce que le jeton donne le droit de lire. Le code part tel quel dans les
+  appels, et toutes les routes ne le traitent pas de la même façon : celles qui l'**exigent** (date
+  métier, front office, housekeeping) refusent un code inconnu et la carte affiche « Indisponible »
+  avec le message du serveur ; celles qui ne font que **filtrer** dessus (recettes, encaissements,
+  événements) répondraient zéro. D'où la liste dès que `units.read` est détenue, et l'avertissement de
+  l'écran de paramétrage quand elle ne l'est pas.
 - `RecentTabs` : les six derniers onglets ouverts sur ce poste. Sur un comptoir partagé ce sont les
   écrans du poste et non ceux de la personne — le libellé « (ce poste) » le dit. Ce ne sont pas des
   favoris par compte : il n'en existe pas côté serveur.

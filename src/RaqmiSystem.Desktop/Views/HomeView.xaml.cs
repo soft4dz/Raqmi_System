@@ -55,6 +55,12 @@ public partial class HomeView : UserControl
 
     public Task RefreshIfStaleAsync() => WorkQueuesView.RefreshIfStaleAsync();
 
+    /// <summary>
+    /// L'unite de ce poste a change dans Parametrage global : les files unitaires en
+    /// dependent, la prochaine venue sur l'onglet 0 recharge sans attendre cinq minutes.
+    /// </summary>
+    public void InvalidateWorkQueues() => WorkQueuesView.Invalidate();
+
     public void ResetState()
     {
         WorkQueuesView.ResetState();

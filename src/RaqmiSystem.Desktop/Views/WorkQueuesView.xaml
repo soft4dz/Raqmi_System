@@ -289,7 +289,7 @@
                                     Style="{StaticResource GhostButton}"
                                     Content="Mes préférences"
                                     Margin="0,0,6,0"
-                                    ToolTip="Apparence, densité et réglages de ce poste"
+                                    ToolTip="Apparence, densité et unité de ce poste, dans Paramétrage global"
                                     Click="Preferences_Click" />
                             <Button x:Name="SecurityButton"
                                     Style="{StaticResource GhostButton}"
@@ -318,6 +318,7 @@
                                     Style="{StaticResource GhostButton}"
                                     Content="Changer"
                                     Margin="8,0,0,0"
+                                    ToolTip="Régler l'unité de ce poste dans Paramétrage global › Poste de travail"
                                     Click="ChangeStationUnit_Click" />
                         </StackPanel>
 
@@ -363,9 +364,10 @@
 
             <!-- ==================== B' — Encarts d'avertissement ==================== -->
             <!-- Encart « poste sans unite » : purement informatif, il ne s'affiche que
-                 quand son texte est VRAI. Il ne porte pas l'editeur, sans quoi
-                 « Changer » sur un poste deja rattache ferait apparaitre un encart qui
-                 affirme le contraire de ce que le bandeau vient de dire. -->
+                 quand son texte est VRAI. Il ne porte AUCUN editeur : le reglage s'ecrit
+                 dans « Paramétrage global › Poste de travail », et nulle part ailleurs -
+                 un second endroit qui ecrit DesktopSettings serait la faute meme pour
+                 laquelle Apparence et Densite ont ete refusees sur cet ecran. -->
             <Border x:Name="UnitMissingBanner"
                     Style="{StaticResource WarningBanner}"
                     Margin="0,12,0,0"
@@ -376,62 +378,13 @@
                                TextWrapping="Wrap"
                                Text="Ce poste n'est rattaché à aucune unité : arrivées, départs, chambres, date métier et événements ne sont pas affichés." />
 
-                    <Button Style="{StaticResource GhostButton}"
-                            Content="Définir l'unité de ce poste"
+                    <Button x:Name="OpenStationSettingsButton"
+                            Style="{StaticResource GhostButton}"
+                            Content="Paramétrage global › Poste de travail"
+                            ToolTip="Fixer l'unité de ce poste dans Paramétrage global"
                             HorizontalAlignment="Left"
                             Margin="0,8,0,0"
                             Click="ChangeStationUnit_Click" />
-                </StackPanel>
-            </Border>
-
-            <!-- Editeur de l'unite du poste, sur sa propre surface et replie par defaut.
-                 Le bandeau, lui, ne porte AUCUN selecteur : rappeler ce que ce poste est
-                 n'est pas piloter plusieurs unites, ce qui est le role des onglets 3, 19
-                 et 20. Ecart assume par rapport a la specification, qui logeait ce champ
-                 dans « Paramétrage global › Poste de travail » : SettingsView est hors du
-                 perimetre de fichiers de ce lot, et un bouton « Changer » menant a un
-                 ecran sans champ serait une promesse creuse. -->
-            <Border x:Name="StationUnitEditor"
-                    Style="{StaticResource SubtleCardBorder}"
-                    Margin="0,12,0,0"
-                    Visibility="Collapsed">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource LabelText}" Text="Unité de ce poste" />
-
-                    <WrapPanel>
-                        <ComboBox x:Name="StationUnitComboBox"
-                                  Width="240"
-                                  Margin="0,0,8,8"
-                                  Tag="Unité de ce poste"
-                                  DisplayMemberPath="Label"
-                                  SelectedValuePath="Code"
-                                  Visibility="Collapsed" />
-                        <TextBox x:Name="StationUnitTextBox"
-                                 Width="180"
-                                 Margin="0,0,8,8"
-                                 MaxLength="40"
-                                 Tag="Code de l'unité de ce poste"
-                                 Visibility="Collapsed" />
-                        <Button x:Name="SaveStationUnitButton"
-                                Style="{StaticResource SecondaryButton}"
-                                Content="Enregistrer"
-                                Margin="0,0,8,8"
-                                Click="SaveStationUnit_Click" />
-                        <Button x:Name="ClearStationUnitButton"
-                                Style="{StaticResource GhostButton}"
-                                Content="Retirer l'unité"
-                                Margin="0,0,8,8"
-                                Click="ClearStationUnit_Click" />
-                        <Button x:Name="CancelStationUnitButton"
-                                Style="{StaticResource GhostButton}"
-                                Content="Annuler"
-                                Margin="0,0,0,8"
-                                Click="CancelStationUnit_Click" />
-                    </WrapPanel>
-
-                    <TextBlock Style="{StaticResource CaptionText}"
-                               TextWrapping="Wrap"
-                               Text="Réglage de ce poste, jamais un périmètre : le serveur reste seul juge de ce que votre compte a le droit de lire." />
                 </StackPanel>
             </Border>
 

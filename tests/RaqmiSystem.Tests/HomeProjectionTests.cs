@@ -3,9 +3,11 @@ using RaqmiSystem.Application.Housekeeping;
 using RaqmiSystem.Application.Lodging;
 using RaqmiSystem.Application.Maintenance;
 using RaqmiSystem.Application.Navigation;
+using RaqmiSystem.Application.Pilotage;
 using RaqmiSystem.Application.Purchasing;
 using RaqmiSystem.Application.Receivables;
 using RaqmiSystem.Application.Revenue;
+using RaqmiSystem.Application.Sync;
 using RaqmiSystem.Application.Treasury;
 using RaqmiSystem.Domain.Identity;
 using RaqmiSystem.Domain.Purchasing;
@@ -220,23 +222,65 @@ public sealed class HomeProjectionTests
     [Fact]
     public void Every_queue_of_the_registry_has_a_projection()
     {
-        // Une source vide mais « chargée » suffit à traverser chaque branche sans exception
-        // lorsqu'on marque la source en échec : la projection ne lit alors rien.
-        var failed = new HomeSourceResults();
-
-        foreach (var source in Enum.GetValues<HomeSource>())
-        {
-            failed.Failed.Add(source);
-        }
+        // Toutes les sources RÉPONDENT : c'est la seule façon d'atteindre le switch de lecture
+        // et sa branche par défaut. Marquer les sources en échec sortirait avant, sur le
+        // chemin « Indisponible » — une 32e file sans son case passerait au vert ici et
+        // lèverait KeyNotFoundException en production, hors de tout try/catch.
+        var results = AllSourcesLoaded();
 
         foreach (var queue in HomeWorkQueueCatalog.Queues)
         {
             var slot = new HomeSlot(queue, HomeMode.Information, queue.Scope, queue.TargetTab, false);
-            var card = HomeProjection.Project(slot, failed, null, Fr);
-            Assert.Equal(HomeCardState.Unavailable, card.State);
-            Assert.Equal(queue.Label, card.Label);
+            var card = HomeProjection.Project(slot, results, "DA", Fr);
+
+            Assert.Equal(HomeCardState.Ready, card.State);
+            Assert.NotEmpty(card.CountText);
+            Assert.NotEmpty(card.Legend);
         }
 
         Assert.Equal(PermissionCatalog.WorkflowRequestDecide, HomeWorkQueueCatalog.Find("approvals").ActKey);
     }
+
+    [Fact]
+    public void Every_source_of_the_enumeration_is_answered_by_the_fixture()
+    {
+        // Garde-fou du test précédent : si une source est ajoutée à l'énumération sans être
+        // peuplée ici, la projection retomberait sur « Chargement » et l'assertion Ready
+        // ci-dessus ne prouverait plus rien.
+        var results = AllSourcesLoaded();
+
+        foreach (var source in Enum.GetValues<HomeSource>())
+        {
+            Assert.True(results.IsLoaded(source), $"La source {source} n'est pas peuplée par le jeu d'essai.");
+        }
+    }
+
+    // Une réponse minimale par source : seuls les champs que la projection lit comptent, les
+    // collections restent vides et leurs lignes ne sont jamais déréférencées.
+    private static HomeSourceResults AllSourcesLoaded() => new()
+    {
+        BusinessDate = new BusinessDateResponse("ALG-CEN", new DateOnly(2026, 8, 31), new DateOnly(2026, 9, 1), new DateOnly(2026, 8, 30), true, IsLate: true, 1),
+        PendingApprovals = [],
+        FrontDesk = FrontDesk(arrivals: 14, overdueArrivals: 2, departures: 9, overdueDepartures: 1),
+        ArrivalBoard = new ArrivalBoardResponse("ALG-CEN", new DateOnly(2026, 9, 1), [], 20, 6, 4, 3),
+        DepartureBoard = new DepartureBoardResponse("ALG-CEN", new DateOnly(2026, 9, 1), [], 2, 27400m),
+        HousekeepingBoard = new RoomBoardResponse("ALG-CEN", new DateOnly(2026, 9, 1), 100, 60, 6, 30, 0, 9, 14, 5, 74, 26, 6, 2, 3, []),
+        RevenueSummary = new DailyRevenueSummaryResponse(null, null, "ALG-CEN", null, 4, 2, 1, 1, 0, 0, 0, 0, 0, 0),
+        ReceiptsDraft = new CashReceiptSummaryResponse(null, null, null, ReceiptStatus.Draft, 5, 5, 0, 0, 0, 0, 0, 0, 0),
+        ReceiptsConfirmed = new CashReceiptSummaryResponse(null, null, null, ReceiptStatus.Confirmed, 7, 0, 7, 0, 100m, 200m, 0, 0, 300m),
+        LowStock = [],
+        PaymentOrdersApproved = [],
+        PurchaseOrdersDraft = [],
+        PurchaseOrdersApproved = [],
+        InventoryCountsDraft = [],
+        AbsencesRequested = [],
+        PayrollPeriods = [],
+        EventsToday = [],
+        HaccpReadings = [],
+        BackupStatus = new BackupStatusResponse(true, "D:\\backups", 12, new BackupFileResponse("raqmi-2026-09-01.bak", "daily", 1024, DateTimeOffset.UtcNow), 3.2, IsOverdue: false, 26),
+        Workstations = new WorkstationRegistryResponse([], 15, 60, DateTimeOffset.UtcNow, 1),
+        UnitDashboardYesterday = new UnitDashboardResponse(new DateOnly(2026, 8, 31), [], 4, 3, 1, 2, 987654.32m),
+        Aging = new AgingBalanceResponse(new DateOnly(2026, 9, 1), "all", "invoice", [], new AgingBucketsResponse(10m, 20m, 30m, 40m, 1234.5m, 1334.5m)),
+        DecCockpit = new DecCockpitResponse(new DateOnly(2026, 9, 1), new DateOnly(2026, 8, 31), [], [], [], [], [], 3, 12000m, 2, 1, 4, 45000m, null)
+    };
 }

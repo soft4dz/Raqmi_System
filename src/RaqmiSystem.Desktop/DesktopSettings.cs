@@ -72,8 +72,14 @@ public sealed class DesktopSettings
     /// Per-poste et non per-compte, comme l'apparence : un comptoir de reception appartient
     /// a un etablissement, quelle que soit la personne qui s'y connecte. C'est un confort de
     /// poste, jamais un perimetre de securite - le serveur reste seul juge de ce que le
-    /// jeton donne le droit de lire, et un code faux ne donne pas des chiffres faux, il
-    /// donne des cartes « Indisponible » avec le message du serveur.
+    /// jeton donne le droit de lire.
+    ///
+    /// Le code est transmis TEL QUEL aux compteurs, et toutes les routes ne le traitent pas
+    /// de la meme facon : celles qui l'exigent (date metier, front office, housekeeping)
+    /// refusent un code inconnu et la carte affiche « Indisponible » avec le message du
+    /// serveur ; celles qui ne font que filtrer dessus (recettes, encaissements, evenements)
+    /// repondraient zero. D'ou le champ de Parametrage global, qui propose la liste des
+    /// unites des que units.read est detenue, et le dit quand il ne le peut pas.
     ///
     /// Absent = poste de siege : l'accueil ne compose alors aucune file unitaire et le dit.
     /// </summary>

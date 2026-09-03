@@ -338,7 +338,7 @@
                                     Margin="0,0,0,2"
                                     HorizontalAlignment="Left"
                                     IsEnabled="{Binding IsOpenable}"
-                                    ToolTip="{Binding Path}"
+                                    ToolTip="{Binding ToolTipText}"
                                     ToolTipService.ShowOnDisabled="True"
                                     AutomationProperties.Name="{Binding AccessibleName}"
                                     Click="SearchResult_Click">
@@ -361,13 +361,61 @@
                                                Foreground="{StaticResource TextMutedBrush}"
                                                VerticalAlignment="Center"
                                                Margin="10,0,0,0" />
-                                    <Border desktop:MaturityBadge.Maturity="{Binding Maturity}"
+                                    <!-- Deux echelles, deux marqueurs, jamais melanges :
+                                         la MATURITE (teinte reservee, navigation-shell
+                                         § 6.3) ne badge que les noeuds sans ecran, et
+                                         l'OUVRABILITE porte une pastille neutre ou le
+                                         cadenas. Un badge vert « Accès refusé » ferait
+                                         dire a la couleur le contraire du mot. -->
+                                    <Border x:Name="maturityBadge"
+                                            desktop:MaturityBadge.Maturity="{Binding Maturity}"
                                             Margin="10,0,0,0"
-                                            VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding StateLabel}" />
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed">
+                                        <TextBlock Text="{Binding MaturityLabel}" />
                                     </Border>
+
+                                    <Border x:Name="screenPill"
+                                            Background="{StaticResource SurfaceSubtleBrush}"
+                                            CornerRadius="9"
+                                            Padding="8,2"
+                                            Margin="10,0,0,0"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed">
+                                        <TextBlock Text="Écran"
+                                                   FontSize="10.5"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                                    </Border>
+
+                                    <StackPanel x:Name="lockedPill"
+                                                Orientation="Horizontal"
+                                                Margin="10,0,0,0"
+                                                VerticalAlignment="Center"
+                                                Visibility="Collapsed">
+                                        <Path Style="{StaticResource ModuleCardLockIcon}"
+                                              VerticalAlignment="Center" />
+                                        <TextBlock Text="Accès refusé"
+                                                   FontSize="10.5"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="6,0,0,0" />
+                                    </StackPanel>
                                 </StackPanel>
                             </Button>
+
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding HasScreen}" Value="False">
+                                    <Setter TargetName="maturityBadge" Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsOpenable}" Value="True">
+                                    <Setter TargetName="screenPill" Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsLocked}" Value="True">
+                                    <Setter TargetName="lockedPill" Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>

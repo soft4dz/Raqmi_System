@@ -46,7 +46,12 @@ public partial class WorkQueuesView : UserControl
     private string? currencyLabel;
     private DateTimeOffset? lastLoadedUtc;
     private bool isLoading;
-    private bool unitsLoaded;
+
+    // Jeton de session : incremente par OpenSession et par ResetState. Un chargement le capture
+    // au depart et abandonne des qu'il a change - sinon une deconnexion survenue entre deux
+    // appels laisserait la boucle en vol repeindre l'ecran deconnecte avec la synthese, les
+    // etats vides et les ECRANS LISIBLES du profil qui vient de partir.
+    private int sessionToken;
 
     public WorkQueuesView()
     {
@@ -88,9 +93,17 @@ public partial class WorkQueuesView : UserControl
     {
         ArgumentNullException.ThrowIfNull(user);
 
+        sessionToken++;
+
         GreetingTextBlock.Text = $"Bonjour, {user.DisplayName}";
         RefreshDateLine();
     }
+
+    /// <summary>
+    /// Le reglage d'unite du poste a change ailleurs (Parametrage global) : la prochaine venue
+    /// sur l'onglet 0 recharge, sans attendre les cinq minutes de fraicheur.
+    /// </summary>
+    public void Invalidate() => lastLoadedUtc = null;
 
     public async Task LoadAsync()
     {
@@ -98,6 +111,8 @@ public partial class WorkQueuesView : UserControl
         {
             return;
         }
+
+        var token = sessionToken;
 
         isLoading = true;
 
@@ -117,12 +132,19 @@ public partial class WorkQueuesView : UserControl
             // dont les montants des cartes ont besoin, et deux RunAsync concurrentes se
             // marcheraient sur les pieds (SetBusy est un compteur binaire, la premiere qui
             // finit rallume MainTabs pendant que l'autre est encore en vol).
-            await RefreshEstablishmentAsync(layout);
+            await RefreshEstablishmentAsync(layout, token);
 
             // Une RunAsync PAR source, de la plus legere a la plus lourde (l'ordre de
-            // l'enumeration) : les cartes se remplissent au fil des reponses.
+            // l'enumeration) : les cartes se remplissent au fil des reponses. Entre deux
+            // appels le thread d'interface est libre : le jeton est donc revu AVANT et APRES
+            // chaque attente, et aucune ecriture d'interface ne suit une deconnexion.
             foreach (var source in layout.Sources)
             {
+                if (token != sessionToken)
+                {
+                    return;
+                }
+
                 var ok = false;
 
                 await context.RunAsync(async () =>
@@ -130,6 +152,11 @@ public partial class WorkQueuesView : UserControl
                     await FetchAsync(source, results);
                     ok = true;                       // pose seulement si l'appel a abouti
                 });
+
+                if (token != sessionToken)
+                {
+                    return;
+                }
 
                 if (!ok)
                 {
@@ -139,16 +166,27 @@ public partial class WorkQueuesView : UserControl
                 ProjectSource(source, cards, results);
             }
 
+            if (token != sessionToken)
+            {
+                return;
+            }
+
             RefreshFailedSourcesBanner(cards, results);
             RefreshSummary(layout, cards);
-            RefreshBands(layout);
+            RefreshBands(layout, cards);
 
             lastLoadedUtc = DateTimeOffset.UtcNow;
             RefreshFreshness();
         }
         finally
         {
-            isLoading = false;
+            // Une session a pu s'ouvrir pendant que ce chargement-ci se terminait : c'est
+            // ResetState qui a deja rendu la main, et rendre isLoading a faux ici ecraserait
+            // le chargement du NOUVEAU profil.
+            if (token == sessionToken)
+            {
+                isLoading = false;
+            }
         }
     }
 
@@ -168,6 +206,12 @@ public partial class WorkQueuesView : UserControl
     /// </summary>
     public void ResetState()
     {
+        // Le jeton bouge D'ABORD : un chargement encore en vol doit se voir perime des sa
+        // prochaine reprise, et la session suivante doit pouvoir charger sans attendre la fin
+        // de celui-la (d'ou isLoading remis a faux ici, et plus dans son propre finally).
+        sessionToken++;
+        isLoading = false;
+
         GreetingTextBlock.Text = "Bonjour";
         RefreshDateLine();
 
@@ -183,15 +227,12 @@ public partial class WorkQueuesView : UserControl
         StationUnitPanel.Visibility = Visibility.Collapsed;
         BusinessDatePanel.Visibility = Visibility.Collapsed;
         UnitMissingBanner.Visibility = Visibility.Collapsed;
-        StationUnitEditor.Visibility = Visibility.Collapsed;
         FailedSourcesBanner.Visibility = Visibility.Collapsed;
         RecentScreensPanel.Visibility = Visibility.Collapsed;
         FreshnessTextBlock.Text = string.Empty;
 
         currencyLabel = null;
         lastLoadedUtc = null;
-        unitsLoaded = false;
-        StationUnitComboBox.ItemsSource = null;
     }
 
     /// <summary>Un ecran vient d'etre ouvert : il passe en tete des derniers ecrans du poste.</summary>
@@ -215,18 +256,14 @@ public partial class WorkQueuesView : UserControl
 
         foreach (var slot in layout.Slots)
         {
-            var card = new HomeCardModel(slot, ScopeLabel(slot), TargetLabel(slot.TargetTab))
+            cards[slot.Queue.Id] = new HomeCardModel(slot, ScopeLabel(slot), TargetLabel(slot.TargetTab))
             {
                 IconKey = IconKeyFor(slot.TargetTab)
             };
-
-            cards[slot.Queue.Id] = card;
-            CollectionFor(slot.Queue.Band).Add(card);
         }
 
-        RenderBand(OverdueBandPanel, HomeBand.Overdue, "En retard", layout);
-        RenderBand(TodayBandPanel, HomeBand.Today, "Aujourd'hui", layout);
-        RenderBand(WatchBandPanel, HomeBand.Watch, "À surveiller", layout);
+        PlaceCards(cards);
+        RenderBands(layout);
 
         return cards;
     }
@@ -237,6 +274,33 @@ public partial class WorkQueuesView : UserControl
         HomeBand.Today => todayCards,
         _ => watchCards
     };
+
+    // Repartition des cartes dans les trois bandes, TOUJOURS par la bande que la carte porte :
+    // celle du registre tant que rien n'a repondu, celle qu'un booleen serveur impose ensuite.
+    // Une sauvegarde a l'heure quitte ainsi « En retard » pour « À surveiller », et l'en-tete,
+    // le compteur et la synthese comptent enfin la meme chose.
+    private void PlaceCards(Dictionary<string, HomeCardModel> cards)
+    {
+        var projected = cards.Values.Select(model => model.Card).ToList();
+
+        foreach (var band in new[] { HomeBand.Overdue, HomeBand.Today, HomeBand.Watch })
+        {
+            var collection = CollectionFor(band);
+            collection.Clear();
+
+            foreach (var card in HomeBandPlacement.InBand(projected, band))
+            {
+                collection.Add(cards[card.Slot.Queue.Id]);
+            }
+        }
+    }
+
+    private void RenderBands(HomeLayout layout)
+    {
+        RenderBand(OverdueBandPanel, HomeBand.Overdue, "En retard", layout);
+        RenderBand(TodayBandPanel, HomeBand.Today, "Aujourd'hui", layout);
+        RenderBand(WatchBandPanel, HomeBand.Watch, "À surveiller", layout);
+    }
 
     // Une bande = un en-tete (mot + point + compteur de CARTES) et, dessous, ses cartes ou
     // son etat vide. L'etat vide dit POURQUOI il est vide : « aucune file ouverte a votre
@@ -263,7 +327,7 @@ public partial class WorkQueuesView : UserControl
                 case HomeEmptyReason.UnitMissing when band == HomeBand.Today:
                     host.Children.Add(BuildEmptyBox(
                         "Rien à traiter",
-                        "Vos files dépendent d'une unité : fixez l'unité de ce poste dans l'encart ci-dessus."));
+                        "Vos files dépendent d'une unité : fixez l'unité de ce poste dans Paramétrage global › Poste de travail."));
                     break;
 
                 case HomeEmptyReason.NoQueues when band == HomeBand.Today:
@@ -274,9 +338,12 @@ public partial class WorkQueuesView : UserControl
 
                 case HomeEmptyReason.UnitMissing:
                 case HomeEmptyReason.NoQueues:
-                    // En retard et À surveiller se contentent d'une ligne attenuee : trois
-                    // boites d'etat vide sur une page en feraient un mur de vide.
-                    header.Opacity = 0.7;
+                    // En retard et À surveiller se contentent d'une ligne : trois boites
+                    // d'etat vide sur une page en feraient un mur de vide. L'attenuation
+                    // passe par les TOKENS - le titre reste en TextMuted pleine opacite, seule
+                    // l'explication est en CaptionText. Aucune Opacity sur un element portant
+                    // du texte : a 0,7 le titre tomberait a ~2,9:1, sous le seuil WCAG AA, et
+                    // c'est l'etat que le profil RH voit a chaque ouverture de session.
                     host.Children.Add(new TextBlock
                     {
                         Text = section.EmptyReason == HomeEmptyReason.UnitMissing
@@ -425,24 +492,16 @@ public partial class WorkQueuesView : UserControl
         };
     }
 
-    // Les cartes masquees (zero hors « Aujourd'hui », journee a cloturer sans retard)
-    // sortent de leur bande apres projection : c'est le seul moment ou on le sait. Le
-    // chrome de la bande - compteur de cartes, « suivi seulement », etat vide - est donc
-    // recalcule ici et pas au squelette, sinon une bande videe de ses zeros garderait un
-    // compteur qui ment et n'afficherait jamais son etat vide.
-    private void RefreshBands(HomeLayout layout)
+    // Apres projection seulement on sait DEUX choses : quelles cartes sont masquees (zero hors
+    // « Aujourd'hui », journee a cloturer sans retard) et dans quelle bande le serveur a mis
+    // chacune. Les trois collections sont donc entierement refaites ici, et le chrome de la
+    // bande - compteur de cartes, « suivi seulement », etat vide - recalcule avec elles :
+    // sinon une bande garderait un compteur qui ment, n'afficherait jamais son etat vide, et
+    // une carte deplacee par le serveur resterait sous l'en-tete du registre.
+    private void RefreshBands(HomeLayout layout, Dictionary<string, HomeCardModel> cards)
     {
-        foreach (var collection in new[] { overdueCards, todayCards, watchCards })
-        {
-            foreach (var hidden in collection.Where(card => card.IsHidden).ToList())
-            {
-                collection.Remove(hidden);
-            }
-        }
-
-        RenderBand(OverdueBandPanel, HomeBand.Overdue, "En retard", layout);
-        RenderBand(TodayBandPanel, HomeBand.Today, "Aujourd'hui", layout);
-        RenderBand(WatchBandPanel, HomeBand.Watch, "À surveiller", layout);
+        PlaceCards(cards);
+        RenderBands(layout);
     }
 
     // ================================ Chargements ================================
@@ -509,10 +568,12 @@ public partial class WorkQueuesView : UserControl
                 results.EventsToday = await client.GetEventsAsync(url, unit, today, today);
                 break;
             case HomeSource.HaccpReadings:
+                // Bornes en heure LOCALE du poste : forcer l'offset a zero leve
+                // ArgumentException hors UTC, et cette exception-la fermerait l'application.
                 results.HaccpReadings = await client.GetTemperatureReadingsAsync(
                     url,
-                    new DateTimeOffset(DateTime.Today, TimeSpan.Zero),
-                    new DateTimeOffset(DateTime.Today.AddDays(1), TimeSpan.Zero),
+                    HomeDayWindow.Start(DateTime.Today),
+                    HomeDayWindow.End(DateTime.Today),
                     null,
                     nonCompliantOnly: true);
                 break;
@@ -563,7 +624,7 @@ public partial class WorkQueuesView : UserControl
             ? "Votre compte, vos rôles et vos permissions, dans Paramétrage global"
             : ModuleTile.AccessDeniedToolTip;
         PreferencesButton.ToolTip = layout.CanOpenSettings
-            ? "Apparence, densité et réglages de ce poste"
+            ? "Apparence, densité et unité de ce poste, dans Paramétrage global"
             : ModuleTile.AccessDeniedToolTip;
 
         // Ligne « Unité du poste » : elle n'a de sens que si au moins une file unitaire
@@ -573,6 +634,13 @@ public partial class WorkQueuesView : UserControl
             ? "Unité du poste : — non définie"
             : $"Unité du poste : {stationUnitCode}";
         ChangeStationUnitButton.Content = stationUnitCode is null ? "Définir" : "Changer";
+
+        // Le reglage s'ecrit dans « Paramétrage global › Poste de travail », et nulle part
+        // ailleurs : un bouton qui n'y mene pas serait une promesse creuse, et un second
+        // endroit qui ecrit DesktopSettings serait la faute meme pour laquelle Apparence et
+        // Densite ont ete refusees sur cet ecran.
+        ChangeStationUnitButton.Visibility = layout.CanOpenSettings ? Visibility.Visible : Visibility.Collapsed;
+        OpenStationSettingsButton.Visibility = layout.CanOpenSettings ? Visibility.Visible : Visibility.Collapsed;
 
         UnitMissingBanner.Visibility = layout.ShowUnitMissingBanner ? Visibility.Visible : Visibility.Collapsed;
 
@@ -588,7 +656,7 @@ public partial class WorkQueuesView : UserControl
     // Nom de l'etablissement et libelle de devise : un seul appel, une seule fois par
     // session. Sans settings.read la ligne est simplement absente - l'utilisateur n'a
     // rien a y faire, donc rien a lui dire.
-    private async Task RefreshEstablishmentAsync(HomeLayout layout)
+    private async Task RefreshEstablishmentAsync(HomeLayout layout, int token)
     {
         if (context is null || !layout.ShowEstablishment || EstablishmentTextBlock.Visibility == Visibility.Visible)
         {
@@ -598,6 +666,13 @@ public partial class WorkQueuesView : UserControl
         await context.RunAsync(async () =>
         {
             var settings = await context.ApiClient.GetApplicationSettingsAsync(context.ApiBaseUrl);
+
+            // La deconnexion a pu tomber pendant cet appel : ResetState vient de masquer la
+            // ligne, la reafficher la ferait revenir sur un ecran deconnecte.
+            if (token != sessionToken)
+            {
+                return;
+            }
 
             currencyLabel = settings.CurrencyLabel;
 
@@ -773,78 +848,10 @@ public partial class WorkQueuesView : UserControl
 
     private async void RefreshHome_Click(object sender, RoutedEventArgs e) => await LoadAsync();
 
-    // Le reglage d'unite du poste s'ecrit dans cet editeur, et nulle part ailleurs : le
-    // bandeau ne porte AUCUN selecteur (piloter plusieurs unites est le role des onglets de
-    // pilotage), seulement le rappel de ce que ce poste est.
-    private async void ChangeStationUnit_Click(object sender, RoutedEventArgs e)
-    {
-        StationUnitEditor.Visibility = Visibility.Visible;
-
-        // La liste des unites n'est lisible qu'avec units.read : sans elle, le code se
-        // saisit. Chargee a l'ouverture de l'editeur seulement - l'accueil ne paie pas cet
-        // appel a chaque connexion, et un poste de caisse ne le paie jamais.
-        if (context is not null && !unitsLoaded && context.HasPermission(Domain.Identity.PermissionCatalog.UnitsRead))
-        {
-            unitsLoaded = true;
-
-            await context.RunAsync(async () =>
-            {
-                var units = await context.ApiClient.GetHotelUnitsAsync(context.ApiBaseUrl, includeInactive: false);
-
-                StationUnitComboBox.ItemsSource = units
-                    .Select(unit => new HomeStationUnitOption(unit.Code, $"{unit.Code} · {unit.Name}"))
-                    .ToList();
-
-                StationUnitComboBox.Visibility = Visibility.Visible;
-            });
-        }
-
-        if (StationUnitComboBox.Visibility == Visibility.Visible)
-        {
-            StationUnitComboBox.SelectedValue = stationUnitCode;
-            StationUnitComboBox.Focus();
-        }
-        else
-        {
-            StationUnitTextBox.Text = stationUnitCode ?? string.Empty;
-            StationUnitTextBox.Visibility = Visibility.Visible;
-            StationUnitTextBox.Focus();
-        }
-    }
-
-    private async void SaveStationUnit_Click(object sender, RoutedEventArgs e)
-    {
-        var chosen = StationUnitComboBox.Visibility == Visibility.Visible
-            ? StationUnitComboBox.SelectedValue as string
-            : StationUnitTextBox.Text;
-
-        if (string.IsNullOrWhiteSpace(chosen))
-        {
-            context?.SetStatus("Choisissez une unité, ou retirez l'unité de ce poste.", true);
-            return;
-        }
-
-        DesktopSettings.SaveStationUnitCode(chosen);
-        StationUnitEditor.Visibility = Visibility.Collapsed;
-
-        // Le serveur valide le code au premier appel : un code faux ne donne pas des
-        // chiffres faux, il donne des cartes « Indisponible » avec SON message.
-        context?.SetStatus($"Ce poste est rattaché à l'unité {chosen.Trim().ToUpperInvariant()}.");
-        await LoadAsync();
-    }
-
-    private async void ClearStationUnit_Click(object sender, RoutedEventArgs e)
-    {
-        DesktopSettings.SaveStationUnitCode(null);
-        StationUnitEditor.Visibility = Visibility.Collapsed;
-        context?.SetStatus("Ce poste n'est plus rattaché à une unité.");
-        await LoadAsync();
-    }
-
-    private void CancelStationUnit_Click(object sender, RoutedEventArgs e)
-    {
-        StationUnitEditor.Visibility = Visibility.Collapsed;
-    }
+    // L'unite du poste se REGLE dans « Paramétrage global › Poste de travail » : un seul
+    // endroit ecrit DesktopSettings, et le bandeau ne porte que le rappel de ce que ce poste
+    // est. Piloter plusieurs unites est le role des onglets 3, 19 et 20, pas de l'accueil.
+    private void ChangeStationUnit_Click(object sender, RoutedEventArgs e) => NavigateRequested?.Invoke(SettingsTab);
 
     // ================================== Libelles ==================================
 
@@ -874,6 +881,3 @@ public partial class WorkQueuesView : UserControl
 
 /// <summary>Une puce de « derniers écrans ouverts ».</summary>
 public sealed record HomeRecentScreen(int TabIndex, string Label, string IconKey, string ToolTip, string AccessibleName);
-
-/// <summary>Une unite proposee dans l'editeur d'unite du poste.</summary>
-public sealed record HomeStationUnitOption(string Code, string Label);

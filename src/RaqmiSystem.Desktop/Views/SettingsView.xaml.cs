@@ -50,6 +50,10 @@ public partial class SettingsView : UserControl
     private bool canWriteSettings;
     private bool canPurgeAudit;
 
+    // La liste des unites n'est lisible qu'avec units.read, et une seule fois par session :
+    // sans cette cle le code se saisit, et aucun appel n'est fait.
+    private bool stationUnitOptionsLoaded;
+
     // Dernier parametrage recu du serveur : sert a signaler, avant une purge, que
     // la retention affichee a l'ecran n'est pas celle qui est enregistree.
     private ApplicationSettingsResponse? loadedSettings;
@@ -148,6 +152,12 @@ public partial class SettingsView : UserControl
             : applique);
     }
 
+    /// <summary>
+    /// L'unite de ce poste vient de changer : la fenetre previent « Mon Espace », dont les
+    /// files unitaires dependent de ce reglage.
+    /// </summary>
+    public event Action? StationUnitChanged;
+
     /// <summary>Memorise le contexte fourni par la fenetre. Aucun appel reseau ici.</summary>
     public void Initialize(ModuleViewContext moduleViewContext)
     {
@@ -178,6 +188,7 @@ public partial class SettingsView : UserControl
             await ReloadSettingsAsync(active);
             await ReloadSessionAsync(active);
             await ReloadHealthAsync(active);
+            await ReloadStationUnitOptionsAsync(active);
 
             active.SetStatus("Paramétrage global chargé.");
         });
@@ -191,6 +202,13 @@ public partial class SettingsView : UserControl
     public void ResetState()
     {
         loadedSettings = null;
+
+        // La liste des unites est une donnee SERVEUR lue avec les cles du profil qui part :
+        // elle ne doit pas rester proposee au suivant.
+        stationUnitOptionsLoaded = false;
+        StationUnitComboBox.ItemsSource = null;
+        StationUnitComboBox.Visibility = Visibility.Collapsed;
+        StationUnitTextBox.Visibility = Visibility.Visible;
 
         ClearForm();
         ClearDiagnostics();
@@ -414,6 +432,7 @@ public partial class SettingsView : UserControl
     {
         ApiBaseUrlTextBox.Text = DesktopSettings.Load();
         RefreshApparenceSection();
+        RefreshStationUnitSection();
 
         var hasCredentials = DesktopSettings.TryLoadCredentials(out var rememberedUser, out _);
 
@@ -437,6 +456,81 @@ public partial class SettingsView : UserControl
         {
             ApiUrlOverrideNoticeBorder.Visibility = Visibility.Collapsed;
         }
+    }
+
+    // ------------------------------ Unite de ce poste ------------------------------
+
+    // Le SEUL endroit qui ecrit DesktopSettings.StationUnitCode. « Mon Espace » l'affiche et
+    // renvoie ici : deux surfaces qui ecrivent le meme reglage finiraient par se contredire.
+    private void RefreshStationUnitSection()
+    {
+        var code = DesktopSettings.LoadStationUnitCode();
+
+        StationUnitCurrentTextBlock.Text = code is null
+            ? "Ce poste n'est rattaché à aucune unité : Mon Espace ne compose aucune file d'unité (arrivées, départs, chambres, date métier, événements)."
+            : $"Ce poste est rattaché à l'unité {code}.";
+
+        StationUnitTextBox.Text = code ?? string.Empty;
+
+        if (StationUnitComboBox.Visibility == Visibility.Visible)
+        {
+            StationUnitComboBox.SelectedValue = code;
+        }
+
+        ClearStationUnitButton.IsEnabled = code is not null;
+        ClearStationUnitButton.ToolTip = code is not null
+            ? "Ce poste ne sera plus rattaché à aucune unité"
+            : "Ce poste n'est rattaché à aucune unité.";
+    }
+
+    // Liste des unites : lisible avec units.read seulement. Sans cette cle, aucun appel n'est
+    // fait et le code se saisit - c'est le cas d'un poste de caisse.
+    private async Task ReloadStationUnitOptionsAsync(ModuleViewContext active)
+    {
+        if (stationUnitOptionsLoaded || !active.HasPermission(PermissionCatalog.UnitsRead))
+        {
+            return;
+        }
+
+        var units = await active.ApiClient.GetHotelUnitsAsync(active.ApiBaseUrl, includeInactive: false);
+
+        StationUnitComboBox.ItemsSource = units
+            .Select(unit => new StationUnitOption(unit.Code, $"{unit.Code} · {unit.Name}"))
+            .ToList();
+
+        StationUnitComboBox.SelectedValue = DesktopSettings.LoadStationUnitCode();
+        StationUnitComboBox.Visibility = Visibility.Visible;
+        StationUnitTextBox.Visibility = Visibility.Collapsed;
+        stationUnitOptionsLoaded = true;
+    }
+
+    private void SaveStationUnitButton_Click(object sender, RoutedEventArgs e)
+    {
+        var chosen = StationUnitComboBox.Visibility == Visibility.Visible
+            ? StationUnitComboBox.SelectedValue as string
+            : StationUnitTextBox.Text;
+
+        if (string.IsNullOrWhiteSpace(chosen))
+        {
+            context?.SetStatus("Choisissez une unité, ou retirez l'unité de ce poste.", isError: true);
+            return;
+        }
+
+        DesktopSettings.SaveStationUnitCode(chosen);
+        RefreshStationUnitSection();
+        StationUnitChanged?.Invoke();
+
+        context?.SetStatus(
+            $"Ce poste est rattaché à l'unité {chosen.Trim().ToUpperInvariant()}. Mon Espace en tiendra compte à son prochain chargement.");
+    }
+
+    private void ClearStationUnitButton_Click(object sender, RoutedEventArgs e)
+    {
+        DesktopSettings.SaveStationUnitCode(null);
+        RefreshStationUnitSection();
+        StationUnitChanged?.Invoke();
+
+        context?.SetStatus("Ce poste n'est plus rattaché à une unité. Mon Espace en tiendra compte à son prochain chargement.");
     }
 
     // Reglage local : rien ne part vers le serveur, donc pas de RunAsync ici.
@@ -790,3 +884,6 @@ public partial class SettingsView : UserControl
         Unhealthy
     }
 }
+
+/// <summary>Une unite proposee dans le champ « Unité de ce poste ».</summary>
+public sealed record StationUnitOption(string Code, string Label);
