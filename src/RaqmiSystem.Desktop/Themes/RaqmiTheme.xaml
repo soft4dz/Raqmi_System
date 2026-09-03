@@ -169,6 +169,19 @@
     <SolidColorBrush x:Key="ModuleProgressPartialBrush" Color="#BF8B16" />
     <SolidColorBrush x:Key="ModuleProgressPlannedBrush" Color="#7798B5" />
 
+    <!-- Teintes d'icones du lanceur d'applications. Elles donnent aux domaines
+         un repere visuel rapide, sans reprendre la palette violette d'Odoo. -->
+    <SolidColorBrush x:Key="AppTileBlueSoftBrush" Color="#E3EFFB" />
+    <SolidColorBrush x:Key="AppTileBlueBrush" Color="#145CAB" />
+    <SolidColorBrush x:Key="AppTileTealSoftBrush" Color="#E1F4F5" />
+    <SolidColorBrush x:Key="AppTileTealBrush" Color="#087B84" />
+    <SolidColorBrush x:Key="AppTileGoldSoftBrush" Color="#FBF0D6" />
+    <SolidColorBrush x:Key="AppTileGoldBrush" Color="#986B0D" />
+    <SolidColorBrush x:Key="AppTileGreenSoftBrush" Color="#E2F3E8" />
+    <SolidColorBrush x:Key="AppTileGreenBrush" Color="#247A49" />
+    <SolidColorBrush x:Key="AppTileIndigoSoftBrush" Color="#E9EAF8" />
+    <SolidColorBrush x:Key="AppTileIndigoBrush" Color="#5057A4" />
+
     <!-- Barre de defilement -->
     <SolidColorBrush x:Key="ScrollThumbBrush" Color="#6C90B0" />
     <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#567DA0" />
@@ -1713,7 +1726,7 @@
 
     <!-- ======================= En-tete de section de groupe ====================== -->
     <DataTemplate x:Key="ModuleCatalogGroupHeaderTemplate">
-        <Grid Margin="0,14,0,12">
+        <Grid Margin="0,22,0,10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
@@ -1721,15 +1734,15 @@
             </Grid.ColumnDefinitions>
 
             <TextBlock Text="{Binding Name}"
-                       FontSize="13.5"
+                       FontSize="15"
                        FontWeight="SemiBold"
                        Foreground="{StaticResource TextPrimaryBrush}"
                        VerticalAlignment="Center" />
 
             <Border Grid.Column="1"
                     Background="{StaticResource SurfaceSubtleBrush}"
-                    CornerRadius="9"
-                    Padding="9,2"
+                    CornerRadius="10"
+                    Padding="9,3"
                     Margin="10,0,0,0"
                     VerticalAlignment="Center">
                 <!-- TextSecondary et non TextMuted : sur la pastille SurfaceSubtle,
@@ -1739,7 +1752,7 @@
                            Foreground="{StaticResource TextSecondaryBrush}" />
             </Border>
 
-            <!-- Filet de separation qui prolonge le titre jusqu'au bord. -->
+            <!-- Filet discret qui structure les familles sans alourdir le lanceur. -->
             <Border Grid.Column="2"
                     BorderBrush="{StaticResource PanelBorderBrush}"
                     BorderThickness="0,1,0,0"
@@ -1761,9 +1774,9 @@
          ouvrable (statut sans ecran ou permission manquante) : fond attenue,
          plus d'ombre ni de survol, mais texte a pleine lisibilite. -->
     <Style x:Key="ModuleCatalogCard" TargetType="Button">
-        <Setter Property="Width" Value="224" />
-        <Setter Property="Height" Value="176" />
-        <Setter Property="Margin" Value="0,0,14,14" />
+        <Setter Property="Width" Value="182" />
+        <Setter Property="Height" Value="144" />
+        <Setter Property="Margin" Value="0,0,12,12" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
@@ -1773,10 +1786,10 @@
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="card"
                             Background="{StaticResource SurfaceBrush}"
-                            BorderBrush="{StaticResource PanelBorderBrush}"
+                            BorderBrush="Transparent"
                             BorderThickness="1"
-                            CornerRadius="10"
-                            Padding="16,14"
+                            CornerRadius="12"
+                            Padding="14,12"
                             SnapsToDevicePixels="True">
                         <Border.RenderTransform>
                             <TranslateTransform Y="0" />
@@ -1784,9 +1797,9 @@
                         <Border.Effect>
                             <DropShadowEffect Color="{StaticResource StructureShadowColor}"
                                               Direction="270"
-                                              ShadowDepth="2"
-                                              BlurRadius="10"
-                                              Opacity="0.07" />
+                                              ShadowDepth="1"
+                                              BlurRadius="12"
+                                              Opacity="0.06" />
                         </Border.Effect>
                         <Grid>
                             <Grid.RowDefinitions>
@@ -1798,14 +1811,14 @@
                             <!-- Icone du groupe, priorite et cadenas -->
                             <Grid>
                                 <Border x:Name="iconChip"
-                                        Width="34"
-                                        Height="34"
-                                        CornerRadius="9"
-                                        Background="{StaticResource SurfaceHoverBrush}"
+                                        Width="44"
+                                        Height="44"
+                                        CornerRadius="12"
+                                        Background="{StaticResource AppTileBlueSoftBrush}"
                                         HorizontalAlignment="Left">
                                     <Path x:Name="groupIcon"
                                           Style="{StaticResource ModuleCardIcon}"
-                                          Stroke="{StaticResource TextSecondaryBrush}"
+                                          Stroke="{StaticResource AppTileBlueBrush}"
                                           Data="{Binding GroupIconKey, Converter={StaticResource ModuleGroupIconConverter}}" />
                                 </Border>
 
@@ -1821,6 +1834,7 @@
                                          attenuee (fond SurfaceSubtle - 39 cartes sur 49),
                                          TextMuted tombe a 4,16:1, sous WCAG AA 4,5:1. -->
                                     <TextBlock Text="{Binding Priority}"
+                                               Visibility="Collapsed"
                                                FontSize="10.5"
                                                FontWeight="SemiBold"
                                                Foreground="{StaticResource TextSecondaryBrush}" />
@@ -1828,33 +1842,33 @@
                             </Grid>
 
                             <!-- Titre et description -->
-                            <StackPanel Grid.Row="1" Margin="0,13,0,0">
+                            <StackPanel Grid.Row="1" Margin="0,10,0,0">
                                 <TextBlock Text="{Binding Name}"
-                                           FontSize="13.5"
+                                           FontSize="12.5"
                                            FontWeight="SemiBold"
                                            Foreground="{StaticResource TextPrimaryBrush}"
                                            TextWrapping="Wrap"
                                            TextTrimming="CharacterEllipsis"
-                                           MaxHeight="38" />
+                                           MaxHeight="35" />
                                 <TextBlock Text="{Binding Description}"
-                                           FontSize="11.5"
+                                           FontSize="10.5"
                                            Foreground="{StaticResource TextSecondaryBrush}"
                                            TextWrapping="Wrap"
                                            TextTrimming="CharacterEllipsis"
-                                           MaxHeight="33"
-                                           Margin="0,5,0,0" />
+                                           MaxHeight="28"
+                                           Margin="0,3,0,0" />
                             </StackPanel>
 
                             <!-- Pastille de statut -->
                             <Border x:Name="statusPill"
                                     Grid.Row="2"
                                     HorizontalAlignment="Left"
-                                    CornerRadius="9"
-                                    Padding="9,2.5"
+                                    CornerRadius="8"
+                                    Padding="7,2"
                                     Background="{StaticResource ModuleStatusPlannedBackgroundBrush}">
                                 <TextBlock x:Name="statusPillText"
                                            Text="{Binding StatusLabel}"
-                                           FontSize="10.5"
+                                           FontSize="9.5"
                                            FontWeight="SemiBold"
                                            Foreground="{StaticResource ModuleStatusPlannedForegroundBrush}" />
                             </Border>
@@ -1867,6 +1881,22 @@
                             <Setter TargetName="statusPillText" Property="Foreground" Value="{StaticResource ModuleStatusAvailableForegroundBrush}" />
                             <Setter TargetName="iconChip" Property="Background" Value="{StaticResource AccentSoftBrush}" />
                             <Setter TargetName="groupIcon" Property="Stroke" Value="{StaticResource AccentPressedBrush}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Group}" Value="Finance">
+                            <Setter TargetName="iconChip" Property="Background" Value="{StaticResource AppTileGreenSoftBrush}" />
+                            <Setter TargetName="groupIcon" Property="Stroke" Value="{StaticResource AppTileGreenBrush}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Group}" Value="Exploitation">
+                            <Setter TargetName="iconChip" Property="Background" Value="{StaticResource AppTileTealSoftBrush}" />
+                            <Setter TargetName="groupIcon" Property="Stroke" Value="{StaticResource AppTileTealBrush}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Group}" Value="Ressources humaines">
+                            <Setter TargetName="iconChip" Property="Background" Value="{StaticResource AppTileGoldSoftBrush}" />
+                            <Setter TargetName="groupIcon" Property="Stroke" Value="{StaticResource AppTileGoldBrush}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Group}" Value="Pilotage">
+                            <Setter TargetName="iconChip" Property="Background" Value="{StaticResource AppTileIndigoSoftBrush}" />
+                            <Setter TargetName="groupIcon" Property="Stroke" Value="{StaticResource AppTileIndigoBrush}" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding Status}" Value="{x:Static desktop:ModuleStatus.ApiPrete}">
                             <Setter TargetName="statusPill" Property="Background" Value="{StaticResource ModuleStatusApiBackgroundBrush}" />
@@ -1900,13 +1930,14 @@
                                 <Condition Property="IsMouseOver" Value="True" />
                                 <Condition Property="IsEnabled" Value="True" />
                             </MultiTrigger.Conditions>
-                            <Setter TargetName="card" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            <Setter TargetName="card" Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
+                            <Setter TargetName="card" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
                             <MultiTrigger.EnterActions>
                                 <BeginStoryboard>
                                     <Storyboard>
                                         <DoubleAnimation Storyboard.TargetName="card"
                                                          Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
-                                                         To="-2"
+                                                         To="-3"
                                                          Duration="0:0:0.13">
                                             <DoubleAnimation.EasingFunction>
                                                 <CubicEase EasingMode="EaseOut" />

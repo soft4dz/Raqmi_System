@@ -728,7 +728,7 @@
 
                                 <!-- ============== Bandeau d'avancement + filtres ============== -->
                                 <Expander Style="{StaticResource HomeCatalogExpander}"
-                                          Header="Tous les modules"
+                                          Header="Catalogue des applications"
                                           IsExpanded="False"
                                           Margin="0,18,0,0">
                                 <StackPanel>
