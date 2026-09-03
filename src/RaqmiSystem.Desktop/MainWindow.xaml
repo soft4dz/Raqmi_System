@@ -100,6 +100,7 @@
         <Border Grid.Row="0" Background="{StaticResource StructureBrush}" Padding="24,0">
             <Grid>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
@@ -121,9 +122,37 @@
                     </StackPanel>
                 </StackPanel>
 
+                <!-- Commande de recherche globale : elle adopte l'apparence d'un
+                     champ sans dupliquer le moteur de recherche. Un clic ou Ctrl+K
+                     place le curseur dans la recherche pertinente au contexte. -->
+                <Button x:Name="GlobalSearchButton"
+                        Grid.Column="1"
+                        Style="{StaticResource HeaderSearchButton}"
+                        Margin="44,0"
+                        MaxWidth="650"
+                        HorizontalAlignment="Stretch"
+                        Click="GlobalSearchButton_Click">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Path Width="16" Height="16" Stretch="None"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Data="M6.5,2.6 A3.9,3.9 0 1 0 6.51,2.6 M9.3,9.3 L13.4,13.4" />
+                        <TextBlock Grid.Column="1" Text="Rechercher une application…"
+                                   VerticalAlignment="Center" Margin="10,0" />
+                        <Border Grid.Column="2" Style="{StaticResource HeaderShortcutBadge}">
+                            <TextBlock Text="Ctrl K" FontSize="10" />
+                        </Border>
+                    </Grid>
+                </Button>
+
                 <!-- Visible uniquement une fois connecté : identité + déconnexion. -->
                 <StackPanel x:Name="HeaderSessionPanel"
-                            Grid.Column="1"
+                            Grid.Column="2"
                             Orientation="Horizontal"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Center"
@@ -407,10 +436,8 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                    <!-- Largeurs pilotees par SyncSidebarToTab : sur l'accueil, la barre
-                         laterale est repliee a zero et l'ecran est plein - le sommaire
-                         des modules EST l'accueil, une barre laterale y ferait doublon
-                         et volerait la largeur des cartes. -->
+                    <!-- La navigation reste visible sur l'accueil : celui-ci est un
+                         espace de travail, plus un second catalogue de modules. -->
                     <ColumnDefinition x:Name="SidebarColumn" Width="248" />
                     <ColumnDefinition x:Name="SidebarGapColumn" Width="20" />
                     <ColumnDefinition Width="*" />
@@ -563,41 +590,65 @@
                                                 Tag="16"
                                                 IsEnabled="{Binding IsEnabled, ElementName=ApprovalsTabItem}"
                                                 Click="HomeNavigate_Click">
-                                            <StackPanel>
-                                                <TextBlock Text="Validations" Style="{StaticResource HomeSummaryLabel}" />
-                                                <TextBlock Text="À consulter" Style="{StaticResource HomeSummaryValue}" />
-                                                <TextBlock Text="Ouvrir ma file" Style="{StaticResource HomeSummaryHint}" />
-                                            </StackPanel>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="44" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                                <Border Style="{StaticResource HomeSummaryIconChip}">
+                                                    <Path Style="{StaticResource HomeSummaryIcon}" Data="M3,2.5 H11.5 L14,5 V14 H3 Z M11.5,2.5 V5 H14 M6,8 H11 M6,11 H10" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                                    <TextBlock Text="Validations" Style="{StaticResource HomeSummaryLabel}" />
+                                                    <TextBlock Text="À consulter" Style="{StaticResource HomeSummaryValue}" />
+                                                    <TextBlock Text="Ouvrir ma file" Style="{StaticResource HomeSummaryHint}" />
+                                                </StackPanel>
+                                            </Grid>
                                         </Button>
                                         <Button Style="{StaticResource HomeSummaryCard}"
                                                 Tag="20"
                                                 IsEnabled="{Binding IsEnabled, ElementName=DecCockpitTabItem}"
                                                 Click="HomeNavigate_Click">
-                                            <StackPanel>
-                                                <TextBlock Text="Tâches urgentes" Style="{StaticResource HomeSummaryLabel}" />
-                                                <TextBlock Text="À contrôler" Style="{StaticResource HomeSummaryValue}" />
-                                                <TextBlock Text="Voir le cockpit" Style="{StaticResource HomeSummaryHint}" />
-                                            </StackPanel>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="44" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                                <Border Style="{StaticResource HomeSummaryIconChip}" Background="{StaticResource ModuleStatusPartialBackgroundBrush}">
+                                                    <Path Style="{StaticResource HomeSummaryIcon}" Stroke="{StaticResource ModuleStatusPartialForegroundBrush}" Data="M8,2 A6,6 0 1 0 8.01,2 M8,5 V9 M8,11.7 V12" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                                    <TextBlock Text="Tâches urgentes" Style="{StaticResource HomeSummaryLabel}" />
+                                                    <TextBlock Text="À contrôler" Style="{StaticResource HomeSummaryValue}" />
+                                                    <TextBlock Text="Voir le cockpit" Style="{StaticResource HomeSummaryHint}" />
+                                                </StackPanel>
+                                            </Grid>
                                         </Button>
                                         <Button Style="{StaticResource HomeSummaryCard}"
                                                 Tag="29"
                                                 IsEnabled="{Binding IsEnabled, ElementName=KpiTabItem}"
                                                 Click="HomeNavigate_Click">
-                                            <StackPanel>
-                                                <TextBlock Text="Alertes" Style="{StaticResource HomeSummaryLabel}" />
-                                                <TextBlock Text="KPI &amp; écarts" Style="{StaticResource HomeSummaryValue}" />
-                                                <TextBlock Text="Analyser les signaux" Style="{StaticResource HomeSummaryHint}" />
-                                            </StackPanel>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="44" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                                <Border Style="{StaticResource HomeSummaryIconChip}" Background="{StaticResource DangerSoftBrush}">
+                                                    <Path Style="{StaticResource HomeSummaryIcon}" Stroke="{StaticResource DangerBrush}" Data="M8,2 L14,13 H2 Z M8,5.2 V9 M8,11.2 V11.5" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                                    <TextBlock Text="Alertes" Style="{StaticResource HomeSummaryLabel}" />
+                                                    <TextBlock Text="KPI &amp; écarts" Style="{StaticResource HomeSummaryValue}" />
+                                                    <TextBlock Text="Analyser les signaux" Style="{StaticResource HomeSummaryHint}" />
+                                                </StackPanel>
+                                            </Grid>
                                         </Button>
                                         <Button Style="{StaticResource HomeSummaryCard}"
                                                 Tag="5"
                                                 IsEnabled="{Binding IsEnabled, ElementName=ClosingTabItem}"
                                                 Click="HomeNavigate_Click">
-                                            <StackPanel>
-                                                <TextBlock Text="Échéances" Style="{StaticResource HomeSummaryLabel}" />
-                                                <TextBlock Text="Clôture du jour" Style="{StaticResource HomeSummaryValue}" />
-                                                <TextBlock Text="Contrôler la journée" Style="{StaticResource HomeSummaryHint}" />
-                                            </StackPanel>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="44" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                                <Border Style="{StaticResource HomeSummaryIconChip}">
+                                                    <Path Style="{StaticResource HomeSummaryIcon}" Data="M3,4 H13 V14 H3 Z M5,2 V6 M11,2 V6 M3,7 H13 M5.5,9.5 H7 M9,9.5 H10.5 M5.5,12 H7" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                                    <TextBlock Text="Échéances" Style="{StaticResource HomeSummaryLabel}" />
+                                                    <TextBlock Text="Clôture du jour" Style="{StaticResource HomeSummaryValue}" />
+                                                    <TextBlock Text="Contrôler la journée" Style="{StaticResource HomeSummaryHint}" />
+                                                </StackPanel>
+                                            </Grid>
                                         </Button>
                                     </UniformGrid>
 

@@ -206,14 +206,8 @@ public partial class MainWindow : Window
     }
 
     // Aligne la barre laterale sur l'onglet affiche : surbrillance du module courant
-    // (le style ModuleNavButton reagit a Tag="Active" : filet accent de 3px, teinte
-    // douce, texte en semi-gras), ouverture de sa famille, et repli complet du
-    // panneau sur l'accueil.
-    //
-    // L'accueil ne montre PAS la barre laterale : cet ecran est deja le sommaire des
-    // 49 modules, un second sommaire a cote ferait doublon et volerait aux cartes la
-    // largeur dont elles ont besoin. Partout ailleurs elle est la, avec son bouton
-    // « Accueil » comme chemin de retour.
+    // et ouverture de sa famille. Elle reste visible sur l'accueil, devenu un espace
+    // de travail personnel et non plus un doublon du catalogue.
     private void SyncSidebarToTab(int tabIndex)
     {
         var isHome = tabIndex == HomeTabIndex;
@@ -231,9 +225,9 @@ public partial class MainWindow : Window
             }
         }
 
-        SidebarBorder.Visibility = isHome ? Visibility.Collapsed : Visibility.Visible;
-        SidebarColumn.Width = isHome ? new GridLength(0) : new GridLength(SidebarWidth);
-        SidebarGapColumn.Width = isHome ? new GridLength(0) : new GridLength(SidebarGapWidth);
+        SidebarBorder.Visibility = Visibility.Visible;
+        SidebarColumn.Width = new GridLength(SidebarWidth);
+        SidebarGapColumn.Width = new GridLength(SidebarGapWidth);
     }
 
     // Un module ne s'ouvre que s'il a un ecran connu du catalogue ET que le profil a
@@ -618,6 +612,17 @@ public partial class MainWindow : Window
         }
 
         NavigateToModule(tabIndex);
+    }
+
+    private void GlobalSearchButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (MainTabs.SelectedIndex == HomeTabIndex)
+        {
+            HomeSearchTextBox.Focus();
+            return;
+        }
+
+        ModuleSearchTextBox.Focus();
     }
 
     // Ordre des onglets de MainTabs : 0=Accueil, 1=Unités hôtelières,
