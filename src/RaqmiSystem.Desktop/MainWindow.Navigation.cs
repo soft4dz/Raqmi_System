@@ -28,7 +28,7 @@ namespace RaqmiSystem.Desktop;
 /// </summary>
 public partial class MainWindow
 {
-    // Ordre des onglets de MainTabs : 0=Accueil, 1=Unités hôtelières,
+    // Ordre des onglets de MainTabs : 0=Mon Espace, 1=Unités hôtelières,
     // 2=Recettes journalières, 3=Tableau de bord, 4=Journal d'audit,
     // 5=Clôture journalière, 6=Trésorerie, 7=Clients, 8=Facturation,
     // 9=Paramétrage global, 10=Administration & utilisateurs,
@@ -119,12 +119,13 @@ public partial class MainWindow
     // InitializeComponent, par InitializeDefaults.
     private void InitializeNavigation()
     {
-        // Le catalogue des 50 modules vit desormais dans sa propre vue : la fenetre lui
-        // prete les tuiles qu'elle partage avec la barre laterale et les cles du profil,
-        // et garde pour elle le seul chemin de navigation.
-        ModuleCatalogView.Initialize(moduleTiles, GrantedPermissionKeys);
-        ModuleCatalogView.NavigateRequested -= HomeNavigateRequested;
-        ModuleCatalogView.NavigateRequested += HomeNavigateRequested;
+        // Mon Espace vit dans sa propre vue : la fenetre lui prete les tuiles qu'elle
+        // partage avec la barre laterale et les cles du profil, et garde pour elle le
+        // seul chemin de navigation. Hors session, l'abonnement suffit : le contexte de
+        // vue, lui, arrive a la connexion (InitializeModuleViews).
+        HomeView.InitializeCatalog(moduleTiles, GrantedPermissionKeys, CanOpenModule);
+        HomeView.NavigateRequested -= HomeNavigateRequested;
+        HomeView.NavigateRequested += HomeNavigateRequested;
 
         // Deux zones de lecture : les domaines métier défilent, l'administration
         // système reste épinglée en pied de panneau.
@@ -146,6 +147,14 @@ public partial class MainWindow
     {
         MainTabs.SelectedIndex = tabIndex;
         SyncSidebarToTab(tabIndex);
+
+        // Les « derniers ecrans ouverts » de Mon Espace sont ceux de CE POSTE : l'accueil
+        // lui-meme n'en est pas un, et ce ne sont pas des favoris par compte - il n'en
+        // existe pas cote serveur.
+        if (tabIndex != HomeTabIndex)
+        {
+            HomeView.RecordVisit(tabIndex);
+        }
     }
 
     // Aligne la barre laterale et le fil d'Ariane sur l'onglet affiche : surbrillance du
@@ -153,10 +162,10 @@ public partial class MainWindow
     // 3px, teinte douce, texte en semi-gras), ouverture de son domaine, et repli complet
     // du panneau sur l'accueil.
     //
-    // L'accueil ne montre PAS la barre laterale : cet ecran est deja le sommaire des
-    // 50 modules, un second sommaire a cote ferait doublon et volerait aux cartes la
-    // largeur dont elles ont besoin. Partout ailleurs elle est la, avec son bouton
-    // « Accueil » comme chemin de retour.
+    // Mon Espace ne montre PAS la barre laterale : la racine EST le sommaire, un second
+    // sommaire a cote ferait doublon et volerait aux cartes la largeur dont elles ont
+    // besoin. Partout ailleurs elle est la, avec son bouton « Mon Espace » comme chemin
+    // de retour.
     private void SyncSidebarToTab(int tabIndex)
     {
         var isHome = tabIndex == HomeTabIndex;
@@ -292,6 +301,13 @@ public partial class MainWindow
 
         switch (tabIndex)
         {
+            case HomeTabIndex:
+                // Mon Espace n'est pas « charge une fois » : on y revient dix fois par
+                // jour, et un compteur perime est pire qu'un rechargement borne et
+                // annonce. Au-dela de cinq minutes seulement, et sans aucun Timer.
+                loadedModuleTabs.Remove(HomeTabIndex);
+                await HomeView.RefreshIfStaleAsync();
+                break;
             case 5:
                 await ClosingView.LoadAsync();
                 break;
@@ -494,8 +510,8 @@ public partial class MainWindow
         RefreshSidebar();
 
         // Les cadenas des cartes sont poses sur les tuiles partagees ; la liste des
-        // resultats de recherche de la vue, elle, doit etre recalculee.
-        ModuleCatalogView.RefreshPermissions();
+        // resultats de recherche du catalogue, elle, doit etre recalculee.
+        HomeView.RefreshPermissions();
     }
 
     // Le bouton de la barre laterale n'existe que si le profil peut ouvrir l'ecran

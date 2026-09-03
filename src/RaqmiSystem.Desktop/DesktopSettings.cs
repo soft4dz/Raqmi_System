@@ -22,6 +22,10 @@ public sealed class DesktopSettings
 
     private const string DefaultApiBaseUrl = "http://localhost:5180";
 
+    // Six puces tiennent sur une ligne a la largeur minimale de la fenetre, et au-dela
+    // « derniers ecrans » cesse d'etre un raccourci pour devenir une seconde barre laterale.
+    private const int MaxRecentTabs = 6;
+
     // Extra entropy mixed into DPAPI so another local app calling Unprotect with
     // CurrentUser scope alone cannot read the value. Not a secret by itself.
     private static readonly byte[] PasswordEntropy = Encoding.UTF8.GetBytes("RaqmiSystem.Desktop.v1");
@@ -61,6 +65,27 @@ public sealed class DesktopSettings
     /// l'apparence - c'est l'ecran et le travail fait devant qui decident, pas le compte.
     /// </summary>
     public string? Densite { get; set; }
+
+    /// <summary>
+    /// Code de l'unite hoteliere a laquelle ce POSTE est rattache (« ALG-CEN »).
+    ///
+    /// Per-poste et non per-compte, comme l'apparence : un comptoir de reception appartient
+    /// a un etablissement, quelle que soit la personne qui s'y connecte. C'est un confort de
+    /// poste, jamais un perimetre de securite - le serveur reste seul juge de ce que le
+    /// jeton donne le droit de lire, et un code faux ne donne pas des chiffres faux, il
+    /// donne des cartes « Indisponible » avec le message du serveur.
+    ///
+    /// Absent = poste de siege : l'accueil ne compose alors aucune file unitaire et le dit.
+    /// </summary>
+    public string? StationUnitCode { get; set; }
+
+    /// <summary>
+    /// Derniers onglets ouverts sur ce poste, du plus recent au plus ancien, six au plus.
+    /// « Ce poste » est dans le libelle de l'accueil : sur un comptoir partage, ce sont les
+    /// ecrans du poste, pas ceux de la personne. Ce ne sont pas des favoris par compte -
+    /// il n'en existe pas cote serveur, et en simuler serait mentir.
+    /// </summary>
+    public int[]? RecentTabs { get; set; }
 
     /// <summary>
     /// The URL forced by <see cref="ApiBaseUrlEnvironmentVariable"/>, or null when the variable is
@@ -114,6 +139,50 @@ public sealed class DesktopSettings
     {
         var settings = ReadFile();
         settings.Densite = densite.ToString();
+        WriteFile(settings);
+    }
+
+    /// <summary>Unite de ce poste, ou null quand le poste n'est rattache a aucune unite.</summary>
+    public static string? LoadStationUnitCode()
+    {
+        var stored = ReadFile().StationUnitCode;
+
+        return string.IsNullOrWhiteSpace(stored) ? null : stored.Trim().ToUpperInvariant();
+    }
+
+    /// <summary>Fixe (ou efface, avec null ou une chaine vide) l'unite de ce poste.</summary>
+    public static void SaveStationUnitCode(string? unitCode)
+    {
+        var settings = ReadFile();
+        settings.StationUnitCode = string.IsNullOrWhiteSpace(unitCode) ? null : unitCode.Trim().ToUpperInvariant();
+        WriteFile(settings);
+    }
+
+    /// <summary>Derniers onglets ouverts sur ce poste, du plus recent au plus ancien.</summary>
+    public static IReadOnlyList<int> LoadRecentTabs()
+    {
+        return ReadFile().RecentTabs is { } tabs
+            ? tabs.Distinct().Take(MaxRecentTabs).ToList()
+            : [];
+    }
+
+    /// <summary>
+    /// Enregistre l'ouverture d'un onglet : il passe en tete, les doublons disparaissent, et
+    /// la liste ne garde que les six derniers. L'ecriture est silencieuse par construction
+    /// (<see cref="WriteFile"/>) : un profil en lecture seule sur le disque ne doit pas faire
+    /// echouer une navigation.
+    /// </summary>
+    public static void SaveRecentTab(int tabIndex)
+    {
+        var settings = ReadFile();
+        var tabs = new List<int> { tabIndex };
+
+        if (settings.RecentTabs is { } existing)
+        {
+            tabs.AddRange(existing.Where(tab => tab != tabIndex));
+        }
+
+        settings.RecentTabs = [.. tabs.Take(MaxRecentTabs)];
         WriteFile(settings);
     }
 

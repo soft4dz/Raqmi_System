@@ -462,9 +462,14 @@
                                        Style="{StaticResource MetricLabelText}"
                                        Margin="14,0,0,10" />
 
+                            <!-- Premiere ligne de la barre laterale : le domaine 01 de la
+                                 cartographie cible, sous son nom definitif. L'onglet 0
+                                 EST la page de la personne connectee - ses files, son
+                                 unite de poste, ses derniers ecrans. -->
                             <Button x:Name="ShowHomeButton"
                                     Style="{StaticResource ModuleNavButton}"
-                                    ToolTip="Vue d'ensemble des modules"
+                                    ToolTip="Mon Espace (Alt+Origine)"
+                                    AutomationProperties.Name="Mon Espace, accueil"
                                     Click="ShowHomeButton_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <Path Width="16"
@@ -478,7 +483,7 @@
                                           Data="M2,8.2 L8,2.5 L14,8.2 M3.8,7 V14 H6.8 V10.2 H9.2 V14 H12.2 V7"
                                           VerticalAlignment="Center"
                                           Margin="0,0,10,0" />
-                                    <TextBlock Text="Accueil" VerticalAlignment="Center" />
+                                    <TextBlock Text="Mon Espace" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
 
@@ -573,39 +578,15 @@
                             Grid.Column="2"
                             SelectionChanged="MainTabs_SelectionChanged">
 
-                    <!-- =========================== Accueil ===========================
-                         Onglet 0. Son contenu vit dans des UserControl autonomes : la
-                         balise d'onglet reste la premiere de MainTabs et sans x:Name,
-                         l'ordre des 31 onglets est inchange (aucune balise d'onglet
-                         supplementaire n'est introduite, ici ni dans les vues).
-                         Le catalogue des 50 modules a ete extrait dans ModuleCatalogView :
-                         meme contenu, meme comportement, plus le regroupement par domaine,
-                         le filtre Maturite, les noms accessibles et la recherche d'ecrans
-                         dus depuis navigation-shell 5.1. -->
+                    <!-- ====================== Mon Espace (onglet 0) ======================
+                         La balise d'onglet reste la premiere de MainTabs et sans x:Name :
+                         l'ordre des 31 onglets est fige, et aucune balise d'onglet n'est
+                         ajoutee ici (les deux sections de Mon Espace vivent dans le
+                         CONTENU, a l'interieur de HomeView).
+                         Barre laterale repliee et fil d'Ariane masque sur cet onglet :
+                         SyncSidebarToTab et UpdateBreadcrumb s'en chargent, inchanges. -->
                     <TabItem Header="Accueil">
-                        <Grid Margin="6,4,0,0">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-
-                            <StackPanel Style="{StaticResource HomeRevealStyle}">
-                                <TextBlock x:Name="HomeGreetingTextBlock"
-                                           Text="Bonjour"
-                                           Style="{StaticResource HomeGreetingText}"
-                                           AutomationProperties.HeadingLevel="Level1" />
-                                <TextBlock x:Name="HomeDateTextBlock"
-                                           Text=""
-                                           Style="{StaticResource HomeDateText}"
-                                           Margin="0,7,0,2" />
-                                <TextBlock Text="Où en est votre ERP, module par module."
-                                           Style="{StaticResource SubtitleText}" />
-                            </StackPanel>
-
-                            <views:ModuleCatalogView x:Name="ModuleCatalogView"
-                                                     Grid.Row="1"
-                                                     Margin="0,20,0,0" />
-                        </Grid>
+                        <views:HomeView x:Name="HomeView" Margin="6,4,0,0" />
                     </TabItem>
 
                     <!-- ====================== Unités hôtelières ====================== -->

@@ -109,7 +109,7 @@ public partial class MainWindow
         // sommaire) : c'est la recherche du catalogue qui joue le meme role.
         if (MainTabs.SelectedIndex == HomeTabIndex)
         {
-            ModuleCatalogView.FocusSearch();
+            HomeView.FocusCatalogSearch();
             return;
         }
 
@@ -117,11 +117,14 @@ public partial class MainWindow
         ModuleSearchTextBox.SelectAll();
     }
 
+    // Alt+Origine ramene a Mon Espace ET a sa premiere section : « revenir a l'accueil »
+    // veut dire retrouver ses files de travail, pas le catalogue laisse ouvert.
     private void GoHomeShortcut_Executed(object sender, ExecutedRoutedEventArgs e)
     {
         if (ShortcutsAvailable)
         {
             NavigateToModule(HomeTabIndex);
+            HomeView.ShowWorkSection();
         }
     }
 

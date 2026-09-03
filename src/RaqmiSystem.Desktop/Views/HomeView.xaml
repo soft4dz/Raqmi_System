@@ -1,0 +1,27 @@
+<UserControl x:Class="RaqmiSystem.Desktop.Views.HomeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:RaqmiSystem.Desktop.Views"
+             FontFamily="{StaticResource AppFontFamily}">
+
+    <!-- ============================ Mon Espace (onglet 0) ============================
+         Deux sections dans le CONTENU de l'onglet 0 : aucune balise d'onglet n'est
+         ajoutee a MainTabs, dont l'ordre est fige et verifie par le garde de readiness.
+
+         « Mon travail » d'abord, toujours : l'ouverture de session repond a la question
+         « qu'est-ce qui attend un geste de ma part ? ». Le catalogue des 50 modules
+         reste a un clic, jamais supprime. La section n'est pas memorisee : sur un poste
+         partage, l'equipe de nuit ne doit pas trouver le catalogue ouvert.
+         ============================================================================== -->
+
+    <TabControl x:Name="SectionTabControl"
+                Style="{StaticResource SectionTabControl}"
+                AutomationProperties.Name="Sections de Mon Espace">
+        <TabItem Header="Mon travail" AutomationProperties.Name="Mon travail">
+            <views:WorkQueuesView x:Name="WorkQueuesView" />
+        </TabItem>
+        <TabItem Header="Catalogue des modules" AutomationProperties.Name="Catalogue des modules">
+            <views:ModuleCatalogView x:Name="ModuleCatalogView" />
+        </TabItem>
+    </TabControl>
+</UserControl>

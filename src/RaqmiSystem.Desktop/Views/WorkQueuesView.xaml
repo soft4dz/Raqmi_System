@@ -1,0 +1,524 @@
+<UserControl x:Class="RaqmiSystem.Desktop.Views.WorkQueuesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             FontFamily="{StaticResource AppFontFamily}">
+
+    <!-- ============================== Mon travail ==============================
+         L'etabli : les files de travail que le SERVEUR compte, composees a partir
+         des seules permissions du jeton, rangees en trois bandes d'urgence.
+
+         Aucun seuil ici : une carte est « En retard » parce que le registre le dit
+         ou parce que le serveur a repondu IsLate / IsOverdue. Aucun montant n'est
+         additionne : seuls les agregats que le serveur renvoie sont affiches.
+         Une file dont le profil a la lecture mais pas l'action reste a sa place,
+         en mode Suivi : la bande dit QUAND, le mode dit QUI.
+         ========================================================================= -->
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <!-- La carte produit parle du pilotage du produit : c'est l'icone du domaine 20. -->
+        <sys:String x:Key="ProductIconKey">Pilotage</sys:String>
+
+        <!-- Gabarit d'une carte de file. Declare ici et non dans le theme : son bouton
+             appelle un handler de cette vue, qu'un dictionnaire de ressources partage
+             ne peut pas resoudre (meme raison que SidebarGroupTemplate). -->
+        <DataTemplate x:Key="HomeWorkCardTemplate">
+            <!-- La carte porte son nom accessible complet : ce que les pastilles et le
+                 fond attenue disent en couleur, ce nom le dit en mots (charte : la
+                 couleur n'est jamais seule). Le bouton, lui, garde son propre Content. -->
+            <Border x:Name="card"
+                    Style="{StaticResource CardBorder}"
+                    Width="222"
+                    Margin="0,0,12,12"
+                    Padding="{DynamicResource WorkCardPadding}"
+                    MinHeight="{DynamicResource WorkCardMinHeight}"
+                    AutomationProperties.Name="{Binding AutomationName}"
+                    AutomationProperties.HelpText="{Binding Legend}">
+                <StackPanel>
+
+                    <!-- Ecran cible : dire d'ou vient le chiffre et ou mene le bouton. -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Path Width="16"
+                              Height="16"
+                              Stretch="None"
+                              Stroke="{StaticResource TextMutedBrush}"
+                              StrokeThickness="1.4"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round"
+                              VerticalAlignment="Center"
+                              Margin="0,0,7,0"
+                              IsHitTestVisible="False"
+                              Data="{Binding IconKey, Converter={StaticResource ModuleGroupIconConverter}}" />
+
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding TargetLabel}"
+                                   Style="{StaticResource CaptionText}"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" />
+                    </Grid>
+
+                    <!-- Perimetre du chiffre, sur sa propre ligne : « Groupe · toutes
+                         unités » n'est pas une formule de style - aucune affectation
+                         utilisateur-unite n'existe cote serveur, donc le cockpit DEC est
+                         groupe-entier meme pour un directeur d'unite, et la carte le dit.
+                         Une ligne a elle pour qu'elle ne rogne jamais le nom de l'ecran. -->
+                    <Border Background="{StaticResource SurfaceHoverBrush}"
+                            CornerRadius="9"
+                            Padding="8,2"
+                            Margin="0,6,0,0"
+                            HorizontalAlignment="Left">
+                        <TextBlock Text="{Binding ScopeLabel}"
+                                   FontSize="10.5"
+                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                    </Border>
+
+                    <!-- Squelette de chargement : trois barres a la place du chiffre et
+                         de la legende. Le libelle, lui, reste lisible - on sait ce qui
+                         charge. -->
+                    <StackPanel x:Name="skeleton"
+                                Margin="0,12,0,0"
+                                Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}">
+                        <!-- SurfaceHover et non SurfaceSubtle : une carte en mode Suivi a
+                             deja SurfaceSubtle pour fond, et des barres invisibles ne
+                             disent rien. -->
+                        <Border Height="22" Width="70" HorizontalAlignment="Left"
+                                CornerRadius="4" Background="{StaticResource SurfaceHoverBrush}" />
+                        <Border Height="10" Width="150" HorizontalAlignment="Left" Margin="0,8,0,0"
+                                CornerRadius="4" Background="{StaticResource SurfaceHoverBrush}" />
+                        <Border Height="10" Width="120" HorizontalAlignment="Left" Margin="0,6,0,0"
+                                CornerRadius="4" Background="{StaticResource SurfaceHoverBrush}" />
+                    </StackPanel>
+
+                    <!-- Compteur et montant. Le montant n'existe que si le SERVEUR renvoie
+                         l'agregat : un compte de lignes n'est jamais additionne. -->
+                    <Grid x:Name="figures" Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock x:Name="count"
+                                   Text="{Binding CountText}"
+                                   Style="{StaticResource HomeStatValueText}"
+                                   Margin="0,2,0,0" />
+
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding AmountText}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   VerticalAlignment="Bottom"
+                                   TextTrimming="CharacterEllipsis"
+                                   Margin="10,0,0,5"
+                                   Visibility="{Binding HasAmount, Converter={StaticResource BoolToVis}}" />
+
+                    </Grid>
+
+                    <TextBlock Text="{Binding Label}"
+                               FontSize="13.5"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,2,0,0" />
+
+                    <TextBlock x:Name="legend"
+                               Text="{Binding Legend}"
+                               Style="{StaticResource CaptionText}"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0" />
+
+                    <!-- Verbe de la file, ou « Voir » double d'une pastille « Suivi ».
+                         Le bouton porte toujours un Content textuel : un bouton sans
+                         texte n'a pas de nom accessible. -->
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Button x:Name="actButton"
+                                Style="{StaticResource SecondaryButton}"
+                                MinHeight="32"
+                                Padding="12,5"
+                                Content="{Binding ButtonText}"
+                                IsEnabled="{Binding IsButtonEnabled}"
+                                ToolTip="{Binding ButtonToolTip}"
+                                ToolTipService.ShowOnDisabled="True"
+                                Click="WorkCard_Click" />
+
+                        <StackPanel Grid.Column="1"
+                                    Orientation="Horizontal"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center">
+                            <Path x:Name="lockIcon"
+                                  Style="{StaticResource ModuleCardLockIcon}"
+                                  Margin="6,0,0,0"
+                                  Visibility="Collapsed" />
+                            <Border x:Name="watchPill"
+                                    Background="{StaticResource StatusDraftBackgroundBrush}"
+                                    CornerRadius="9"
+                                    Padding="8,2"
+                                    Margin="6,0,0,0"
+                                    Visibility="Collapsed">
+                                <TextBlock Text="Suivi"
+                                           FontSize="10.5"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource StatusDraftForegroundBrush}" />
+                            </Border>
+                            <Border x:Name="unavailablePill"
+                                    Background="{StaticResource StatusRejectedBackgroundBrush}"
+                                    CornerRadius="9"
+                                    Padding="8,2"
+                                    Margin="6,0,0,0"
+                                    Visibility="Collapsed">
+                                <TextBlock Text="Indisponible"
+                                           FontSize="10.5"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource StatusRejectedForegroundBrush}" />
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                    <Setter TargetName="figures" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="legend" Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+
+                <!-- Suivi, zero ou source muette : la carte s'efface sans disparaitre.
+                     TextSecondary et non TextMuted : sur SurfaceSubtle, TextMuted tombe
+                     sous le seuil WCAG AA. -->
+                <DataTrigger Binding="{Binding IsMuted}" Value="True">
+                    <Setter TargetName="card" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                    <Setter TargetName="count" Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                </DataTrigger>
+
+                <DataTrigger Binding="{Binding IsWatch}" Value="True">
+                    <Setter TargetName="watchPill" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+
+                <DataTrigger Binding="{Binding IsUnavailable}" Value="True">
+                    <Setter TargetName="unavailablePill" Property="Visibility" Value="Visible" />
+                    <Setter TargetName="watchPill" Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+
+                <!-- Cible verrouillee : cadenas et bouton eteint, mais le CHIFFRE reste
+                     lisible - lire un compteur n'est pas ouvrir l'ecran. -->
+                <DataTrigger Binding="{Binding IsTargetLocked}" Value="True">
+                    <Setter TargetName="lockIcon" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- Puce « derniers ecrans ouverts » : un bouton, pas un filtre. -->
+        <DataTemplate x:Key="HomeRecentScreenTemplate">
+            <Button Style="{StaticResource HomeChipButton}"
+                    ToolTip="{Binding ToolTip}"
+                    AutomationProperties.Name="{Binding AccessibleName}"
+                    Click="RecentScreen_Click">
+                <StackPanel Orientation="Horizontal">
+                    <Path Width="16"
+                          Height="16"
+                          Stretch="None"
+                          Stroke="{StaticResource TextMutedBrush}"
+                          StrokeThickness="1.4"
+                          StrokeStartLineCap="Round"
+                          StrokeEndLineCap="Round"
+                          StrokeLineJoin="Round"
+                          VerticalAlignment="Center"
+                          Margin="0,0,7,0"
+                          IsHitTestVisible="False"
+                          Data="{Binding IconKey, Converter={StaticResource ModuleGroupIconConverter}}" />
+                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Padding="0,0,6,0">
+        <StackPanel Margin="2,0,0,0">
+
+            <!-- ============================ B — Bandeau ============================ -->
+            <Border Style="{StaticResource CardBorder}" Padding="22,18">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <TextBlock x:Name="GreetingTextBlock"
+                                   Text="Bonjour"
+                                   Style="{StaticResource HomeGreetingText}"
+                                   AutomationProperties.HeadingLevel="Level1" />
+
+                        <TextBlock x:Name="DateTextBlock"
+                                   Text=""
+                                   Style="{StaticResource HomeDateText}"
+                                   Margin="0,7,0,2" />
+
+                        <!-- Synthese : un compte de FILES, pas d'objets. Annoncee poliment
+                             a chaque fin de chargement. -->
+                        <TextBlock x:Name="SummaryTextBlock"
+                                   Text="Chargement des files de travail…"
+                                   Style="{StaticResource SubtitleText}"
+                                   AutomationProperties.LiveSetting="Polite"
+                                   AutomationProperties.HelpText="Nombre de files de travail, pas d'objets à traiter." />
+
+                        <WrapPanel Margin="0,14,0,0">
+                            <Button x:Name="ProfileButton"
+                                    Style="{StaticResource GhostButton}"
+                                    Content="Mon profil"
+                                    Margin="0,0,6,0"
+                                    ToolTip="Votre compte, vos rôles et vos permissions, dans Paramétrage global"
+                                    Click="Profile_Click" />
+                            <Button x:Name="PreferencesButton"
+                                    Style="{StaticResource GhostButton}"
+                                    Content="Mes préférences"
+                                    Margin="0,0,6,0"
+                                    ToolTip="Apparence, densité et réglages de ce poste"
+                                    Click="Preferences_Click" />
+                            <Button x:Name="SecurityButton"
+                                    Style="{StaticResource GhostButton}"
+                                    Content="Ma sécurité"
+                                    ToolTip="Changer votre mot de passe"
+                                    Click="Security_Click" />
+                        </WrapPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                        <TextBlock x:Name="EstablishmentTextBlock"
+                                   Text=""
+                                   Style="{StaticResource CaptionText}"
+                                   HorizontalAlignment="Right"
+                                   Visibility="Collapsed" />
+
+                        <StackPanel x:Name="StationUnitPanel"
+                                    Orientation="Horizontal"
+                                    HorizontalAlignment="Right"
+                                    Margin="0,6,0,0"
+                                    Visibility="Collapsed">
+                            <TextBlock x:Name="StationUnitTextBlock"
+                                       Style="{StaticResource BodyText}"
+                                       VerticalAlignment="Center" />
+                            <Button x:Name="ChangeStationUnitButton"
+                                    Style="{StaticResource GhostButton}"
+                                    Content="Changer"
+                                    Margin="8,0,0,0"
+                                    Click="ChangeStationUnit_Click" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="BusinessDatePanel"
+                                    Orientation="Horizontal"
+                                    HorizontalAlignment="Right"
+                                    Margin="0,6,0,0"
+                                    Visibility="Collapsed">
+                            <TextBlock x:Name="BusinessDateTextBlock"
+                                       Style="{StaticResource BodyText}"
+                                       VerticalAlignment="Center" />
+                            <Border x:Name="BusinessDatePill"
+                                    CornerRadius="9"
+                                    Padding="8,2"
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    Background="{StaticResource StatusValidatedBackgroundBrush}">
+                                <TextBlock x:Name="BusinessDatePillText"
+                                           Text="à jour"
+                                           FontSize="10.5"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource StatusValidatedForegroundBrush}" />
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal"
+                                    HorizontalAlignment="Right"
+                                    Margin="0,14,0,0">
+                            <TextBlock x:Name="FreshnessTextBlock"
+                                       Text=""
+                                       Style="{StaticResource CaptionText}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,10,0" />
+                            <Button x:Name="RefreshHomeButton"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Content="Actualiser"
+                                    ToolTip="Recharger tous les compteurs (F5)"
+                                    Click="RefreshHome_Click" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ==================== B' — Encarts d'avertissement ==================== -->
+            <!-- Encart « poste sans unite » : purement informatif, il ne s'affiche que
+                 quand son texte est VRAI. Il ne porte pas l'editeur, sans quoi
+                 « Changer » sur un poste deja rattache ferait apparaitre un encart qui
+                 affirme le contraire de ce que le bandeau vient de dire. -->
+            <Border x:Name="UnitMissingBanner"
+                    Style="{StaticResource WarningBanner}"
+                    Margin="0,12,0,0"
+                    Visibility="Collapsed"
+                    AutomationProperties.LiveSetting="Polite">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource WarningBannerText}"
+                               TextWrapping="Wrap"
+                               Text="Ce poste n'est rattaché à aucune unité : arrivées, départs, chambres, date métier et événements ne sont pas affichés." />
+
+                    <Button Style="{StaticResource GhostButton}"
+                            Content="Définir l'unité de ce poste"
+                            HorizontalAlignment="Left"
+                            Margin="0,8,0,0"
+                            Click="ChangeStationUnit_Click" />
+                </StackPanel>
+            </Border>
+
+            <!-- Editeur de l'unite du poste, sur sa propre surface et replie par defaut.
+                 Le bandeau, lui, ne porte AUCUN selecteur : rappeler ce que ce poste est
+                 n'est pas piloter plusieurs unites, ce qui est le role des onglets 3, 19
+                 et 20. Ecart assume par rapport a la specification, qui logeait ce champ
+                 dans « Paramétrage global › Poste de travail » : SettingsView est hors du
+                 perimetre de fichiers de ce lot, et un bouton « Changer » menant a un
+                 ecran sans champ serait une promesse creuse. -->
+            <Border x:Name="StationUnitEditor"
+                    Style="{StaticResource SubtleCardBorder}"
+                    Margin="0,12,0,0"
+                    Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource LabelText}" Text="Unité de ce poste" />
+
+                    <WrapPanel>
+                        <ComboBox x:Name="StationUnitComboBox"
+                                  Width="240"
+                                  Margin="0,0,8,8"
+                                  Tag="Unité de ce poste"
+                                  DisplayMemberPath="Label"
+                                  SelectedValuePath="Code"
+                                  Visibility="Collapsed" />
+                        <TextBox x:Name="StationUnitTextBox"
+                                 Width="180"
+                                 Margin="0,0,8,8"
+                                 MaxLength="40"
+                                 Tag="Code de l'unité de ce poste"
+                                 Visibility="Collapsed" />
+                        <Button x:Name="SaveStationUnitButton"
+                                Style="{StaticResource SecondaryButton}"
+                                Content="Enregistrer"
+                                Margin="0,0,8,8"
+                                Click="SaveStationUnit_Click" />
+                        <Button x:Name="ClearStationUnitButton"
+                                Style="{StaticResource GhostButton}"
+                                Content="Retirer l'unité"
+                                Margin="0,0,8,8"
+                                Click="ClearStationUnit_Click" />
+                        <Button x:Name="CancelStationUnitButton"
+                                Style="{StaticResource GhostButton}"
+                                Content="Annuler"
+                                Margin="0,0,0,8"
+                                Click="CancelStationUnit_Click" />
+                    </WrapPanel>
+
+                    <TextBlock Style="{StaticResource CaptionText}"
+                               TextWrapping="Wrap"
+                               Text="Réglage de ce poste, jamais un périmètre : le serveur reste seul juge de ce que votre compte a le droit de lire." />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="FailedSourcesBanner"
+                    Style="{StaticResource WarningBanner}"
+                    Margin="0,12,0,0"
+                    Visibility="Collapsed"
+                    AutomationProperties.LiveSetting="Polite">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock x:Name="FailedSourcesTextBlock"
+                               Style="{StaticResource WarningBannerText}"
+                               VerticalAlignment="Center" />
+                    <Button Style="{StaticResource GhostButton}"
+                            Content="Réessayer (F5)"
+                            Margin="12,0,0,0"
+                            Click="RefreshHome_Click" />
+                </StackPanel>
+            </Border>
+
+            <!-- ========================= C, D, E — Les bandes ========================= -->
+            <StackPanel x:Name="OverdueBandPanel" Margin="0,20,0,0" />
+            <StackPanel x:Name="TodayBandPanel" Margin="0,20,0,0" />
+            <StackPanel x:Name="WatchBandPanel" Margin="0,20,0,0" />
+
+            <!-- ================== F — Derniers écrans ouverts (ce poste) ================== -->
+            <StackPanel x:Name="RecentScreensPanel" Margin="0,20,0,0" Visibility="Collapsed">
+                <TextBlock Text="Derniers écrans ouverts (ce poste)"
+                           Style="{StaticResource HomeSectionLabel}"
+                           AutomationProperties.HeadingLevel="Level2" />
+                <ItemsControl x:Name="RecentScreensItemsControl"
+                              ItemTemplate="{StaticResource HomeRecentScreenTemplate}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </StackPanel>
+
+            <!-- ==================== G — Où en est le produit ? ==================== -->
+            <Border Style="{StaticResource CardBorder}" Padding="22,18" Margin="0,20,0,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Path Width="16"
+                                  Height="16"
+                                  Stretch="None"
+                                  Stroke="{StaticResource TextMutedBrush}"
+                                  StrokeThickness="1.4"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round"
+                                  VerticalAlignment="Center"
+                                  Margin="0,0,8,0"
+                                  IsHitTestVisible="False"
+                                  Data="{Binding Source={StaticResource ProductIconKey}, Converter={StaticResource ModuleGroupIconConverter}}" />
+                            <TextBlock Text="Où en est le produit ?"
+                                       FontSize="13.5"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       VerticalAlignment="Center"
+                                       AutomationProperties.HeadingLevel="Level2" />
+                        </StackPanel>
+
+                        <TextBlock x:Name="ProductSummaryTextBlock"
+                                   Style="{StaticResource SubtitleText}"
+                                   Margin="0,8,0,0"
+                                   TextWrapping="Wrap" />
+
+                        <TextBlock Text="Chiffres du catalogue embarqué dans cette version, pas du serveur."
+                                   Style="{StaticResource CaptionText}"
+                                   Margin="0,6,0,0" />
+                    </StackPanel>
+
+                    <Button Grid.Column="1"
+                            Style="{StaticResource SecondaryButton}"
+                            Content="Ouvrir le catalogue des modules"
+                            VerticalAlignment="Center"
+                            Margin="16,0,0,0"
+                            Click="OpenCatalog_Click" />
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

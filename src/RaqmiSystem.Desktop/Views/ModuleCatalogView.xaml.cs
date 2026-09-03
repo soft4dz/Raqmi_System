@@ -166,9 +166,12 @@ public partial class ModuleCatalogView : UserControl
                 VerticalAlignment = VerticalAlignment.Center
             });
 
+            // « Fonctionnel : 11 » plutot que « 11 fonctionnels » : les quatre libelles
+            // viennent de FunctionalMaturityMapper, source unique, et les accorder au
+            // pluriel demanderait de les reecrire ici - donc de les dedoubler.
             var text = new TextBlock
             {
-                Text = $"{count.ToString(CultureInfo.CurrentCulture)} {label.ToLowerInvariant()}",
+                Text = $"{label} : {count.ToString(CultureInfo.CurrentCulture)}",
                 Style = TryFindResource("CaptionText") as Style,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(6, 0, 0, 0)
@@ -176,7 +179,7 @@ public partial class ModuleCatalogView : UserControl
 
             // Une ellipse n'a pas de nom accessible : la phrase est portee par le texte,
             // qui dit deja le niveau. Le point ne fait que doubler la couleur.
-            AutomationProperties.SetName(text, $"{count} domaines : {label}");
+            AutomationProperties.SetName(text, $"{count} domaines au niveau {label}");
 
             row.Children.Add(text);
             DomainMaturityPanel.Children.Add(row);
