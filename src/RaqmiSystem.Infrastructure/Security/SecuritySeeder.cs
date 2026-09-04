@@ -71,6 +71,7 @@ public sealed class SecuritySeeder(
             PermissionCatalog.PurchasingRead,
             PermissionCatalog.PurchasingApprove,
             PermissionCatalog.KitchenRead,
+            PermissionCatalog.PosRead,
             // Module 10.6 - Groupes & MICE. Direction lit l'evenementiel et les blocs de groupe,
             // et n'en ecrit rien : vendre un seminaire ou poser un allotement sont des actes
             // d'unite. mice.write reste avec les roles qui repondent de la salle et du planning.
@@ -160,6 +161,10 @@ public sealed class SecuritySeeder(
             PermissionCatalog.PurchasingReceive,
             PermissionCatalog.KitchenRead,
             PermissionCatalog.KitchenWrite,
+            PermissionCatalog.PosRead,
+            PermissionCatalog.PosSell,
+            PermissionCatalog.PosManage,
+            PermissionCatalog.PosCancel,
             // Module 10.6 - Groupes & MICE, en ecriture. Le controle d'exploitation vend les
             // evenements et pose les allotements ; il detient deja lodging.write et
             // invoices.write, que les routes de bloc et de facturation evenementielle exigent
@@ -236,6 +241,10 @@ public sealed class SecuritySeeder(
             PermissionCatalog.PurchasingReceive,
             PermissionCatalog.KitchenRead,
             PermissionCatalog.KitchenWrite,
+            PermissionCatalog.PosRead,
+            PermissionCatalog.PosSell,
+            PermissionCatalog.PosManage,
+            PermissionCatalog.PosCancel,
             // Module 10.6 - Groupes & MICE, en ecriture. C'est le role qui tient reellement le
             // planning des salles et les blocs de son hotel. Il detient lodging.write et
             // invoices.write, exiges en plus par les routes d'allotement et de facturation.
@@ -316,6 +325,8 @@ public sealed class SecuritySeeder(
             PermissionCatalog.InventoryRead,
             PermissionCatalog.PurchasingRead,
             PermissionCatalog.KitchenRead,
+            PermissionCatalog.PosRead,
+            PermissionCatalog.PosSell,
             // Profil de lecture seule : il porte toutes les cles .read, celle-ci comprise.
             PermissionCatalog.MiceRead
         ]

@@ -211,6 +211,7 @@ api.MapHumanResourcesEndpoints();
 api.MapInventoryEndpoints();
 api.MapPurchasingEndpoints();
 api.MapKitchenEndpoints();
+api.MapPosEndpoints();
 api.MapMiceEndpoints();
 api.MapSyncEndpoints();
 

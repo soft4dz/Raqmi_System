@@ -366,7 +366,7 @@ public partial class MainWindow : Window
         ApplyModuleAccess(PermissionCatalog.InventoryRead, InventoryTabItem);
         ApplyModuleAccess(PermissionCatalog.PurchasingRead, PurchasingTabItem);
         ApplyModuleAccess(PermissionCatalog.KitchenRead, KitchenTabItem);
-        ApplyModuleAccess(PermissionCatalog.KitchenRead, PosTabItem);
+        ApplyModuleAccess(PermissionCatalog.PosRead, PosTabItem);
         ApplyModuleAccess(PermissionCatalog.CrmRead, CrmTabItem);
         // Sans cette ligne l'onglet RH restait le SEUL module ouvert a tout profil
         // connecte, y compris par le cycle clavier Ctrl+Tab : les donnees de paie
@@ -781,6 +781,9 @@ public partial class MainWindow : Window
             case 29:
                 await KpiView.LoadAsync();
                 break;
+            case 30:
+                await PosView.LoadAsync();
+                break;
             default:
                 // Les onglets 0 a 4 vivent dans MainWindow et sont charges a la
                 // connexion : rien a faire, et rien a retenir non plus.
@@ -970,6 +973,7 @@ public partial class MainWindow : Window
         PurchasingView.Initialize(context);
         KitchenView.Initialize(context);
         CrmView.Initialize(context);
+        PosView.Initialize(context);
 
         // Le cockpit DEC ne connait pas MainWindow : ses files de travail DEMANDENT
         // l'ouverture du module concerne via NavigateRequested, et c'est la fenetre - seule a
@@ -1069,6 +1073,7 @@ public partial class MainWindow : Window
         PurchasingView.ResetState();
         KitchenView.ResetState();
         CrmView.ResetState();
+        PosView.ResetState();
         loadedModuleTabs.Clear();
 
         ResetUnitForm();

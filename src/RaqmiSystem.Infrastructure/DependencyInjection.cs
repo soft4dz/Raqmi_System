@@ -20,6 +20,7 @@ using RaqmiSystem.Application.Mice;
 using RaqmiSystem.Application.Sync;
 using RaqmiSystem.Application.Organization;
 using RaqmiSystem.Application.Purchasing;
+using RaqmiSystem.Application.Pos;
 using RaqmiSystem.Application.Kpi;
 using RaqmiSystem.Application.Pilotage;
 using RaqmiSystem.Application.Receivables;
@@ -49,6 +50,7 @@ using RaqmiSystem.Infrastructure.Sync;
 using RaqmiSystem.Infrastructure.Organization;
 using RaqmiSystem.Infrastructure.Persistence;
 using RaqmiSystem.Infrastructure.Purchasing;
+using RaqmiSystem.Infrastructure.Pos;
 using RaqmiSystem.Infrastructure.Kpi;
 using RaqmiSystem.Infrastructure.Pilotage;
 using RaqmiSystem.Infrastructure.Receivables;
@@ -152,6 +154,7 @@ public static class DependencyInjection
         services.AddScoped<IStockCostProvider, InventoryService>();
         services.AddScoped<IPurchasingService, PurchasingService>();
         services.AddScoped<IKitchenService, KitchenService>();
+        services.AddScoped<IPosService, PosService>();
 
         // Module 29 : supervision des postes. Lecture seule cote metier - ce service ne touche
         // aucune donnee d'exploitation, il tient un inventaire des clients deployes.

@@ -86,6 +86,10 @@ public static class PermissionCatalog
     public const string PurchasingReceive = "purchasing.receive";
     public const string KitchenRead = "kitchen.read";
     public const string KitchenWrite = "kitchen.write";
+    public const string PosRead = "pos.read";
+    public const string PosSell = "pos.sell";
+    public const string PosManage = "pos.manage";
+    public const string PosCancel = "pos.cancel";
 
     /// <summary>
     /// Parametrer la bibliotheque KPI. La LECTURE des indicateurs ne cree AUCUNE cle nouvelle :
@@ -179,6 +183,10 @@ public static class PermissionCatalog
         new PermissionDefinition(PurchasingReceive, "Receptionner les marchandises", "exploitation", "Enregistrer une reception (totale ou partielle) contre un bon de commande approuve et generer l'entree en stock correspondante."),
         new PermissionDefinition(KitchenRead, "Lire la cuisine", "exploitation", "Consulter les fiches techniques, leur cout matiere, les points de controle HACCP et les releves de temperature."),
         new PermissionDefinition(KitchenWrite, "Gerer la cuisine", "exploitation", "Creer et modifier les fiches techniques et leurs ingredients, administrer les points de controle et leurs seuils, enregistrer les releves de temperature HACCP."),
+        new PermissionDefinition(PosRead, "Lire les points de vente", "exploitation", "Consulter les points de vente, tickets et indicateurs de l'etablissement."),
+        new PermissionDefinition(PosSell, "Vendre au point de vente", "exploitation", "Ouvrir et encaisser des tickets dans les points de vente autorises."),
+        new PermissionDefinition(PosManage, "Administrer les points de vente", "exploitation", "Gerer points de vente, salles, tables, articles et tarifs."),
+        new PermissionDefinition(PosCancel, "Annuler un ticket POS", "exploitation", "Annuler un ticket ouvert avec motif et piste d'audit."),
         new PermissionDefinition(KpiAdmin, "Parametrer la bibliotheque KPI", "reporting", "Fixer les seuils et objectifs des indicateurs, rattacher les comptes du plan comptable aux groupes de gestion du resultat, et cloturer les instantanes historises.")
     };
 }

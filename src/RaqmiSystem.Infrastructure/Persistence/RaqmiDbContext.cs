@@ -16,6 +16,7 @@ using RaqmiSystem.Domain.Lodging;
 using RaqmiSystem.Domain.Mice;
 using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Domain.Purchasing;
+using RaqmiSystem.Domain.Pos;
 using RaqmiSystem.Domain.Receivables;
 using RaqmiSystem.Domain.Reporting;
 using RaqmiSystem.Domain.Revenue;
@@ -220,6 +221,13 @@ public sealed class RaqmiDbContext(DbContextOptions<RaqmiDbContext> options) : D
     public DbSet<TemperatureCheckpoint> TemperatureCheckpoints => Set<TemperatureCheckpoint>();
 
     public DbSet<TemperatureReading> TemperatureReadings => Set<TemperatureReading>();
+
+    // Module 11.6 : points de vente, toujours rattaches a une unite hoteliere.
+    public DbSet<PosOutlet> PosOutlets => Set<PosOutlet>();
+    public DbSet<PosTable> PosTables => Set<PosTable>();
+    public DbSet<PosProduct> PosProducts => Set<PosProduct>();
+    public DbSet<PosTicket> PosTickets => Set<PosTicket>();
+    public DbSet<PosTicketLine> PosTicketLines => Set<PosTicketLine>();
 
     // ---------------------- Module 10.6 : evenementiel (Groupes & MICE) ----------------------
     // Une salle de reception n'est PAS une chambre : elle se vend au creneau et non a la

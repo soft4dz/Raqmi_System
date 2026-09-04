@@ -227,6 +227,9 @@ public sealed class AuthenticationEndpointTests : IClassFixture<RaqmiApiFactory>
             PermissionCatalog.PurchasingRead,
             PermissionCatalog.PurchasingApprove,
             PermissionCatalog.KitchenRead,
+            // La direction consolide les ventes de tous les points de vente sans administrer
+            // les cartes ni encaisser : pos.read uniquement.
+            PermissionCatalog.PosRead,
             // Module 10.6: direction reads the events, the quotes and the group blocks, and
             // writes none of it - selling a seminar or holding a block of rooms are unit-level
             // acts. mice.write is deliberately absent.
