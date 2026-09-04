@@ -4,8 +4,8 @@ using RaqmiSystem.Domain.Pos;
 
 namespace RaqmiSystem.Application.Pos;
 
-public sealed record PosOutletResponse(Guid Id, string Code, string Name, string HotelUnitCode, string Kind, bool IsActive);
-public sealed record SavePosOutletRequest(string Code, string Name, string HotelUnitCode, string Kind, bool IsActive = true);
+public sealed record PosOutletResponse(Guid Id, string Code, string Name, string HotelUnitCode, string Kind, bool IsActive, string? WarehouseCode = null);
+public sealed record SavePosOutletRequest(string Code, string Name, string HotelUnitCode, string Kind, bool IsActive = true, string? WarehouseCode = null);
 public sealed record PosTableResponse(Guid Id, Guid OutletId, string Zone, string Number, int Seats, bool IsActive);
 public sealed record SavePosTableRequest(string Zone, string Number, int Seats, bool IsActive = true);
 public sealed record PosProductResponse(Guid Id, Guid OutletId, string Code, string Name, string Category, decimal Price, bool IsActive);

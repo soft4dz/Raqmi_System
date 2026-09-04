@@ -7,8 +7,9 @@ public sealed class PosDomainTests
     [Fact]
     public void Outlet_is_always_scoped_to_a_hotel_unit()
     {
-        var outlet = new PosOutlet("resto", "Restaurant principal", "hotel-alger", "Restaurant");
+        var outlet = new PosOutlet("resto", "Restaurant principal", "hotel-alger", "Restaurant", "mag-resto");
         Assert.Equal("HOTEL-ALGER", outlet.HotelUnitCode);
+        Assert.Equal("MAG-RESTO", outlet.WarehouseCode);
         Assert.True(outlet.IsActive);
     }
 

@@ -10,17 +10,19 @@ public enum PosPaymentMethod { Cash, Card, Cib, RoomCharge, Transfer }
 public sealed class PosOutlet : AuditableEntity
 {
     private PosOutlet() { }
-    public PosOutlet(string code, string name, string hotelUnitCode, string kind)
+    public PosOutlet(string code, string name, string hotelUnitCode, string kind, string? warehouseCode = null)
     {
         Code = Required(code, 40).ToUpperInvariant(); Name = Required(name, 160);
-        HotelUnitCode = HotelUnit.NormalizeCode(hotelUnitCode); Kind = Required(kind, 60); IsActive = true;
+        HotelUnitCode = HotelUnit.NormalizeCode(hotelUnitCode); Kind = Required(kind, 60); WarehouseCode = NormalizeOptionalCode(warehouseCode); IsActive = true;
     }
     public string Code { get; private set; } = "";
     public string Name { get; private set; } = "";
     public string HotelUnitCode { get; private set; } = "";
     public string Kind { get; private set; } = "";
+    public string? WarehouseCode { get; private set; }
     public bool IsActive { get; private set; }
-    public void Update(string name, string kind, bool active) { Name = Required(name, 160); Kind = Required(kind, 60); IsActive = active; }
+    public void Update(string name, string kind, bool active, string? warehouseCode = null) { Name = Required(name, 160); Kind = Required(kind, 60); IsActive = active; WarehouseCode = NormalizeOptionalCode(warehouseCode); }
+    private static string? NormalizeOptionalCode(string? value) => string.IsNullOrWhiteSpace(value) ? null : Required(value, 40).ToUpperInvariant();
     internal static string Required(string value, int max) { var text = value?.Trim(); if (string.IsNullOrWhiteSpace(text)) throw new ArgumentException("Value is required."); if (text.Length > max) throw new ArgumentException($"Value cannot exceed {max} characters."); return text; }
 }
 

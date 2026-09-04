@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RaqmiSystem.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using RaqmiSystem.Infrastructure.Persistence;
 namespace RaqmiSystem.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(RaqmiDbContext))]
-    partial class RaqmiDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260904000822_PosOutletWarehouses")]
+    partial class PosOutletWarehouses
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
