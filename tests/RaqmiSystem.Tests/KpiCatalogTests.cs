@@ -1,5 +1,6 @@
 using RaqmiSystem.Domain.Identity;
 using RaqmiSystem.Domain.Kpi;
+using RaqmiSystem.Domain.Organization;
 
 namespace RaqmiSystem.Tests;
 
@@ -166,5 +167,153 @@ public sealed class KpiCatalogTests
         Assert.All(
             Enum.GetValues<KpiCategory>(),
             category => Assert.NotEmpty(KpiCatalog.InCategory(category)));
+    }
+
+    // ------------------------------------------------------------ socle / pack hotelier
+
+    /// <summary>
+    /// Scinder le catalogue en socle et pack hotelier n'a le droit de rien changer a ce que les
+    /// ecrans montrent : memes 86 fiches, memes codes, meme ordre. Cette liste EST l'ordre
+    /// historique ; une fiche ajoutee ou deplacee se declare ici, en connaissance de cause.
+    /// </summary>
+    [Fact]
+    public void The_split_kept_the_86_definitions_in_their_historical_order()
+    {
+        string[] historicalOrder =
+        [
+            // Hebergement
+            KpiCodes.OccupancyRate, KpiCodes.PhysicalRooms, KpiCodes.RoomsAvailable, KpiCodes.RoomsOutOfOrder,
+            KpiCodes.RoomsOccupied, KpiCodes.ComplimentaryRooms, KpiCodes.RoomsSold, KpiCodes.Adr, KpiCodes.RevPar,
+            KpiCodes.TRevPar, KpiCodes.GopPar, KpiCodes.Alos, KpiCodes.CancellationRate, KpiCodes.NoShowRate,
+            KpiCodes.NoShowLostRevenue, KpiCodes.GuestNights, KpiCodes.RevenuePerGuest, KpiCodes.BookingLeadTime,
+            KpiCodes.Cpor,
+            // Finance
+            KpiCodes.RevenueTotal, KpiCodes.RevenueAccommodation, KpiCodes.RevenueFood, KpiCodes.RevenueBeverage,
+            KpiCodes.RevenueOther, KpiCodes.RevenueBudgetVariance, KpiCodes.RevenueBudgetAchievement,
+            KpiCodes.GrossOperatingProfit, KpiCodes.Ebitda, KpiCodes.GrossMarginRate, KpiCodes.OperatingMarginRate,
+            KpiCodes.CashIn, KpiCodes.CashOut, KpiCodes.OperatingCashFlow, KpiCodes.CashBalance,
+            KpiCodes.CommittedOutflow7D, KpiCodes.CommittedOutflow30D, KpiCodes.CommittedOutflow90D, KpiCodes.Dso,
+            KpiCodes.ReceivablesTotal, KpiCodes.ReceivablesOver90, KpiCodes.ReceivablesOverdueRate,
+            // Restauration et boissons
+            KpiCodes.FoodCostAmount, KpiCodes.FoodCostRate, KpiCodes.BeverageCostAmount, KpiCodes.BeverageCostRate,
+            KpiCodes.TotalCostOfSalesRate, KpiCodes.TheoreticalFoodCostRate, KpiCodes.FoodCostVariance,
+            KpiCodes.AverageCheck, KpiCodes.RevPash, KpiCodes.CostPerCover, KpiCodes.WasteCost, KpiCodes.WasteRate,
+            // Ressources humaines
+            KpiCodes.PayrollCost, KpiCodes.PayrollToRevenueRate, KpiCodes.PayrollCostPerEmployee,
+            KpiCodes.PayrollCostPerAvailableRoom, KpiCodes.PayrollCostPerOccupiedRoom, KpiCodes.AbsenteeismRate,
+            KpiCodes.TurnoverRate, KpiCodes.HeadcountAverage, KpiCodes.OvertimeRate, KpiCodes.RevenuePerEmployee,
+            KpiCodes.RevenuePerWorkedHour, KpiCodes.RoomsCleanedPerAttendant, KpiCodes.CoversPerWaiter,
+            KpiCodes.InterventionsPerTechnician,
+            // Maintenance
+            KpiCodes.Mttr, KpiCodes.Mtbf, KpiCodes.PreventiveCompletionRate, KpiCodes.MaintenanceCostPerEquipment,
+            KpiCodes.MaintenanceCostToAssetValue,
+            // Experience client
+            KpiCodes.GuestSatisfactionScore, KpiCodes.Nps, KpiCodes.RepeatGuestRate, KpiCodes.ComplaintRate,
+            KpiCodes.DirectBookingRatio, KpiCodes.ChannelCost, KpiCodes.ConversionRate,
+            // Achats et stocks
+            KpiCodes.InventoryTurnover, KpiCodes.StockOutRate, KpiCodes.PurchasePriceVariance,
+            KpiCodes.SupplierOnTimeDeliveryRate, KpiCodes.HousekeepingCostPerRoom, KpiCodes.EnergyCostPerOccupiedRoom,
+            KpiCodes.WaterPerGuestNight
+        ];
+
+        Assert.Equal(86, historicalOrder.Length);
+        Assert.Equal(historicalOrder, KpiCatalog.All.Select(definition => definition.Code).ToArray());
+    }
+
+    /// <summary>
+    /// Le critere du rattachement : ce qui parle de chambres, de nuitees ou d'etages est du
+    /// pack hotelier ; ce qui parle de couverts et de denrees est de la restauration. Un
+    /// indicateur qui exige un droit hotelier (hebergement, housekeeping) ne peut pas etre dans
+    /// le socle, sinon un commerce le verrait et ne pourrait jamais le lire.
+    /// </summary>
+    [Fact]
+    public void Everything_that_reads_a_room_is_in_the_hospitality_pack()
+    {
+        string[] hotelPermissions = [PermissionCatalog.LodgingRead, PermissionCatalog.HousekeepingRead];
+
+        Assert.All(KpiCatalog.All, definition =>
+        {
+            var readsRooms = definition.Category == KpiCategory.Accommodation
+                || definition.SourceModule is KpiSourceModule.Lodging or KpiSourceModule.Housekeeping
+                || definition.RequiredPermissions.Any(hotelPermissions.Contains);
+
+            if (readsRooms)
+            {
+                Assert.Equal(ModulePack.Hospitality, definition.Pack);
+            }
+
+            if (definition.Category == KpiCategory.FoodBeverage)
+            {
+                Assert.Equal(ModulePack.FoodBeverage, definition.Pack);
+            }
+        });
+    }
+
+    [Fact]
+    public void The_core_packs_never_mention_a_hotel_module()
+    {
+        ModulePack[] verticalPacks = [ModulePack.Hospitality, ModulePack.FoodBeverage, ModulePack.Events];
+
+        Assert.All(
+            KpiCatalog.All.Where(definition => !verticalPacks.Contains(definition.Pack)),
+            definition =>
+            {
+                Assert.NotEqual(KpiCategory.Accommodation, definition.Category);
+                Assert.False(definition.SourceModule is KpiSourceModule.Lodging or KpiSourceModule.Housekeeping, definition.Code);
+                Assert.DoesNotContain(PermissionCatalog.LodgingRead, definition.RequiredPermissions);
+                Assert.DoesNotContain(PermissionCatalog.HousekeepingRead, definition.RequiredPermissions);
+            });
+    }
+
+    /// <summary>
+    /// La repartition declaree : 45 fiches n'existent que pour l'hotellerie et la restauration,
+    /// 41 parlent a toute entreprise. Un chiffre qui bouge ici est un choix de produit, pas un
+    /// effet de bord.
+    /// </summary>
+    [Theory]
+    [InlineData(ModulePack.Hospitality, 30)]
+    [InlineData(ModulePack.FoodBeverage, 15)]
+    [InlineData(ModulePack.Finance, 19)]
+    [InlineData(ModulePack.HumanResources, 9)]
+    [InlineData(ModulePack.Core, 6)]
+    [InlineData(ModulePack.Crm, 3)]
+    [InlineData(ModulePack.Inventory, 2)]
+    [InlineData(ModulePack.Purchasing, 2)]
+    [InlineData(ModulePack.Sales, 0)]
+    [InlineData(ModulePack.Events, 0)]
+    [InlineData(ModulePack.Pilotage, 0)]
+    [InlineData(ModulePack.System, 0)]
+    public void Each_pack_carries_its_declared_share_of_the_library(ModulePack pack, int expectedCount)
+    {
+        Assert.Equal(expectedCount, KpiCatalog.All.Count(definition => definition.Pack == pack));
+    }
+
+    [Fact]
+    public void ForPacks_keeps_only_the_active_packs_in_the_order_of_the_library()
+    {
+        var everything = Enum.GetValues<ModulePack>().ToHashSet();
+        Assert.Equal(KpiCatalog.All, KpiCatalog.ForPacks(everything));
+
+        HashSet<ModulePack> retail =
+        [
+            ModulePack.Core, ModulePack.Finance, ModulePack.Sales, ModulePack.Purchasing,
+            ModulePack.Inventory, ModulePack.Crm, ModulePack.Pilotage, ModulePack.System
+        ];
+
+        var forRetail = KpiCatalog.ForPacks(retail);
+
+        Assert.Equal(KpiCatalog.All.Count(definition => retail.Contains(definition.Pack)), forRetail.Count);
+        Assert.DoesNotContain(forRetail, definition => definition.Category == KpiCategory.Accommodation);
+        Assert.DoesNotContain(forRetail, definition => definition.Code == KpiCodes.RevPar);
+        Assert.Contains(forRetail, definition => definition.Code == KpiCodes.RevenueTotal);
+        Assert.Contains(forRetail, definition => definition.Code == KpiCodes.Nps);
+
+        // Un sous-ensemble ordonne : la position relative de deux fiches ne change jamais.
+        var library = KpiCatalog.All.ToList();
+        var positions = forRetail.Select(definition => library.IndexOf(definition)).ToArray();
+        Assert.Equal(positions.OrderBy(position => position), positions);
+
+        Assert.Empty(KpiCatalog.ForPacks(new HashSet<ModulePack>()));
+        Assert.Throws<ArgumentNullException>(() => KpiCatalog.ForPacks(null!));
     }
 }

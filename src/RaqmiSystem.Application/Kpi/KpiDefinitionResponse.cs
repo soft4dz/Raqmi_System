@@ -1,4 +1,5 @@
 using RaqmiSystem.Domain.Kpi;
+using RaqmiSystem.Domain.Organization;
 
 namespace RaqmiSystem.Application.Kpi;
 
@@ -13,6 +14,7 @@ public sealed record KpiDefinitionResponse(
     string Name,
     string ShortName,
     KpiCategory Category,
+    ModulePack Pack,
     string Description,
     string Formula,
     KpiUnit Unit,
@@ -43,6 +45,7 @@ public sealed record KpiDefinitionResponse(
             definition.Name,
             definition.ShortName,
             definition.Category,
+            definition.Pack,
             definition.Description,
             definition.Formula,
             definition.Unit,
