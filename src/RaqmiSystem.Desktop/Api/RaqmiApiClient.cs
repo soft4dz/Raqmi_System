@@ -33,15 +33,59 @@ public sealed partial class RaqmiApiClient
     // en plein geste, sans autre issue que de relancer l'application.
     private readonly TokenRenewalPolicy session;
 
+    /// <summary>
+    /// Delai maximal d'un appel API, en l'absence de reglage explicite. Trente secondes : bien
+    /// au-dela de tout appel normal sur un reseau local (les plus lourds, journal d'audit ou grand
+    /// livre, repondent en moins de deux secondes), et assez court pour qu'une coupure pendant un
+    /// check-in soit annoncee a la reception avant que le client ne s'impatiente. Le defaut de
+    /// HttpClient, 100 secondes, faisait attendre presque deux minutes sur un cable debranche.
+    /// </summary>
+    public static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Variable d'environnement qui surcharge <see cref="DefaultRequestTimeout"/>, en secondes
+    /// entieres (liaison lente, serveur distant, diagnostic). Bornee a [5 ; 300] : en deca on ne
+    /// laisse plus le temps a une requete honnete, au-dela on retombe dans l'attente que ce
+    /// reglage existe pour supprimer. Valeur absente ou invalide = defaut, sans erreur.
+    /// </summary>
+    public const string RequestTimeoutEnvironmentVariable = "RAQMI_DESKTOP_HTTP_TIMEOUT_SECONDS";
+
+    private const int MinRequestTimeoutSeconds = 5;
+
+    private const int MaxRequestTimeoutSeconds = 300;
+
     static RaqmiApiClient()
     {
         JsonOptions.Converters.Add(new JsonStringEnumConverter());
     }
 
-    public RaqmiApiClient(HttpClient httpClient)
+    /// <param name="requestTimeout">
+    /// Delai explicite ; null = variable d'environnement, puis <see cref="DefaultRequestTimeout"/>.
+    /// Le delai est pose ICI et non par l'appelant parce que le client possede sa politique de
+    /// transport : quiconque lui confie un HttpClient neuf obtient un delai raisonnable sans y penser.
+    /// </param>
+    public RaqmiApiClient(HttpClient httpClient, TimeSpan? requestTimeout = null)
     {
         this.httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+
+        // HttpClient.Timeout ne se modifie plus apres la premiere requete : le constructeur est le
+        // seul endroit ou ce reglage est garanti d'etre accepte.
+        httpClient.Timeout = requestTimeout ?? ResolveRequestTimeout();
+
         session = new TokenRenewalPolicy(httpClient, JsonOptions);
+    }
+
+    private static TimeSpan ResolveRequestTimeout()
+    {
+        var configured = Environment.GetEnvironmentVariable(RequestTimeoutEnvironmentVariable);
+
+        if (int.TryParse(configured, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds)
+            && seconds is >= MinRequestTimeoutSeconds and <= MaxRequestTimeoutSeconds)
+        {
+            return TimeSpan.FromSeconds(seconds);
+        }
+
+        return DefaultRequestTimeout;
     }
 
     public bool IsAuthenticated => session.IsAuthenticated;

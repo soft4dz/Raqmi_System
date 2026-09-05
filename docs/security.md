@@ -252,6 +252,10 @@ conserve les trois et applique, à chaque appel authentifié, la politique de
    même `401` attendent puis réutilisent le jeton fraîchement obtenu — sans cela, la rotation à usage
    unique rejetterait les renouvellements suivants comme des réutilisations et ferait tomber la session.
 
+Chaque appel du client est borné à **30 secondes** (`RaqmiApiClient.DefaultRequestTimeout`, surchargeable
+par la variable `RAQMI_DESKTOP_HTTP_TIMEOUT_SECONDS`, de 5 à 300 s) : une coupure réseau est annoncée à
+l'opérateur en une demi-minute au lieu des 100 secondes par défaut de `HttpClient`.
+
 La déconnexion (`Logout`) reste locale : l'API n'expose pas de route de révocation, le jeton de
 rafraîchissement reste valable côté serveur jusqu'à son expiration ou sa rotation. Le changement de mot
 de passe révoque toutes les sessions du compte, y compris celle du poste qui le demande : elle prend fin
