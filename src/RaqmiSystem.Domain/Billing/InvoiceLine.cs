@@ -18,12 +18,20 @@ public sealed class InvoiceLine
     {
     }
 
+    /// <param name="vatAmount">
+    /// TVA FIGEE de la ligne, pour une ligne construite depuis un montant TTC (ligne de folio,
+    /// ticket de caisse) : la TVA y a ete extraite du TTC, et la recalculer depuis le HT arrondi
+    /// peut s'en ecarter d'un centime - ce qui ferait facturer 3 999,99 pour un diner paye 4 000.
+    /// Null (le cas general) : la TVA est calculee HT x taux. Une TVA figee ne peut s'ecarter du
+    /// calcul que d'UN centime : au-dela ce n'est plus un arrondi, c'est une erreur.
+    /// </param>
     public InvoiceLine(
         string designation,
         decimal quantity,
         decimal unitPrice,
         decimal vatRate,
-        string? articleCode = null)
+        string? articleCode = null,
+        decimal? vatAmount = null)
     {
         Designation = RequireValue(designation, nameof(designation), 300);
         ArticleCode = NormalizeArticleCode(articleCode);
@@ -31,6 +39,9 @@ public sealed class InvoiceLine
         UnitPrice = RequireMaxScale(RequirePositiveOrZero(unitPrice, nameof(unitPrice)), 2, nameof(unitPrice));
         VatRate = RequireAllowedVatRate(vatRate, nameof(vatRate));
         LineTotalExclVat = RoundMoney(Quantity * UnitPrice);
+        VatAmount = vatAmount is { } pinned
+            ? RequirePinnedVatAmount(pinned, ComputeVatAmount(LineTotalExclVat, VatRate))
+            : ComputeVatAmount(LineTotalExclVat, VatRate);
     }
 
     public Guid Id { get; private set; } = Guid.NewGuid();
@@ -59,7 +70,12 @@ public sealed class InvoiceLine
 
     public decimal LineTotalExclVat { get; private set; }
 
-    public decimal VatAmount => RoundMoney(LineTotalExclVat * VatRate / 100m);
+    /// <summary>
+    /// TVA de la ligne, STOCKEE et non recalculee : c'est un montant legal, celui que porte la
+    /// facture emise. Egale a HT x taux arrondi au centime, sauf pour une ligne construite depuis
+    /// un TTC dont la TVA a ete figee a la construction (voir le constructeur).
+    /// </summary>
+    public decimal VatAmount { get; private set; }
 
     public decimal LineTotalInclVat => LineTotalExclVat + VatAmount;
 
@@ -71,6 +87,34 @@ public sealed class InvoiceLine
     internal static decimal RoundMoney(decimal value)
     {
         return Math.Round(value, 2, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>La regle de calcul de la TVA d'une ligne, en un seul endroit : HT x taux, arrondi au centime.</summary>
+    public static decimal ComputeVatAmount(decimal lineTotalExclVat, decimal vatRate)
+    {
+        return RoundMoney(lineTotalExclVat * vatRate / 100m);
+    }
+
+    private static decimal RequirePinnedVatAmount(decimal pinned, decimal computed)
+    {
+        if (pinned < 0m)
+        {
+            throw new ArgumentOutOfRangeException(nameof(pinned), pinned, "VAT amount cannot be negative.");
+        }
+
+        if (decimal.Round(pinned, 2) != pinned)
+        {
+            throw new ArgumentException("VAT amount cannot have more than 2 decimal places.", nameof(pinned));
+        }
+
+        if (Math.Abs(pinned - computed) > 0.01m)
+        {
+            throw new ArgumentException(
+                $"A pinned VAT amount may differ from the computed amount ({computed}) by at most one cent.",
+                nameof(pinned));
+        }
+
+        return pinned;
     }
 
     /// <summary>

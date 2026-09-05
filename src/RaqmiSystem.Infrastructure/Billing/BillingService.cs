@@ -957,7 +957,9 @@ public sealed class BillingService(
                     request.Designation ?? string.Empty,
                     request.Quantity,
                     request.UnitPrice.Value,
-                    request.VatRate.Value));
+                    request.VatRate.Value,
+                    articleCode: null,
+                    request.VatAmount));
             }
             else
             {
@@ -978,7 +980,8 @@ public sealed class BillingService(
                     request.Quantity,
                     request.UnitPrice ?? article.UnitPriceExclVat,
                     request.VatRate ?? article.VatRate,
-                    article.Code));
+                    article.Code,
+                    request.VatAmount));
             }
 
             lineNumber++;

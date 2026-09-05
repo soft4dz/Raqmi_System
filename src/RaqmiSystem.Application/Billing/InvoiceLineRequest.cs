@@ -9,10 +9,14 @@ namespace RaqmiSystem.Application.Billing;
 ///         et le taux sont repris de l'article du catalogue quand ils sont omis, et peuvent
 ///         etre surcharges un a un (remise negociee, libelle precise).</item>
 /// </list>
+/// <see cref="VatAmount"/> fige la TVA d'une ligne construite depuis un montant TTC (ligne de
+/// folio) pour que la facture retombe au centime sur ce que le client doit ; null dans le cas
+/// general, ou la TVA est calculee HT x taux. Voir InvoiceLine.
 /// </summary>
 public sealed record InvoiceLineRequest(
     string? Designation,
     decimal Quantity,
     decimal? UnitPrice = null,
     decimal? VatRate = null,
-    string? ArticleCode = null);
+    string? ArticleCode = null,
+    decimal? VatAmount = null);
