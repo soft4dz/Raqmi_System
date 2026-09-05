@@ -122,6 +122,7 @@ public static class DependencyInjection
         // rather than re-projecting the customers table: the 360 view must show exactly
         // what the customer screen shows.
         services.AddScoped<ICrmService, CrmService>();
+        services.AddRaqmiCrmPorts();
         services.AddScoped<IApprovalService, ApprovalService>();
         services.AddScoped<IApprovalGate, ApprovalService>();
         services.AddScoped<IHumanResourcesService, HumanResourcesService>();

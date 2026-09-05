@@ -483,7 +483,7 @@ public static partial class FunctionalArchitectureCatalog
                 definition.IconKey,
                 ReadPermissionKey: null,
                 definition.Maturity,
-                LicenseFeature: null,
+                LicenseFeature: ModulePackCatalog.LicenseFeatureForDomain(definition.Id),
                 scope,
                 moduleNodes));
         }
