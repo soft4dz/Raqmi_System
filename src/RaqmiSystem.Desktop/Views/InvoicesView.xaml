@@ -201,6 +201,8 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="8" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
                         <StackPanel>
@@ -259,6 +261,15 @@
                                 ToolTipService.ShowOnDisabled="True"
                                 VerticalAlignment="Bottom"
                                 Click="CancelInvoiceButton_Click" />
+
+                        <Button x:Name="PrintInvoiceButton"
+                                Grid.Column="12"
+                                Content="Imprimer"
+                                Style="{StaticResource SecondaryButton}"
+                                ToolTip="Afficher le PDF de la facture émise (archivé par le serveur, réimprimable à l'identique par son numéro)"
+                                ToolTipService.ShowOnDisabled="True"
+                                VerticalAlignment="Bottom"
+                                Click="PrintInvoiceButton_Click" />
                     </Grid>
 
                     <Grid Grid.Row="4">

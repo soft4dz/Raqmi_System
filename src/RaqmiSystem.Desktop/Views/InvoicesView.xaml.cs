@@ -486,6 +486,8 @@ public partial class InvoicesView : UserControl
             ? "Magasin d'où sortent les articles suivis en stock à l'émission"
             : StockPermissionHint;
         MarkPaidButton.IsEnabled = canWrite && status == InvoiceStatus.Issued;
+        // Le document legal n'existe qu'a partir de l'emission : le serveur repond 404 avant.
+        PrintInvoiceButton.IsEnabled = status is not null && status != InvoiceStatus.Draft;
 
         // L'annulation exige un motif : le bouton ne s'active qu'une fois ce motif
         // saisi, plutot que d'ouvrir une confirmation vouee a un refus.
@@ -543,6 +545,29 @@ public partial class InvoicesView : UserControl
 
             LoadInvoiceIntoEditor(invoice);
             active.SetStatus($"Modification des lignes du brouillon du {invoice.InvoiceDate:dd/MM/yyyy} ({invoice.CustomerCode}).");
+        });
+    }
+
+    private async void PrintInvoiceButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (context is not { } active || InvoicesDataGrid.SelectedItem is not InvoiceResponse selected)
+        {
+            return;
+        }
+
+        if (selected.Status == InvoiceStatus.Draft)
+        {
+            active.SetStatus("Un brouillon n'a pas de document légal : émettez la facture d'abord.", isError: true);
+            return;
+        }
+
+        // Le PDF est rendu puis archive par le serveur a la premiere demande ; les demandes
+        // suivantes renvoient l'archive octet pour octet. L'ecran n'assemble ni ne recalcule rien.
+        await active.RunAsync(async () =>
+        {
+            var document = await active.ApiClient.DownloadInvoicePdfAsync(active.ApiBaseUrl, selected.Id);
+            new DocumentPreviewWindow(document) { Owner = Window.GetWindow(this) }.ShowDialog();
+            active.SetStatus($"Document de la facture {selected.Number} affiché.");
         });
     }
 
