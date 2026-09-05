@@ -145,6 +145,7 @@ public sealed class SecuritySeederTests
             RoleCatalog.ExploitationControl,
             RoleCatalog.UnitManager,
             RoleCatalog.Cashier,
+            RoleCatalog.Reception,
             RoleCatalog.HrManager,
             RoleCatalog.Reader
         };
@@ -172,6 +173,84 @@ public sealed class SecuritySeederTests
         // L'administrateur systeme detient tout le catalogue, cibles comprises.
         var administrator = roles[RoleCatalog.SystemAdministrator];
         Assert.All(PermissionCatalog.All, definition => Assert.Contains(definition.Key, administrator));
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Lot 2.2 - le role systeme reception (decision 8 du dossier, risque R23).
+    // ------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Le profil Reception porte exactement la lecture et les gestes de comptoir du PMS, la
+    /// fiche client et les lectures qui servent a renseigner un client - plus les cles cibles
+    /// que ces cles historiques couvrent, par l'equivalence du seeder. Rien de la caisse, rien
+    /// qui engage financierement, jamais approvals.decide ; et cashier n'a pas ete elargi.
+    /// </summary>
+    [Fact]
+    public async Task The_reception_role_is_seeded_with_the_front_desk_keys_and_nothing_engaging()
+    {
+        await using var dbContext = await CreateSeededContextAsync();
+
+        var roles = await LoadRolesWithKeysAsync(dbContext);
+
+        var role = await dbContext.Roles.SingleAsync(candidate => candidate.Name == RoleCatalog.Reception);
+        Assert.True(role.IsSystem);
+        Assert.True(role.IsActive);
+        Assert.False(string.IsNullOrWhiteSpace(role.DisplayName));
+
+        string[] legacyKeys =
+        [
+            PermissionCatalog.SettingsRead,
+            PermissionCatalog.LodgingRead,
+            PermissionCatalog.LodgingCheckin,
+            PermissionCatalog.LodgingReserve,
+            PermissionCatalog.LodgingCheckout,
+            PermissionCatalog.LodgingRoomMove,
+            PermissionCatalog.LodgingNoShow,
+            PermissionCatalog.LodgingCancel,
+            PermissionCatalog.CustomersRead,
+            PermissionCatalog.CustomersWrite,
+            PermissionCatalog.CrmRead,
+            PermissionCatalog.HousekeepingRead,
+            PermissionCatalog.InvoicesRead,
+            PermissionCatalog.TreasuryRead
+        ];
+
+        var expected = legacyKeys
+            .Concat(legacyKeys.SelectMany(PermissionRegistry.TargetKeysCoveredBy))
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(expected, roles[RoleCatalog.Reception].Order(StringComparer.Ordinal).ToArray());
+
+        // Les cles que le comptoir ne doit jamais recevoir.
+        foreach (var refused in new[]
+                 {
+                     PermissionCatalog.ApprovalsDecide,
+                     PermissionCatalog.WorkflowRequestDecide,
+                     PermissionCatalog.TreasuryWrite,
+                     PermissionCatalog.TreasuryApprove,
+                     PermissionCatalog.RevenueWrite,
+                     PermissionCatalog.InvoicesIssue,
+                     PermissionCatalog.InvoicesWrite,
+                     PermissionCatalog.LodgingNightAudit,
+                     PermissionCatalog.LodgingWrite,
+                     PermissionCatalog.LodgingChangeRate,
+                     PermissionCatalog.LodgingOverrideRestriction,
+                     PermissionCatalog.LodgingOverbooking,
+                     PermissionCatalog.CrmLoyalty,
+                     PermissionCatalog.UsersWrite
+                 })
+        {
+            Assert.DoesNotContain(refused, roles[RoleCatalog.Reception]);
+        }
+
+        Assert.DoesNotContain(RoleCatalog.Reception, RoleCatalog.ApprovalDeciderRoles);
+
+        // Le caissier garde exactement sa caisse : creer reception ne l'a pas elargi.
+        Assert.Contains(PermissionCatalog.TreasuryWrite, roles[RoleCatalog.Cashier]);
+        Assert.Contains(PermissionCatalog.LodgingNightAudit, roles[RoleCatalog.Cashier]);
+        Assert.DoesNotContain(PermissionCatalog.InvoicesRead, roles[RoleCatalog.Cashier]);
     }
 
     /// <summary>

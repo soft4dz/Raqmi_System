@@ -17,6 +17,7 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
         User user,
         IReadOnlyCollection<string> roles,
         IReadOnlyCollection<string> permissions,
+        IUnitScope unitScope,
         string refreshToken)
     {
         var now = DateTimeOffset.UtcNow;
@@ -32,6 +33,24 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
 
         claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
         claims.AddRange(permissions.Select(permission => new Claim(SecurityClaimTypes.Permission, permission)));
+
+        // Perimetre (lot 2.2) : SOIT scope=global, SOIT un claim unit par code autorise. Le
+        // jeton ne porte que des codes - pas de libelle, pas d'identifiant - pour rester petit,
+        // et le filtre de route compare le code recu a cette liste sans aller en base. Le cas
+        // degenere - restreint mais sans aucune unite en validite - est ecrit scope=none, pour
+        // ne pas ressembler a un jeton d'avant ce lot (aucun claim de perimetre, lu global).
+        if (unitScope.IsGlobal)
+        {
+            claims.Add(new Claim(SecurityClaimTypes.Scope, SecurityClaimTypes.GlobalScope));
+        }
+        else if (unitScope.AllowedUnitCodes.Count == 0)
+        {
+            claims.Add(new Claim(SecurityClaimTypes.Scope, SecurityClaimTypes.NoUnitScope));
+        }
+        else
+        {
+            claims.AddRange(unitScope.AllowedUnitCodes.Select(code => new Claim(SecurityClaimTypes.Unit, code)));
+        }
 
         var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
@@ -60,6 +79,7 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
                 user.DisplayName,
                 user.MustChangePassword,
                 roles,
-                permissions));
+                permissions,
+                new UnitScopeResponse(unitScope.IsGlobal, unitScope.AllowedUnitCodes)));
     }
 }

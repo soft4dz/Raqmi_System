@@ -8,6 +8,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using RaqmiSystem.Application.Identity;
 using RaqmiSystem.Application.Navigation;
 using RaqmiSystem.Domain.Identity;
 
@@ -77,6 +78,15 @@ public partial class MainWindow
     // L'arbre que le profil peut ouvrir (permissions seules, sans la recherche) : l'ordre
     // des raccourcis module precedent / suivant. Vide tant que rien n'a ete calcule.
     private NavigationTree navigableTree = NavigationTree.Empty;
+
+    // Perimetre d'unites de la session (lot 2.2), lu dans le jeton a la connexion : null hors
+    // session. Il alimente le bandeau et le point d'extension ScopeAllows de l'elagage.
+    private UnitScopeResponse? sessionUnitScope;
+
+    // Le libelle du perimetre dans le bandeau de session. Cree ici et insere a cote de
+    // CurrentUserTextBlock plutot que declare dans MainWindow.xaml : le bandeau existant
+    // n'est pas touche, le libelle en herite la visibilite (RefreshAuthState).
+    private TextBlock? sessionScopeTextBlock;
 
     // Hors session, l'accueil est dans son etat par defaut (tout accessible) : l'elagage
     // recoit alors l'ensemble des cles connues plutot qu'un cas particulier « pas de filtre ».
@@ -464,6 +474,8 @@ public partial class MainWindow
     // l'etat par defaut).
     private void ApplyModulePermissions()
     {
+        RefreshSessionUnitScope();
+
         // Un module sans cle de permission n'est jamais verrouille : son statut
         // d'avancement suffit a dire ce que l'utilisateur peut en faire.
         foreach (var tile in moduleTiles)
@@ -555,6 +567,59 @@ public partial class MainWindow
         return granted;
     }
 
+    // ==================== Perimetre de session (lot 2.2) ====================
+
+    // Relit le perimetre dans le jeton de la session (null hors session) et l'affiche dans le
+    // bandeau : « Toutes les unites », la liste des codes, ou « Aucune unite ». Le libelle est
+    // cree une fois et insere juste apres CurrentUserTextBlock : il herite de la visibilite du
+    // panneau de session, que RefreshAuthState continue de piloter seul.
+    private void RefreshSessionUnitScope()
+    {
+        sessionUnitScope = apiClient.IsAuthenticated ? apiClient.TryGetSessionUnitScope() : null;
+
+        if (sessionScopeTextBlock is null)
+        {
+            sessionScopeTextBlock = new TextBlock
+            {
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 18, 0),
+                Foreground = TryFindResource("HeaderMutedBrush") as Brush ?? CurrentUserTextBlock.Foreground
+            };
+
+            var index = HeaderSessionPanel.Children.IndexOf(CurrentUserTextBlock);
+            HeaderSessionPanel.Children.Insert(index + 1, sessionScopeTextBlock);
+        }
+
+        var (text, tooltip) = sessionUnitScope switch
+        {
+            null => (string.Empty, null),
+            { IsGlobal: true } => (
+                "Toutes les unités",
+                "Périmètre global : cette session voit toutes les unités hôtelières."),
+            { Units.Count: 0 } => (
+                "Aucune unité",
+                "Périmètre restreint sans unité en validité : demandez à un administrateur d'ajuster vos affectations."),
+            var scope => (
+                $"Unités : {string.Join(", ", scope.Units)}",
+                "Périmètre restreint : cette session ne voit que ces unités ; le serveur refuse toute autre unité.")
+        };
+
+        sessionScopeTextBlock.Text = text;
+        sessionScopeTextBlock.ToolTip = tooltip;
+        sessionScopeTextBlock.Visibility = text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        AutomationProperties.SetName(sessionScopeTextBlock, tooltip ?? string.Empty);
+    }
+
+    // Point d'extension ScopeAllows de l'elagage. Un nœud global passe toujours ; un nœud
+    // d'unite passe tant que la session a un perimetre global ou au moins une unite. Hors
+    // session (null), tout passe : l'accueil est alors dans son etat par defaut.
+    private bool ScopeAllowsNode(NavigationScope scope, string nodeId) =>
+        scope == NavigationScope.Global
+        || sessionUnitScope is null
+        || sessionUnitScope.IsGlobal
+        || sessionUnitScope.Units.Count > 0;
+
     // ==================== Barre laterale ====================
 
     private void ModuleSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -594,13 +659,20 @@ public partial class MainWindow
         // L'arbre « ouvrable » ne depend pas de la recherche : c'est lui que suivent les
         // raccourcis module precedent / suivant. Une recherche aide a trouver, elle ne
         // change pas l'espace de travail.
-        navigableTree = NavigationTreeBuilder.Build(FunctionalArchitectureCatalog.Tree, granted, NavigationFilter.Sidebar);
+        // Le point d'extension ScopeAllows recoit le perimetre de la session (lot 2.2) : un
+        // nœud d'unite reste visible tant que la session a un perimetre global ou au moins
+        // une unite - c'est-a-dire toujours, aujourd'hui. Le cablage prepare la suite (un
+        // selecteur d'unite courante) sans inventer de regle ; le masquage n'est jamais une
+        // securite, le filtre de perimetre du serveur l'est.
+        var filter = NavigationFilter.Sidebar with { ScopeAllows = ScopeAllowsNode };
+
+        navigableTree = NavigationTreeBuilder.Build(FunctionalArchitectureCatalog.Tree, granted, filter);
 
         var shown = isSearching
             ? NavigationTreeBuilder.Build(
                 FunctionalArchitectureCatalog.Tree,
                 granted,
-                NavigationFilter.Sidebar with { SearchText = query })
+                filter with { SearchText = query })
             : navigableTree;
 
         if (isSearching && !isSidebarSearchActive)

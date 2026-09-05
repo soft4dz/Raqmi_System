@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using RaqmiSystem.Application.Identity;
 using RaqmiSystem.Application.Security;
 using RaqmiSystem.Domain.Identity;
 
@@ -41,5 +42,42 @@ internal static class SecurityContextExtensions
         return user.Claims.Any(claim =>
             claim.Type == SecurityClaimTypes.Permission
             && acceptedClaims.Contains(claim.Value, StringComparer.Ordinal));
+    }
+
+    /// <summary>
+    /// Le perimetre d'unites porte par le jeton (lot 2.2), lu sans aller en base :
+    /// <list type="bullet">
+    ///   <item><c>scope=global</c> : toutes les unites ;</item>
+    ///   <item>un claim <c>unit</c> par code : restreint a ces codes ;</item>
+    ///   <item><c>scope=none</c> : restreint a AUCUNE unite (le compte a des affectations, mais
+    ///         aucune en validite) ;</item>
+    ///   <item>aucun claim de perimetre : un jeton emis AVANT ce lot, donc par un compte qui
+    ///         n'avait alors aucune affectation possible - global, le temps que ces jetons
+    ///         expirent (AccessTokenMinutes). Tout jeton emis depuis porte un des trois.</item>
+    /// </list>
+    /// </summary>
+    public static IUnitScope GetUnitScope(this ClaimsPrincipal user)
+    {
+        if (user.HasClaim(SecurityClaimTypes.Scope, SecurityClaimTypes.GlobalScope))
+        {
+            return UnitScope.Global;
+        }
+
+        var units = user.FindAll(SecurityClaimTypes.Unit)
+            .Select(claim => claim.Value)
+            .ToArray();
+
+        if (units.Length > 0 || user.HasClaim(SecurityClaimTypes.Scope, SecurityClaimTypes.NoUnitScope))
+        {
+            return UnitScope.Restricted(units);
+        }
+
+        return UnitScope.Global;
+    }
+
+    /// <summary>Forme de transport du perimetre, celle de la reponse de connexion et de <c>/me</c>.</summary>
+    public static UnitScopeResponse ToResponse(this IUnitScope scope)
+    {
+        return new UnitScopeResponse(scope.IsGlobal, scope.AllowedUnitCodes);
     }
 }

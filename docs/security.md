@@ -113,6 +113,8 @@ email/SMTP infrastructure in this repository yet). It is never written to the au
 | POST /api/v1/security/users/{id}/activate | users.write |
 | POST /api/v1/security/users/{id}/deactivate | users.write |
 | PUT /api/v1/security/users/{id}/roles | users.write |
+| GET /api/v1/security/users/{id}/units | users.read |
+| PUT /api/v1/security/users/{id}/units | users.write |
 | POST /api/v1/security/users/{id}/unlock | users.write |
 | POST /api/v1/security/users/{id}/reset-password | users.write |
 | POST /api/v1/auth/refresh | Public (valid refresh token required) |
@@ -231,7 +233,119 @@ personnalisé ne la détenait d'après le rapport). Le retrait est un lot dédi�
 le client WPF, le garde de readiness et cette page. Les tests `RbacPermissionRegistryTests`,
 `RbacPolicyMatrixTests`, `SecuritySeederTests` et `PermissionCatalogTests` fixent l'état courant.
 
+## Périmètre utilisateur ↔ unité
+
+Lot **A6a** de la réorganisation (`docs/reorganisation/10-plan-comprime.md`) : modèle, claims, filtre
+d'API, administration et rôle `reception`. Le contrôle **dans chaque service métier** est le lot A6b, qui
+n'est pas livré ; les deux limites du filtre décrites plus bas en découlent.
+
+### Modèle
+
+Table `security.user_unit_assignments` (`UserUnitAssignment`) : un utilisateur, un code d'unité (clé
+étrangère vers `organization.hotel_units.code`, suppression de l'unité refusée), une validité optionnelle
+(`valid_from`, `valid_to` exclu), qui a affecté et quand. Unicité (utilisateur, unité) tenue par un index
+unique. L'entité et sa configuration EF sont livrées ; le `DbSet` et la migration correspondante sont à
+générer à l'intégration (les tests construisent le schéma par `EnsureCreated`).
+
+Sémantique, volontairement asymétrique pour rester compatible avec l'existant :
+
+- **aucune affectation = périmètre global**. Les rôles système et tous les comptes créés avant ce lot
+  n'ont aucune ligne et voient tout, exactement comme avant. Le périmètre se restreint par un acte
+  d'administration explicite et audité, jamais par défaut ;
+- **au moins une affectation = périmètre restreint** aux affectations en validité à l'instant où le jeton
+  est émis. Un compte dont toutes les affectations sont expirées n'a accès à **aucune** unité : une
+  restriction qui expire ne redevient jamais globale par accident.
+
+### Jeton
+
+`IUnitScope { IsGlobal, AllowedUnitCodes, Allows(code) }` est photographié dans le JWT à la connexion et
+**relu en base à chaque `POST /api/v1/auth/refresh`** : une affectation retirée disparaît du jeton
+suivant, comme un rôle retiré en fait disparaître les permissions. Le jeton ne porte que des codes.
+
+| Périmètre | Claims portés |
+|---|---|
+| global | `scope=global` |
+| restreint | un claim `unit=<CODE>` par unité autorisée (majuscules) ; jamais de claim `scope` |
+| restreint, aucune unité en validité | `scope=none` |
+| jeton émis avant ce lot | aucun claim de périmètre : lu **global** jusqu'à son expiration (`AccessTokenMinutes`) |
+
+La réponse de connexion et `GET /api/v1/me` exposent `unitScope { isGlobal, units[] }` ; le client WPF
+l'affiche dans le bandeau de session (« Toutes les unités », la liste des codes, ou « Aucune unité ») —
+affichage seulement, le serveur fait autorité sur chaque route.
+
+### Filtre d'API (`UnitScopeEndpointFilter`, groupe `/api/v1`)
+
+Après authentification et autorisation, pour un appelant au périmètre **restreint** (un appelant global
+n'est jamais filtré), le filtre lit :
+
+1. la valeur de route `hotelUnitCode` ;
+2. le paramètre de requête `hotelUnitCode` (clé et valeur comparées sans casse) ;
+3. dans chaque argument lié à la route, une propriété publique `HotelUnitCode` de type chaîne — la forme
+   de tous les corps de création (recette, réservation, type de chambre, événement…).
+
+Chaque code trouvé doit être dans le périmètre, sinon **403** avec `ErrorResponse` :
+`{ "message": "L'unite hoteliere 'X' n'est pas dans votre perimetre (unites autorisees : A, B). …" }`.
+
+**Préfixes exemptés** : `/api/v1/auth/*`, `/api/v1/me`, `/api/v1/health/*`, `/api/v1/security/*`,
+`/api/v1/organization/*`, `/api/v1/settings`. Se connecter, lire son contexte, administrer les comptes
+(dont leurs affectations) et les unités elles-mêmes ne dépendent pas du périmètre de l'administrateur.
+
+**Préfixes effectivement couverts** (routes portant `hotelUnitCode` en route, en requête ou dans le
+corps) :
+
+| Module | Préfixes sous `/api/v1` |
+|---|---|
+| PMS | `/lodging/availability`, `/lodging/front-desk`, `/lodging/room-types`, `/lodging/rooms` (liste, création, `{id}/out-of-order`, `{id}/out-of-service`), `/lodging/reservations` (liste, création), `/lodging/occupancy`, `/lodging/room-blocks`, `/lodging/policy`, `/lodging/restrictions`, `/lodging/overbooking`, `/lodging/business-date`, `/lodging/forecast`, `/lodging/tape-chart`, `/lodging/arrivals`, `/lodging/departures`, `/lodging/in-house`, `/lodging/no-shows`, `/lodging/night-audit`, `/lodging/extras`, `/lodging/packages`, `/lodging/cancellation-policies`, `/lodging/yield-rules` |
+| Tarifs | `/tariffs/plans` (liste, création), `/tariffs/resolve` |
+| Housekeeping | `/housekeeping/board`, `/housekeeping/day-sheet`, `/housekeeping/tasks` (liste, génération), `/housekeeping/minibar/items`, `/housekeeping/minibar/consumptions` |
+| MICE | `/mice/spaces` (liste, `{hotelUnitCode}/{code}`), `/mice/events` (liste, création), `/mice/allotments` (liste, création) |
+| CRM | `/crm/satisfaction`, `/crm/satisfaction/nps`, `/crm/interactions` |
+| Exploitation et finance | `/revenue/daily` (liste, `summary`, création), `/closing/daily`, `/treasury/receipts` (liste, `summary`, création, modification), `/billing/invoices` (liste, création), `/budget/plans` (liste, création), `/budget/variance` |
+| Stocks, RH, pilotage, système | `/inventory/warehouses` (création, modification), `/hr/employees` (liste, création, modification), `/kpis/thresholds`, `/sync/stations/heartbeat` |
+
+**Deux limites, assumées, que seul le contrôle dans les services métier (A6b) lèvera :**
+
+1. **Une liste appelée sans paramètre d'unité n'est pas filtrée.** `GET /api/v1/revenue/daily` sans
+   `hotelUnitCode` rend aujourd'hui toutes les unités, à un compte restreint comme à un compte global. Le
+   filtre refuse ce qui est *demandé* hors périmètre ; il ne restreint pas ce qui n'est pas précisé.
+2. **Une route qui n'identifie l'unité qu'après chargement n'est pas couverte.** Tout ce qui est adressé
+   par identifiant — `/lodging/reservations/{id}/…` (arrivée, départ, annulation, folio),
+   `/billing/invoices/{id}/…`, `/treasury/receipts/{id}`, `/revenue/daily/{id}` (dont soumission et
+   validation), `/inventory/movements|transfers|counts`, `/lodging/deposits`, `/mice/events/{id}/…`,
+   `/housekeeping/tasks/{id}/…` — et les modules dont la requête ne porte pas d'unité (`/accounting`,
+   `/approvals`, `/purchasing`, `/kitchen`, `/maintenance`, `/reporting`, `/crm/guests|segments|loyalty|campaigns`,
+   `/hr` hors employés, `/audit`, `/kpis` en lecture).
+
+Le filtre est la première ligne, pas la dernière. `UnitScopeEndpointFilterTests` le prouve sur la route, la
+requête et le corps (accepté, refusé, casse), sur un périmètre global, sur `scope=none`, sur les
+exemptions et sur une requête anonyme ; il fige aussi la limite 1 pour qu'A6b la change sciemment.
+
+### Administration du périmètre
+
+| Route | Permission | Effet |
+|---|---|---|
+| `GET /api/v1/security/users/{id}/units` | `users.read` | `{ userId, userName, isGlobal, units[{ hotelUnitCode, assignedAt, assignedBy, validFrom, validTo }] }` ; 404 si le compte n'existe pas |
+| `PUT /api/v1/security/users/{id}/units` | `users.write` | Remplacement **complet** du périmètre (`{ "units": ["HOTELA"] }`, codes normalisés en majuscules, doublons fondus). `units: []` rend le compte **global** ; champ absent → 400 ; code inconnu → 400 et **rien** n'est enregistré, pas même les codes valides ; une unité conservée garde sa date d'affectation ; audit `security.user.units_changed` avec l'avant et l'après |
+
+Le changement s'applique au **prochain jeton** du compte (connexion ou rafraîchissement). Dans le client
+WPF, `UsersView` propose les unités (actives et désactivées ; `units.read` requis pour les lister, sinon
+l'écran le dit et le reste du module fonctionne) sous les rôles du compte sélectionné, et confirme avant
+d'enregistrer en montrant l'avant et l'après.
+
+### Rôle système `reception`
+
+Le comptoir du PMS, jusqu'ici tenu par `cashier` — qui porte aussi la caisse (`treasury.write`,
+`revenue.write`) et le night audit. `reception` reçoit strictement `settings.read`, `lodging.read`,
+`lodging.checkin`, `lodging.reserve`, `lodging.checkout`, `lodging.room_move`, `lodging.noshow`,
+`lodging.cancel`, `customers.read`, `customers.write`, `crm.read`, `housekeeping.read`, `invoices.read`,
+`treasury.read`, plus les clés cibles que ces clés historiques couvrent (règle d'équivalence du seeder).
+Ni caisse, ni `lodging.night_audit`, ni émission de facture, jamais `approvals.decide` :
+`RoleCatalog.ApprovalDeciderRoles` est inchangé, et `cashier` n'a pas été modifié
+(`SecuritySeederTests`, `RbacPolicyMatrixTests`).
+
 ## Next security tasks
 
+- Lot A6b : faire respecter le périmètre utilisateur ↔ unité dans chaque service métier (listes sans
+  paramètre d'unité, routes adressées par identifiant), en s'appuyant sur `IUnitScopeProvider`.
 - Retaguer les domaines hors P0 (socle, CRM, MICE, Housekeeping, F&B, Pilotage, Système) vers les clés
   cibles, puis faire évaluer les clés cibles par le client WPF.

@@ -9,5 +9,6 @@ public interface ITokenService
         User user,
         IReadOnlyCollection<string> roles,
         IReadOnlyCollection<string> permissions,
+        IUnitScope unitScope,
         string refreshToken);
 }

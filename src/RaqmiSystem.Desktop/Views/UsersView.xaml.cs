@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using RaqmiSystem.Application.Identity;
+using RaqmiSystem.Application.Organization;
 using RaqmiSystem.Domain.Identity;
 
 namespace RaqmiSystem.Desktop.Views;
@@ -43,6 +44,18 @@ public partial class UsersView : UserControl
     private const string NoSelectionPermissionsHint =
         "Sélectionnez un compte pour voir les permissions que ses rôles lui accordent.";
 
+    private const string CreationUnitsHint =
+        "Les unités s'affectent après la création : enregistrez d'abord le compte, puis sélectionnez-le dans la liste.";
+
+    private const string EditionUnitsHint =
+        "Aucune case cochée = périmètre global (le compte voit toutes les unités). Cochez une ou plusieurs unités pour l'y restreindre. L'enregistrement REMPLACE l'ensemble.";
+
+    private const string UnitsReadPermissionHint =
+        "Permission units.read requise pour afficher les unités : votre profil peut administrer les comptes, pas consulter les unités.";
+
+    private const string NoUnitsDefinedHint =
+        "Aucune unité n'est définie sur le serveur.";
+
     private ModuleViewContext? context;
 
     // Info-bulles d'origine des boutons conditionnes, capturees avant toute
@@ -64,6 +77,15 @@ public partial class UsersView : UserControl
     private IReadOnlyList<RoleSummary> roleCatalog = [];
     private IReadOnlyDictionary<string, string> permissionLabels =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    // Unites proposees au selecteur de perimetre (lot 2.2), lues une fois par session avec
+    // les roles - si le profil detient units.read. Le drapeau distingue « pas encore lu » ou
+    // « droit absent » de « lu, mais aucune unite definie » : les deux se disent autrement.
+    private IReadOnlyList<HotelUnitResponse> hotelUnitCatalog = [];
+    private bool hotelUnitCatalogLoaded;
+
+    // Perimetre du compte selectionne, tel que le serveur le renvoie ; null en creation.
+    private UserUnitScopeResponse? selectedUserScope;
 
     // Vrai pendant le remplacement de la grille : la selection saute alors a null
     // puis revient, et ces deux evenements ne doivent pas relancer, depuis le
@@ -116,12 +138,15 @@ public partial class UsersView : UserControl
     {
         roleCatalog = [];
         permissionLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        hotelUnitCatalog = [];
+        hotelUnitCatalogLoaded = false;
 
         UsersDataGrid.ItemsSource = null;
         SearchTextBox.Text = string.Empty;
         IncludeInactiveUsersCheckBox.IsChecked = false;
         UserCountTextBlock.Text = string.Empty;
         RolesEmptyTextBlock.Visibility = Visibility.Collapsed;
+        UnitsEmptyTextBlock.Visibility = Visibility.Collapsed;
 
         ClearTemporaryPassword();
         ApplyCreationMode();
@@ -203,6 +228,27 @@ public partial class UsersView : UserControl
         // Les cases a cocher n'existaient pas encore : elles sont construites ici,
         // en conservant ce qui etait deja coche (rien, a la premiere ouverture).
         RefreshRoleOptions(ReadCheckedRoleNames());
+
+        // Les unites du selecteur de perimetre exigent units.read, qu'un profil
+        // d'administration des comptes n'a pas forcement : sans ce droit, l'ecran le dit
+        // et laisse le reste du module fonctionner, plutot que d'echouer en bloc sur un 403.
+        // Les unites desactivees sont proposees aussi : une affectation est une declaration
+        // sur le compte, et une unite reactivee retrouve alors ses affectations intactes.
+        if (active.HasPermission(PermissionCatalog.UnitsRead))
+        {
+            var units = await active.ApiClient.GetHotelUnitsAsync(active.ApiBaseUrl, includeInactive: true);
+
+            hotelUnitCatalog = units
+                .OrderBy(unit => unit.DisplayOrder)
+                .ThenBy(unit => unit.Code, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            hotelUnitCatalogLoaded = true;
+        }
+
+        UnitsEmptyTextBlock.Text = !hotelUnitCatalogLoaded ? UnitsReadPermissionHint : NoUnitsDefinedHint;
+        UnitsEmptyTextBlock.Visibility = hotelUnitCatalog.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        RefreshUnitOptions(ReadCheckedUnitCodes());
     }
 
     private async Task ReloadUsersAsync(ModuleViewContext active, Guid? selectUserId = null)
@@ -280,6 +326,10 @@ public partial class UsersView : UserControl
         }
 
         ApplyDetail(await active.ApiClient.GetUserAsync(active.ApiBaseUrl, selected.Id));
+
+        // Le perimetre est une seconde ressource du compte, servie par sa propre route :
+        // il n'est pas dans le detail, il est lu juste apres, dans le meme appel encadre.
+        ApplyUnitScope(await active.ApiClient.GetUserUnitsAsync(active.ApiBaseUrl, selected.Id));
     }
 
     // ============================== Selection ==============================
@@ -360,6 +410,14 @@ public partial class UsersView : UserControl
         // Coche immediatement d'apres la ligne de liste ; le detail charge juste
         // apres confirme la meme information et y ajoute les permissions.
         RefreshRoleOptions(selected.Roles);
+
+        // La ligne de liste ne porte pas le perimetre : les cases sont vidées en attendant
+        // la reponse du serveur, pour ne jamais montrer les unites du compte precedent.
+        UnitsTitleTextBlock.Text = $"Unités de « {selected.UserName} »";
+        UnitsHintTextBlock.Text = EditionUnitsHint;
+        selectedUserScope = null;
+        RefreshUnitOptions([]);
+        UnitScopeSummaryTextBlock.Text = "Lecture du périmètre…";
     }
 
     // Remet le formulaire, le selecteur de roles et le detail en mode creation.
@@ -382,7 +440,32 @@ public partial class UsersView : UserControl
         RolesHintTextBlock.Text = CreationRolesHint;
 
         RefreshRoleOptions([]);
+
+        UnitsTitleTextBlock.Text = "Unités du nouveau compte";
+        UnitsHintTextBlock.Text = CreationUnitsHint;
+        selectedUserScope = null;
+        RefreshUnitOptions([]);
+        UnitScopeSummaryTextBlock.Text = string.Empty;
+
         ClearDetail();
+    }
+
+    /// <summary>
+    /// Reponse faisant autorite sur le perimetre du compte : coche ses unites et dit en clair
+    /// ce que le serveur en fera - « global » n'est pas une liste vide, c'est « tout voir ».
+    /// </summary>
+    private void ApplyUnitScope(UserUnitScopeResponse scope)
+    {
+        selectedUserScope = scope;
+
+        var codes = scope.Units.Select(unit => unit.HotelUnitCode).ToArray();
+        RefreshUnitOptions(codes);
+
+        UnitScopeSummaryTextBlock.Text = scope.IsGlobal
+            ? "Périmètre global : ce compte voit toutes les unités."
+            : codes.Length == 1
+                ? $"Périmètre restreint à une unité : {DescribeUnit(codes[0])}."
+                : $"Périmètre restreint à {codes.Length.ToString(CultureInfo.CurrentCulture)} unités : {string.Join(", ", codes.Select(DescribeUnit))}.";
     }
 
     private void ApplyDetail(UserAccountDetailResponse detail)
@@ -639,6 +722,99 @@ public partial class UsersView : UserControl
         });
     }
 
+    // ============================== Perimetre : unites ==============================
+
+    private async void SaveUnitsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (context is not { } active || UsersDataGrid.SelectedItem is not UserRowView selected)
+        {
+            return;
+        }
+
+        var requested = ReadCheckedUnitCodes();
+        var before = selectedUserScope?.Units.Select(unit => unit.HotelUnitCode).ToArray() ?? [];
+
+        var message =
+            $"Remplacer le périmètre du compte « {selected.UserName} » ({selected.DisplayName}) ?"
+            + Environment.NewLine + Environment.NewLine
+            + $"Avant : {DescribeUnitSet(before)}"
+            + Environment.NewLine
+            + $"Après : {DescribeUnitSet(requested)}"
+            + Environment.NewLine + Environment.NewLine
+            + (requested.Length == 0
+                ? "Aucune unité cochée : le compte redevient GLOBAL et verra toutes les unités."
+                : "Le compte ne verra plus que les unités cochées. Le changement s'applique à sa prochaine connexion ou au prochain rafraîchissement de sa session.");
+
+        if (active.CurrentUserId == selected.Id)
+        {
+            message += Environment.NewLine + Environment.NewLine
+                + "Attention : il s'agit de VOTRE compte. Le nouveau périmètre s'appliquera à votre prochaine session.";
+        }
+
+        if (!Confirm(message, "Modifier le périmètre"))
+        {
+            return;
+        }
+
+        await active.RunAsync(async () =>
+        {
+            var changed = await active.ApiClient.SetUserUnitsAsync(active.ApiBaseUrl, selected.Id, requested);
+
+            ApplyUnitScope(changed);
+            active.SetStatus(changed.IsGlobal
+                ? $"Périmètre du compte « {changed.UserName} » enregistré : global, toutes les unités."
+                : $"Périmètre du compte « {changed.UserName} » enregistré : {DescribeUnitSet(changed.Units.Select(unit => unit.HotelUnitCode).ToArray())}.");
+        });
+    }
+
+    // Meme motif que les roles : reconstruire les cases plutot que les muter.
+    private void RefreshUnitOptions(IReadOnlyCollection<string> selectedCodes)
+    {
+        UnitsItemsControl.ItemsSource = hotelUnitCatalog
+            .Select(unit => new UnitOptionView(
+                unit.Code,
+                $"{unit.Code} — {unit.Name}",
+                unit.IsActive ? DescribeUnitType(unit) : DescribeUnitType(unit) + " · unité désactivée",
+                selectedCodes.Contains(unit.Code, StringComparer.OrdinalIgnoreCase)))
+            .ToArray();
+    }
+
+    private string[] ReadCheckedUnitCodes()
+    {
+        return UnitsItemsControl.ItemsSource is IEnumerable<UnitOptionView> options
+            ? options.Where(option => option.IsSelected).Select(option => option.Code).ToArray()
+            : [];
+    }
+
+    private static string DescribeUnitType(HotelUnitResponse unit)
+    {
+        return unit.UnitType switch
+        {
+            Domain.Organization.HotelUnitType.Hotel => "Hôtel",
+            Domain.Organization.HotelUnitType.Residence => "Résidence",
+            Domain.Organization.HotelUnitType.BeachClub => "Beach club",
+            Domain.Organization.HotelUnitType.Marina => "Marina",
+            _ => "Autre unité"
+        };
+    }
+
+    private string DescribeUnit(string code)
+    {
+        var unit = hotelUnitCatalog.FirstOrDefault(current =>
+            string.Equals(current.Code, code, StringComparison.OrdinalIgnoreCase));
+
+        return unit is null ? code : $"{unit.Code} ({unit.Name})";
+    }
+
+    private string DescribeUnitSet(IReadOnlyCollection<string> codes)
+    {
+        return codes.Count == 0
+            ? "global (toutes les unités)"
+            : string.Join(", ", codes.Select(DescribeUnit));
+    }
+
+    // ============================== Roles : selecteur ==============================
+
     // Reconstruit la liste de cases a cocher a partir du catalogue des roles.
     // Reconstruire plutot que muter evite d'avoir a notifier l'interface : les
     // objets affiches sont neufs, et l'etat coche vient de l'appelant.
@@ -805,6 +981,17 @@ public partial class UsersView : UserControl
                 : selected is null ? "En création, les rôles cochés sont accordés au moment où le compte est créé : il n'y a rien à enregistrer séparément."
                 : roleCatalog.Count == 0 ? "Aucun rôle n'est défini sur le serveur."
                 : null);
+
+        // Le perimetre s'enregistre sur un compte EXISTANT et exige users.write comme les
+        // roles ; sans units.read le selecteur est vide, et le bouton dit pourquoi.
+        SetActionState(
+            SaveUnitsButton,
+            canWriteUsers && selected is not null && hotelUnitCatalog.Count > 0,
+            !canWriteUsers ? WritePermissionHint
+                : selected is null ? CreationUnitsHint
+                : !hotelUnitCatalogLoaded ? UnitsReadPermissionHint
+                : hotelUnitCatalog.Count == 0 ? NoUnitsDefinedHint
+                : null);
     }
 
     // Pose le message d'explication quand l'action est grisee, et RESTAURE
@@ -885,6 +1072,18 @@ public partial class UsersView : UserControl
         public string Name { get; } = name;
 
         public string DisplayName { get; } = displayName;
+
+        public string Description { get; } = description;
+
+        public bool IsSelected { get; set; } = isSelected;
+    }
+
+    // Case a cocher du selecteur de perimetre ; classe pour la meme raison que RoleOptionView.
+    private sealed class UnitOptionView(string code, string label, string description, bool isSelected)
+    {
+        public string Code { get; } = code;
+
+        public string Label { get; } = label;
 
         public string Description { get; } = description;
 

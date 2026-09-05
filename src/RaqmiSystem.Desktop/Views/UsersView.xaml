@@ -14,10 +14,12 @@
          Administration et utilisateurs : comptes, roles et actions de securite.
 
          Meme mise en page que le fichier clients (carte de formulaire en haut,
-         liste en dessous), avec deux surfaces propres a ce module :
+         liste en dessous), avec trois surfaces propres a ce module :
            - le selecteur de roles, a droite du formulaire, qui montre le libelle
              ET la description de chaque role pour que l'administrateur sache ce
              qu'il accorde ;
+           - le perimetre d'unites du compte (lot 2.2), sous les roles : aucune
+             unite cochee = le compte voit tout ; une ou plusieurs = restreint ;
            - l'encart du mot de passe temporaire, que le serveur ne renvoie
              qu'une seule fois (creation et reinitialisation).
 
@@ -344,6 +346,71 @@
                                     HorizontalAlignment="Right"
                                     Margin="0,6,0,0"
                                     Click="SaveRolesButton_Click" />
+
+                            <Border Height="1"
+                                    Background="{StaticResource PanelBorderBrush}"
+                                    Margin="0,16,0,0" />
+
+                            <!-- ================= Perimetre : unites affectees (lot 2.2) =================
+                                 Aucune case cochee = perimetre GLOBAL (le compte voit toutes les
+                                 unites, comme tous les comptes existants) ; une ou plusieurs
+                                 cases = perimetre restreint. La regle est celle du serveur, qui
+                                 la porte dans le jeton et la fait respecter sur chaque route ;
+                                 l'ecran ne fait que la montrer et la modifier. -->
+                            <TextBlock x:Name="UnitsTitleTextBlock"
+                                       Text="Unités du nouveau compte"
+                                       Style="{StaticResource SectionTitleText}"
+                                       FontSize="14"
+                                       Margin="0,14,0,0" />
+                            <TextBlock x:Name="UnitsHintTextBlock"
+                                       Style="{StaticResource FieldHintText}"
+                                       Margin="0,4,0,10" />
+
+                            <Grid>
+                                <ScrollViewer MaxHeight="170"
+                                              VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled">
+                                    <ItemsControl x:Name="UnitsItemsControl">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                          Margin="0,0,0,8"
+                                                          VerticalContentAlignment="Top">
+                                                    <StackPanel Margin="4,0,0,0">
+                                                        <TextBlock Text="{Binding Label}"
+                                                                   FontWeight="SemiBold"
+                                                                   TextWrapping="Wrap" />
+                                                        <TextBlock Text="{Binding Description}"
+                                                                   Style="{StaticResource CaptionText}"
+                                                                   TextWrapping="Wrap"
+                                                                   Margin="0,2,0,0" />
+                                                    </StackPanel>
+                                                </CheckBox>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+
+                                <!-- Etat vide : aucune unite recue (aucune definie, ou units.read absente). -->
+                                <TextBlock x:Name="UnitsEmptyTextBlock"
+                                           Style="{StaticResource EmptyStateHintText}"
+                                           VerticalAlignment="Center"
+                                           Visibility="Collapsed" />
+                            </Grid>
+
+                            <TextBlock x:Name="UnitScopeSummaryTextBlock"
+                                       Style="{StaticResource CaptionText}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,4,0,0" />
+
+                            <Button x:Name="SaveUnitsButton"
+                                    Content="Enregistrer les unités"
+                                    Style="{StaticResource PrimaryButton}"
+                                    ToolTip="Remplacer les unités affectées au compte sélectionné par celles cochées ci-dessus"
+                                    ToolTipService.ShowOnDisabled="True"
+                                    HorizontalAlignment="Right"
+                                    Margin="0,6,0,0"
+                                    Click="SaveUnitsButton_Click" />
 
                             <Border Height="1"
                                     Background="{StaticResource PanelBorderBrush}"

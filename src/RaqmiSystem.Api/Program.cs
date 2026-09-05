@@ -36,6 +36,7 @@ var jwtOptions = JwtOptions.FromConfiguration(
     allowEphemeralDevelopmentKey: builder.Environment.IsDevelopment());
 
 builder.Services.AddRaqmiInfrastructure(builder.Configuration, jwtOptions);
+builder.Services.AddRaqmiUnitScope();
 
 // Rapport de migration RBAC (lot 2.1) : lecture seule, enregistre ici a cote des politiques
 // d'autorisation qu'il sert a preparer. A rapatrier dans AddRaqmiInfrastructure avec le prochain
@@ -128,6 +129,12 @@ app.MapGet("/health/database", async (RaqmiDbContext db, CancellationToken cance
 
 var api = app.MapGroup("/api/v1");
 
+// Perimetre utilisateur <-> unite (lot 2.2) : pose sur le groupe entier plutot que route par
+// route, pour qu'une route ajoutee demain soit couverte sans y penser. Il s'execute apres
+// l'autorisation, ne filtre que les appelants restreints et exempte lui-meme les routes de
+// session, de securite et d'organisation (voir UnitScopeEndpointFilter et docs/security.md).
+api.AddEndpointFilter<RaqmiSystem.Api.Security.UnitScopeEndpointFilter>();
+
 api.MapPost("/auth/login", async (
     LoginRequest request,
     IAuthenticationService authenticationService,
@@ -176,7 +183,8 @@ api.MapGet("/me", (ClaimsPrincipal user) =>
         userName = user.Identity?.Name,
         email = user.FindFirstValue(ClaimTypes.Email),
         roles,
-        permissions
+        permissions,
+        unitScope = user.GetUnitScope().ToResponse()
     });
 }).RequireAuthorization();
 

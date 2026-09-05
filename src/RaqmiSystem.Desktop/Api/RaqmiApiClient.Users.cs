@@ -1,5 +1,8 @@
+using System.Buffers.Text;
 using System.Net.Http;
+using System.Text.Json;
 using RaqmiSystem.Application.Identity;
+using RaqmiSystem.Application.Security;
 
 namespace RaqmiSystem.Desktop.Api;
 
@@ -183,6 +186,119 @@ public sealed partial class RaqmiApiClient
         var response = await SendAsync(apiBaseUrl, HttpMethod.Post, $"{SecurityUsersPath}/{id}/reset-password", null, includeAuthorization: true, cancellationToken);
 
         return await ReadResponseAsync<ResetPasswordResponse>(response, cancellationToken);
+    }
+
+    // ------------------------- Perimetre utilisateur <-> unite (lot 2.2) -------------------------
+
+    /// <summary>
+    /// Perimetre d'un compte : ses unites affectees, ou IsGlobal quand il n'en a aucune
+    /// (aucune affectation = toutes les unites, comme aujourd'hui pour tous les comptes).
+    /// </summary>
+    public async Task<UserUnitScopeResponse> GetUserUnitsAsync(
+        string apiBaseUrl,
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Get, $"{SecurityUsersPath}/{id}/units", null, includeAuthorization: true, cancellationToken);
+
+        return await ReadResponseAsync<UserUnitScopeResponse>(response, cancellationToken);
+    }
+
+    /// <summary>
+    /// REMPLACE le perimetre du compte : ce qui ne figure pas dans
+    /// <paramref name="hotelUnitCodes"/> est retire. Une collection vide est legitime et rend
+    /// le compte GLOBAL. Un code inconnu est refuse en bloc par le serveur (400).
+    /// </summary>
+    public async Task<UserUnitScopeResponse> SetUserUnitsAsync(
+        string apiBaseUrl,
+        Guid id,
+        IReadOnlyCollection<string> hotelUnitCodes,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuthenticated();
+
+        var response = await SendAsync(
+            apiBaseUrl,
+            HttpMethod.Put,
+            $"{SecurityUsersPath}/{id}/units",
+            new SetUserUnitsRequest(hotelUnitCodes),
+            includeAuthorization: true,
+            cancellationToken);
+
+        return await ReadResponseAsync<UserUnitScopeResponse>(response, cancellationToken);
+    }
+
+    /// <summary>
+    /// Le perimetre de la SESSION, tel que le jeton d'acces le porte (scope=global, ou un
+    /// claim unit par code). Lecture d'AFFICHAGE seulement : le bandeau de session et le
+    /// filtre de navigation s'en servent pour dire a l'utilisateur ce qu'il voit, jamais pour
+    /// decider de quoi que ce soit - la signature n'est pas verifiee ici, c'est le serveur
+    /// qui fait autorite sur chaque route. Null hors session ou si le jeton est illisible.
+    ///
+    /// Le jeton est decode ici, dans la classe partielle, parce que c'est le seul endroit du
+    /// client qui detient le jeton : la fenetre principale ne conserve de la reponse de
+    /// connexion que les permissions.
+    /// </summary>
+    public UnitScopeResponse? TryGetSessionUnitScope()
+    {
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            return null;
+        }
+
+        var parts = accessToken.Split('.');
+
+        if (parts.Length < 2)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var payload = JsonDocument.Parse(Base64Url.DecodeFromChars(parts[1]));
+            var root = payload.RootElement;
+
+            var scope = root.TryGetProperty(SecurityClaimTypes.Scope, out var scopeElement)
+                && scopeElement.ValueKind == JsonValueKind.String
+                ? scopeElement.GetString()
+                : null;
+
+            if (scope == SecurityClaimTypes.GlobalScope)
+            {
+                return new UnitScopeResponse(true, []);
+            }
+
+            var units = new List<string>();
+
+            if (root.TryGetProperty(SecurityClaimTypes.Unit, out var unitElement))
+            {
+                // Un seul claim est ecrit comme une chaine, plusieurs comme un tableau.
+                if (unitElement.ValueKind == JsonValueKind.String)
+                {
+                    units.Add(unitElement.GetString()!);
+                }
+                else if (unitElement.ValueKind == JsonValueKind.Array)
+                {
+                    units.AddRange(unitElement.EnumerateArray()
+                        .Where(element => element.ValueKind == JsonValueKind.String)
+                        .Select(element => element.GetString()!));
+                }
+            }
+
+            if (units.Count > 0 || scope == SecurityClaimTypes.NoUnitScope)
+            {
+                return new UnitScopeResponse(false, units.Order(StringComparer.Ordinal).ToArray());
+            }
+
+            // Aucun claim de perimetre : jeton emis avant le lot 2.2, lu global comme le serveur.
+            return new UnitScopeResponse(true, []);
+        }
+        catch (Exception ex) when (ex is FormatException or JsonException)
+        {
+            return null;
+        }
     }
 
     private static string BuildUsersQuery(string? search, bool includeInactive)

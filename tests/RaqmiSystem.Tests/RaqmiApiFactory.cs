@@ -159,6 +159,32 @@ public sealed class RaqmiApiFactory : WebApplicationFactory<Program>, IAsyncLife
     }
 
     /// <summary>
+    /// Replaces a user's unit assignments directly through the DbContext (lot 2.2), bypassing
+    /// the administration endpoint - so token and filter tests set up a restricted account
+    /// without coupling to, or incidentally testing, the administration route. No code means no
+    /// assignment at all, i.e. a GLOBAL scope. <paramref name="validTo"/> lets a test create an
+    /// already-expired assignment: the account then has assignments but no effective unit.
+    /// </summary>
+    public async Task SetUserUnitsAsync(Guid userId, DateTimeOffset? validTo = null, params string[] hotelUnitCodes)
+    {
+        using var scope = Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<RaqmiDbContext>();
+
+        var existing = await dbContext.Set<UserUnitAssignment>()
+            .Where(assignment => assignment.UserId == userId)
+            .ToArrayAsync();
+
+        dbContext.RemoveRange(existing);
+
+        foreach (var code in hotelUnitCodes)
+        {
+            dbContext.Add(new UserUnitAssignment(userId, code, "tests", DateTimeOffset.UtcNow.AddMinutes(-5), validTo: validTo));
+        }
+
+        await dbContext.SaveChangesAsync();
+    }
+
+    /// <summary>
     /// Writes the global settings singleton directly through the DbContext (bypassing the settings
     /// API), so tests that need to ISSUE an invoice satisfy the emitter-identity guard without
     /// having to grant themselves settings.write or incidentally test the settings module.

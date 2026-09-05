@@ -87,6 +87,11 @@ public sealed class AuthenticationService(
         var roles = ExtractRoles(user);
         var permissions = ExtractPermissions(user);
 
+        // Perimetre d'unites (lot 2.2), lu en base au moment de l'emission : aucune affectation
+        // = global, sinon les unites en validite. Photographie dans le jeton comme les
+        // permissions, avec la meme duree de vie.
+        var unitScope = await UnitScopeProvider.LoadAsync(dbContext, user.Id, now, cancellationToken);
+
         user.RegisterSuccessfulLogin(now);
 
         var rawRefreshToken = IssueRefreshToken(user.Id, now);
@@ -97,7 +102,7 @@ public sealed class AuthenticationService(
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return tokenService.CreateToken(user, roles, permissions, rawRefreshToken);
+        return tokenService.CreateToken(user, roles, permissions, unitScope, rawRefreshToken);
     }
 
     public async Task<LoginResponse?> RefreshAsync(
@@ -164,6 +169,11 @@ public sealed class AuthenticationService(
         var roles = ExtractRoles(user);
         var permissions = ExtractPermissions(user);
 
+        // Le perimetre est RELU en base, jamais recopie de l'ancien jeton (que ce service ne
+        // voit d'ailleurs pas) : une affectation retiree entre deux refresh disparait du jeton
+        // suivant, exactement comme un role retire en fait disparaitre les permissions.
+        var unitScope = await UnitScopeProvider.LoadAsync(dbContext, user.Id, now, cancellationToken);
+
         var rawRefreshToken = IssueRefreshToken(user.Id, now);
 
         await auditLogWriter.WriteAsync(
@@ -172,7 +182,7 @@ public sealed class AuthenticationService(
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return tokenService.CreateToken(user, roles, permissions, rawRefreshToken);
+        return tokenService.CreateToken(user, roles, permissions, unitScope, rawRefreshToken);
     }
 
     private string IssueRefreshToken(Guid userId, DateTimeOffset now)

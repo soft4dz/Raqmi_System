@@ -243,6 +243,11 @@ public sealed class AuthenticationEndpointTests : IClassFixture<RaqmiApiFactory>
         };
 
         Assert.Equal(WithTargetKeys(expectedPermissions), body.Permissions.Order());
+
+        // Lot 2.2 : un compte sans affectation d'unite a un perimetre global, et /me le dit.
+        Assert.NotNull(body.UnitScope);
+        Assert.True(body.UnitScope!.IsGlobal);
+        Assert.Empty(body.UnitScope.Units);
     }
 
     /// <summary>
@@ -268,5 +273,6 @@ public sealed class AuthenticationEndpointTests : IClassFixture<RaqmiApiFactory>
         string UserName,
         string? Email,
         string[] Roles,
-        string[] Permissions);
+        string[] Permissions,
+        UnitScopeResponse? UnitScope);
 }

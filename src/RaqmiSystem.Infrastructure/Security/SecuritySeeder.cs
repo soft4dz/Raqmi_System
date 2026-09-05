@@ -283,6 +283,35 @@ public sealed class SecuritySeeder(
             PermissionCatalog.CrmWrite,
             PermissionCatalog.ApprovalsRead
         ],
+        // Le profil Reception (lot 2.2, decision 8, risque R23). Jusqu'ici cashier en tenait
+        // lieu, et cashier porte la caisse : revenue.write, treasury.write, le night audit.
+        // Ce role ne porte que ce qu'exigent les routes du comptoir - lecture du PMS, vente
+        // (lodging.reserve couvre la reservation et le walk-in), arrivee (lodging.checkin
+        // couvre aussi la tenue du folio), depart, changement de chambre, annulation et
+        // no-show (deux gestes de comptoir a cle propre, que lodging.write couvrirait trop
+        // largement) - avec la fiche client qu'on cree a l'arrivee, la lecture du CRM, de
+        // l'etat des chambres, des factures et de la tresorerie pour renseigner un client.
+        // settings.read comme tous les roles (voir la note en tete). Aucune cle d'engagement
+        // financier (ni invoices.issue, ni treasury.write, ni revenue.write), jamais
+        // approvals.decide, et pas lodging.night_audit : cloturer la nuit fige les chiffres,
+        // c'est l'acte de la caisse ou du responsable, pas du comptoir.
+        [RoleCatalog.Reception] =
+        [
+            PermissionCatalog.SettingsRead,
+            PermissionCatalog.LodgingRead,
+            PermissionCatalog.LodgingCheckin,
+            PermissionCatalog.LodgingReserve,
+            PermissionCatalog.LodgingCheckout,
+            PermissionCatalog.LodgingRoomMove,
+            PermissionCatalog.LodgingNoShow,
+            PermissionCatalog.LodgingCancel,
+            PermissionCatalog.CustomersRead,
+            PermissionCatalog.CustomersWrite,
+            PermissionCatalog.CrmRead,
+            PermissionCatalog.HousekeepingRead,
+            PermissionCatalog.InvoicesRead,
+            PermissionCatalog.TreasuryRead
+        ],
         // The HR profile. It holds the whole HR module and nothing else of the ERP: the personal
         // data of law 18-07 and the payroll figures must not travel with an operating profile.
         // It gets approvals.read so absence and payroll requests routed through the workflow
@@ -476,6 +505,7 @@ public sealed class SecuritySeeder(
             RoleCatalog.ExploitationControl => new Role(roleName, "Exploitation et controle", "Controle des recettes, validation et audit.", isSystem: true),
             RoleCatalog.UnitManager => new Role(roleName, "Responsable unite", "Gestion operationnelle d'une unite hoteliere.", isSystem: true),
             RoleCatalog.Cashier => new Role(roleName, "Caissier", "Saisie caisse, recettes et mouvements de tresorerie.", isSystem: true),
+            RoleCatalog.Reception => new Role(roleName, "Reception", "Comptoir du PMS : reservations, arrivees, departs et fiche client. Sans caisse ni night audit.", isSystem: true),
             RoleCatalog.Reader => new Role(roleName, "Lecture seule", "Consultation limitee des donnees autorisees.", isSystem: true),
             RoleCatalog.HrManager => new Role(roleName, "Responsable RH", "Collaborateurs, contrats, temps, absences et paie.", isSystem: true),
             _ => throw new InvalidOperationException("Unknown system role.")

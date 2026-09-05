@@ -163,6 +163,43 @@ internal static class SecurityEndpoints
             return result.ToHttpResult();
         }).RequireAuthorization(PermissionCatalog.UsersWrite);
 
+        // Perimetre utilisateur <-> unite (lot 2.2). Lecture avec users.read, comme le detail
+        // du compte ; remplacement avec users.write, audite comme les roles. Ces deux routes
+        // vivent sous /security et sont donc EXEMPTEES du filtre de perimetre : un
+        // administrateur affecte des unites, il n'a pas a y etre lui-meme affecte.
+        users.MapGet("/{id:guid}/units", async (
+            Guid id,
+            IUserUnitAssignmentService service,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.GetAsync(id, cancellationToken);
+            return result.ToHttpResult();
+        }).RequireAuthorization(PermissionCatalog.UsersRead);
+
+        users.MapPut("/{id:guid}/units", async (
+            Guid id,
+            SetUserUnitsRequest request,
+            IUserUnitAssignmentService service,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            // Meme garde que pour les roles : ce remplacement est complet, et une liste vide
+            // rend le compte GLOBAL - ce qui doit etre demande, jamais deduit d'un champ oublie.
+            if (request.Units is null)
+            {
+                return Results.BadRequest(new ErrorResponse(
+                    "The units field is required. Send an empty array to give the account a global scope."));
+            }
+
+            var result = await service.SetAsync(
+                id,
+                request.Units,
+                httpContext.ToOperationContext(),
+                cancellationToken);
+
+            return result.ToHttpResult();
+        }).RequireAuthorization(PermissionCatalog.UsersWrite);
+
         users.MapPost("/{id:guid}/unlock", async (
             Guid id,
             IUserAdministrationService service,
