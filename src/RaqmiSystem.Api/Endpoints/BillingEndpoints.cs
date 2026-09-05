@@ -176,13 +176,26 @@ internal static class BillingEndpoints
             return result.ToHttpResult();
         }).RequireAuthorization(PermissionCatalog.BillingInvoiceIssue);
 
+        // Le corps est OPTIONNEL : sans mode de paiement, la facture est seulement marquee
+        // payee (comportement historique) et la reponse le signale ; avec, un encaissement reel
+        // est cree en tresorerie.
         invoices.MapPost("/{id:guid}/pay", async (
             Guid id,
+            PayInvoiceRequest? request,
             IBillingService service,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await service.MarkInvoicePaidAsync(id, httpContext.ToOperationContext(), cancellationToken);
+            // LEVIER OPTIONNEL : indiquer un mode de paiement ecrit un encaissement dans le
+            // module Tresorerie. Sans treasury.write, invoices.write deviendrait un chemin
+            // detourne vers la caisse - meme doctrine que la double cle des routes MICE.
+            if (request?.Method is not null
+                && !httpContext.User.HasPermission(PermissionCatalog.FinanceReceiptManage))
+            {
+                return Results.Forbid();
+            }
+
+            var result = await service.PayInvoiceAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
         }).RequireAuthorization(PermissionCatalog.BillingInvoiceManage);
 

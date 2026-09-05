@@ -1,19 +1,23 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using RaqmiSystem.Application.Approvals;
 using RaqmiSystem.Application.Common;
 using RaqmiSystem.Application.Inventory;
 using RaqmiSystem.Application.Security;
+using RaqmiSystem.Domain.Approvals;
 using RaqmiSystem.Domain.Billing;
 using RaqmiSystem.Domain.Catalog;
 using RaqmiSystem.Domain.Inventory;
 using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Domain.Settings;
+using RaqmiSystem.Domain.Treasury;
 using RaqmiSystem.Infrastructure.Audit;
 using RaqmiSystem.Infrastructure.Billing;
 using RaqmiSystem.Infrastructure.Catalog;
 using RaqmiSystem.Infrastructure.Inventory;
 using RaqmiSystem.Infrastructure.Persistence;
 using RaqmiSystem.Infrastructure.Settings;
+using RaqmiSystem.Infrastructure.Treasury;
 
 namespace RaqmiSystem.Tests;
 
@@ -35,7 +39,23 @@ internal static class SalesTestServices
             auditWriter,
             new ApplicationSettingsService(dbContext, auditWriter),
             new CatalogService(dbContext, auditWriter, inventory),
-            inventory);
+            inventory,
+            new TreasuryService(dbContext, auditWriter, new AlwaysApprovedGate()));
+    }
+
+    /// <summary>
+    /// La tresorerie ne consulte la porte d'approbation que pour les ordres de paiement, que la
+    /// chaine de vente ne touche pas : une porte toujours ouverte suffit ici.
+    /// </summary>
+    private sealed class AlwaysApprovedGate : IApprovalGate
+    {
+        public Task<ApplicationResult<bool>> IsApprovedAsync(
+            ApprovalSubjectType type,
+            string reference,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(ApplicationResult<bool>.Success(true));
+        }
     }
 }
 
@@ -49,6 +69,7 @@ internal sealed class SalesHarness : IAsyncDisposable
     public const string UnitCode = "VTE1";
     public const string CustomerCode = "CLI-VTE";
     public const string WarehouseCode = "MAG-VTE";
+    public const string BankAccountCode = "BNA-VTE";
     public const string CocaStockItem = "BOI-COCA";
     public const string WaterStockItem = "BOI-EAU";
     public const string CocaArticle = "COCA";
@@ -99,6 +120,7 @@ internal sealed class SalesHarness : IAsyncDisposable
         dbContext.Set<HotelUnit>().Add(new HotelUnit(UnitCode, "Boutique Vente", HotelUnitType.Hotel));
         dbContext.Set<Customer>().Add(new Customer(CustomerCode, "Client Vente", CustomerType.Individual));
         dbContext.Set<Warehouse>().Add(new Warehouse(WarehouseCode, "Magasin boutique", UnitCode));
+        dbContext.Set<BankAccount>().Add(new BankAccount(BankAccountCode, "Compte courant", "BNA", "00100200300400500600"));
         dbContext.Set<StockItem>().AddRange(
             new StockItem(CocaStockItem, "Coca-Cola 33cl", "piece", StockItemCategory.Boisson),
             new StockItem(WaterStockItem, "Eau minerale 50cl", "piece", StockItemCategory.Boisson));

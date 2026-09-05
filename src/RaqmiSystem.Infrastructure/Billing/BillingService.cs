@@ -5,6 +5,7 @@ using RaqmiSystem.Application.Security;
 using RaqmiSystem.Application.Catalog;
 using RaqmiSystem.Application.Inventory;
 using RaqmiSystem.Application.Settings;
+using RaqmiSystem.Application.Treasury;
 using RaqmiSystem.Domain.Billing;
 using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Infrastructure.Persistence;
@@ -18,15 +19,26 @@ namespace RaqmiSystem.Infrastructure.Billing;
 /// modules et n'en reimplemente aucun : <see cref="ICatalogService"/> pour construire une ligne
 /// depuis un code article (prix et TVA repris de l'article) et savoir, a l'emission, quelles
 /// lignes sortent du stock ; <see cref="IStockOperationService"/> pour la sortie elle-meme, qui
-/// est ecrite dans la MEME transaction que l'emission.
+/// est ecrite dans la MEME transaction que l'emission ; <see cref="ITreasuryService"/> pour
+/// l'encaissement reel qu'un reglement cree, dans la meme transaction que le passage a Payee.
 /// </summary>
 public sealed class BillingService(
     RaqmiDbContext dbContext,
     IAuditLogWriter auditLogWriter,
     IApplicationSettingsService applicationSettingsService,
     ICatalogService catalogService,
-    IStockOperationService stockOperations) : IBillingService
+    IStockOperationService stockOperations,
+    ITreasuryService treasuryService) : IBillingService
 {
+    /// <summary>
+    /// Ce que repond un reglement sans mode de paiement : la facture est payee aux yeux de la
+    /// facturation, mais RIEN n'est entre en caisse. Dit explicitement pour qu'un appelant qui a
+    /// oublie le mode de paiement ne prenne pas ce statut pour un encaissement.
+    /// </summary>
+    private const string PaidWithoutReceiptNotice =
+        "Facture marquee payee sans encaissement en tresorerie : precisez le mode de paiement " +
+        "(et la caisse ou le compte bancaire encaisseur) pour que le reglement cree l'encaissement.";
+
     public async Task<IReadOnlyCollection<CustomerResponse>> ListCustomersAsync(
         string? search,
         bool includeInactive,
@@ -619,17 +631,183 @@ public sealed class BillingService(
             Map(invoice, await LoadCustomerNameAsync(invoice.CustomerCode, cancellationToken)));
     }
 
-    public async Task<ApplicationResult<InvoiceResponse>> MarkInvoicePaidAsync(
+    public async Task<ApplicationResult<InvoicePaymentResponse>> PayInvoiceAsync(
         Guid id,
+        PayInvoiceRequest? request,
         OperationContext context,
         CancellationToken cancellationToken)
     {
-        return await ChangeInvoiceStatusAsync(
-            id,
-            context,
-            "finance.invoice.paid",
-            invoice => invoice.MarkPaid(context.UserName, DateTimeOffset.UtcNow),
-            cancellationToken);
+        if (request?.Method is null)
+        {
+            // Chemin historique, conserve tel quel : la facture est marquee payee, aucun
+            // encaissement n'est cree, et la reponse le dit.
+            var marked = await ChangeInvoiceStatusAsync(
+                id,
+                context,
+                "finance.invoice.paid",
+                invoice => invoice.MarkPaid(context.UserName, DateTimeOffset.UtcNow),
+                cancellationToken);
+
+            return marked.Succeeded && marked.Value is not null
+                ? ApplicationResult<InvoicePaymentResponse>.Success(
+                    new InvoicePaymentResponse(marked.Value, Receipt: null, PaidWithoutReceiptNotice))
+                : MirrorFailure<InvoiceResponse, InvoicePaymentResponse>(marked);
+        }
+
+        // ENCAISSEMENT REEL. Le passage a Payee et la creation de l'encaissement tiennent dans
+        // une transaction Serializable : deux reglements concurrents de la meme facture liraient
+        // tous deux "Emise" et creeraient deux encaissements. Le claim conditionnel (UPDATE ...
+        // WHERE status = 'Issued', motif de LodgingService) fait echouer le second au commit -
+        // PostgreSQL le refuse en erreur de serialisation, SQLite en base verrouillee - et les
+        // deux echecs sont rendus comme un 409 rejouable sans rien avoir ecrit.
+        try
+        {
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable,
+                cancellationToken);
+
+            var invoice = await dbContext.Set<Invoice>()
+                .Include(current => current.Lines)
+                .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
+
+            if (invoice is null)
+            {
+                return ApplicationResult<InvoicePaymentResponse>.NotFound("Invoice was not found.");
+            }
+
+            if (invoice.CashReceiptId is not null)
+            {
+                return ApplicationResult<InvoicePaymentResponse>.Conflict(
+                    "Cette facture est deja rattachee a un encaissement : un reglement rejoue ne le double pas.");
+            }
+
+            if (invoice.Status != InvoiceStatus.Issued)
+            {
+                return ApplicationResult<InvoicePaymentResponse>.Validation("Only issued invoices can be marked as paid.");
+            }
+
+            var now = DateTimeOffset.UtcNow;
+
+            if (!await TryClaimInvoiceStatusAsync(invoice.Id, InvoiceStatus.Issued, now, cancellationToken))
+            {
+                return ApplicationResult<InvoicePaymentResponse>.Conflict(
+                    "Cette facture vient d'etre reglee par une operation concurrente : rien n'a ete ecrit.");
+            }
+
+            // L'encaissement est cree PAR LE MODULE TRESORERIE : ses regles (piece obligatoire sur
+            // cheque et virement, caisse ou banque obligatoire hors especes, unite active) valent
+            // ici comme au guichet, et un refus est rendu tel quel. Reference = la piece du
+            // paiement quand il y en a une, sinon le numero de la facture ; la facture reglee est
+            // toujours nommee dans les notes : c'est le lien lisible de la caisse vers la facture.
+            var notes = string.IsNullOrWhiteSpace(request.Notes)
+                ? $"Reglement de la facture {invoice.Number}."
+                : $"Reglement de la facture {invoice.Number}. {request.Notes.Trim()}";
+
+            var created = await treasuryService.CreateReceiptAsync(
+                new CreateCashReceiptRequest(
+                    request.ReceiptDate ?? DateOnly.FromDateTime(now.UtcDateTime),
+                    invoice.HotelUnitCode,
+                    request.Method.Value,
+                    invoice.TotalInclVat,
+                    string.IsNullOrWhiteSpace(request.Reference) ? invoice.Number : request.Reference,
+                    request.BankAccountCode,
+                    notes),
+                context,
+                cancellationToken);
+
+            if (!created.Succeeded || created.Value is null)
+            {
+                return MirrorFailure<CashReceiptResponse, InvoicePaymentResponse>(created);
+            }
+
+            // Confirme dans la foulee : une facture Payee en face d'un encaissement encore en
+            // brouillon serait de l'argent que la synthese de tresorerie ne compterait pas.
+            var confirmed = await treasuryService.ConfirmReceiptAsync(created.Value.Id, context, cancellationToken);
+
+            if (!confirmed.Succeeded || confirmed.Value is null)
+            {
+                return MirrorFailure<CashReceiptResponse, InvoicePaymentResponse>(confirmed);
+            }
+
+            try
+            {
+                invoice.MarkPaid(context.UserName, now);
+                invoice.AttachCashReceipt(confirmed.Value.Id);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return ApplicationResult<InvoicePaymentResponse>.Validation(ex.Message);
+            }
+
+            invoice.MarkUpdated(context.UserName, now);
+
+            await WriteAuditAsync(
+                "finance.invoice.paid",
+                "finance.invoices",
+                invoice.Id,
+                context,
+                new
+                {
+                    invoice.Number,
+                    invoice.CustomerCode,
+                    Status = invoice.Status.ToString(),
+                    invoice.CashReceiptId,
+                    Method = request.Method.Value.ToString(),
+                    invoice.TotalInclVat
+                },
+                cancellationToken);
+
+            await SaveAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return ApplicationResult<InvoicePaymentResponse>.Success(
+                new InvoicePaymentResponse(
+                    Map(invoice, await LoadCustomerNameAsync(invoice.CustomerCode, cancellationToken)),
+                    confirmed.Value,
+                    Notice: null));
+        }
+        catch (Exception ex) when (ex.IsSerializationFailure())
+        {
+            return ApplicationResult<InvoicePaymentResponse>.Conflict(
+                "Cette facture etait reglee par une operation concurrente : le reglement a ete annule et rien n'a ete ecrit.");
+        }
+    }
+
+    /// <summary>
+    /// Forme atomique de "cette facture est toujours dans le statut attendu" : l'invariant voyage
+    /// comme clause WHERE d'un UPDATE conditionnel (le motif de LodgingService et
+    /// AccountingService). La seule colonne ecrite, UpdatedAt, est celle que le reglement
+    /// estampille de toute facon avec le meme horodatage.
+    /// </summary>
+    private async Task<bool> TryClaimInvoiceStatusAsync(
+        Guid invoiceId,
+        InvoiceStatus expectedStatus,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var claimedRows = await dbContext.Set<Invoice>()
+            .Where(current => current.Id == invoiceId && current.Status == expectedStatus)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(current => current.UpdatedAt, now),
+                cancellationToken);
+
+        return claimedRows == 1;
+    }
+
+    /// <summary>
+    /// Re-type un resultat en echec venant d'un collaborateur (la tresorerie, le chemin
+    /// historique) sans perdre ni sa nature d'erreur ni son message.
+    /// </summary>
+    private static ApplicationResult<TTarget> MirrorFailure<TSource, TTarget>(ApplicationResult<TSource> source)
+    {
+        var message = source.Error ?? "L'operation a ete refusee.";
+
+        return source.ErrorType switch
+        {
+            ApplicationErrorType.NotFound => ApplicationResult<TTarget>.NotFound(message),
+            ApplicationErrorType.Conflict => ApplicationResult<TTarget>.Conflict(message),
+            _ => ApplicationResult<TTarget>.Validation(message)
+        };
     }
 
     public async Task<ApplicationResult<InvoiceResponse>> CancelInvoiceAsync(
@@ -1025,7 +1203,8 @@ public sealed class BillingService(
             invoice.CreatedAt,
             invoice.CreatedBy,
             invoice.UpdatedAt,
-            invoice.UpdatedBy);
+            invoice.UpdatedBy,
+            invoice.CashReceiptId);
     }
 
     private static string NormalizeCodeOrEmpty(string code)

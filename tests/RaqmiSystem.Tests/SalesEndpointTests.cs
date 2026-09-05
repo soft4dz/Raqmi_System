@@ -124,6 +124,88 @@ public sealed class SalesEndpointTests : IClassFixture<RaqmiApiFactory>
         Assert.Contains(movements, movement => movement.Kind == StockMovementKind.Sale && movement.Reference == invoice.Number);
     }
 
+    [Fact]
+    public async Task Regler_avec_un_mode_de_paiement_exige_le_droit_de_tresorerie_et_cree_l_encaissement()
+    {
+        await _factory.ConfigureApplicationSettingsAsync();
+        await _factory.CreateHotelUnitAsync("PAYHTL", "Payment Hotel");
+
+        await CreateUserAsync(
+            "sales.biller",
+            PermissionCatalog.CustomersWrite,
+            PermissionCatalog.InvoicesRead,
+            PermissionCatalog.InvoicesWrite,
+            PermissionCatalog.InvoicesIssue);
+
+        await CreateUserAsync(
+            "sales.cashier",
+            PermissionCatalog.InvoicesRead,
+            PermissionCatalog.InvoicesWrite,
+            PermissionCatalog.TreasuryWrite);
+
+        using var biller = await _factory.CreateAuthenticatedClientAsync("sales.biller", Password);
+        using var cashier = await _factory.CreateAuthenticatedClientAsync("sales.cashier", Password);
+
+        var customer = await biller.PostAsJsonAsync(
+            "/api/v1/billing/customers",
+            new CreateCustomerRequest("PAYCLI", "Client Reglement", CustomerType.Individual),
+            RaqmiApiFactory.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.Created, customer.StatusCode);
+
+        var created = await biller.PostAsJsonAsync(
+            "/api/v1/billing/invoices",
+            new CreateInvoiceRequest(
+                "PAYCLI",
+                "PAYHTL",
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                new[] { new InvoiceLineRequest("Prestation", 1m, 1_000m, 19m) }),
+            RaqmiApiFactory.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var draft = await created.Content.ReadFromJsonAsync<InvoiceResponse>(RaqmiApiFactory.JsonOptions);
+
+        var issued = await biller.PostAsync($"/api/v1/billing/invoices/{draft!.Id}/issue", content: null);
+        Assert.Equal(HttpStatusCode.OK, issued.StatusCode);
+
+        // invoices.write sans treasury.write : le levier vers la caisse est ferme.
+        var forbidden = await biller.PostAsJsonAsync(
+            $"/api/v1/billing/invoices/{draft.Id}/pay",
+            new PayInvoiceRequest(Domain.Treasury.PaymentMethod.Cash),
+            RaqmiApiFactory.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+
+        var paid = await cashier.PostAsJsonAsync(
+            $"/api/v1/billing/invoices/{draft.Id}/pay",
+            new PayInvoiceRequest(Domain.Treasury.PaymentMethod.Cash),
+            RaqmiApiFactory.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, paid.StatusCode);
+
+        var payment = await paid.Content.ReadFromJsonAsync<InvoicePaymentResponse>(RaqmiApiFactory.JsonOptions);
+        Assert.NotNull(payment);
+        Assert.Equal(InvoiceStatus.Paid, payment!.Invoice.Status);
+        Assert.NotNull(payment.Receipt);
+        Assert.Equal(1_190m, payment.Receipt!.Amount);
+        Assert.Equal(payment.Receipt.Id, payment.Invoice.CashReceiptId);
+        Assert.Equal(payment.Invoice.Number, payment.Receipt.Reference);
+        Assert.Null(payment.Notice);
+
+        // Rejouer : 409, et toujours un seul encaissement pour cette facture.
+        var replayed = await cashier.PostAsJsonAsync(
+            $"/api/v1/billing/invoices/{draft.Id}/pay",
+            new PayInvoiceRequest(Domain.Treasury.PaymentMethod.Cash),
+            RaqmiApiFactory.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.Conflict, replayed.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<RaqmiDbContext>();
+
+        Assert.Equal(1, await dbContext.CashReceipts.CountAsync(receipt => receipt.Reference == payment.Invoice.Number));
+    }
+
     private async Task SeedStockAsync()
     {
         using var scope = _factory.Services.CreateScope();

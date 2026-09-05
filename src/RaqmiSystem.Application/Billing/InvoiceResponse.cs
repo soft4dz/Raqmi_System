@@ -31,4 +31,5 @@ public sealed record InvoiceResponse(
     DateTimeOffset CreatedAt,
     string CreatedBy,
     DateTimeOffset? UpdatedAt,
-    string? UpdatedBy);
+    string? UpdatedBy,
+    Guid? CashReceiptId = null);

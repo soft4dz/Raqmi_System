@@ -139,10 +139,15 @@ public sealed class BillingEndpointTests : IClassFixture<RaqmiApiFactory>
         var payResponse = await writerClient.PostAsync($"/api/v1/billing/invoices/{draft.Id}/pay", content: null);
         Assert.Equal(HttpStatusCode.OK, payResponse.StatusCode);
 
-        var paid = await payResponse.Content.ReadFromJsonAsync<InvoiceResponse>(RaqmiApiFactory.JsonOptions);
-        Assert.NotNull(paid);
-        Assert.Equal(InvoiceStatus.Paid, paid!.Status);
-        Assert.Equal("billing.writer", paid.PaidBy);
+        // Sans mode de paiement, le chemin historique : la facture est marquee payee, aucun
+        // encaissement n'est cree, et la reponse le dit.
+        var payment = await payResponse.Content.ReadFromJsonAsync<InvoicePaymentResponse>(RaqmiApiFactory.JsonOptions);
+        Assert.NotNull(payment);
+        Assert.Equal(InvoiceStatus.Paid, payment!.Invoice.Status);
+        Assert.Equal("billing.writer", payment.Invoice.PaidBy);
+        Assert.Null(payment.Receipt);
+        Assert.Null(payment.Invoice.CashReceiptId);
+        Assert.Contains("sans encaissement", payment.Notice);
     }
 
     [Fact]

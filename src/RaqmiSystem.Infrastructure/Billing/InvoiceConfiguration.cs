@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using RaqmiSystem.Domain.Billing;
 using RaqmiSystem.Domain.Organization;
+using RaqmiSystem.Domain.Treasury;
 
 namespace RaqmiSystem.Infrastructure.Billing;
 
@@ -121,6 +122,7 @@ public sealed class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         builder.Property(invoice => invoice.IssuedBy).HasColumnName("issued_by").HasMaxLength(160);
         builder.Property(invoice => invoice.PaidAt).HasColumnName("paid_at");
         builder.Property(invoice => invoice.PaidBy).HasColumnName("paid_by").HasMaxLength(160);
+        builder.Property(invoice => invoice.CashReceiptId).HasColumnName("cash_receipt_id");
         builder.Property(invoice => invoice.CancelledAt).HasColumnName("cancelled_at");
         builder.Property(invoice => invoice.CancelledBy).HasColumnName("cancelled_by").HasMaxLength(160);
         builder.Property(invoice => invoice.CancellationReason).HasColumnName("cancellation_reason").HasMaxLength(500);
@@ -158,6 +160,17 @@ public sealed class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
             .WithMany()
             .HasPrincipalKey(unit => unit.Code)
             .HasForeignKey(invoice => invoice.HotelUnitCode)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Un encaissement solde UNE facture : l'index unique (les NULL restent distincts sur les
+        // deux fournisseurs) est la garantie en base de ce que le domaine promet en memoire.
+        builder.HasIndex(invoice => invoice.CashReceiptId)
+            .IsUnique()
+            .HasDatabaseName("ux_invoices_cash_receipt_id");
+
+        builder.HasOne<CashReceipt>()
+            .WithMany()
+            .HasForeignKey(invoice => invoice.CashReceiptId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasMany(invoice => invoice.Lines)

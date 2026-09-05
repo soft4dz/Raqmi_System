@@ -637,11 +637,16 @@ public partial class InvoicesView : UserControl
 
         await active.RunAsync(async () =>
         {
-            var paid = await active.ApiClient.MarkInvoicePaidAsync(active.ApiBaseUrl, selected.Id);
+            var payment = await active.ApiClient.MarkInvoicePaidAsync(active.ApiBaseUrl, selected.Id);
 
             await LoadInvoicesAsync(active);
-            SelectInvoice(paid.Id);
-            active.SetStatus($"Facture {paid.Number} marquée payée.");
+            SelectInvoice(payment.Invoice.Id);
+
+            // Le serveur dit si un encaissement a ete cree ; cet ecran ne precise pas de mode de
+            // paiement, la mention "sans encaissement" est donc relayee telle quelle.
+            active.SetStatus(string.IsNullOrWhiteSpace(payment.Notice)
+                ? $"Facture {payment.Invoice.Number} marquée payée."
+                : $"Facture {payment.Invoice.Number} marquée payée. {payment.Notice}");
         });
     }
 
