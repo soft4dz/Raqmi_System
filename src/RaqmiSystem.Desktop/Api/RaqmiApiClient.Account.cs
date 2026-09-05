@@ -20,9 +20,14 @@ public sealed partial class RaqmiApiClient
     /// sans surveillance ne suffise pas a en verrouiller le proprietaire.
     ///
     /// Effet de bord a connaitre : le serveur revoque toutes les sessions du
-    /// compte (<see cref="ChangePasswordResponse.RevokedSessionCount"/>). Le jeton
-    /// d'acces detenu ici reste valide jusqu'a son expiration - il n'est pas un
-    /// jeton de rafraichissement - donc la session en cours n'est pas interrompue.
+    /// compte (<see cref="ChangePasswordResponse.RevokedSessionCount"/>), y compris
+    /// le jeton de rafraichissement que ce client detient. La session en cours
+    /// n'est pas interrompue sur-le-champ - le jeton d'acces reste valide jusqu'a
+    /// son expiration - mais son renouvellement sera refuse : au plus tard a cette
+    /// echeance, l'operateur verra « Votre session a expiré » et se reconnectera
+    /// avec le nouveau mot de passe. C'est voulu : un mot de passe change doit
+    /// finir par fermer les sessions ouvertes ailleurs, et celle-ci n'a pas de
+    /// raison d'etre traitee autrement.
     /// </summary>
     public async Task<ChangePasswordResponse> ChangePasswordAsync(
         string apiBaseUrl,

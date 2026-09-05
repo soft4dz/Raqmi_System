@@ -231,7 +231,35 @@ personnalisé ne la détenait d'après le rapport). Le retrait est un lot dédi�
 le client WPF, le garde de readiness et cette page. Les tests `RbacPermissionRegistryTests`,
 `RbacPolicyMatrixTests`, `SecuritySeederTests` et `PermissionCatalogTests` fixent l'état courant.
 
+## Session du client lourd
+
+`POST /api/v1/auth/login` rend un jeton d'accès (`RAQMI_JWT__ACCESSTOKENMINUTES`, 60 min par défaut),
+sa date d'expiration et un jeton de rafraîchissement à usage unique (rotation à chaque
+`POST /api/v1/auth/refresh`, voir `RefreshTokenEndpointTests`). Le client WPF (`RaqmiApiClient`)
+conserve les trois et applique, à chaque appel authentifié, la politique de
+`RaqmiSystem.Application.Security.TokenRenewalPolicy` (testée sans WPF par `ApiClientSessionTests`) :
+
+1. **Renouvellement proactif** : si le jeton d'accès expire dans moins de deux minutes, il est renouvelé
+   avant l'envoi de la requête. Une session de travail ne s'interrompt donc plus toutes les 60 minutes.
+2. **Sur `401`** : un seul renouvellement via `/auth/refresh`, puis un seul rejeu de la requête. Un second
+   `401` est rendu tel quel, jamais de boucle.
+3. **Renouvellement refusé** (`401`/`403`/`400` sur `/auth/refresh` : jeton expiré, déjà consommé,
+   révoqué par un changement de mot de passe, compte désactivé) : la session est fermée et
+   `SessionExpiredException` — une `InvalidOperationException`, que chaque écran affiche déjà — porte le
+   message « Votre session a expiré. Reconnectez-vous pour continuer. ». Une panne transitoire du
+   renouvellement (`5xx`) ne ferme pas la session : le prochain appel réessaiera.
+4. **Concurrence** : un seul renouvellement en vol par client. Des appels parallèles qui reçoivent le
+   même `401` attendent puis réutilisent le jeton fraîchement obtenu — sans cela, la rotation à usage
+   unique rejetterait les renouvellements suivants comme des réutilisations et ferait tomber la session.
+
+La déconnexion (`Logout`) reste locale : l'API n'expose pas de route de révocation, le jeton de
+rafraîchissement reste valable côté serveur jusqu'à son expiration ou sa rotation. Le changement de mot
+de passe révoque toutes les sessions du compte, y compris celle du poste qui le demande : elle prend fin
+au plus tard à l'expiration de son jeton d'accès.
+
 ## Next security tasks
 
 - Retaguer les domaines hors P0 (socle, CRM, MICE, Housekeeping, F&B, Pilotage, Système) vers les clés
   cibles, puis faire évaluer les clés cibles par le client WPF.
+- Exposer une route de révocation du jeton de rafraîchissement pour que `Logout` ferme aussi la session
+  côté serveur.
