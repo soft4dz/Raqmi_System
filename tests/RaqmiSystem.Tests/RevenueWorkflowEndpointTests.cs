@@ -308,7 +308,7 @@ public sealed class RevenueWorkflowEndpointTests : IClassFixture<RaqmiApiFactory
             hotelSet!.Select(category => category.Code));
 
         var tradeSet = await reader.GetFromJsonAsync<IReadOnlyCollection<RevenueCategoryResponse>>(
-            "/api/v1/revenue/categories?sector=Trade",
+            "/api/v1/revenue/categories?sector=Retail",
             RaqmiApiFactory.JsonOptions);
 
         Assert.Equal(

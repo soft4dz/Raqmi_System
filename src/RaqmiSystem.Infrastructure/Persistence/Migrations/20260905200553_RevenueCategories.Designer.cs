@@ -12,7 +12,7 @@ using RaqmiSystem.Infrastructure.Persistence;
 namespace RaqmiSystem.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(RaqmiDbContext))]
-    [Migration("20260905200057_RevenueCategories")]
+    [Migration("20260905200553_RevenueCategories")]
     partial class RevenueCategories
     {
         /// <inheritdoc />
@@ -7878,7 +7878,7 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_revenue_categories_display_order_non_negative", "display_order >= 0");
 
-                            t.HasCheckConstraint("ck_revenue_categories_sector", "sector IS NULL OR sector IN ('Hospitality', 'Trade', 'Services', 'Industry', 'Other')");
+                            t.HasCheckConstraint("ck_revenue_categories_sector", "sector IS NULL OR sector IN ('Hospitality', 'Retail', 'Services', 'Manufacturing', 'Education', 'Health', 'Other')");
                         });
 
                     b.HasData(

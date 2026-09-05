@@ -44,7 +44,7 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                 {
                     table.PrimaryKey("PK_revenue_categories", x => x.code);
                     table.CheckConstraint("ck_revenue_categories_display_order_non_negative", "display_order >= 0");
-                    table.CheckConstraint("ck_revenue_categories_sector", "sector IS NULL OR sector IN ('Hospitality', 'Trade', 'Services', 'Industry', 'Other')");
+                    table.CheckConstraint("ck_revenue_categories_sector", "sector IS NULL OR sector IN ('Hospitality', 'Retail', 'Services', 'Manufacturing', 'Education', 'Health', 'Other')");
                 });
 
             migrationBuilder.CreateTable(

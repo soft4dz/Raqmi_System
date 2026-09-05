@@ -12,7 +12,7 @@ public sealed class RevenueCategoryConfiguration : IEntityTypeConfiguration<Reve
         {
             table.HasCheckConstraint(
                 "ck_revenue_categories_sector",
-                "sector IS NULL OR sector IN ('Hospitality', 'Trade', 'Services', 'Industry', 'Other')");
+                "sector IS NULL OR sector IN ('Hospitality', 'Retail', 'Services', 'Manufacturing', 'Education', 'Health', 'Other')");
 
             table.HasCheckConstraint(
                 "ck_revenue_categories_display_order_non_negative",

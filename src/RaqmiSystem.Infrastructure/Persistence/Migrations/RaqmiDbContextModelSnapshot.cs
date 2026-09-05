@@ -7875,7 +7875,7 @@ namespace RaqmiSystem.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_revenue_categories_display_order_non_negative", "display_order >= 0");
 
-                            t.HasCheckConstraint("ck_revenue_categories_sector", "sector IS NULL OR sector IN ('Hospitality', 'Trade', 'Services', 'Industry', 'Other')");
+                            t.HasCheckConstraint("ck_revenue_categories_sector", "sector IS NULL OR sector IN ('Hospitality', 'Retail', 'Services', 'Manufacturing', 'Education', 'Health', 'Other')");
                         });
 
                     b.HasData(
