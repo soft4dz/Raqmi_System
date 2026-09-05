@@ -41,7 +41,9 @@ public sealed class DailyRevenueService(
             .ThenBy(row => row.Revenue.HotelUnitCode)
             .ToArrayAsync(cancellationToken);
 
-        return rows.Select(row => Map(row.Revenue, row.UnitName)).ToArray();
+        var categories = await LoadCategoriesAsync(cancellationToken);
+
+        return rows.Select(row => Map(row.Revenue, row.UnitName, categories)).ToArray();
     }
 
     public async Task<ApplicationResult<DailyRevenueResponse>> GetAsync(
@@ -57,13 +59,7 @@ public sealed class DailyRevenueService(
             return ApplicationResult<DailyRevenueResponse>.NotFound("Daily revenue entry was not found.");
         }
 
-        var unitName = await dbContext.HotelUnits
-            .AsNoTracking()
-            .Where(unit => unit.Code == revenue.HotelUnitCode)
-            .Select(unit => unit.Name)
-            .SingleOrDefaultAsync(cancellationToken);
-
-        return ApplicationResult<DailyRevenueResponse>.Success(Map(revenue, unitName));
+        return ApplicationResult<DailyRevenueResponse>.Success(await MapWithUnitNameAsync(revenue, cancellationToken));
     }
 
     public async Task<ApplicationResult<DailyRevenueResponse>> CreateAsync(
@@ -106,18 +102,27 @@ public sealed class DailyRevenueService(
             return ApplicationResult<DailyRevenueResponse>.Conflict("Daily revenue already exists for this date and hotel unit.");
         }
 
+        var categories = await LoadCategoriesAsync(cancellationToken);
+
         DailyRevenue revenue;
 
         try
         {
-            revenue = new DailyRevenue(
-                request.BusinessDate,
-                normalizedUnitCode,
+            var requested = DailyRevenueRequestLines.Resolve(
+                request.Lines,
                 request.Accommodation,
                 request.Food,
                 request.Beverage,
-                request.Other,
-                request.Notes);
+                request.Other);
+
+            var lines = BuildLines(requested, categories, alreadyCarried: new HashSet<string>(StringComparer.Ordinal), out var error);
+
+            if (error is not null)
+            {
+                return ApplicationResult<DailyRevenueResponse>.Validation(error);
+            }
+
+            revenue = new DailyRevenue(request.BusinessDate, normalizedUnitCode, lines, request.Notes);
         }
         catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -132,10 +137,10 @@ public sealed class DailyRevenueService(
             "exploitation.daily_revenue.created",
             revenue,
             context,
-            new { revenue.BusinessDate, revenue.HotelUnitCode, revenue.Total },
+            new { revenue.BusinessDate, revenue.HotelUnitCode, revenue.Total, LineCount = revenue.Lines.Count },
             cancellationToken);
 
-        return ApplicationResult<DailyRevenueResponse>.Success(Map(revenue, unit.Name));
+        return ApplicationResult<DailyRevenueResponse>.Success(Map(revenue, unit.Name, categories));
     }
 
     public async Task<ApplicationResult<DailyRevenueResponse>> UpdateAsync(
@@ -157,14 +162,29 @@ public sealed class DailyRevenueService(
             return ApplicationResult<DailyRevenueResponse>.Validation(BusinessDayClosedMessage);
         }
 
+        var categories = await LoadCategoriesAsync(cancellationToken);
+
         try
         {
-            revenue.UpdateAmounts(
+            var requested = DailyRevenueRequestLines.Resolve(
+                request.Lines,
                 request.Accommodation,
                 request.Food,
                 request.Beverage,
-                request.Other,
-                request.Notes);
+                request.Other);
+
+            // Une catégorie désactivée depuis la saisie reste modifiable sur la recette qui la
+            // porte déjà : la désactivation ferme l'avenir, pas le passé.
+            var alreadyCarried = revenue.Lines.Select(line => line.CategoryCode).ToHashSet(StringComparer.Ordinal);
+
+            var lines = BuildLines(requested, categories, alreadyCarried, out var error);
+
+            if (error is not null)
+            {
+                return ApplicationResult<DailyRevenueResponse>.Validation(error);
+            }
+
+            revenue.UpdateLines(lines, request.Notes);
         }
         catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException or InvalidOperationException)
         {
@@ -177,10 +197,10 @@ public sealed class DailyRevenueService(
             "exploitation.daily_revenue.updated",
             revenue,
             context,
-            new { revenue.BusinessDate, revenue.HotelUnitCode, revenue.Total, Status = revenue.Status.ToString() },
+            new { revenue.BusinessDate, revenue.HotelUnitCode, revenue.Total, LineCount = revenue.Lines.Count, Status = revenue.Status.ToString() },
             cancellationToken);
 
-        return ApplicationResult<DailyRevenueResponse>.Success(await MapWithUnitNameAsync(revenue, cancellationToken));
+        return ApplicationResult<DailyRevenueResponse>.Success(await MapWithUnitNameAsync(revenue, cancellationToken, categories));
     }
 
     public async Task<ApplicationResult<DailyRevenueResponse>> SubmitAsync(
@@ -243,10 +263,27 @@ public sealed class DailyRevenueService(
                 status)
             .ToArrayAsync(cancellationToken);
 
-        var accommodation = rows.Sum(row => row.Accommodation);
-        var food = rows.Sum(row => row.Food);
-        var beverage = rows.Sum(row => row.Beverage);
-        var other = rows.Sum(row => row.Other);
+        var categories = await LoadCategoriesAsync(cancellationToken);
+
+        // Seules les catégories effectivement présentes dans les recettes retenues figurent dans
+        // la synthèse : une synthèse d'hôtel n'a pas à afficher les catégories d'un négociant à zéro.
+        var codesInRows = rows
+            .SelectMany(row => row.Lines)
+            .Select(line => line.CategoryCode)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var presentCategories = categories.Values
+            .Where(category => codesInRows.Contains(category.Code))
+            .OrderBy(category => category.DisplayOrder)
+            .ThenBy(category => category.Code, StringComparer.Ordinal)
+            .ToArray();
+
+        var drafts = rows.Select(row => new DailyRevenueDraft(
+            row.BusinessDate,
+            row.HotelUnitCode,
+            row.Lines.Select(line => new DailyRevenueLineRequest(line.CategoryCode, line.Amount)).ToArray()));
+
+        var totals = new RevenueSummaryService().Calculate(drafts, presentCategories);
 
         var summary = new DailyRevenueSummaryResponse(
             from,
@@ -258,11 +295,14 @@ public sealed class DailyRevenueService(
             rows.Count(row => row.Status == DailyRevenueStatus.Submitted),
             rows.Count(row => row.Status == DailyRevenueStatus.Validated),
             rows.Count(row => row.Status == DailyRevenueStatus.Rejected),
-            accommodation,
-            food,
-            beverage,
-            other,
-            accommodation + food + beverage + other);
+            totals.Accommodation,
+            totals.Food,
+            totals.Beverage,
+            totals.Other,
+            totals.Total)
+        {
+            Categories = totals.Categories
+        };
 
         return ApplicationResult<DailyRevenueSummaryResponse>.Success(summary);
     }
@@ -353,6 +393,55 @@ public sealed class DailyRevenueService(
         return ApplicationResult<DailyRevenueResponse>.Success(await MapWithUnitNameAsync(revenue, cancellationToken));
     }
 
+    /// <summary>
+    /// Transforme les montants demandés en lignes du domaine après contrôle du paramétrage :
+    /// une catégorie inconnue ou désactivée est refusée avec un message qui la nomme (400),
+    /// plutôt que par une violation de clé étrangère après l'aller-retour. Les montants nuls ne
+    /// sont pas contrôlés au-delà de leur signe : le domaine ne crée aucune ligne pour eux, et
+    /// l'ancien corps à quatre montants en envoie toujours pour les catégories non renseignées.
+    /// </summary>
+    private static List<DailyRevenueLine> BuildLines(
+        IReadOnlyList<DailyRevenueLineRequest> requested,
+        IReadOnlyDictionary<string, RevenueCategory> categories,
+        IReadOnlySet<string> alreadyCarried,
+        out string? error)
+    {
+        error = null;
+        var lines = new List<DailyRevenueLine>(requested.Count);
+
+        foreach (var request in requested)
+        {
+            if (request.Amount < 0m)
+            {
+                error = $"Amount for revenue category '{request.CategoryCode}' cannot be negative.";
+                return lines;
+            }
+
+            var code = RevenueCategoryCodes.Normalize(request.CategoryCode, nameof(requested));
+
+            if (request.Amount == 0m)
+            {
+                continue;
+            }
+
+            if (!categories.TryGetValue(code, out var category))
+            {
+                error = $"Revenue category '{code}' is unknown.";
+                return lines;
+            }
+
+            if (!category.IsActive && !alreadyCarried.Contains(code))
+            {
+                error = $"Revenue category '{code}' is inactive and cannot receive new revenue.";
+                return lines;
+            }
+
+            lines.Add(new DailyRevenueLine(code, request.Amount));
+        }
+
+        return lines;
+    }
+
     private static IQueryable<DailyRevenue> ApplyFilters(
         IQueryable<DailyRevenue> query,
         DateOnly? from,
@@ -385,9 +474,19 @@ public sealed class DailyRevenueService(
         return query;
     }
 
+    private async Task<IReadOnlyDictionary<string, RevenueCategory>> LoadCategoriesAsync(CancellationToken cancellationToken)
+    {
+        var categories = await dbContext.Set<RevenueCategory>()
+            .AsNoTracking()
+            .ToArrayAsync(cancellationToken);
+
+        return categories.ToDictionary(category => category.Code, StringComparer.Ordinal);
+    }
+
     private async Task<DailyRevenueResponse> MapWithUnitNameAsync(
         DailyRevenue revenue,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyDictionary<string, RevenueCategory>? categories = null)
     {
         var unitName = await dbContext.HotelUnits
             .AsNoTracking()
@@ -395,11 +494,25 @@ public sealed class DailyRevenueService(
             .Select(unit => unit.Name)
             .SingleOrDefaultAsync(cancellationToken);
 
-        return Map(revenue, unitName);
+        return Map(revenue, unitName, categories ?? await LoadCategoriesAsync(cancellationToken));
     }
 
-    private static DailyRevenueResponse Map(DailyRevenue revenue, string? unitName)
+    private static DailyRevenueResponse Map(
+        DailyRevenue revenue,
+        string? unitName,
+        IReadOnlyDictionary<string, RevenueCategory> categories)
     {
+        // Ordre d'affichage du paramétrage ; un code sans catégorie (désactivée puis supprimée
+        // en base par un tiers) reste rendu, libellé par son code, en fin de liste.
+        var lines = revenue.Lines
+            .OrderBy(line => categories.TryGetValue(line.CategoryCode, out var category) ? category.DisplayOrder : int.MaxValue)
+            .ThenBy(line => line.CategoryCode, StringComparer.Ordinal)
+            .Select(line => new DailyRevenueLineResponse(
+                line.CategoryCode,
+                categories.TryGetValue(line.CategoryCode, out var category) ? category.Label : line.CategoryCode,
+                line.Amount))
+            .ToArray();
+
         return new DailyRevenueResponse(
             revenue.Id,
             revenue.BusinessDate,
@@ -421,7 +534,8 @@ public sealed class DailyRevenueService(
             revenue.CreatedAt,
             revenue.CreatedBy,
             revenue.UpdatedAt,
-            revenue.UpdatedBy);
+            revenue.UpdatedBy,
+            lines);
     }
 
     private static string NormalizeCodeOrEmpty(string code)

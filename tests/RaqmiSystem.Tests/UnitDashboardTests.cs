@@ -75,6 +75,35 @@ public sealed class UnitDashboardTests
         Assert.All(result.Units, row => Assert.False(row.HasEntry));
     }
 
+    /// <summary>
+    /// Le tableau de bord ne lit que le total : une unité qui vend des marchandises et des
+    /// services y figure exactement comme un hôtel, sans que l'écran ait à connaître les catégories.
+    /// </summary>
+    [Fact]
+    public void Build_totals_entries_whatever_their_categories()
+    {
+        var calculator = new UnitDashboardCalculator();
+
+        var hotel = new HotelUnit("EL-MANAR", "Hotel El Manar", HotelUnitType.Hotel, 1);
+        var shop = new HotelUnit("SHOP", "Boutique", HotelUnitType.Other, 2);
+
+        var hotelRevenue = new DailyRevenue(BusinessDate, hotel.Code, 100m, 20m, 10m, 5m);
+
+        var shopRevenue = new DailyRevenue(
+            BusinessDate,
+            shop.Code,
+            [
+                new DailyRevenueLine(RevenueCategoryCodes.Merchandise, 200m),
+                new DailyRevenueLine(RevenueCategoryCodes.Services, 50m)
+            ]);
+
+        var result = calculator.Build(BusinessDate, [hotel, shop], [hotelRevenue, shopRevenue]);
+
+        Assert.Equal(2, result.UnitsWithEntry);
+        Assert.Equal(385m, result.GrandTotal);
+        Assert.Equal(250m, result.Units.Single(row => row.HotelUnitCode == shop.Code).Total);
+    }
+
     [Fact]
     public void Build_orders_rows_by_display_order_then_name()
     {

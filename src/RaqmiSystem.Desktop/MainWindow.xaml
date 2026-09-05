@@ -839,9 +839,12 @@
 
                                         <StackPanel Grid.Column="2">
                                             <TextBlock Text="Unité hôtelière" Style="{StaticResource LabelText}" />
+                                            <!-- Les catégories de saisie dépendent de l'unité (son secteur) :
+                                                 changer d'unité redemande la liste au serveur. -->
                                             <ComboBox x:Name="RevenueUnitComboBox"
                                                       DisplayMemberPath="Name"
-                                                      SelectedValuePath="Code" />
+                                                      SelectedValuePath="Code"
+                                                      SelectionChanged="RevenueUnitComboBox_SelectionChanged" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="4">
@@ -853,40 +856,53 @@
                                     <Grid Grid.Row="4">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="12" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="12" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="12" />
-                                            <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="18" />
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="10" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
-                                        <StackPanel>
-                                            <TextBlock Text="Hébergement" Style="{StaticResource LabelText}" />
-                                            <TextBox x:Name="AccommodationTextBox" Style="{StaticResource AmountTextBox}" />
-                                        </StackPanel>
-
-                                        <StackPanel Grid.Column="2">
-                                            <TextBlock Text="Restauration" Style="{StaticResource LabelText}" />
-                                            <TextBox x:Name="FoodTextBox" Style="{StaticResource AmountTextBox}" />
-                                        </StackPanel>
-
-                                        <StackPanel Grid.Column="4">
-                                            <TextBlock Text="Boissons" Style="{StaticResource LabelText}" />
-                                            <TextBox x:Name="BeverageTextBox" Style="{StaticResource AmountTextBox}" />
-                                        </StackPanel>
-
-                                        <StackPanel Grid.Column="6">
-                                            <TextBlock Text="Autres" Style="{StaticResource LabelText}" />
-                                            <TextBox x:Name="OtherTextBox" Style="{StaticResource AmountTextBox}" />
-                                        </StackPanel>
+                                        <!-- Un champ par catégorie de recettes reçue du serveur pour
+                                             l'unité choisie (quatre pour un hôtel, autant qu'en compte
+                                             le paramétrage ailleurs) : aucune catégorie n'est connue
+                                             du poste. -->
+                                        <Grid>
+                                            <ItemsControl x:Name="RevenueEntryItemsControl">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Width="170" Margin="0,0,12,6">
+                                                            <TextBlock Text="{Binding Label}"
+                                                                       Style="{StaticResource LabelText}"
+                                                                       ToolTip="{Binding Code}" />
+                                                            <TextBox Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                     Style="{StaticResource AmountTextBox}" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <TextBlock Text="Aucune catégorie de recettes active pour cette unité : le paramétrage des catégories est à compléter côté serveur."
+                                                       VerticalAlignment="Center"
+                                                       IsHitTestVisible="False">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyStateHintText}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Items.Count, ElementName=RevenueEntryItemsControl}" Value="0">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
 
                                         <Button x:Name="CreateRevenueButton"
-                                                Grid.Column="8"
+                                                Grid.Column="2"
                                                 Content="Créer brouillon"
                                                 Style="{StaticResource PrimaryButton}"
                                                 ToolTip="Enregistrer la recette en brouillon"
@@ -895,7 +911,7 @@
                                                 Click="CreateRevenueButton_Click" />
 
                                         <Button x:Name="CreateAndSubmitRevenueButton"
-                                                Grid.Column="10"
+                                                Grid.Column="4"
                                                 Content="Créer + soumettre"
                                                 Style="{StaticResource SecondaryButton}"
                                                 ToolTip="Enregistrer puis soumettre immédiatement au contrôle"
@@ -999,27 +1015,12 @@
                                                                     Binding="{Binding BusinessDate, StringFormat={}{0:dd/MM/yyyy}}"
                                                                     Width="100" />
                                                 <DataGridTextColumn Header="Unité" Binding="{Binding HotelUnitCode}" Width="110" />
-                                                <DataGridTextColumn Header="Hébergement"
-                                                                    Binding="{Binding Accommodation, StringFormat={}{0:N2}}"
-                                                                    Width="115"
-                                                                    ElementStyle="{StaticResource AmountCellText}"
-                                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
-                                                <DataGridTextColumn Header="Restauration"
-                                                                    Binding="{Binding Food, StringFormat={}{0:N2}}"
-                                                                    Width="115"
-                                                                    ElementStyle="{StaticResource AmountCellText}"
-                                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
-                                                <DataGridTextColumn Header="Boissons"
-                                                                    Binding="{Binding Beverage, StringFormat={}{0:N2}}"
-                                                                    Width="105"
-                                                                    ElementStyle="{StaticResource AmountCellText}"
-                                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
-                                                <DataGridTextColumn Header="Autres"
-                                                                    Binding="{Binding Other, StringFormat={}{0:N2}}"
-                                                                    Width="100"
-                                                                    ElementStyle="{StaticResource AmountCellText}"
-                                                                    HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
-                                                <DataGridTextColumn Header="Total"
+                                                <!-- Une colonne de montant par catégorie de recettes, insérée ici par
+                                                     le code-behind (ApplyRevenueGridColumns) à partir des lignes
+                                                     renvoyées par le serveur : aucune colonne de catégorie n'est
+                                                     écrite en dur. -->
+                                                <DataGridTextColumn x:Name="RevenueTotalColumn"
+                                                                    Header="Total"
                                                                     Binding="{Binding Total, StringFormat={}{0:N2}}"
                                                                     Width="115"
                                                                     ElementStyle="{StaticResource TotalCellText}"

@@ -1,17 +1,18 @@
+using RaqmiSystem.Domain.Revenue;
+
 namespace RaqmiSystem.Domain.Budgeting;
 
 /// <summary>
-/// Revenue categories a budget can be broken down into. Deliberately the exact mirror of the
-/// four amount columns carried by <c>RaqmiSystem.Domain.Revenue.DailyRevenue</c>
-/// (Accommodation / Food / Beverage / Other): the whole point of the budgeting module is to put
-/// a target and an actual side by side, and a category that has no counterpart in the recorded
-/// daily revenue could never be confronted with anything. Adding a category here therefore only
-/// makes sense together with a new amount column on DailyRevenue.
+/// Alias de compatibilité : les quatre codes hôteliers historiques, sous le nom que les appelants
+/// du module budget utilisaient quand la catégorie était une énumération figée. Une ligne de
+/// budget référence désormais une <see cref="RevenueCategory"/> par son code — n'importe lequel
+/// des codes paramétrés, pas seulement ces quatre. Préférer <see cref="RevenueCategoryCodes"/>
+/// dans le code nouveau ; ceci n'existe que pour ne pas casser les appelants existants.
 /// </summary>
-public enum BudgetCategory
+public static class BudgetCategory
 {
-    Accommodation = 1,
-    Food = 2,
-    Beverage = 3,
-    Other = 4
+    public const string Accommodation = RevenueCategoryCodes.Accommodation;
+    public const string Food = RevenueCategoryCodes.Food;
+    public const string Beverage = RevenueCategoryCodes.Beverage;
+    public const string Other = RevenueCategoryCodes.Other;
 }
