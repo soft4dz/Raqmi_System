@@ -5,7 +5,6 @@ using RaqmiSystem.Application.Crm;
 using RaqmiSystem.Application.Security;
 using RaqmiSystem.Domain.Billing;
 using RaqmiSystem.Domain.Crm;
-using RaqmiSystem.Domain.Lodging;
 using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Infrastructure.Persistence;
 using System.Data;
@@ -22,7 +21,9 @@ namespace RaqmiSystem.Infrastructure.Crm;
 /// the satisfaction answers and the contact log. The identity, the stays and the invoices shown
 /// by the 360 view are READ from the modules that own them at query time. That is why nothing
 /// here caches a stay count or an invoiced total: a CRM that keeps its own copy of the front
-/// desk's figures ends up arguing with the front desk.
+/// desk's figures ends up arguing with the front desk. Les séjours passent par le port
+/// <see cref="IStayHistoryReader"/> : ce service ne connaît pas la réservation, et une
+/// installation sans hébergement l'utilise tel quel, historique vide.
 ///
 /// Second, everything that can be derived is derived. The point balance is the sum of the ledger,
 /// the loyalty tier is the highest active tier that balance reaches, and the NPS families come
@@ -37,8 +38,16 @@ namespace RaqmiSystem.Infrastructure.Crm;
 public sealed class CrmService(
     RaqmiDbContext dbContext,
     IAuditLogWriter auditLogWriter,
-    IBillingService billingService) : ICrmService
+    IBillingService billingService,
+    IStayHistoryReader? stayHistoryReader = null) : ICrmService
 {
+    /// <summary>
+    /// La source de séjours, ou l'historique vide quand l'hôte n'en a branché aucune : le CRM
+    /// doit s'ouvrir dans une installation sans paquet Hébergement, et le conteneur d'injection
+    /// honore la valeur par défaut d'un paramètre qu'il ne sait pas résoudre.
+    /// </summary>
+    private readonly IStayHistoryReader stayHistory = stayHistoryReader ?? NoStayHistoryReader.Instance;
+
     private const string SegmentsEntity = "crm.customer_segments";
 
     private const string ProfilesEntity = "crm.guest_profiles";
@@ -496,7 +505,7 @@ public sealed class CrmService(
                     ? ResolveTier(tiers, loyalty.Balance).Current
                     : null);
 
-        var stays = await BuildStayStatisticsAsync(normalizedCode, today, cancellationToken);
+        var stays = await stayHistory.ReadAsync(normalizedCode, today, cancellationToken);
         var billing = await BuildBillingStatisticsAsync(normalizedCode, cancellationToken);
 
         // Both listings are filtered in the database and ordered in memory: the SQLite provider of
@@ -1247,10 +1256,12 @@ public sealed class CrmService(
             return ApplicationResult<SatisfactionEntryResponse>.NotFound("Hotel unit was not found.");
         }
 
+        // Le séjour cité est attesté par le module qui le tient, jamais par une clé étrangère :
+        // la table de satisfaction n'en porte plus vers l'hébergement. Sans source de séjours,
+        // aucun séjour n'est attestable et la réponse doit être enregistrée sans le citer.
         if (request.ReservationId is { } reservationId && reservationId != Guid.Empty)
         {
-            var reservationExists = await dbContext.Set<Reservation>()
-                .AnyAsync(reservation => reservation.Id == reservationId, cancellationToken);
+            var reservationExists = await stayHistory.StayExistsAsync(reservationId, cancellationToken);
 
             if (!reservationExists)
             {
@@ -1771,37 +1782,6 @@ public sealed class CrmService(
             next?.Label,
             next is null ? null : next.PointsThreshold - balance,
             movements.Select(Map).ToArray());
-    }
-
-    private async Task<GuestStayStatistics> BuildStayStatisticsAsync(
-        string customerCode,
-        DateOnly today,
-        CancellationToken cancellationToken)
-    {
-        // The stay total is read from the per-night snapshot frozen on each reservation
-        // (Reservation.TotalStayAmount), which EF does not map, so the rows are materialized. One
-        // guest has a handful of stays - this is not a report over the whole hotel.
-        var reservations = await dbContext.Set<Reservation>()
-            .AsNoTracking()
-            .Where(reservation => reservation.CustomerCode == customerCode)
-            .ToArrayAsync(cancellationToken);
-
-        // What the guest actually slept: a booking still to come is not a stay, and a cancelled
-        // one never was.
-        var stayed = reservations
-            .Where(reservation => reservation.Status is ReservationStatus.CheckedIn or ReservationStatus.CheckedOut)
-            .ToArray();
-
-        return new GuestStayStatistics(
-            stayed.Length,
-            stayed.Sum(reservation => reservation.Nights),
-            stayed.Length == 0 ? null : stayed.Min(reservation => reservation.ArrivalDate),
-            stayed.Length == 0 ? null : stayed.Max(reservation => reservation.DepartureDate),
-            stayed.Sum(reservation => reservation.TotalStayAmount),
-            reservations.Count(reservation =>
-                reservation.Status.IsPreArrival() && reservation.ArrivalDate >= today),
-            reservations.Count(reservation => reservation.Status == ReservationStatus.Cancelled),
-            reservations.Count(reservation => reservation.Status == ReservationStatus.NoShow));
     }
 
     private async Task<GuestBillingStatistics> BuildBillingStatisticsAsync(

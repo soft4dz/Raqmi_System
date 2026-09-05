@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using RaqmiSystem.Domain.Billing;
 using RaqmiSystem.Domain.Crm;
-using RaqmiSystem.Domain.Lodging;
 using RaqmiSystem.Domain.Organization;
 
 namespace RaqmiSystem.Infrastructure.Crm;
@@ -49,6 +48,9 @@ public sealed class SatisfactionEntryConfiguration : IEntityTypeConfiguration<Sa
             .HasMaxLength(30)
             .IsRequired();
 
+        // Simple référence vers le séjour, SANS clé étrangère ni navigation : le CRM ne dépend
+        // plus du schéma lodging. L'existence du séjour cité est attestée à l'écriture par le
+        // port IStayHistoryReader ; une installation sans hébergement laisse la colonne nulle.
         builder.Property(entry => entry.ReservationId).HasColumnName("reservation_id");
 
         builder.Property(entry => entry.Comment)
@@ -76,11 +78,6 @@ public sealed class SatisfactionEntryConfiguration : IEntityTypeConfiguration<Sa
             .WithMany()
             .HasPrincipalKey(unit => unit.Code)
             .HasForeignKey(entry => entry.HotelUnitCode)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasOne<Reservation>()
-            .WithMany()
-            .HasForeignKey(entry => entry.ReservationId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

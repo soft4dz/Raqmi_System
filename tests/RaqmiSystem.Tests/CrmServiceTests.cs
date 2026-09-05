@@ -19,7 +19,8 @@ namespace RaqmiSystem.Tests;
 /// Service-level coverage of the CRM workflows against a dedicated SQLite ":memory:" database
 /// (one per test): the derived loyalty tier and the balance guard on redemptions, the segment
 /// rules, the campaign audience and what the marketing consent excludes from it, the NPS of a
-/// period, and the 360 view assembled from the other modules.
+/// period, and the 360 view assembled from the other modules - the stays through the
+/// <see cref="IStayHistoryReader"/> port, so that the CRM opens with or without the lodging module.
 /// </summary>
 public sealed class CrmServiceTests
 {
@@ -466,6 +467,82 @@ public sealed class CrmServiceTests
         Assert.Equal(9, view.Value.Satisfaction.LastScore);
     }
 
+    /// <summary>
+    /// Le CRM ne porte plus de clé étrangère vers l'hébergement : sans source de séjours, la vue
+    /// 360 s'ouvre quand même - colonne séjours vide, jamais inventée - et une réponse de
+    /// satisfaction qui cite un séjour est refusée, puisque personne ne peut l'attester.
+    /// </summary>
+    [Fact]
+    public async Task Without_a_stay_history_the_360_view_still_opens_and_no_stay_can_be_cited()
+    {
+        await using var harness = await HarnessAsync();
+        var stayId = await AddStayAsync(harness, new DateOnly(2030, 4, 1), new DateOnly(2030, 4, 4), ReservationStatus.CheckedOut);
+
+        var detached = harness.WithStayHistory(NoStayHistoryReader.Instance);
+
+        var view = await detached.GetCustomer360Async(CustomerCode, Today, CancellationToken.None);
+
+        Assert.True(view.Succeeded, view.Error);
+        Assert.Equal(GuestStayStatistics.Empty, view.Value!.Stays);
+
+        var cited = await detached.RecordSatisfactionAsync(
+            new RecordSatisfactionRequest(CustomerCode, UnitCode, new DateOnly(2030, 4, 5), 9, SatisfactionSource.Email, stayId),
+            Context,
+            CancellationToken.None);
+
+        Assert.False(cited.Succeeded);
+        Assert.Equal(ApplicationErrorType.NotFound, cited.ErrorType);
+
+        var anonymous = await detached.RecordSatisfactionAsync(
+            new RecordSatisfactionRequest(CustomerCode, UnitCode, new DateOnly(2030, 4, 5), 9, SatisfactionSource.Email),
+            Context,
+            CancellationToken.None);
+
+        Assert.True(anonymous.Succeeded, anonymous.Error);
+    }
+
+    [Fact]
+    public async Task With_the_lodging_reader_a_cited_stay_must_exist_in_the_reservations()
+    {
+        await using var harness = await HarnessAsync();
+        var stayId = await AddStayAsync(harness, new DateOnly(2030, 4, 1), new DateOnly(2030, 4, 4), ReservationStatus.CheckedOut);
+
+        var known = await harness.Service.RecordSatisfactionAsync(
+            new RecordSatisfactionRequest(CustomerCode, UnitCode, new DateOnly(2030, 4, 5), 8, SatisfactionSource.Email, stayId),
+            Context,
+            CancellationToken.None);
+
+        Assert.True(known.Succeeded, known.Error);
+        Assert.Equal(stayId, known.Value!.ReservationId);
+
+        var unknown = await harness.Service.RecordSatisfactionAsync(
+            new RecordSatisfactionRequest(CustomerCode, UnitCode, new DateOnly(2030, 4, 5), 8, SatisfactionSource.Email, Guid.NewGuid()),
+            Context,
+            CancellationToken.None);
+
+        Assert.False(unknown.Succeeded);
+        Assert.Equal(ApplicationErrorType.NotFound, unknown.ErrorType);
+    }
+
+    /// <summary>
+    /// La garantie structurelle du découplage : le modèle EF de la satisfaction ne référence
+    /// aucune entité de l'hébergement. Une clé étrangère réintroduite ici recoudrait le CRM au
+    /// schéma lodging et interdirait de livrer l'un sans l'autre.
+    /// </summary>
+    [Fact]
+    public async Task The_satisfaction_table_carries_no_foreign_key_to_the_lodging_schema()
+    {
+        await using var harness = await HarnessAsync();
+
+        var entity = harness.DbContext.Model.FindEntityType(typeof(SatisfactionEntry));
+
+        Assert.NotNull(entity);
+        Assert.DoesNotContain(
+            entity.GetForeignKeys(),
+            foreignKey => foreignKey.PrincipalEntityType.ClrType.Namespace == typeof(Reservation).Namespace);
+        Assert.Contains(entity.GetProperties(), property => property.Name == nameof(SatisfactionEntry.ReservationId));
+    }
+
     [Fact]
     public async Task The_360_view_of_an_unqualified_customer_still_opens()
     {
@@ -615,7 +692,7 @@ public sealed class CrmServiceTests
         Assert.True(result.Succeeded, result.Error);
     }
 
-    private static async Task AddStayAsync(
+    private static async Task<Guid> AddStayAsync(
         Harness harness,
         DateOnly arrival,
         DateOnly departure,
@@ -650,6 +727,8 @@ public sealed class CrmServiceTests
 
         harness.DbContext.Set<Reservation>().Add(reservation);
         await harness.DbContext.SaveChangesAsync();
+
+        return reservation.Id;
     }
 
     private static async Task<Harness> HarnessAsync()
@@ -686,22 +765,29 @@ public sealed class CrmServiceTests
             auditWriter,
             new ApplicationSettingsService(dbContext, auditWriter));
 
+        // The harness reads the stays the way production does - through the lodging adapter -
+        // and can hand out a second service wired to another IStayHistoryReader.
         return new Harness(
             connection,
             dbContext,
-            new CrmService(dbContext, auditWriter, billingService),
+            auditWriter,
+            billingService,
             room.Id);
     }
 
     private sealed class Harness(
         SqliteConnection connection,
         RaqmiDbContext dbContext,
-        CrmService service,
+        AuditLogWriter auditWriter,
+        BillingService billingService,
         Guid roomId) : IAsyncDisposable
     {
         public RaqmiDbContext DbContext { get; } = dbContext;
 
-        public CrmService Service { get; } = service;
+        public CrmService Service { get; } = new(dbContext, auditWriter, billingService, new LodgingStayHistoryReader(dbContext));
+
+        public CrmService WithStayHistory(IStayHistoryReader stayHistory) =>
+            new(DbContext, auditWriter, billingService, stayHistory);
 
         public Guid RoomId { get; } = roomId;
 
