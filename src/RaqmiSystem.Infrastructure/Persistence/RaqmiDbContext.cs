@@ -9,6 +9,7 @@ using RaqmiSystem.Domain.Crm;
 using RaqmiSystem.Domain.Housekeeping;
 using RaqmiSystem.Domain.HumanResources;
 using RaqmiSystem.Domain.Identity;
+using RaqmiSystem.Domain.Documents;
 using RaqmiSystem.Domain.Inventory;
 using RaqmiSystem.Domain.Kitchen;
 using RaqmiSystem.Domain.Kpi;
@@ -37,6 +38,8 @@ public sealed class RaqmiDbContext(DbContextOptions<RaqmiDbContext> options) : D
     public DbSet<Permission> Permissions => Set<Permission>();
 
     public DbSet<UserUnitAssignment> UserUnitAssignments => Set<UserUnitAssignment>();
+
+    public DbSet<RenderedDocument> RenderedDocuments => Set<RenderedDocument>();
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 

@@ -37,6 +37,7 @@ var jwtOptions = JwtOptions.FromConfiguration(
 
 builder.Services.AddRaqmiInfrastructure(builder.Configuration, jwtOptions);
 builder.Services.AddRaqmiUnitScope();
+builder.Services.AddRaqmiDocuments();
 
 // Rapport de migration RBAC (lot 2.1) : lecture seule, enregistre ici a cote des politiques
 // d'autorisation qu'il sert a preparer. A rapatrier dans AddRaqmiInfrastructure avec le prochain
@@ -218,6 +219,7 @@ api.MapPurchasingEndpoints();
 api.MapKitchenEndpoints();
 api.MapMiceEndpoints();
 api.MapSyncEndpoints();
+api.MapDocumentsEndpoints();
 
 app.Run();
 

@@ -21,6 +21,10 @@
          Docker/an external log aggregator via stdout - see docker-compose.prod.yml. -->
     <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageVersion Include="Serilog.Formatting.Compact" Version="3.0.0" />
+    <!-- Chaine documentaire (A5) : rendu PDF de la facture. Licence Community, gratuite tant que le
+         chiffre d'affaires annuel de l'exploitant reste sous 1 M$ - condition documentee dans
+         docs/modules/documents.md. Aucune dependance NuGet : les natifs Skia sont embarques. -->
+    <PackageVersion Include="QuestPDF" Version="2024.10.3" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
