@@ -2,18 +2,30 @@ using Microsoft.EntityFrameworkCore;
 using RaqmiSystem.Application.Billing;
 using RaqmiSystem.Application.Common;
 using RaqmiSystem.Application.Security;
+using RaqmiSystem.Application.Catalog;
+using RaqmiSystem.Application.Inventory;
 using RaqmiSystem.Application.Settings;
 using RaqmiSystem.Domain.Billing;
 using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Infrastructure.Persistence;
+using System.Data;
 using System.Text.Json;
 
 namespace RaqmiSystem.Infrastructure.Billing;
 
+/// <summary>
+/// Facturation : clients et factures de vente. Consomme deux contrats publies par d'autres
+/// modules et n'en reimplemente aucun : <see cref="ICatalogService"/> pour construire une ligne
+/// depuis un code article (prix et TVA repris de l'article) et savoir, a l'emission, quelles
+/// lignes sortent du stock ; <see cref="IStockOperationService"/> pour la sortie elle-meme, qui
+/// est ecrite dans la MEME transaction que l'emission.
+/// </summary>
 public sealed class BillingService(
     RaqmiDbContext dbContext,
     IAuditLogWriter auditLogWriter,
-    IApplicationSettingsService applicationSettingsService) : IBillingService
+    IApplicationSettingsService applicationSettingsService,
+    ICatalogService catalogService,
+    IStockOperationService stockOperations) : IBillingService
 {
     public async Task<IReadOnlyCollection<CustomerResponse>> ListCustomersAsync(
         string? search,
@@ -351,7 +363,14 @@ public sealed class BillingService(
         try
         {
             invoice = new Invoice(normalizedCustomerCode, normalizedUnitCode, request.InvoiceDate);
-            invoice.ReplaceLines(BuildLines(request.Lines));
+            var (lines, lineFailure) = await BuildLinesAsync(request.Lines, cancellationToken);
+
+            if (lineFailure is not null)
+            {
+                return ApplicationResult<InvoiceResponse>.Validation(lineFailure);
+            }
+
+            invoice.ReplaceLines(lines);
         }
         catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -396,7 +415,14 @@ public sealed class BillingService(
 
         try
         {
-            invoice.ReplaceLines(BuildLines(request.Lines));
+            var (lines, lineFailure) = await BuildLinesAsync(request.Lines, cancellationToken);
+
+            if (lineFailure is not null)
+            {
+                return ApplicationResult<InvoiceResponse>.Validation(lineFailure);
+            }
+
+            invoice.ReplaceLines(lines);
         }
         catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException or InvalidOperationException)
         {
@@ -421,6 +447,7 @@ public sealed class BillingService(
 
     public async Task<ApplicationResult<InvoiceResponse>> IssueInvoiceAsync(
         Guid id,
+        IssueInvoiceRequest? request,
         OperationContext context,
         CancellationToken cancellationToken)
     {
@@ -440,6 +467,24 @@ public sealed class BillingService(
         if (customer is null)
         {
             return ApplicationResult<InvoiceResponse>.Validation("The invoice's customer no longer exists.");
+        }
+
+        // Les lignes qui sortent du stock sont connues AVANT toute mutation : un magasin manquant
+        // doit refuser l'emission en laissant la facture intacte, comme les autres controles
+        // prealables ci-dessous.
+        var (stockLines, stockFailure) = await ResolveStockLinesAsync(invoice, cancellationToken);
+
+        if (stockFailure is not null)
+        {
+            return ApplicationResult<InvoiceResponse>.Validation(stockFailure);
+        }
+
+        var warehouseCode = NormalizeNullableCode(request?.WarehouseCode);
+
+        if (stockLines.Count > 0 && warehouseCode is null)
+        {
+            return ApplicationResult<InvoiceResponse>.Validation(
+                "Cette facture porte des lignes d'articles suivis en stock : indiquez le magasin de sortie pour l'emettre.");
         }
 
         // The emitter's identity comes from the global settings (module "Parametrage global").
@@ -502,45 +547,63 @@ public sealed class BillingService(
 
         invoice.MarkUpdated(context.UserName, now);
 
-        // The number is allocated as SELECT max(sequence)+1 protected by the unique index
-        // ux_invoices_issued_year_sequence. If a concurrent issue won the race, the save throws
-        // a unique-violation DbUpdateException and we retry exactly once with a freshly computed
-        // sequence; a second collision surfaces as a 409. Only unique violations are treated as
-        // sequence collisions - any other DbUpdateException keeps propagating.
-        //
-        // Note on optimistic concurrency: Invoice carries no rowversion/xmin token (the
-        // Npgsql-specific xmin mapping would break the SQLite test provider - same constraint
-        // as documented on CashReceiptConfiguration). A double-click on /issue is instead
-        // neutralized by the unique index plus the DB status re-check below: when the unique
-        // violation was caused by the same invoice having been issued by a concurrent request,
-        // we return a clean 409 instead of silently burning a second legal number.
-        try
+        if (stockLines.Count > 0)
         {
-            await dbContext.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException ex) when (ex.IsUniqueViolation())
-        {
-            var statusInDatabase = await dbContext.Set<Invoice>()
-                .AsNoTracking()
-                .Where(current => current.Id == id)
-                .Select(current => current.Status)
-                .SingleAsync(cancellationToken);
+            // Facture ET sortie de stock dans une seule transaction (voir IssueWithStockOutflowAsync).
+            var outflowFailure = await IssueWithStockOutflowAsync(
+                invoice,
+                warehouseCode!,
+                stockLines,
+                context,
+                cancellationToken);
 
-            if (statusInDatabase != InvoiceStatus.Draft)
+            if (outflowFailure is not null)
             {
-                return ApplicationResult<InvoiceResponse>.Conflict(
-                    "The invoice has already been issued by a concurrent operation.");
+                return outflowFailure;
             }
-
+        }
+        else
+        {
+            // The number is allocated as SELECT max(sequence)+1 protected by the unique index
+            // ux_invoices_issued_year_sequence. If a concurrent issue won the race, the save throws
+            // a unique-violation DbUpdateException and we retry exactly once with a freshly computed
+            // sequence; a second collision surfaces as a 409. Only unique violations are treated as
+            // sequence collisions - any other DbUpdateException keeps propagating.
+            //
+            // Note on optimistic concurrency: Invoice carries no rowversion/xmin token (the
+            // Npgsql-specific xmin mapping would break the SQLite test provider - same constraint
+            // as documented on CashReceiptConfiguration). A double-click on /issue is instead
+            // neutralized by the unique index plus the DB status re-check below: when the unique
+            // violation was caused by the same invoice having been issued by a concurrent request,
+            // we return a clean 409 instead of silently burning a second legal number.
             try
             {
-                invoice.ReassignIssueNumber(year, await NextIssueSequenceAsync(year, cancellationToken));
                 await dbContext.SaveChangesAsync(cancellationToken);
             }
-            catch (DbUpdateException retryEx) when (retryEx.IsUniqueViolation())
+            catch (DbUpdateException ex) when (ex.IsUniqueViolation())
             {
-                return ApplicationResult<InvoiceResponse>.Conflict(
-                    "Invoice number allocation conflict. Please retry the operation.");
+                var statusInDatabase = await dbContext.Set<Invoice>()
+                    .AsNoTracking()
+                    .Where(current => current.Id == id)
+                    .Select(current => current.Status)
+                    .SingleAsync(cancellationToken);
+
+                if (statusInDatabase != InvoiceStatus.Draft)
+                {
+                    return ApplicationResult<InvoiceResponse>.Conflict(
+                        "The invoice has already been issued by a concurrent operation.");
+                }
+
+                try
+                {
+                    invoice.ReassignIssueNumber(year, await NextIssueSequenceAsync(year, cancellationToken));
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                }
+                catch (DbUpdateException retryEx) when (retryEx.IsUniqueViolation())
+                {
+                    return ApplicationResult<InvoiceResponse>.Conflict(
+                        "Invoice number allocation conflict. Please retry the operation.");
+                }
             }
         }
 
@@ -679,11 +742,187 @@ public sealed class BillingService(
         return (maxSequence ?? 0) + 1;
     }
 
-    private static List<InvoiceLine> BuildLines(IReadOnlyCollection<InvoiceLineRequest> requests)
+    /// <summary>
+    /// Construit les lignes d'une facture. Une ligne LIBRE porte tout elle-meme ; une ligne
+    /// d'ARTICLE reprend du catalogue ce qu'elle n'a pas surcharge (designation, prix HT, taux
+    /// de TVA) et garde le code de l'article. Les valeurs reprises sont FIGEES dans la ligne : la
+    /// facture ne suit plus les modifications ulterieures du catalogue. Les articles sont resolus
+    /// en une requete pour toute la facture. Rend le message du premier refus, ou null.
+    /// </summary>
+    private async Task<(List<InvoiceLine> Lines, string? Failure)> BuildLinesAsync(
+        IReadOnlyCollection<InvoiceLineRequest> requests,
+        CancellationToken cancellationToken)
     {
-        return requests
-            .Select(line => new InvoiceLine(line.Designation, line.Quantity, line.UnitPrice, line.VatRate))
-            .ToList();
+        var articleCodes = requests
+            .Where(line => !string.IsNullOrWhiteSpace(line.ArticleCode))
+            .Select(line => line.ArticleCode!)
+            .ToArray();
+
+        var articles = articleCodes.Length == 0
+            ? new Dictionary<string, ArticleResponse>(StringComparer.Ordinal)
+            : (await catalogService.FindArticlesAsync(articleCodes, cancellationToken))
+                .ToDictionary(article => article.Code, StringComparer.Ordinal);
+
+        var lines = new List<InvoiceLine>(requests.Count);
+        var lineNumber = 1;
+
+        foreach (var request in requests)
+        {
+            if (string.IsNullOrWhiteSpace(request.ArticleCode))
+            {
+                if (request.UnitPrice is null || request.VatRate is null)
+                {
+                    return (lines, $"Ligne {lineNumber} : le prix unitaire et le taux de TVA sont obligatoires sur une ligne sans article.");
+                }
+
+                lines.Add(new InvoiceLine(
+                    request.Designation ?? string.Empty,
+                    request.Quantity,
+                    request.UnitPrice.Value,
+                    request.VatRate.Value));
+            }
+            else
+            {
+                var code = request.ArticleCode.Trim().ToUpperInvariant();
+
+                if (!articles.TryGetValue(code, out var article))
+                {
+                    return (lines, $"Ligne {lineNumber} : l'article '{code}' est introuvable au catalogue.");
+                }
+
+                if (!article.IsActive)
+                {
+                    return (lines, $"Ligne {lineNumber} : l'article '{code}' est inactif et ne peut plus etre vendu.");
+                }
+
+                lines.Add(new InvoiceLine(
+                    string.IsNullOrWhiteSpace(request.Designation) ? article.Designation : request.Designation,
+                    request.Quantity,
+                    request.UnitPrice ?? article.UnitPriceExclVat,
+                    request.VatRate ?? article.VatRate,
+                    article.Code));
+            }
+
+            lineNumber++;
+        }
+
+        return (lines, null);
+    }
+
+    /// <summary>
+    /// Les lignes qui sortent du stock, resolues A L'EMISSION et non a la saisie : c'est la
+    /// definition de l'article au jour ou la marchandise part qui dit si elle part et d'ou. Un
+    /// article inactif entre-temps sort quand meme (la vente a ete conclue) ; un article qui
+    /// n'existe plus refuse l'emission, le brouillon doit etre corrige.
+    /// </summary>
+    private async Task<(List<StockExitLine> Lines, string? Failure)> ResolveStockLinesAsync(
+        Invoice invoice,
+        CancellationToken cancellationToken)
+    {
+        var articleLines = invoice.Lines
+            .Where(line => line.ArticleCode is not null)
+            .OrderBy(line => line.LineNumber)
+            .ToArray();
+
+        var stockLines = new List<StockExitLine>();
+
+        if (articleLines.Length == 0)
+        {
+            return (stockLines, null);
+        }
+
+        var articles = (await catalogService.FindArticlesAsync(
+                articleLines.Select(line => line.ArticleCode!).Distinct(StringComparer.Ordinal).ToArray(),
+                cancellationToken))
+            .ToDictionary(article => article.Code, StringComparer.Ordinal);
+
+        foreach (var line in articleLines)
+        {
+            if (!articles.TryGetValue(line.ArticleCode!, out var article))
+            {
+                return (stockLines, $"Ligne {line.LineNumber} : l'article '{line.ArticleCode}' n'existe plus au catalogue ; corrigez le brouillon avant de l'emettre.");
+            }
+
+            if (article.TracksStock && article.StockItemCode is not null)
+            {
+                stockLines.Add(new StockExitLine(article.StockItemCode, line.Quantity));
+            }
+        }
+
+        return (stockLines, null);
+    }
+
+    /// <summary>
+    /// Emission AVEC sortie de stock : la facture emise et les mouvements de vente sont ecrits
+    /// dans une seule transaction Serializable - la sortie re-derive le stock disponible a
+    /// l'interieur (garde jamais-negatif du module Stocks) et un stock insuffisant abandonne tout,
+    /// facture comprise, qui reste un brouillon sans numero consomme.
+    ///
+    /// POURQUOI PAS DE RETENTATIVE SUR COLLISION DE NUMERO, contrairement au chemin sans stock :
+    /// PostgreSQL refuse toute instruction apres un echec dans un bloc de transaction, une
+    /// retentative dans la meme transaction est donc impossible, et une retentative hors
+    /// transaction devrait rejouer la sortie de stock. La collision - rare - est rendue comme un
+    /// 409 rejouable : rien n'a ete ecrit, l'appelant recommence. Rend null quand tout est ecrit.
+    /// </summary>
+    private async Task<ApplicationResult<InvoiceResponse>?> IssueWithStockOutflowAsync(
+        Invoice invoice,
+        string warehouseCode,
+        IReadOnlyList<StockExitLine> stockLines,
+        OperationContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable,
+                cancellationToken);
+
+            var sale = await stockOperations.RegisterSaleAsync(
+                new RegisterSaleRequest(warehouseCode, invoice.Number!, stockLines),
+                context,
+                cancellationToken);
+
+            if (!sale.Succeeded)
+            {
+                // Rien n'a ete ecrit : la transaction est abandonnee sans commit et la facture
+                // reste, en base, le brouillon qu'elle etait. Le refus du module Stocks est rendu
+                // tel quel : il nomme l'article, le magasin et le disponible.
+                var message = sale.Error ?? "La sortie de stock a ete refusee.";
+
+                return sale.ErrorType switch
+                {
+                    ApplicationErrorType.NotFound => ApplicationResult<InvoiceResponse>.NotFound(message),
+                    ApplicationErrorType.Conflict => ApplicationResult<InvoiceResponse>.Conflict(message),
+                    _ => ApplicationResult<InvoiceResponse>.Validation(message)
+                };
+            }
+
+            // La sortie a vidange la facture emise avec ses mouvements (meme DbContext) ; quand la
+            // vente etait deja enregistree sous ce numero, elle n'a rien ecrit et la facture
+            // attend encore : cette vidange couvre les deux cas.
+            await dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return null;
+        }
+        catch (DbUpdateException ex) when (ex.IsUniqueViolation())
+        {
+            var statusInDatabase = await dbContext.Set<Invoice>()
+                .AsNoTracking()
+                .Where(current => current.Id == invoice.Id)
+                .Select(current => current.Status)
+                .SingleAsync(cancellationToken);
+
+            return statusInDatabase != InvoiceStatus.Draft
+                ? ApplicationResult<InvoiceResponse>.Conflict("The invoice has already been issued by a concurrent operation.")
+                : ApplicationResult<InvoiceResponse>.Conflict("Invoice number allocation conflict. Please retry the operation.");
+        }
+        catch (Exception ex) when (ex.IsSerializationFailure())
+        {
+            return ApplicationResult<InvoiceResponse>.Conflict(
+                "Une autre operation ecrivait le meme stock au meme instant : l'emission a ete annulee " +
+                "et rien n'a ete ecrit. Reessayez.");
+        }
     }
 
     private async Task<string?> LoadCustomerNameAsync(string customerCode, CancellationToken cancellationToken)
@@ -753,7 +992,8 @@ public sealed class BillingService(
                 line.VatRate,
                 line.LineTotalExclVat,
                 line.VatAmount,
-                line.LineTotalInclVat))
+                line.LineTotalInclVat,
+                line.ArticleCode))
             .ToArray();
 
         return new InvoiceResponse(

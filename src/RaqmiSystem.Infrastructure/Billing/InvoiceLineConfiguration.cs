@@ -34,6 +34,13 @@ public sealed class InvoiceLineConfiguration : IEntityTypeConfiguration<InvoiceL
             .HasMaxLength(300)
             .IsRequired();
 
+        // Nullable : les factures anterieures au catalogue et les lignes libres n'en portent pas.
+        // Pas de cle etrangere vers catalog.articles : la ligne fige ce qu'elle a repris de
+        // l'article, et un article supprime ou renomme ne doit pas empecher de relire une facture.
+        builder.Property(line => line.ArticleCode)
+            .HasColumnName("article_code")
+            .HasMaxLength(40);
+
         builder.Property(line => line.Quantity)
             .HasColumnName("quantity")
             .HasPrecision(18, 3);
@@ -55,5 +62,9 @@ public sealed class InvoiceLineConfiguration : IEntityTypeConfiguration<InvoiceL
 
         builder.HasIndex(line => line.InvoiceId)
             .HasDatabaseName("ix_invoice_lines_invoice_id");
+
+        // Chemin d'acces des statistiques de vente par article.
+        builder.HasIndex(line => line.ArticleCode)
+            .HasDatabaseName("ix_invoice_lines_article_code");
     }
 }

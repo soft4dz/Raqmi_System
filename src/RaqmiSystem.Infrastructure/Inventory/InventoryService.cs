@@ -481,6 +481,16 @@ public sealed class InventoryService(
                 "operation (POST /inventory/transfers) instead of capturing a single half.");
         }
 
+        // Une sortie de VENTE est produite par l'emission de la facture qui vend la marchandise,
+        // jamais saisie a la main : saisie ici, elle sortirait des quantites sans facture en face,
+        // et la facture emise ensuite les ressortirait une seconde fois.
+        if (request.Kind == StockMovementKind.Sale)
+        {
+            return ApplicationResult<StockMovementResponse>.Validation(
+                "A sale outflow is recorded by issuing the invoice that sells the goods " +
+                "(POST /billing/invoices/{id}/issue), not captured by hand.");
+        }
+
         StockMovement movement;
 
         try
@@ -1229,6 +1239,151 @@ public sealed class InventoryService(
         await SaveAsync(cancellationToken);
 
         return ApplicationResult<StockEntryResult>.Success(new StockEntryResult(movements.Count));
+    }
+
+    /// <summary>
+    /// Sortie de stock d'une VENTE : le pendant de <see cref="RegisterPurchaseReceiptAsync"/> a la
+    /// sortie, consomme par le module Facturation a l'emission d'une facture. Un mouvement de
+    /// vente par ligne, date du jour, reference = numero de facture, valorise au cout moyen
+    /// pondere connu a l'instant (informatif : la valeur des marchandises sorties en face du
+    /// chiffre d'affaires).
+    ///
+    /// GARDE JAMAIS-NEGATIF : les quantites demandees sont cumulees par article et comparees au
+    /// stock du magasin AVANT toute ecriture, dans une transaction Serializable - la doctrine de
+    /// la classe. Deux cas d'appel : l'appelant possede deja une transaction sur ce DbContext
+    /// (l'emission de facture, qui veut que la facture et la sortie soient ecrites ensemble ou
+    /// pas du tout) et les ecritures sont alors vidangees dans la sienne ; sinon la methode ouvre
+    /// et committe la sienne, comme n'importe quelle autre sortie de ce module.
+    ///
+    /// IDEMPOTENCE : une vente est identifiee par sa reference. Si le registre porte deja des
+    /// mouvements de vente sous cette reference, rien n'est ecrit et l'appel repond "deja
+    /// enregistree" - reemettre, rejouer, double-cliquer ne ressort pas la marchandise.
+    /// </summary>
+    public async Task<ApplicationResult<StockExitResult>> RegisterSaleAsync(
+        RegisterSaleRequest request,
+        OperationContext context,
+        CancellationToken cancellationToken)
+    {
+        if (request.Lines is null || request.Lines.Count == 0)
+        {
+            return ApplicationResult<StockExitResult>.Validation("A stock sale requires at least one line.");
+        }
+
+        var movements = new List<StockMovement>(request.Lines.Count);
+
+        try
+        {
+            foreach (var line in request.Lines)
+            {
+                // Sans cout pour l'instant : le PMP est pose apres la lecture groupee ci-dessous,
+                // une fois les codes normalises par le domaine.
+                movements.Add(StockMovement.Sale(
+                    request.WarehouseCode,
+                    line.ItemCode,
+                    DateOnly.FromDateTime(DateTime.UtcNow),
+                    line.Quantity,
+                    request.Reference));
+            }
+        }
+        catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
+        {
+            return ApplicationResult<StockExitResult>.Validation(ex.Message);
+        }
+
+        var warehouseCode = movements[0].WarehouseCode;
+        var reference = movements[0].Reference;
+        var itemCodes = movements.Select(movement => movement.ItemCode).Distinct().ToArray();
+
+        // Magasin ET articles actifs : une vente est un mouvement du quotidien, pas la reception
+        // d'une marchandise deja sur le quai - meme regle que la saisie directe d'une sortie.
+        var referenceFailure = await ValidateMovementReferencesAsync(warehouseCode, itemCodes, cancellationToken);
+
+        if (referenceFailure is not null)
+        {
+            return ApplicationResult<StockExitResult>.Validation(referenceFailure);
+        }
+
+        var ownsTransaction = dbContext.Database.CurrentTransaction is null;
+
+        try
+        {
+            var transaction = ownsTransaction
+                ? await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
+                : null;
+
+            await using (transaction)
+            {
+                var alreadyRegistered = await dbContext.Set<StockMovement>()
+                    .AsNoTracking()
+                    .AnyAsync(
+                        movement => movement.Kind == StockMovementKind.Sale && movement.Reference == reference,
+                        cancellationToken);
+
+                if (alreadyRegistered)
+                {
+                    return ApplicationResult<StockExitResult>.Success(new StockExitResult(0, AlreadyRegistered: true));
+                }
+
+                foreach (var group in movements.GroupBy(movement => movement.ItemCode, StringComparer.Ordinal))
+                {
+                    var requested = group.Sum(movement => movement.Quantity);
+                    var available = await CurrentStockAsync(warehouseCode, group.Key, cancellationToken);
+
+                    if (requested > available)
+                    {
+                        return ApplicationResult<StockExitResult>.Conflict(
+                            DescribeInsufficientStock(warehouseCode, group.Key, available, requested));
+                    }
+                }
+
+                var averageCosts = await LoadAverageCostsAsync(itemCodes, cancellationToken);
+                var now = DateTimeOffset.UtcNow;
+
+                var costed = movements
+                    .Select(movement => StockMovement.Sale(
+                        movement.WarehouseCode,
+                        movement.ItemCode,
+                        movement.MovementDate,
+                        movement.Quantity,
+                        movement.Reference,
+                        averageCosts.TryGetValue(movement.ItemCode, out var cost) ? cost : null))
+                    .ToList();
+
+                foreach (var movement in costed)
+                {
+                    movement.MarkCreated(context.UserName, now);
+                }
+
+                dbContext.Set<StockMovement>().AddRange(costed);
+
+                await WriteAuditAsync(
+                    "inventory.sale.registered",
+                    MovementsEntity,
+                    costed[0].Id,
+                    context,
+                    new
+                    {
+                        WarehouseCode = warehouseCode,
+                        Reference = reference,
+                        MovementCount = costed.Count,
+                        TotalQuantity = costed.Sum(movement => movement.Quantity)
+                    },
+                    cancellationToken);
+
+                await SaveAsync(cancellationToken);
+
+                if (transaction is not null)
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                }
+
+                return ApplicationResult<StockExitResult>.Success(new StockExitResult(costed.Count, AlreadyRegistered: false));
+            }
+        }
+        catch (Exception exception) when (exception.IsSerializationFailure())
+        {
+            return ApplicationResult<StockExitResult>.Conflict(ConcurrentStockMutationRefused);
+        }
     }
 
     /// <summary>

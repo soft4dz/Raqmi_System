@@ -18,9 +18,15 @@ public sealed class InvoiceLine
     {
     }
 
-    public InvoiceLine(string designation, decimal quantity, decimal unitPrice, decimal vatRate)
+    public InvoiceLine(
+        string designation,
+        decimal quantity,
+        decimal unitPrice,
+        decimal vatRate,
+        string? articleCode = null)
     {
         Designation = RequireValue(designation, nameof(designation), 300);
+        ArticleCode = NormalizeArticleCode(articleCode);
         Quantity = RequireMaxScale(RequireStrictlyPositive(quantity, nameof(quantity)), 3, nameof(quantity));
         UnitPrice = RequireMaxScale(RequirePositiveOrZero(unitPrice, nameof(unitPrice)), 2, nameof(unitPrice));
         VatRate = RequireAllowedVatRate(vatRate, nameof(vatRate));
@@ -34,6 +40,16 @@ public sealed class InvoiceLine
     public int LineNumber { get; private set; }
 
     public string Designation { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Code de l'article du catalogue dont la ligne est issue, quand il y en a un. Nullable par
+    /// construction : une ligne libre (prestation ponctuelle, facture d'evenement, ligne de
+    /// folio) reste legitime, et les factures anterieures au catalogue n'en portent aucun.
+    /// La designation, le prix et le taux restent portes par la ligne elle-meme : ils ont ete
+    /// repris de l'article au moment de la saisie et n'en suivent plus les modifications - une
+    /// facture emise ne change pas parce que le tarif du catalogue a change.
+    /// </summary>
+    public string? ArticleCode { get; private set; }
 
     public decimal Quantity { get; private set; }
 
@@ -88,6 +104,20 @@ public sealed class InvoiceLine
         }
 
         return trimmed;
+    }
+
+    /// <summary>
+    /// Meme normalisation que le code du catalogue (majuscules, 40 caracteres) sans en dependre :
+    /// le domaine Facturation ne connait pas le catalogue, il porte seulement la cle qui y renvoie.
+    /// </summary>
+    private static string? NormalizeArticleCode(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return RequireValue(value, nameof(value), 40).ToUpperInvariant();
     }
 
     private static decimal RequireStrictlyPositive(decimal value, string argumentName)

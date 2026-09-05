@@ -146,6 +146,35 @@ public sealed class StockMovement : AuditableEntity
             transferGroupId: null);
     }
 
+    /// <summary>
+    /// Sortie de vente, produite par l'emission d'une facture. Le cout unitaire est le cout moyen
+    /// pondere connu a l'instant de la vente : informatif (il ne nourrit aucun calcul), il donne
+    /// au registre la valeur des marchandises sorties en face du chiffre d'affaires facture.
+    /// </summary>
+    public static StockMovement Sale(
+        string warehouseCode,
+        string itemCode,
+        DateOnly movementDate,
+        decimal quantity,
+        string reference,
+        decimal? unitCost = null,
+        string? notes = null)
+    {
+        return new StockMovement(
+            warehouseCode,
+            itemCode,
+            movementDate,
+            StockMovementKind.Sale,
+            quantity,
+            unitCost,
+            reference,
+            lotNumber: null,
+            expiryDate: null,
+            notes,
+            adjustmentIsIncrease: null,
+            transferGroupId: null);
+    }
+
     public static StockMovement InventoryAdjustment(
         string warehouseCode,
         string itemCode,
@@ -244,6 +273,7 @@ public sealed class StockMovement : AuditableEntity
             StockMovementKind.TransferIn => true,
             StockMovementKind.Consumption => false,
             StockMovementKind.TransferOut => false,
+            StockMovementKind.Sale => false,
             StockMovementKind.InventoryAdjustment => adjustmentIsIncrease
                 ?? throw new InvalidOperationException("An inventory adjustment carries an explicit direction."),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Movement kind is not valid.")

@@ -69,14 +69,17 @@ public sealed partial class RaqmiApiClient
         return await ReadResponseAsync<InvoiceResponse>(response, cancellationToken);
     }
 
+    // Le corps est optionnel cote serveur : sans magasin de sortie, aucun corps n'est envoye et
+    // l'emission se comporte comme avant.
     public async Task<InvoiceResponse> IssueInvoiceAsync(
         string apiBaseUrl,
         Guid id,
+        IssueInvoiceRequest? request = null,
         CancellationToken cancellationToken = default)
     {
         EnsureAuthenticated();
 
-        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, $"/api/v1/billing/invoices/{id}/issue", null, includeAuthorization: true, cancellationToken);
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, $"/api/v1/billing/invoices/{id}/issue", request, includeAuthorization: true, cancellationToken);
 
         return await ReadResponseAsync<InvoiceResponse>(response, cancellationToken);
     }

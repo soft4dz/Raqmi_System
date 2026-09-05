@@ -98,6 +98,10 @@ public sealed class InventoryTests
         Assert.True(StockMovement.IsInbound(StockMovementKind.TransferIn, null));
         Assert.False(StockMovement.IsInbound(StockMovementKind.Consumption, null));
         Assert.False(StockMovement.IsInbound(StockMovementKind.TransferOut, null));
+
+        // Une vente sort du magasin : meme sens qu'une consommation.
+        Assert.False(StockMovement.IsInbound(StockMovementKind.Sale, null));
+        Assert.Equal(-3m, StockMovement.Sale("MAG1", "ART", new DateOnly(2030, 1, 1), 3m, "FAC-2030-000001", 80m).SignedQuantity);
     }
 
     // --------------------------------- Transfer ---------------------------------

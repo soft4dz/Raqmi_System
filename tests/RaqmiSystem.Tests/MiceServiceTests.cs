@@ -580,10 +580,7 @@ public sealed class MiceServiceTests
 
         var auditWriter = new AuditLogWriter(dbContext);
 
-        var billingService = new BillingService(
-            dbContext,
-            auditWriter,
-            new ApplicationSettingsService(dbContext, auditWriter));
+        var billingService = SalesTestServices.CreateBillingService(dbContext, auditWriter);
 
         // MiceService consomme desormais ILodgingService : le volet groupes prend ses chambres
         // par le meme chemin qu'une reservation individuelle.

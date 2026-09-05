@@ -681,10 +681,7 @@ public sealed class CrmServiceTests
 
         var auditWriter = new AuditLogWriter(dbContext);
 
-        var billingService = new BillingService(
-            dbContext,
-            auditWriter,
-            new ApplicationSettingsService(dbContext, auditWriter));
+        var billingService = SalesTestServices.CreateBillingService(dbContext, auditWriter);
 
         return new Harness(
             connection,

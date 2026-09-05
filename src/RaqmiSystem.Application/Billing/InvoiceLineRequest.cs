@@ -1,7 +1,18 @@
 namespace RaqmiSystem.Application.Billing;
 
+/// <summary>
+/// Une ligne de facture a saisir. Deux formes cohabitent :
+/// <list type="bullet">
+///   <item>la ligne LIBRE (pas de <see cref="ArticleCode"/>) : designation, prix unitaire et
+///         taux de TVA sont obligatoires - c'est la forme historique, inchangee ;</item>
+///   <item>la ligne d'ARTICLE (<see cref="ArticleCode"/> renseigne) : la designation, le prix
+///         et le taux sont repris de l'article du catalogue quand ils sont omis, et peuvent
+///         etre surcharges un a un (remise negociee, libelle precise).</item>
+/// </list>
+/// </summary>
 public sealed record InvoiceLineRequest(
-    string Designation,
+    string? Designation,
     decimal Quantity,
-    decimal UnitPrice,
-    decimal VatRate);
+    decimal? UnitPrice = null,
+    decimal? VatRate = null,
+    string? ArticleCode = null);
