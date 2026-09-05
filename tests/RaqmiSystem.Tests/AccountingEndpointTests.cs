@@ -41,6 +41,7 @@ public sealed class AccountingEndpointTests : IClassFixture<RaqmiApiFactory>
     [Fact]
     public async Task An_entry_goes_from_unbalanced_draft_to_posted_and_is_corrected_by_a_reversal()
     {
+        await EnsureFiscalYear2026Async();
         await CreateAccountingUserAsync(
             "accounting.writer",
             "accounting.writer@example.com",
@@ -216,6 +217,7 @@ public sealed class AccountingEndpointTests : IClassFixture<RaqmiApiFactory>
     [Fact]
     public async Task The_trial_balance_counts_posted_entries_only()
     {
+        await EnsureFiscalYear2026Async();
         await CreateAccountingUserAsync(
             "accounting.balance",
             "accounting.balance@example.com",
@@ -362,6 +364,7 @@ public sealed class AccountingEndpointTests : IClassFixture<RaqmiApiFactory>
     [Fact]
     public async Task A_posted_entry_cannot_be_modified_or_cancelled_by_a_request_that_read_it_as_a_draft()
     {
+        await EnsureFiscalYear2026Async();
         await CreateAccountingUserAsync(
             "accounting.racer",
             "accounting.racer@example.com",
@@ -539,6 +542,41 @@ public sealed class AccountingEndpointTests : IClassFixture<RaqmiApiFactory>
         var user = new User(userName, email, displayName, passwordHasher.Hash(Password), mustChangePassword: false);
         user.AssignRole(role, DateTimeOffset.UtcNow);
         dbContext.Users.Add(user);
+
+        await dbContext.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Comptabiliser exige une periode ouverte (B6) : l'exercice 2026, decoupe en mois, couvre
+    /// toutes les dates de cette classe. Idempotent parce que la base est partagee par les tests
+    /// de la classe : le premier le cree, les suivants le retrouvent. Insere directement, comme
+    /// les utilisateurs : ces tests eprouvent les ecritures, pas l'ouverture d'exercice.
+    /// </summary>
+    private async Task EnsureFiscalYear2026Async()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<RaqmiDbContext>();
+
+        if (await dbContext.FiscalYears.AnyAsync(year => year.Code == "2026"))
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var fiscalYear = new FiscalYear("2026", new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+        fiscalYear.MarkCreated("tests", now);
+        dbContext.FiscalYears.Add(fiscalYear);
+
+        for (var month = 1; month <= 12; month++)
+        {
+            var period = new AccountingPeriod(
+                fiscalYear.Id,
+                month,
+                new DateOnly(2026, month, 1),
+                new DateOnly(2026, month, DateTime.DaysInMonth(2026, month)));
+            period.MarkCreated("tests", now);
+            dbContext.AccountingPeriods.Add(period);
+        }
 
         await dbContext.SaveChangesAsync();
     }

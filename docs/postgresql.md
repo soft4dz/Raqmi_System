@@ -75,6 +75,31 @@ dotnet ef migrations add <MigrationName> \
   --output-dir Persistence/Migrations
 ~~~
 
+## Rôle applicatif `raqmi_app`
+
+L'API et, sur site, `pg_dump` (`deploy/onpremise/backup-raqmi.ps1`) se connectent avec le rôle
+`raqmi_app`, créé par `deploy/postgres/create-app-role.sql` **après** `dotnet ef database update`.
+Ce rôle n'est ni propriétaire ni superutilisateur : `USAGE` sur chaque schéma, `SELECT/INSERT/
+UPDATE/DELETE` sur toutes les tables, `USAGE/SELECT` sur les séquences, `SELECT` sur
+`public."__EFMigrationsHistory"`, et des `ALTER DEFAULT PRIVILEGES` pour que les tables des
+migrations futures soient couvertes sans re-grant — à condition que ces migrations tournent sous le
+même rôle administrateur que le script.
+
+Les migrations créent aujourd'hui **19 schémas** : `accounting`, `approvals`, `audit`, `budgeting`,
+`crm`, `exploitation`, `finance`, `housekeeping`, `hr`, `inventory`, `kitchen`, `kpi`, `lodging`,
+`organization`, `purchasing`, `reporting`, `security`, `settings`, `tariffs`. Le script doit citer
+**exactement** cet ensemble dans chacun de ses cinq blocs : un schéma migré mais non accordé rend ses
+tables inaccessibles à l'API et **absentes de chaque sauvegarde** (`pg_dump` s'arrête sur la première
+table interdite) ; un schéma accordé mais inexistant fait échouer le script lui-même (`ON_ERROR_STOP`).
+`crm`, `housekeeping`, `hr` et `kpi` ont manqué de la première version du script — 25 tables sur 104
+jamais sauvegardées, dont les 11 tables RH — pendant que `/health/database` répondait « healthy ».
+
+Le test `PostgresSchemaGrantTests` (collection « Postgres », voir ci-dessous) compare le script à la base
+migrée et rejoue ses `GRANT` sur un rôle jetable pour vérifier la lecture de chaque table : **toute
+migration qui ajoute un schéma doit être livrée avec la mise à jour des cinq blocs du script**, sinon le
+job `postgres-integration` est rouge. Sur une installation existante, rejouez le script (idempotent, le
+mot de passe d'un rôle existant n'est pas modifié) pour accorder les schémas ajoutés.
+
 ## Tests sur PostgreSQL réel
 
 La suite de tests (`dotnet test`) tourne sur SQLite et InMemory : rapide, sans dépendance, mais
@@ -94,6 +119,7 @@ portent le trait `Category=Postgres`.
 | Retour arrière | la dernière migration se retire (`Down`) puis se réapplique |
 | Contraintes réelles | unicité de l'email (`security.users`), du numéro de facture émise (`finance.invoices`), du couple (date, unité) de `exploitation.daily_revenues` ; clé étrangère et contrainte `CHECK` de `accounting.journal_entry_lines` — chaque violation est provoquée et l'exception Npgsql (SQLSTATE, nom de contrainte) est vérifiée, telle que `DbUpdateExceptionExtensions` la lit |
 | Concurrence | deux ventes simultanées de la dernière chambre d'un type via `LodgingService` : une seule aboutit, l'autre reçoit un conflit rejouable (transaction `Serializable` réelle) |
+| **Couverture du rôle applicatif** | `PostgresSchemaGrantTests` : l'ensemble des schémas cités dans `deploy/postgres/create-app-role.sql` est **égal** à l'ensemble des schémas migrés, dans chacun des cinq blocs de `GRANT` ; et les `GRANT` du script, rejoués sur un rôle jetable, donnent `SELECT` sur chaque table — ce que `pg_dump` exige. Une migration qui ajoute un schéma sans compléter le script rend ce test rouge |
 
 ### La variable `RAQMI_TEST_POSTGRES`
 

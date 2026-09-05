@@ -19,11 +19,18 @@
 -- Run this AFTER the schema exists (i.e. after `dotnet ef database update` has
 -- created the security/audit/organization/exploitation/finance/settings/
 -- accounting/budgeting/tariffs/lodging/approvals/reporting/inventory/
--- purchasing/kitchen schemas and
--- tables - see
--- docs/deployment.md), and before
--- the API's first startup. While
+-- purchasing/kitchen/crm/housekeeping/hr/kpi schemas and tables - see
+-- docs/deployment.md), and before the API's first startup. While
 -- connected to the target application database (not "postgres"):
+--
+-- The list of schemas below MUST match what the migrations create: a schema
+-- missing here is a schema whose tables answer "permission denied" to the API
+-- and are silently absent from every pg_dump run as raqmi_app (that happened to
+-- crm, housekeeping, hr and kpi - 25 tables out of 104 - while /health/database
+-- kept answering "healthy"). tests/RaqmiSystem.Tests/Postgres/
+-- PostgresSchemaGrantTests.cs compares this file with the migrated database and
+-- fails as soon as a migration adds a schema that is not granted in all five
+-- blocks below. Extend every block when you add a schema.
 --
 --   psql -h <host> -U <admin-user> -d raqmi_system \
 --        -v app_password='<a-long-random-value>' \
@@ -76,6 +83,10 @@ GRANT USAGE ON SCHEMA reporting TO raqmi_app;
 GRANT USAGE ON SCHEMA inventory TO raqmi_app;
 GRANT USAGE ON SCHEMA purchasing TO raqmi_app;
 GRANT USAGE ON SCHEMA kitchen TO raqmi_app;
+GRANT USAGE ON SCHEMA crm TO raqmi_app;
+GRANT USAGE ON SCHEMA housekeeping TO raqmi_app;
+GRANT USAGE ON SCHEMA hr TO raqmi_app;
+GRANT USAGE ON SCHEMA kpi TO raqmi_app;
 
 -- Row-level CRUD on every table that exists today in each schema.
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA security TO raqmi_app;
@@ -93,6 +104,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA reporting TO raqmi_
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA inventory TO raqmi_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA purchasing TO raqmi_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA kitchen TO raqmi_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA crm TO raqmi_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA housekeeping TO raqmi_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA hr TO raqmi_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA kpi TO raqmi_app;
 
 -- EF Core's migrations history table lives at public."__EFMigrationsHistory"
 -- (HasDefaultSchema("raqmi") does not move it). raqmi_app never writes it, but
@@ -122,6 +137,10 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA reporting TO raqmi_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA inventory TO raqmi_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA purchasing TO raqmi_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA kitchen TO raqmi_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA crm TO raqmi_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA housekeeping TO raqmi_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA hr TO raqmi_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA kpi TO raqmi_app;
 
 -- Default privileges: apply the same grants automatically to tables/sequences
 -- created AFTER this point, so future `dotnet ef database update` runs do not
@@ -163,6 +182,14 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA purchasing
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO raqmi_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA kitchen
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO raqmi_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA crm
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO raqmi_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA housekeeping
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO raqmi_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA hr
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO raqmi_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA kpi
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO raqmi_app;
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA security
     GRANT USAGE, SELECT ON SEQUENCES TO raqmi_app;
@@ -193,6 +220,14 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA inventory
 ALTER DEFAULT PRIVILEGES IN SCHEMA purchasing
     GRANT USAGE, SELECT ON SEQUENCES TO raqmi_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA kitchen
+    GRANT USAGE, SELECT ON SEQUENCES TO raqmi_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA crm
+    GRANT USAGE, SELECT ON SEQUENCES TO raqmi_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA housekeeping
+    GRANT USAGE, SELECT ON SEQUENCES TO raqmi_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA hr
+    GRANT USAGE, SELECT ON SEQUENCES TO raqmi_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA kpi
     GRANT USAGE, SELECT ON SEQUENCES TO raqmi_app;
 
 -- Deliberately NOT granted, by design:

@@ -38,6 +38,26 @@ internal static class AccountingEndpoints
         core.MapGet("/fiscal-years", async (IAccountingCoreService s, CancellationToken ct) => Results.Ok(await s.ListFiscalYearsAsync(ct))).RequireAuthorization(PermissionCatalog.FinanceAccountingRead);
         core.MapPost("/fiscal-years", async (CreateFiscalYearRequest r,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.CreateFiscalYearAsync(r,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.FinanceAccountingAdmin);
         core.MapGet("/fiscal-years/{id:guid}/periods", async (Guid id,IAccountingCoreService s,CancellationToken ct)=>Results.Ok(await s.ListPeriodsAsync(id,ct))).RequireAuthorization(PermissionCatalog.FinanceAccountingRead);
+
+        // Ouverture d'une periode : structurel, comme l'ouverture d'un exercice juste au-dessus,
+        // donc derriere finance.accounting.admin (cle historique accounting.admin acceptee) et non
+        // finance.period.close, qui ne fait que fermer. Sans cette route, un exercice cree sans
+        // periodes mensuelles etait definitivement inutilisable. 201 + Location, comme les autres
+        // creations de ce fichier.
+        core.MapPost("/fiscal-years/{id:guid}/periods", async (
+            Guid id,
+            CreateAccountingPeriodRequest request,
+            IAccountingCoreService service,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.CreatePeriodAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
+
+            return result.Succeeded && result.Value is not null
+                ? Results.Created($"/api/v1/accounting/fiscal-years/{id}/periods", result.Value)
+                : result.ToHttpResult();
+        }).RequireAuthorization(PermissionCatalog.FinanceAccountingAdmin);
+
         core.MapPost("/fiscal-years/{id:guid}/close", async (Guid id,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.CloseFiscalYearAsync(id,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.FinancePeriodClose);
         core.MapPost("/periods/{id:guid}/close", async (Guid id,IAccountingCoreService s,HttpContext h,CancellationToken ct)=>(await s.ClosePeriodAsync(id,h.ToOperationContext(),ct)).ToHttpResult()).RequireAuthorization(PermissionCatalog.FinancePeriodClose);
         core.MapGet("/parties", async (IAccountingCoreService s,CancellationToken ct)=>Results.Ok(await s.ListPartiesAsync(ct))).RequireAuthorization(PermissionCatalog.FinanceAccountingRead);

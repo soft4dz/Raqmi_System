@@ -1,6 +1,6 @@
 using System.Globalization;
+using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -17,30 +17,93 @@ namespace RaqmiSystem.Desktop.Api;
 // paralleles se disputent ce fichier. Les membres prives (SendAsync,
 // ReadResponseAsync, BuildQuery, EnsureAuthenticated...) restent accessibles
 // depuis ces fichiers puisqu'il s'agit de la meme classe.
-public sealed partial class RaqmiApiClient(HttpClient httpClient)
+public sealed partial class RaqmiApiClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true
     };
 
-    private string? accessToken;
+    private readonly HttpClient httpClient;
+
+    // La session (jetons d'acces et de rafraichissement, expiration) et sa politique de
+    // renouvellement vivent dans RaqmiSystem.Application.Security.TokenRenewalPolicy, testee sans
+    // WPF. Avant ce lot, le client ne gardait que le jeton d'acces et jetait le jeton de
+    // rafraichissement recu au login : chaque poste mourait a l'expiration du jeton (60 minutes),
+    // en plein geste, sans autre issue que de relancer l'application.
+    private readonly TokenRenewalPolicy session;
+
+    /// <summary>
+    /// Delai maximal d'un appel API, en l'absence de reglage explicite. Trente secondes : bien
+    /// au-dela de tout appel normal sur un reseau local (les plus lourds, journal d'audit ou grand
+    /// livre, repondent en moins de deux secondes), et assez court pour qu'une coupure pendant un
+    /// check-in soit annoncee a la reception avant que le client ne s'impatiente. Le defaut de
+    /// HttpClient, 100 secondes, faisait attendre presque deux minutes sur un cable debranche.
+    /// </summary>
+    public static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Variable d'environnement qui surcharge <see cref="DefaultRequestTimeout"/>, en secondes
+    /// entieres (liaison lente, serveur distant, diagnostic). Bornee a [5 ; 300] : en deca on ne
+    /// laisse plus le temps a une requete honnete, au-dela on retombe dans l'attente que ce
+    /// reglage existe pour supprimer. Valeur absente ou invalide = defaut, sans erreur.
+    /// </summary>
+    public const string RequestTimeoutEnvironmentVariable = "RAQMI_DESKTOP_HTTP_TIMEOUT_SECONDS";
+
+    private const int MinRequestTimeoutSeconds = 5;
+
+    private const int MaxRequestTimeoutSeconds = 300;
 
     static RaqmiApiClient()
     {
         JsonOptions.Converters.Add(new JsonStringEnumConverter());
     }
 
-    public bool IsAuthenticated => !string.IsNullOrWhiteSpace(accessToken);
+    /// <param name="requestTimeout">
+    /// Delai explicite ; null = variable d'environnement, puis <see cref="DefaultRequestTimeout"/>.
+    /// Le delai est pose ICI et non par l'appelant parce que le client possede sa politique de
+    /// transport : quiconque lui confie un HttpClient neuf obtient un delai raisonnable sans y penser.
+    /// </param>
+    public RaqmiApiClient(HttpClient httpClient, TimeSpan? requestTimeout = null)
+    {
+        this.httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+
+        // HttpClient.Timeout ne se modifie plus apres la premiere requete : le constructeur est le
+        // seul endroit ou ce reglage est garanti d'etre accepte.
+        httpClient.Timeout = requestTimeout ?? ResolveRequestTimeout();
+
+        session = new TokenRenewalPolicy(httpClient, JsonOptions);
+    }
+
+    private static TimeSpan ResolveRequestTimeout()
+    {
+        var configured = Environment.GetEnvironmentVariable(RequestTimeoutEnvironmentVariable);
+
+        if (int.TryParse(configured, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds)
+            && seconds is >= MinRequestTimeoutSeconds and <= MaxRequestTimeoutSeconds)
+        {
+            return TimeSpan.FromSeconds(seconds);
+        }
+
+        return DefaultRequestTimeout;
+    }
+
+    public bool IsAuthenticated => session.IsAuthenticated;
 
     /// <summary>
-    /// Clears the current session token so <see cref="IsAuthenticated"/> reports false again.
-    /// Does not call the API: the desktop client has no server-side session to invalidate,
-    /// so signing out is purely a local state reset.
+    /// Expiration du jeton d'acces courant, telle qu'annoncee par le serveur, ou null hors session.
+    /// Informatif : le renouvellement est automatique, l'appelant n'a rien a planifier.
+    /// </summary>
+    public DateTimeOffset? SessionExpiresAt => session.ExpiresAt;
+
+    /// <summary>
+    /// Oublie les jetons de la session, si bien que <see cref="IsAuthenticated"/> redevient faux.
+    /// N'appelle pas l'API : elle n'expose pas de route de deconnexion, le jeton de
+    /// rafraichissement reste donc valable cote serveur jusqu'a son expiration ou sa rotation.
     /// </summary>
     public void Logout()
     {
-        accessToken = null;
+        session.Close();
     }
 
     public async Task<LoginResponse> LoginAsync(
@@ -50,7 +113,7 @@ public sealed partial class RaqmiApiClient(HttpClient httpClient)
     {
         var response = await SendAsync(apiBaseUrl, HttpMethod.Post, "/api/v1/auth/login", request, includeAuthorization: false, cancellationToken);
         var login = await ReadResponseAsync<LoginResponse>(response, cancellationToken);
-        accessToken = login.AccessToken;
+        session.Open(login);
         return login;
     }
 
@@ -238,24 +301,37 @@ public sealed partial class RaqmiApiClient(HttpClient httpClient)
         bool includeAuthorization,
         CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(method, BuildUri(apiBaseUrl, relativePath));
+        var uri = BuildUri(apiBaseUrl, relativePath);
 
-        if (includeAuthorization)
-        {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        }
-
-        if (payload is not null)
-        {
-            var json = JsonSerializer.Serialize(payload, payload.GetType(), JsonOptions);
-            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
-        }
+        // Serialise une seule fois : la fabrique ci-dessous peut etre rappelee pour rejouer la
+        // requete apres un renouvellement de jeton, et un HttpRequestMessage ne s'envoie qu'une fois.
+        var json = payload is null ? null : JsonSerializer.Serialize(payload, payload.GetType(), JsonOptions);
 
         HttpResponseMessage response;
 
         try
         {
-            response = await httpClient.SendAsync(request, cancellationToken);
+            if (includeAuthorization)
+            {
+                // Renouvellement proactif, traitement du 401 (un renouvellement, un rejeu) et
+                // serialisation des renouvellements concurrents : tout est dans la politique.
+                response = await session.SendAuthenticatedAsync(
+                    BuildUri(apiBaseUrl, TokenRenewalPolicy.RefreshPath),
+                    () => CreateRequest(method, uri, json),
+                    cancellationToken);
+            }
+            else
+            {
+                using var request = CreateRequest(method, uri, json);
+                response = await httpClient.SendAsync(request, cancellationToken);
+            }
+        }
+        catch (SessionExpiredException ex)
+        {
+            // Le serveur a refuse le renouvellement : la session est deja fermee par la politique,
+            // l'ecran affiche le message (InvalidOperationException) et l'operateur se reconnecte.
+            RecordFailure(method, relativePath, (int)HttpStatusCode.Unauthorized, "SessionExpired", ex.Message);
+            throw;
         }
         catch (OperationCanceledException ex)
         {
@@ -278,6 +354,18 @@ public sealed partial class RaqmiApiClient(HttpClient httpClient)
         var message = await ReadErrorMessageAsync(response, cancellationToken);
         RecordFailure(method, relativePath, (int)response.StatusCode, "HttpError", message);
         throw new ApiRequestFailedException(response.StatusCode, message);
+    }
+
+    private static HttpRequestMessage CreateRequest(HttpMethod method, Uri uri, string? json)
+    {
+        var request = new HttpRequestMessage(method, uri);
+
+        if (json is not null)
+        {
+            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        }
+
+        return request;
     }
 
     /// <summary>

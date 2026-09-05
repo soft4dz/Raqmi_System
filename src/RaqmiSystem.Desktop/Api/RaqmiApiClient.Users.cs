@@ -243,12 +243,12 @@ public sealed partial class RaqmiApiClient
     /// </summary>
     public UnitScopeResponse? TryGetSessionUnitScope()
     {
-        if (string.IsNullOrWhiteSpace(accessToken))
+        if (string.IsNullOrWhiteSpace(session.AccessToken))
         {
             return null;
         }
 
-        var parts = accessToken.Split('.');
+        var parts = session.AccessToken.Split('.');
 
         if (parts.Length < 2)
         {

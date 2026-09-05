@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+      # Les branches de travail sont construites et testées à chaque poussée, pas seulement à
+      # l'ouverture d'une PR : reorg/phase-1 a porté 36 commits sans qu'aucun ne soit compilé
+      # ni testé en CI, et le gate PostgreSQL n'a jamais tourné dessus.
+      - "reorg/**"
+      - "feature/**"
     tags:
       - "v*.*.*"
   pull_request:
@@ -113,7 +118,11 @@ jobs:
 
   publish-api:
     name: Publish API image
-    needs: build-core
+    # Une image ne part sur ghcr.io que si la suite principale ET le gate PostgreSQL réel sont
+    # verts : les migrations Npgsql, les contraintes et la couverture du rôle applicatif ne sont
+    # vérifiées que par postgres-integration, et une image publiée avec ce job rouge serait une
+    # image dont la base ne se migre pas ou ne se sauvegarde pas.
+    needs: [build-core, postgres-integration]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:

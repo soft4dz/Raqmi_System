@@ -471,7 +471,7 @@ public sealed class AccountingService(
             return ApplicationResult<JournalEntryResponse>.Validation(ex.Message);
         }
 
-        var periodFailure = await RequireOpenPeriodAsync(entry.EntryDate, cancellationToken);
+        var periodFailure = await RequireOpenPeriodAsync(entry.EntryDate, engagesTheBooks: false, cancellationToken);
         if (periodFailure is not null) return periodFailure;
 
         var referenceFailure = await ValidateReferencesAsync(
@@ -623,7 +623,7 @@ public sealed class AccountingService(
                         : "A cancelled journal entry cannot be posted.");
             }
 
-            var periodFailure = await RequireOpenPeriodAsync(entry.EntryDate, cancellationToken);
+            var periodFailure = await RequireOpenPeriodAsync(entry.EntryDate, engagesTheBooks: true, cancellationToken);
             if (periodFailure is not null) return periodFailure;
 
             var now = DateTimeOffset.UtcNow;
@@ -711,7 +711,8 @@ public sealed class AccountingService(
         // been deactivated would leave a wrong entry in the books with no legal way out.
         var now = DateTimeOffset.UtcNow;
         var reversalDate = request.ReversalDate ?? entry.EntryDate;
-        var periodFailure = await RequireOpenPeriodAsync(reversalDate, cancellationToken);
+        // L'extourne comptabilise une ecriture : meme exigence de periode ouverte que /post.
+        var periodFailure = await RequireOpenPeriodAsync(reversalDate, engagesTheBooks: true, cancellationToken);
         if (periodFailure is not null) return periodFailure;
         JournalEntry reversal;
 
@@ -768,19 +769,45 @@ public sealed class AccountingService(
         return ApplicationResult<JournalEntryResponse>.Success(Map(reversal));
     }
 
-    private async Task<ApplicationResult<JournalEntryResponse>?> RequireOpenPeriodAsync(DateOnly date, CancellationToken cancellationToken)
+    /// <summary>
+    /// Verifie qu'une periode OUVERTE couvre la date.
+    /// </summary>
+    /// <param name="engagesTheBooks">
+    /// true pour comptabiliser (post, extourne), false pour saisir un brouillon. La tolerance
+    /// d'amorcage - aucune periode configuree nulle part - ne vaut que pour la SAISIE : un
+    /// brouillon n'engage rien et peut attendre que l'exercice soit ouvert. Comptabiliser sans
+    /// periode etait possible avant ce correctif, et l'ecriture entrait alors dans les livres
+    /// SANS numero de piece, definitivement (AssignDefinitiveNumberAsync rendait la main sans
+    /// rien faire) : la numerotation continue exigee par le SCF avait un trou impossible a
+    /// combler. La comptabilisation exige desormais une periode, toujours.
+    /// </param>
+    private async Task<ApplicationResult<JournalEntryResponse>?> RequireOpenPeriodAsync(
+        DateOnly date,
+        bool engagesTheBooks,
+        CancellationToken cancellationToken)
     {
         var period = await dbContext.AccountingPeriods.AsNoTracking()
             .SingleOrDefaultAsync(x => date >= x.StartsOn && date <= x.EndsOn, cancellationToken);
+
         if (period is null)
         {
-            // Backward-compatible bootstrap: period enforcement becomes strict as soon as the
-            // establishment configures its first fiscal year.
-            if (!await dbContext.AccountingPeriods.AnyAsync(cancellationToken)) return null;
-            return ApplicationResult<JournalEntryResponse>.Validation("The entry date is outside every configured accounting period.");
+            if (!engagesTheBooks && !await dbContext.AccountingPeriods.AnyAsync(cancellationToken))
+            {
+                return null;
+            }
+
+            return ApplicationResult<JournalEntryResponse>.Validation(
+                engagesTheBooks
+                    ? "No open accounting period covers the entry date. Create the fiscal year and its periods "
+                      + "(POST /accounting/fiscal-years, POST /accounting/fiscal-years/{id}/periods) before posting."
+                    : "The entry date is outside every configured accounting period.");
         }
+
         if (period.Status == AccountingPeriodStatus.Closed)
+        {
             return ApplicationResult<JournalEntryResponse>.Conflict("The accounting period is closed; capture and posting are forbidden.");
+        }
+
         return null;
     }
 
@@ -1170,7 +1197,14 @@ public sealed class AccountingService(
     {
         var period = await dbContext.AccountingPeriods.SingleOrDefaultAsync(
             x => entry.EntryDate >= x.StartsOn && entry.EntryDate <= x.EndsOn, cancellationToken);
-        if (period is null) return;
+        // RequireOpenPeriodAsync a deja refuse ce cas : arriver ici sans periode est un defaut
+        // d'appel, et une ecriture sans numero ne doit JAMAIS entrer dans les livres (l'ancien
+        // « return » silencieux est exactement ce qui creait le trou de numerotation).
+        if (period is null)
+        {
+            throw new InvalidOperationException("No accounting period covers the entry date; the entry cannot receive its definitive number.");
+        }
+
         var year = await dbContext.FiscalYears.SingleAsync(x => x.Id == period.FiscalYearId, cancellationToken);
         var sequence = await dbContext.JournalSequences.SingleOrDefaultAsync(
             x => x.JournalCode == entry.JournalCode && x.FiscalYearId == year.Id, cancellationToken);
