@@ -1,3 +1,4 @@
+using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Application.Common;
 using RaqmiSystem.Application.Security;
 using RaqmiSystem.Domain.Revenue;

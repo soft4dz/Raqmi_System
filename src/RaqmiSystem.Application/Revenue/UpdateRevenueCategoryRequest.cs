@@ -1,3 +1,4 @@
+using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Domain.Revenue;
 
 namespace RaqmiSystem.Application.Revenue;

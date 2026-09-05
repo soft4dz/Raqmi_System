@@ -25,9 +25,9 @@ public sealed class RevenueCategoryTests
     }
 
     [Theory]
-    [InlineData(BusinessSector.Trade)]
+    [InlineData(BusinessSector.Retail)]
     [InlineData(BusinessSector.Services)]
-    [InlineData(BusinessSector.Industry)]
+    [InlineData(BusinessSector.Manufacturing)]
     [InlineData(BusinessSector.Other)]
     [InlineData(null)]
     public void Sectors_without_a_dedicated_set_get_the_generic_trio(BusinessSector? sector)
@@ -58,14 +58,14 @@ public sealed class RevenueCategoryTests
         // Un secteur sans jeu dédié voit le jeu générique, enrichi de la catégorie sans secteur.
         Assert.Equal(
             [RevenueCategoryCodes.Merchandise, RevenueCategoryCodes.Services, "DELIVERY", RevenueCategoryCodes.OtherIncome],
-            RevenueCategoryCatalog.Applicable(configured, BusinessSector.Trade).Select(category => category.Code));
+            RevenueCategoryCatalog.Applicable(configured, BusinessSector.Retail).Select(category => category.Code));
 
         // Une catégorie dédiée à un autre secteur crée un jeu pour ce secteur : le générique s'efface.
-        var withIndustry = configured.Append(new RevenueCategory("PRODUCTION", "Production vendue", 5, BusinessSector.Industry));
+        var withIndustry = configured.Append(new RevenueCategory("PRODUCTION", "Production vendue", 5, BusinessSector.Manufacturing));
 
         Assert.Equal(
             ["PRODUCTION"],
-            RevenueCategoryCatalog.Applicable(withIndustry, BusinessSector.Industry).Select(category => category.Code));
+            RevenueCategoryCatalog.Applicable(withIndustry, BusinessSector.Manufacturing).Select(category => category.Code));
     }
 
     [Fact]
