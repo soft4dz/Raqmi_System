@@ -36,6 +36,8 @@ public sealed class RaqmiDbContext(DbContextOptions<RaqmiDbContext> options) : D
 
     public DbSet<Permission> Permissions => Set<Permission>();
 
+    public DbSet<UserUnitAssignment> UserUnitAssignments => Set<UserUnitAssignment>();
+
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     public DbSet<HotelUnit> HotelUnits => Set<HotelUnit>();
