@@ -8,5 +8,5 @@ namespace RaqmiSystem.Application.Budgeting;
 /// </summary>
 public sealed record BudgetTargetLine(
     int Month,
-    BudgetCategory Category,
+    string Category,
     decimal AmountTarget);

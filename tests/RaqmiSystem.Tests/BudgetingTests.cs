@@ -1,5 +1,6 @@
 using RaqmiSystem.Application.Budgeting;
 using RaqmiSystem.Domain.Budgeting;
+using RaqmiSystem.Domain.Revenue;
 
 namespace RaqmiSystem.Tests;
 
@@ -10,6 +11,12 @@ namespace RaqmiSystem.Tests;
 /// </summary>
 public sealed class BudgetingTests
 {
+    // Les quatre catégories hôtelières, telles que le service les passe au calculateur pour une
+    // unité d'hôtellerie : le rapport d'un hôtel garde exactement ses quatre lignes par mois.
+    private static readonly BudgetVarianceCategory[] HotelCategories = RevenueCategoryCatalog.Hotel
+        .Select(category => new BudgetVarianceCategory(category.Code, category.Label))
+        .ToArray();
+
     [Fact]
     public void Budget_plan_starts_as_an_editable_draft_and_normalizes_its_unit_code()
     {
@@ -93,6 +100,30 @@ public sealed class BudgetingTests
         Assert.Equal(12, plan.SetLine(12, BudgetCategory.Food, 1_000m).Month);
     }
 
+    /// <summary>
+    /// La catégorie d'une ligne est le code d'une catégorie de recettes paramétrable : n'importe
+    /// quel code bien formé, normalisé comme les codes de recettes, et non plus l'une de quatre
+    /// valeurs figées.
+    /// </summary>
+    [Fact]
+    public void Budget_line_category_is_a_normalized_revenue_category_code()
+    {
+        Assert.Equal(RevenueCategoryCodes.Accommodation, new BudgetLine(1, " accommodation ", 1m).Category);
+        Assert.Equal("SPA", new BudgetLine(1, "spa", 1m).Category);
+        Assert.Equal(RevenueCategoryCodes.Merchandise, new BudgetLine(1, RevenueCategoryCodes.Merchandise, 1m).Category);
+
+        Assert.Throws<ArgumentException>(() => new BudgetLine(1, "bad code!", 1m));
+        Assert.Throws<ArgumentException>(() => new BudgetLine(1, " ", 1m));
+
+        var plan = new BudgetPlan(2026, "SHOP", "Budget 2026");
+        var first = plan.SetLine(3, "spa", 5m);
+        var second = plan.SetLine(3, "SPA", 6m);
+
+        // Deux graphies du même code désignent la même cellule.
+        Assert.Same(first, second);
+        Assert.Equal(6m, plan.TotalTarget);
+    }
+
     [Fact]
     public void A_month_and_category_pair_carries_exactly_one_target()
     {
@@ -160,17 +191,18 @@ public sealed class BudgetingTests
             month: null,
             budgetPlanId: Guid.NewGuid(),
             planStatus: BudgetStatus.Approved,
+            categories: HotelCategories,
             targets: new[]
             {
                 new BudgetTargetLine(1, BudgetCategory.Accommodation, 100_000.00m),
                 new BudgetTargetLine(1, BudgetCategory.Food, 50_000.00m),
                 new BudgetTargetLine(2, BudgetCategory.Accommodation, 200_000.00m)
             },
-            actuals: new[]
-            {
-                new BudgetActualRevenue(new DateOnly(2026, 1, 5), 60_000.00m, 55_000.00m, 0m, 0m),
-                new BudgetActualRevenue(new DateOnly(2026, 1, 20), 30_000.00m, 0m, 1_000.00m, 0m)
-            });
+            actuals:
+            [
+                .. HotelActuals(new DateOnly(2026, 1, 5), 60_000.00m, 55_000.00m, 0m, 0m),
+                .. HotelActuals(new DateOnly(2026, 1, 20), 30_000.00m, 0m, 1_000.00m, 0m)
+            ]);
 
         // A full-year report always carries its twelve months and each month its four categories,
         // whether or not anything was budgeted or produced.
@@ -180,6 +212,7 @@ public sealed class BudgetingTests
         var january = report.Months.Single(month => month.Month == 1);
 
         var accommodation = january.Categories.Single(row => row.Category == BudgetCategory.Accommodation);
+        Assert.Equal("Hébergement", accommodation.CategoryLabel);
         Assert.Equal(100_000.00m, accommodation.BudgetAmount);
         Assert.Equal(90_000.00m, accommodation.ActualAmount);
         Assert.Equal(-10_000.00m, accommodation.VarianceAmount);
@@ -208,6 +241,65 @@ public sealed class BudgetingTests
         Assert.Equal(-58.29m, report.VariancePercentage);
     }
 
+    /// <summary>
+    /// Le rapport suit les catégories qu'on lui donne - celles de l'entreprise, quelles qu'elles
+    /// soient - et n'écarte jamais un code rencontré dans les objectifs ou le réalisé : un
+    /// montant enregistré sur une catégorie hors liste apparaît, libellé par son code, à la fin.
+    /// </summary>
+    [Fact]
+    public void Variance_follows_the_categories_it_is_given_and_never_drops_a_recorded_code()
+    {
+        var genericCategories = RevenueCategoryCatalog.Generic
+            .Select(category => new BudgetVarianceCategory(category.Code, category.Label))
+            .ToArray();
+
+        var report = new BudgetVarianceCalculator().Calculate(
+            2026,
+            "SHOP",
+            month: 1,
+            budgetPlanId: Guid.NewGuid(),
+            planStatus: BudgetStatus.Approved,
+            categories: genericCategories,
+            targets: new[]
+            {
+                new BudgetTargetLine(1, RevenueCategoryCodes.Merchandise, 10_000.00m),
+                new BudgetTargetLine(1, "services", 2_000.00m)
+            },
+            actuals: new[]
+            {
+                new BudgetActualRevenue(new DateOnly(2026, 1, 3), RevenueCategoryCodes.Merchandise, 9_000.00m),
+                new BudgetActualRevenue(new DateOnly(2026, 1, 9), "DELIVERY", 500.00m)
+            });
+
+        var january = Assert.Single(report.Months);
+
+        Assert.Equal(
+            [RevenueCategoryCodes.Merchandise, RevenueCategoryCodes.Services, RevenueCategoryCodes.OtherIncome, "DELIVERY"],
+            january.Categories.Select(row => row.Category));
+
+        var merchandise = january.Categories.Single(row => row.Category == RevenueCategoryCodes.Merchandise);
+        Assert.Equal("Ventes de marchandises", merchandise.CategoryLabel);
+        Assert.Equal(10_000.00m, merchandise.BudgetAmount);
+        Assert.Equal(9_000.00m, merchandise.ActualAmount);
+        Assert.Equal(-1_000.00m, merchandise.VarianceAmount);
+        Assert.Equal(-10.00m, merchandise.VariancePercentage);
+
+        // Le code normalisé en minuscules dans l'objectif a bien rejoint la cellule SERVICES.
+        var services = january.Categories.Single(row => row.Category == RevenueCategoryCodes.Services);
+        Assert.Equal(2_000.00m, services.BudgetAmount);
+        Assert.Equal(0m, services.ActualAmount);
+
+        var delivery = january.Categories.Single(row => row.Category == "DELIVERY");
+        Assert.Equal("DELIVERY", delivery.CategoryLabel);
+        Assert.Equal(0m, delivery.BudgetAmount);
+        Assert.Equal(500.00m, delivery.ActualAmount);
+        Assert.Null(delivery.VariancePercentage);
+
+        Assert.Equal(12_000.00m, january.BudgetAmount);
+        Assert.Equal(9_500.00m, january.ActualAmount);
+        Assert.Equal(-2_500.00m, january.VarianceAmount);
+    }
+
     [Fact]
     public void Variance_percentage_is_undefined_rather_than_zero_when_nothing_was_budgeted()
     {
@@ -217,11 +309,9 @@ public sealed class BudgetingTests
             month: 1,
             budgetPlanId: Guid.NewGuid(),
             planStatus: BudgetStatus.Draft,
+            categories: HotelCategories,
             targets: Array.Empty<BudgetTargetLine>(),
-            actuals: new[]
-            {
-                new BudgetActualRevenue(new DateOnly(2026, 1, 9), 0m, 0m, 50_000.00m, 0m)
-            });
+            actuals: HotelActuals(new DateOnly(2026, 1, 9), 0m, 0m, 50_000.00m, 0m));
 
         var january = Assert.Single(report.Months);
         var beverage = january.Categories.Single(row => row.Category == BudgetCategory.Beverage);
@@ -251,15 +341,13 @@ public sealed class BudgetingTests
             month: 2,
             budgetPlanId: Guid.NewGuid(),
             planStatus: BudgetStatus.Approved,
+            categories: HotelCategories,
             targets: new[]
             {
                 new BudgetTargetLine(1, BudgetCategory.Accommodation, 100_000.00m),
                 new BudgetTargetLine(2, BudgetCategory.Accommodation, 200_000.00m)
             },
-            actuals: new[]
-            {
-                new BudgetActualRevenue(new DateOnly(2026, 2, 14), 180_000.00m, 0m, 0m, 0m)
-            });
+            actuals: HotelActuals(new DateOnly(2026, 2, 14), 180_000.00m, 0m, 0m, 0m));
 
         var february = Assert.Single(report.Months);
         Assert.Equal(2, february.Month);
@@ -271,5 +359,29 @@ public sealed class BudgetingTests
         Assert.Equal(180_000.00m, report.ActualAmount);
         Assert.Equal(-20_000.00m, report.VarianceAmount);
         Assert.Equal(-10.00m, report.VariancePercentage);
+    }
+
+    /// <summary>
+    /// Une journée de réalisé hôtelier, sous la forme d'une ligne par catégorie - la forme que le
+    /// service projette depuis daily_revenue_lines. Les montants nuls ne produisent pas de ligne,
+    /// comme en base.
+    /// </summary>
+    private static BudgetActualRevenue[] HotelActuals(
+        DateOnly businessDate,
+        decimal accommodation,
+        decimal food,
+        decimal beverage,
+        decimal other)
+    {
+        return new[]
+            {
+                (RevenueCategoryCodes.Accommodation, accommodation),
+                (RevenueCategoryCodes.Food, food),
+                (RevenueCategoryCodes.Beverage, beverage),
+                (RevenueCategoryCodes.Other, other)
+            }
+            .Where(cell => cell.Item2 != 0m)
+            .Select(cell => new BudgetActualRevenue(businessDate, cell.Item1, cell.Item2))
+            .ToArray();
     }
 }

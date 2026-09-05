@@ -131,10 +131,7 @@ public partial class MainWindow : Window
     {
         BusinessDatePicker.SelectedDate = DateTime.Today;
         DashboardDatePicker.SelectedDate = DateTime.Today;
-        AccommodationTextBox.Text = "0";
-        FoodTextBox.Text = "0";
-        BeverageTextBox.Text = "0";
-        OtherTextBox.Text = "0";
+        RevenueEntryItemsControl.ItemsSource = revenueEntryFields;
         UnitTypeComboBox.ItemsSource = Enum.GetValues<HotelUnitType>();
         UnitSectorComboBox.ItemsSource = Enum.GetValues<BusinessSector>();
         ResetUnitForm();
@@ -614,6 +611,8 @@ public partial class MainWindow : Window
 
     private async Task LoadDailyRevenueAsync()
     {
+        await LoadRevenueEntryCategoriesAsync();
+
         var businessDate = GetSelectedBusinessDate();
         var rows = await apiClient.GetDailyRevenueAsync(
             ApiBaseUrlTextBox.Text,
@@ -621,9 +620,14 @@ public partial class MainWindow : Window
             businessDate,
             null);
 
-        DailyRevenueDataGrid.ItemsSource = rows
+        var ordered = rows
             .OrderBy(row => row.HotelUnitCode)
             .ToArray();
+
+        // Les colonnes avant les lignes : la grille se dessine avec les catégories que les
+        // recettes du jour portent réellement.
+        ApplyRevenueGridColumns(ordered);
+        DailyRevenueDataGrid.ItemsSource = ordered;
 
         await LoadDailyRevenueSummaryAsync(businessDate);
     }
@@ -858,9 +862,17 @@ public partial class MainWindow : Window
             Margin = new Thickness(0, 4, 0, 16)
         });
 
+        // Mêmes colonnes de catégories que la grille à l'écran : ce qui s'imprime est ce qui
+        // s'affiche, quelle que soit l'entreprise.
+        var categories = revenueGridCategories;
+
+        var headers = new List<string> { "Date", "Unité" };
+        headers.AddRange(categories.Select(category => category.Label));
+        headers.AddRange(["Total", "Statut", "Saisi par"]);
+
         var table = new Table();
 
-        for (var i = 0; i < 9; i++)
+        for (var i = 0; i < headers.Count; i++)
         {
             table.Columns.Add(new TableColumn());
         }
@@ -870,7 +882,7 @@ public partial class MainWindow : Window
 
         var headerRow = new TableRow { FontWeight = FontWeights.SemiBold };
 
-        foreach (var header in new[] { "Date", "Unité", "Hébergement", "Restauration", "Boissons", "Autres", "Total", "Statut", "Saisi par" })
+        foreach (var header in headers)
         {
             headerRow.Cells.Add(new TableCell(new Paragraph(new Run(header))) { Padding = new Thickness(4) });
         }
@@ -881,18 +893,20 @@ public partial class MainWindow : Window
         {
             var tableRow = new TableRow();
 
-            foreach (var value in new[]
+            var values = new List<string>
             {
                 row.BusinessDate.ToString("dd/MM/yyyy", CultureInfo.CurrentCulture),
-                row.HotelUnitCode,
-                row.Accommodation.ToString("N2", CultureInfo.CurrentCulture),
-                row.Food.ToString("N2", CultureInfo.CurrentCulture),
-                row.Beverage.ToString("N2", CultureInfo.CurrentCulture),
-                row.Other.ToString("N2", CultureInfo.CurrentCulture),
-                row.Total.ToString("N2", CultureInfo.CurrentCulture),
-                DailyRevenueStatusDisplay.ToFrench(row.Status),
-                row.CreatedBy
-            })
+                row.HotelUnitCode
+            };
+
+            values.AddRange(categories.Select(category =>
+                RevenueLineAmountConverter.AmountOf(row.Lines, category.Code).ToString("N2", CultureInfo.CurrentCulture)));
+
+            values.Add(row.Total.ToString("N2", CultureInfo.CurrentCulture));
+            values.Add(DailyRevenueStatusDisplay.ToFrench(row.Status));
+            values.Add(row.CreatedBy);
+
+            foreach (var value in values)
             {
                 tableRow.Cells.Add(new TableCell(new Paragraph(new Run(value))) { Padding = new Thickness(4) });
             }
@@ -1074,6 +1088,114 @@ public partial class MainWindow : Window
         });
     }
 
+    // ================= Recettes : catégories pilotées par le serveur =================
+
+    // Les champs de saisie, un par catégorie de recettes reçue du serveur pour l'unité
+    // choisie. Le poste ne connaît aucune catégorie : la liste, ses libellés et son ordre
+    // viennent de GET /revenue/categories?hotelUnitCode=...
+    private readonly System.Collections.ObjectModel.ObservableCollection<RevenueEntryField> revenueEntryFields = [];
+
+    // Colonnes de montant générées dans la grille des recettes, pour pouvoir les retirer
+    // avant de les reconstruire : DataGridColumn ne porte pas de Tag.
+    private readonly List<DataGridColumn> revenueCategoryColumns = [];
+
+    // Les catégories que la grille affiche en ce moment, dans l'ordre des colonnes ;
+    // l'impression les reprend telles quelles.
+    private IReadOnlyList<(string Code, string Label)> revenueGridCategories = [];
+
+    private async void RevenueUnitComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // Pas pendant un chargement (la liste des unités se reconstruit sous nos yeux) ni hors
+        // session : le chargement des recettes, lui, redemande toujours les catégories.
+        if (!apiClient.IsAuthenticated || isBusy)
+        {
+            return;
+        }
+
+        await RunApiActionAsync(LoadRevenueEntryCategoriesAsync);
+    }
+
+    private async Task LoadRevenueEntryCategoriesAsync()
+    {
+        var unitCode = (RevenueUnitComboBox.SelectedItem as HotelUnitResponse)?.Code;
+        var categories = await apiClient.GetRevenueCategoriesAsync(ApiBaseUrlTextBox.Text, unitCode);
+
+        // Les champs sont reconstruits dans l'ordre du serveur, mais une saisie en cours sur
+        // une catégorie qui reste présente n'est pas perdue par un simple rafraîchissement.
+        var typed = revenueEntryFields.ToDictionary(field => field.Code, field => field.Text, StringComparer.Ordinal);
+
+        revenueEntryFields.Clear();
+
+        foreach (var category in categories)
+        {
+            revenueEntryFields.Add(new RevenueEntryField(category.Code, category.Label)
+            {
+                Text = typed.TryGetValue(category.Code, out var text) ? text : "0"
+            });
+        }
+    }
+
+    /// <summary>
+    /// (Re)construit les colonnes de montant de la grille : d'abord les catégories de saisie de
+    /// l'unité courante (un hôtel retrouve ses quatre colonnes même sans recette du jour), puis
+    /// toute catégorie qu'une recette affichée porte en plus - les lignes arrivent du serveur
+    /// avec leur libellé, dans son ordre d'affichage.
+    /// </summary>
+    private void ApplyRevenueGridColumns(IReadOnlyCollection<DailyRevenueResponse> rows)
+    {
+        var categories = new List<(string Code, string Label)>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var field in revenueEntryFields)
+        {
+            if (seen.Add(field.Code))
+            {
+                categories.Add((field.Code, field.Label));
+            }
+        }
+
+        foreach (var line in rows.SelectMany(row => row.Lines))
+        {
+            if (seen.Add(line.CategoryCode))
+            {
+                categories.Add((line.CategoryCode, line.CategoryLabel));
+            }
+        }
+
+        foreach (var column in revenueCategoryColumns)
+        {
+            DailyRevenueDataGrid.Columns.Remove(column);
+        }
+
+        revenueCategoryColumns.Clear();
+
+        var insertAt = DailyRevenueDataGrid.Columns.IndexOf(RevenueTotalColumn);
+
+        foreach (var (code, label) in categories)
+        {
+            var column = new DataGridTextColumn
+            {
+                Header = label,
+                Width = new DataGridLength(115),
+                // Tri désactivé : la colonne se lie à la collection des lignes à travers un
+                // convertisseur, et le tri natif du DataGrid n'aurait rien de comparable.
+                CanUserSort = false,
+                Binding = new Binding(nameof(DailyRevenueResponse.Lines))
+                {
+                    Converter = new RevenueLineAmountConverter(code),
+                    StringFormat = "{0:N2}"
+                },
+                ElementStyle = TryFindResource("AmountCellText") as Style,
+                HeaderStyle = TryFindResource("RightAlignedColumnHeader") as Style
+            };
+
+            DailyRevenueDataGrid.Columns.Insert(insertAt++, column);
+            revenueCategoryColumns.Add(column);
+        }
+
+        revenueGridCategories = categories;
+    }
+
     private CreateDailyRevenueRequest? BuildRevenueRequest()
     {
         if (RevenueUnitComboBox.SelectedItem is not HotelUnitResponse selectedUnit)
@@ -1082,27 +1204,36 @@ public partial class MainWindow : Window
             return null;
         }
 
-        if (!TryReadMoney(AccommodationTextBox, "Hébergement", out var accommodation) ||
-            !TryReadMoney(FoodTextBox, "Restauration", out var food) ||
-            !TryReadMoney(BeverageTextBox, "Boissons", out var beverage) ||
-            !TryReadMoney(OtherTextBox, "Autres", out var other))
+        if (revenueEntryFields.Count == 0)
         {
+            SetStatus("Aucune catégorie de recettes active pour cette unité : rien à saisir.", isError: true);
             return null;
         }
 
+        var lines = new List<DailyRevenueLineRequest>(revenueEntryFields.Count);
+
+        foreach (var field in revenueEntryFields)
+        {
+            if (!TryReadMoney(field.Text, field.Label, out var amount))
+            {
+                return null;
+            }
+
+            lines.Add(new DailyRevenueLineRequest(field.Code, amount));
+        }
+
+        // Toujours la forme par lignes : l'ancien corps à quatre montants reste accepté par le
+        // serveur pour les clients qui l'utilisent encore, mais ce poste n'en connaît plus la liste.
         return new CreateDailyRevenueRequest(
             GetSelectedBusinessDate(),
             selectedUnit.Code,
-            accommodation,
-            food,
-            beverage,
-            other,
-            string.IsNullOrWhiteSpace(NotesTextBox.Text) ? null : NotesTextBox.Text.Trim());
+            Notes: string.IsNullOrWhiteSpace(NotesTextBox.Text) ? null : NotesTextBox.Text.Trim(),
+            Lines: lines);
     }
 
-    private bool TryReadMoney(TextBox textBox, string label, out decimal value)
+    private bool TryReadMoney(string rawText, string label, out decimal value)
     {
-        var text = textBox.Text.Trim();
+        var text = rawText.Trim();
 
         if (decimal.TryParse(text, NumberStyles.Number, CultureInfo.CurrentCulture, out value) ||
             decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out value))
@@ -1128,11 +1259,68 @@ public partial class MainWindow : Window
 
     private void ResetAmounts()
     {
-        AccommodationTextBox.Text = "0";
-        FoodTextBox.Text = "0";
-        BeverageTextBox.Text = "0";
-        OtherTextBox.Text = "0";
+        foreach (var field in revenueEntryFields)
+        {
+            field.Text = "0";
+        }
+
         NotesTextBox.Text = string.Empty;
+    }
+
+    /// <summary>
+    /// Un champ de saisie de recette : le code et le libellé viennent du serveur, le texte est
+    /// conservé tel que frappé (virgule ou point) et converti à l'enregistrement.
+    /// </summary>
+    private sealed class RevenueEntryField(string code, string label) : INotifyPropertyChanged
+    {
+        private string text = "0";
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public string Code { get; } = code;
+
+        public string Label { get; } = label;
+
+        public string Text
+        {
+            get => text;
+            set
+            {
+                var normalized = value ?? string.Empty;
+
+                if (normalized == text)
+                {
+                    return;
+                }
+
+                text = normalized;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Text)));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Extrait d'une collection de lignes le montant d'une catégorie (zéro si absente) : c'est
+    /// ce qui permet à une colonne générée de se lier à <c>Lines</c> sans modèle de ligne dédié.
+    /// </summary>
+    private sealed class RevenueLineAmountConverter(string categoryCode) : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return value is IEnumerable<DailyRevenueLineResponse> lines
+                ? AmountOf(lines, categoryCode)
+                : 0m;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotSupportedException();
+        }
+
+        public static decimal AmountOf(IEnumerable<DailyRevenueLineResponse> lines, string categoryCode)
+        {
+            return lines.FirstOrDefault(line => string.Equals(line.CategoryCode, categoryCode, StringComparison.Ordinal))?.Amount ?? 0m;
+        }
     }
 
     private async Task RunApiActionAsync(Func<Task> action)

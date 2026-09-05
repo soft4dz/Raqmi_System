@@ -1,3 +1,5 @@
+using RaqmiSystem.Domain.Revenue;
+
 namespace RaqmiSystem.Domain.Budgeting;
 
 /// <summary>
@@ -7,6 +9,11 @@ namespace RaqmiSystem.Domain.Budgeting;
 /// keeps the snake_case table configuration, the named unique index on
 /// (budget_plan_id, month, category) and the check constraints explicit, and lets a line carry a
 /// stable Id that API responses can reference.
+///
+/// La catégorie est le CODE d'une <see cref="RevenueCategory"/> paramétrable, plus une valeur
+/// d'énumération : un budget se décline sur les mêmes catégories que les recettes de
+/// l'entreprise, quelles qu'elles soient. Le domaine ne vérifie que la forme du code ; son
+/// existence dans le paramétrage est contrôlée par le service, qui seul a accès à la table.
 ///
 /// A line is only ever created or modified through its owning plan, which is what enforces the
 /// "an approved budget is frozen" invariant: there is no way to reach a line without going
@@ -18,7 +25,7 @@ public sealed class BudgetLine
     {
     }
 
-    public BudgetLine(int month, BudgetCategory category, decimal amountTarget)
+    public BudgetLine(int month, string category, decimal amountTarget)
     {
         Month = RequireMonth(month, nameof(month));
         Category = RequireCategory(category, nameof(category));
@@ -32,7 +39,8 @@ public sealed class BudgetLine
     /// <summary>Calendar month of the plan's year, 1 (January) to 12 (December).</summary>
     public int Month { get; private set; }
 
-    public BudgetCategory Category { get; private set; }
+    /// <summary>Code de la catégorie de recettes visée (voir <see cref="RevenueCategoryCodes"/>).</summary>
+    public string Category { get; private set; } = string.Empty;
 
     public decimal AmountTarget { get; private set; }
 
@@ -55,14 +63,9 @@ public sealed class BudgetLine
         return month;
     }
 
-    internal static BudgetCategory RequireCategory(BudgetCategory category, string argumentName)
+    internal static string RequireCategory(string category, string argumentName)
     {
-        if (!Enum.IsDefined(category))
-        {
-            throw new ArgumentOutOfRangeException(argumentName, category, "Budget category is not supported.");
-        }
-
-        return category;
+        return RevenueCategoryCodes.Normalize(category, argumentName);
     }
 
     /// <summary>

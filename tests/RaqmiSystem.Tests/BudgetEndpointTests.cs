@@ -324,6 +324,124 @@ public sealed class BudgetEndpointTests : IClassFixture<RaqmiApiFactory>
     }
 
     /// <summary>
+    /// Le budget se décline sur les catégories de recettes paramétrées, pas sur quatre valeurs
+    /// figées : un code inconnu est refusé (400), un code du catalogue est accepté quel que soit
+    /// son jeu, les réponses portent le libellé, et le rapport d'écarts d'un hôtel garde ses
+    /// quatre catégories dans l'ordre puis ajoute celles que le plan ou le réalisé référencent.
+    /// </summary>
+    [Fact]
+    public async Task Budget_lines_reference_configurable_categories_and_unknown_codes_are_refused()
+    {
+        var hotelUnitCode = await _factory.CreateHotelUnitAsync("BUDCAT", "Budget Categories Hotel");
+
+        await CreateBudgetUserAsync(
+            "budget.categories",
+            "budget.categories@example.com",
+            "Budget Categories",
+            BudgetRead, BudgetWrite);
+
+        using var client = await _factory.CreateAuthenticatedClientAsync("budget.categories", Password);
+
+        var refused = await client.PostAsJsonAsync(
+            "/api/v1/budget/plans",
+            new CreateBudgetPlanRequest(
+                Year: 2028,
+                HotelUnitCode: hotelUnitCode,
+                Label: "Budget 2028",
+                Lines: new[] { new BudgetLineRequest(1, "NOSUCHCAT", 100.00m) }),
+            RaqmiApiFactory.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Contains("NOSUCHCAT", await refused.Content.ReadAsStringAsync());
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/v1/budget/plans",
+            new CreateBudgetPlanRequest(
+                Year: 2028,
+                HotelUnitCode: hotelUnitCode,
+                Label: "Budget 2028",
+                Lines: new[]
+                {
+                    new BudgetLineRequest(1, RevenueCategoryCodes.Merchandise, 1_000.00m),
+                    new BudgetLineRequest(1, "accommodation", 500.00m)
+                }),
+            RaqmiApiFactory.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var plan = await createResponse.Content.ReadFromJsonAsync<BudgetPlanResponse>(RaqmiApiFactory.JsonOptions);
+        Assert.NotNull(plan);
+        Assert.Equal(2, plan!.Lines.Count);
+
+        var accommodationLine = plan.Lines.Single(line => line.Category == BudgetCategory.Accommodation);
+        Assert.Equal("Hébergement", accommodationLine.CategoryLabel);
+        Assert.Equal("Ventes de marchandises", plan.Lines.Single(line => line.Category == RevenueCategoryCodes.Merchandise).CategoryLabel);
+
+        // Un code inconnu est aussi refusé cellule par cellule.
+        var refusedCell = await client.PostAsJsonAsync(
+            $"/api/v1/budget/plans/{plan.Id}/lines",
+            new BudgetLineRequest(2, "NOSUCHCAT", 1.00m),
+            RaqmiApiFactory.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.BadRequest, refusedCell.StatusCode);
+
+        await SeedDailyRevenueLinesAsync(
+            hotelUnitCode,
+            new DateOnly(2028, 1, 12),
+            [(RevenueCategoryCodes.Merchandise, 900.00m), (BudgetCategory.Accommodation, 450.00m)]);
+
+        var report = await client.GetFromJsonAsync<BudgetVarianceResponse>(
+            $"/api/v1/budget/variance?year=2028&hotelUnitCode={hotelUnitCode}&month=1",
+            RaqmiApiFactory.JsonOptions);
+
+        Assert.NotNull(report);
+        var january = Assert.Single(report!.Months);
+
+        // Les quatre catégories hôtelières d'abord, dans l'ordre du paramétrage, puis la
+        // catégorie générique que le plan référence.
+        Assert.Equal(
+            [BudgetCategory.Accommodation, BudgetCategory.Food, BudgetCategory.Beverage, BudgetCategory.Other, RevenueCategoryCodes.Merchandise],
+            january.Categories.Select(row => row.Category));
+
+        var merchandise = january.Categories.Single(row => row.Category == RevenueCategoryCodes.Merchandise);
+        Assert.Equal(1_000.00m, merchandise.BudgetAmount);
+        Assert.Equal(900.00m, merchandise.ActualAmount);
+        Assert.Equal(-100.00m, merchandise.VarianceAmount);
+        Assert.Equal(-10.00m, merchandise.VariancePercentage);
+
+        var accommodation = january.Categories.Single(row => row.Category == BudgetCategory.Accommodation);
+        Assert.Equal(500.00m, accommodation.BudgetAmount);
+        Assert.Equal(450.00m, accommodation.ActualAmount);
+
+        Assert.Equal(1_500.00m, january.BudgetAmount);
+        Assert.Equal(1_350.00m, january.ActualAmount);
+    }
+
+    /// <summary>
+    /// Écrit une recette validée par lignes de catégories directement via le DbContext.
+    /// </summary>
+    private async Task SeedDailyRevenueLinesAsync(
+        string hotelUnitCode,
+        DateOnly businessDate,
+        IReadOnlyCollection<(string Category, decimal Amount)> lines)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<RaqmiDbContext>();
+
+        var revenue = new DailyRevenue(
+            businessDate,
+            hotelUnitCode,
+            lines.Select(line => new DailyRevenueLine(line.Category, line.Amount)).ToArray());
+
+        revenue.MarkCreated("tests", DateTimeOffset.UtcNow);
+        revenue.Submit("tests", DateTimeOffset.UtcNow);
+        revenue.Validate("tests", DateTimeOffset.UtcNow);
+
+        dbContext.Set<DailyRevenue>().Add(revenue);
+        await dbContext.SaveChangesAsync();
+    }
+
+    /// <summary>
     /// Writes a daily revenue entry straight through the DbContext (bypassing the revenue module's
     /// endpoints and their permissions), optionally carrying it all the way to the Validated
     /// status through the entity's own workflow.

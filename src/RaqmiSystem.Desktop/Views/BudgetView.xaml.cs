@@ -4,19 +4,25 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Markup;
 using System.Windows.Media;
 using RaqmiSystem.Application.Budgeting;
 using RaqmiSystem.Application.Organization;
+using RaqmiSystem.Application.Revenue;
 using RaqmiSystem.Domain.Budgeting;
 using RaqmiSystem.Domain.Identity;
 
 namespace RaqmiSystem.Desktop.Views;
 
 /// <summary>
-/// Module Budget & previsions : le plan budgetaire d'un exercice (12 mois x 4
-/// categories de recettes) pour une unite hoteliere, et la confrontation de ce
+/// Module Budget & previsions : le plan budgetaire d'un exercice (12 mois x les
+/// categories de recettes de l'unite) pour une unite, et la confrontation de ce
 /// budget au realise, mois par mois et categorie par categorie.
+///
+/// Les categories ne sont pas connues du poste : elles sont demandees au serveur
+/// pour l'unite choisie (GET /revenue/categories?hotelUnitCode=...), et les
+/// colonnes de la grille comme les totaux se construisent a partir de cette liste.
 ///
 /// Vue autonome : elle ne connait ni MainWindow ni les autres modules, et passe
 /// par <see cref="ModuleViewContext.RunAsync"/> pour tout appel API (curseur
@@ -49,20 +55,13 @@ public partial class BudgetView : UserControl
         "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
     ];
 
-    /// <summary>
-    /// Les quatre categories budgetaires, dans l'ordre d'affichage. Elles sont le
-    /// miroir exact des quatre colonnes de montant d'une recette journaliere :
-    /// c'est ce qui rend la confrontation budget / realise possible.
-    /// </summary>
-    private static readonly (BudgetCategory Category, string Label)[] CategoryLabels =
-    [
-        (BudgetCategory.Accommodation, "Hébergement"),
-        (BudgetCategory.Food, "Restauration"),
-        (BudgetCategory.Beverage, "Boissons"),
-        (BudgetCategory.Other, "Autres")
-    ];
-
     private readonly ObservableCollection<BudgetMonthEditorRow> planRows = [];
+
+    private readonly ObservableCollection<BudgetCategoryTotalView> planCategoryTotals = [];
+
+    // Colonnes de saisie generees (une par categorie), memorisees pour pouvoir
+    // les retirer avant de les reconstruire : DataGridColumn ne porte pas de Tag.
+    private readonly List<DataGridColumn> planCategoryColumns = [];
 
     // Info-bulles d'origine des boutons, capturees avant toute substitution. Les
     // vues de module survivent a la deconnexion et sont reinitialisees sur les
@@ -76,6 +75,14 @@ public partial class BudgetView : UserControl
     // Plan de l'exercice affiche, ou null quand l'annee et l'unite retenues n'en
     // ont pas encore. C'est lui qui commande la modifiabilite de la grille.
     private BudgetPlanResponse? currentPlan;
+
+    // Categories de recettes que le serveur propose pour l'unite courante, dans
+    // son ordre d'affichage. Vide tant qu'aucune unite n'a ete chargee.
+    private IReadOnlyList<BudgetGridCategory> unitCategories = [];
+
+    // Categories effectivement affichees par la grille : celles de l'unite, plus
+    // toute categorie que le plan porte encore (desactivee depuis, par exemple).
+    private IReadOnlyList<BudgetGridCategory> gridCategories = [];
 
     // Droits du profil connecte, memorises a l'ouverture de la session. Les
     // actions d'ecriture sont grisees quand le droit manque, plutot que de
@@ -106,6 +113,7 @@ public partial class BudgetView : UserControl
         }
 
         PlanLinesDataGrid.ItemsSource = planRows;
+        PlanCategoryTotalsItemsControl.ItemsSource = planCategoryTotals;
 
         BuildYearOptions();
         ApplyPlan(null);
@@ -122,9 +130,9 @@ public partial class BudgetView : UserControl
     }
 
     /// <summary>
-    /// (Re)charge les unites, le plan de l'exercice choisi et ses ecarts. Sort
-    /// silencieusement tant qu'aucun contexte n'a ete fourni ou que la session
-    /// n'est pas ouverte.
+    /// (Re)charge les unites, les categories de l'unite, le plan de l'exercice
+    /// choisi et ses ecarts. Sort silencieusement tant qu'aucun contexte n'a ete
+    /// fourni ou que la session n'est pas ouverte.
     /// </summary>
     public async Task LoadAsync()
     {
@@ -148,6 +156,7 @@ public partial class BudgetView : UserControl
         {
             UnitComboBox.ItemsSource = null;
             PlanLabelTextBox.Text = string.Empty;
+            unitCategories = [];
 
             BuildYearOptions();
             ApplyPlan(null);
@@ -170,11 +179,18 @@ public partial class BudgetView : UserControl
 
         if (year is null || string.IsNullOrWhiteSpace(unitCode))
         {
+            unitCategories = [];
             ApplyPlan(null);
             ClearVariance("Aucune unité hôtelière active : le budget se pilote unité par unité.");
             active.SetStatus("Aucune unité hôtelière active à budgéter.", isError: true);
             return;
         }
+
+        // Les categories de l'unite d'abord : ce sont elles qui donnent ses
+        // colonnes a la grille, que l'exercice ait deja un plan ou non.
+        unitCategories = (await active.ApiClient.GetRevenueCategoriesAsync(active.ApiBaseUrl, unitCode))
+            .Select(category => new BudgetGridCategory(category.Code, category.Label))
+            .ToArray();
 
         // Le serveur garantit au plus un plan par (annee, unite) : la liste filtree
         // sur ce couple ne peut donc en rendre qu'un seul, ou aucun.
@@ -283,7 +299,8 @@ public partial class BudgetView : UserControl
 
     /// <summary>
     /// Applique le plan (ou son absence) a tout l'onglet : badge d'etat, bandeau
-    /// de budget fige, formulaire de creation, grille des objectifs et totaux.
+    /// de budget fige, formulaire de creation, colonnes et lignes de la grille
+    /// des objectifs, totaux.
     /// </summary>
     private void ApplyPlan(BudgetPlanResponse? plan)
     {
@@ -315,9 +332,37 @@ public partial class BudgetView : UserControl
             _ => "Budget figé : les objectifs sont présentés en lecture seule."
         };
 
-        BuildPlanRows(plan);
+        gridCategories = ResolveGridCategories(plan);
+
+        BuildPlanColumns(gridCategories);
+        BuildPlanRows(plan, gridCategories);
+        BuildPlanTotals(gridCategories);
         UpdatePlanTotals();
         UpdateActionState();
+    }
+
+    /// <summary>
+    /// Les categories de l'unite, dans l'ordre du serveur, puis toute categorie
+    /// que le plan porte encore sans qu'elle soit proposee (desactivee depuis) :
+    /// un objectif enregistre reste visible et modifiable, jamais perdu.
+    /// </summary>
+    private IReadOnlyList<BudgetGridCategory> ResolveGridCategories(BudgetPlanResponse? plan)
+    {
+        var categories = new List<BudgetGridCategory>(unitCategories);
+        var seen = unitCategories.Select(category => category.Code).ToHashSet(StringComparer.Ordinal);
+
+        if (plan is not null)
+        {
+            foreach (var line in plan.Lines)
+            {
+                if (seen.Add(line.Category))
+                {
+                    categories.Add(new BudgetGridCategory(line.Category, line.CategoryLabel));
+                }
+            }
+        }
+
+        return categories;
     }
 
     private void ApplyPlanBadge(BudgetPlanResponse? plan)
@@ -349,11 +394,61 @@ public partial class BudgetView : UserControl
     }
 
     /// <summary>
+    /// (Re)construit les colonnes de saisie de la grille, une par categorie, entre
+    /// la colonne "Mois" et la colonne "Total du mois". Chaque cellule se lie a
+    /// <c>Cells[CODE].Text</c> de sa ligne : la grille n'a aucune propriete par
+    /// categorie, donc aucune categorie en dur.
+    /// </summary>
+    private void BuildPlanColumns(IReadOnlyList<BudgetGridCategory> categories)
+    {
+        foreach (var column in planCategoryColumns)
+        {
+            PlanLinesDataGrid.Columns.Remove(column);
+        }
+
+        planCategoryColumns.Clear();
+
+        var insertAt = PlanLinesDataGrid.Columns.IndexOf(PlanMonthTotalColumn);
+
+        foreach (var category in categories)
+        {
+            var textBox = new FrameworkElementFactory(typeof(TextBox));
+
+            textBox.SetBinding(TextBox.TextProperty, new Binding($"Cells[{category.Code}].Text")
+            {
+                Mode = BindingMode.TwoWay,
+                UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
+            });
+
+            textBox.SetBinding(IsEnabledProperty, new Binding(nameof(BudgetMonthEditorRow.IsEditable)));
+
+            if (TryFindResource("TargetCellTextBox") is Style cellStyle)
+            {
+                textBox.SetValue(StyleProperty, cellStyle);
+            }
+
+            textBox.SetValue(ToolTipProperty, $"Objectif « {category.Label} » du mois : positif ou nul, 2 décimales au maximum");
+
+            var column = new DataGridTemplateColumn
+            {
+                Header = category.Label,
+                Width = new DataGridLength(1, DataGridLengthUnitType.Star),
+                MinWidth = 120,
+                HeaderStyle = TryFindResource("RightAlignedColumnHeader") as Style,
+                CellTemplate = new DataTemplate { VisualTree = textBox }
+            };
+
+            PlanLinesDataGrid.Columns.Insert(insertAt++, column);
+            planCategoryColumns.Add(column);
+        }
+    }
+
+    /// <summary>
     /// Reconstruit les douze lignes de saisie a partir des objectifs du plan. Les
     /// mois et les categories absents du plan restent vides : une cellule vide
     /// dit "aucun objectif fixe", ce qu'un 0 affiche ne dirait pas.
     /// </summary>
-    private void BuildPlanRows(BudgetPlanResponse? plan)
+    private void BuildPlanRows(BudgetPlanResponse? plan, IReadOnlyList<BudgetGridCategory> categories)
     {
         DetachPlanRows();
         planRows.Clear();
@@ -367,7 +462,7 @@ public partial class BudgetView : UserControl
 
         for (var month = 1; month <= 12; month++)
         {
-            var row = new BudgetMonthEditorRow(month, MonthLabels[month - 1]) { IsEditable = editable };
+            var row = new BudgetMonthEditorRow(month, MonthLabels[month - 1], categories) { IsEditable = editable };
 
             foreach (var line in plan.Lines.Where(current => current.Month == month))
             {
@@ -392,6 +487,16 @@ public partial class BudgetView : UserControl
         UpdatePlanTotals();
     }
 
+    private void BuildPlanTotals(IReadOnlyList<BudgetGridCategory> categories)
+    {
+        planCategoryTotals.Clear();
+
+        foreach (var category in categories)
+        {
+            planCategoryTotals.Add(new BudgetCategoryTotalView(category.Code, category.Label));
+        }
+    }
+
     /// <summary>
     /// Totaux par categorie sur l'exercice, recalcules a chaque frappe. Les
     /// totaux par mois sont portes par la colonne "Total du mois" de la grille.
@@ -400,24 +505,16 @@ public partial class BudgetView : UserControl
     /// </summary>
     private void UpdatePlanTotals()
     {
-        var accommodation = 0m;
-        var food = 0m;
-        var beverage = 0m;
-        var other = 0m;
+        var grandTotal = 0m;
 
-        foreach (var row in planRows)
+        foreach (var total in planCategoryTotals)
         {
-            accommodation += row.AmountOrZero(BudgetCategory.Accommodation);
-            food += row.AmountOrZero(BudgetCategory.Food);
-            beverage += row.AmountOrZero(BudgetCategory.Beverage);
-            other += row.AmountOrZero(BudgetCategory.Other);
+            var amount = planRows.Sum(row => row.AmountOrZero(total.Code));
+            total.TotalText = FormatAmount(amount);
+            grandTotal += amount;
         }
 
-        PlanAccommodationTotalTextBlock.Text = FormatAmount(accommodation);
-        PlanFoodTotalTextBlock.Text = FormatAmount(food);
-        PlanBeverageTotalTextBlock.Text = FormatAmount(beverage);
-        PlanOtherTotalTextBlock.Text = FormatAmount(other);
-        PlanGrandTotalTextBlock.Text = FormatAmount(accommodation + food + beverage + other);
+        PlanGrandTotalTextBlock.Text = FormatAmount(grandTotal);
     }
 
     private async void CreatePlanButton_Click(object sender, RoutedEventArgs e)
@@ -514,16 +611,16 @@ public partial class BudgetView : UserControl
 
         foreach (var row in planRows)
         {
-            foreach (var (category, text) in row.Cells())
+            foreach (var cell in row.Cells.Values)
             {
-                if (string.IsNullOrWhiteSpace(text))
+                if (string.IsNullOrWhiteSpace(cell.Text))
                 {
                     continue;
                 }
 
-                var cellName = $"{row.MonthLabel} — {DescribeCategory(category)}";
+                var cellName = $"{row.MonthLabel} — {cell.Label}";
 
-                if (!BudgetMonthEditorRow.TryParseAmount(text, out var amount))
+                if (!BudgetMonthEditorRow.TryParseAmount(cell.Text, out var amount))
                 {
                     active.SetStatus($"{cellName} : l'objectif doit être un montant valide.", isError: true);
                     return false;
@@ -549,7 +646,7 @@ public partial class BudgetView : UserControl
                     return false;
                 }
 
-                result.Add(new BudgetLineRequest(row.Month, category, amount));
+                result.Add(new BudgetLineRequest(row.Month, cell.Code, amount));
             }
         }
 
@@ -623,9 +720,9 @@ public partial class BudgetView : UserControl
     // =========================== Realise et ecarts ===========================
 
     /// <summary>
-    /// Deplie la reponse d'ecarts en lignes de tableau : les quatre categories de
-    /// chaque mois, suivies du total du mois. Les totaux de l'exercice sont
-    /// portes par le bandeau du bas.
+    /// Deplie la reponse d'ecarts en lignes de tableau : les categories de chaque
+    /// mois, dans l'ordre et avec les libelles renvoyes par le serveur, suivies du
+    /// total du mois. Les totaux de l'exercice sont portes par le bandeau du bas.
     /// </summary>
     private void ApplyVariance(BudgetVarianceResponse variance, string unitCode)
     {
@@ -635,18 +732,11 @@ public partial class BudgetView : UserControl
         {
             var monthLabel = MonthLabels[Math.Clamp(month.Month, 1, 12) - 1];
 
-            foreach (var (category, label) in CategoryLabels)
+            foreach (var cell in month.Categories)
             {
-                var cell = month.Categories.FirstOrDefault(current => current.Category == category);
-
-                if (cell is null)
-                {
-                    continue;
-                }
-
                 rows.Add(BuildVarianceRow(
                     monthLabel,
-                    label,
+                    cell.CategoryLabel,
                     cell.BudgetAmount,
                     cell.ActualAmount,
                     cell.VarianceAmount,
@@ -824,19 +914,6 @@ public partial class BudgetView : UserControl
         };
     }
 
-    private static string DescribeCategory(BudgetCategory category)
-    {
-        foreach (var (value, label) in CategoryLabels)
-        {
-            if (value == category)
-            {
-                return label;
-            }
-        }
-
-        return category.ToString();
-    }
-
     // Complement "le JJ/MM/AAAA HH:mm par X" quand la tracabilite est connue, et
     // rien du tout sinon : une phrase avec des tirets a la place des valeurs
     // manquantes se lit plus mal qu'une phrase plus courte.
@@ -890,26 +967,40 @@ public partial class BudgetView : UserControl
 /// <summary>Option de la liste des unites hotelieres de cet ecran.</summary>
 public sealed record BudgetUnitOption(string Code, string Label);
 
+/// <summary>Une categorie de la grille : le code que le serveur attend et le libelle qu'il affiche.</summary>
+public sealed record BudgetGridCategory(string Code, string Label);
+
 /// <summary>
 /// Une ligne de la grille de saisie : un mois, et l'objectif de chacune des
-/// quatre categories de recettes. Les montants sont conserves sous forme de
-/// texte pour accepter la virgule comme le point pendant la frappe, et pour
-/// distinguer une cellule vide (aucun objectif fixe) d'un objectif nul saisi
-/// volontairement ; la conversion et les controles ont lieu a l'enregistrement.
+/// categories de recettes de l'unite, indexe par code (<see cref="Cells"/>).
+/// Les montants sont conserves sous forme de texte pour accepter la virgule comme
+/// le point pendant la frappe, et pour distinguer une cellule vide (aucun
+/// objectif fixe) d'un objectif nul saisi volontairement ; la conversion et les
+/// controles ont lieu a l'enregistrement.
 /// </summary>
-public sealed class BudgetMonthEditorRow(int month, string monthLabel) : INotifyPropertyChanged
+public sealed class BudgetMonthEditorRow : INotifyPropertyChanged
 {
-    private string accommodationText = string.Empty;
-    private string foodText = string.Empty;
-    private string beverageText = string.Empty;
-    private string otherText = string.Empty;
+    private readonly Dictionary<string, BudgetCellEditor> cells = new(StringComparer.Ordinal);
     private bool isEditable;
+
+    public BudgetMonthEditorRow(int month, string monthLabel, IEnumerable<BudgetGridCategory> categories)
+    {
+        Month = month;
+        MonthLabel = monthLabel;
+
+        foreach (var category in categories)
+        {
+            var cell = new BudgetCellEditor(category.Code, category.Label);
+            cell.PropertyChanged += (_, _) => OnPropertyChanged(nameof(MonthTotalText));
+            cells[category.Code] = cell;
+        }
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public int Month { get; } = month;
+    public int Month { get; }
 
-    public string MonthLabel { get; } = monthLabel;
+    public string MonthLabel { get; }
 
     /// <summary>
     /// Faux quand le plan est approuve ou que le profil n'a pas budget.write :
@@ -922,82 +1013,27 @@ public sealed class BudgetMonthEditorRow(int month, string monthLabel) : INotify
         set => SetField(ref isEditable, value);
     }
 
-    public string AccommodationText
-    {
-        get => accommodationText;
-        set => SetAmountField(ref accommodationText, value);
-    }
-
-    public string FoodText
-    {
-        get => foodText;
-        set => SetAmountField(ref foodText, value);
-    }
-
-    public string BeverageText
-    {
-        get => beverageText;
-        set => SetAmountField(ref beverageText, value);
-    }
-
-    public string OtherText
-    {
-        get => otherText;
-        set => SetAmountField(ref otherText, value);
-    }
+    /// <summary>Les cellules de la ligne, par code de categorie : les colonnes generees se lient a <c>Cells[CODE].Text</c>.</summary>
+    public IReadOnlyDictionary<string, BudgetCellEditor> Cells => cells;
 
     /// <summary>
     /// Total du mois recalcule a chaque frappe. Une cellule illisible compte pour
     /// zero : l'apercu reste affichable, et le controle de saisie refuse la
     /// cellule a l'enregistrement avec un message qui la designe.
     /// </summary>
-    public string MonthTotalText => (AmountOrZero(BudgetCategory.Accommodation)
-        + AmountOrZero(BudgetCategory.Food)
-        + AmountOrZero(BudgetCategory.Beverage)
-        + AmountOrZero(BudgetCategory.Other))
-        .ToString("N2", CultureInfo.CurrentCulture);
+    public string MonthTotalText => cells.Values.Sum(cell => cell.AmountOrZero).ToString("N2", CultureInfo.CurrentCulture);
 
-    public void SetAmount(BudgetCategory category, decimal amount)
+    public void SetAmount(string categoryCode, decimal amount)
     {
-        var text = amount.ToString("0.00", CultureInfo.CurrentCulture);
-
-        switch (category)
+        if (cells.TryGetValue(categoryCode, out var cell))
         {
-            case BudgetCategory.Accommodation:
-                AccommodationText = text;
-                break;
-            case BudgetCategory.Food:
-                FoodText = text;
-                break;
-            case BudgetCategory.Beverage:
-                BeverageText = text;
-                break;
-            case BudgetCategory.Other:
-                OtherText = text;
-                break;
+            cell.Text = amount.ToString("0.00", CultureInfo.CurrentCulture);
         }
     }
 
-    public IEnumerable<(BudgetCategory Category, string Text)> Cells()
+    public decimal AmountOrZero(string categoryCode)
     {
-        yield return (BudgetCategory.Accommodation, AccommodationText);
-        yield return (BudgetCategory.Food, FoodText);
-        yield return (BudgetCategory.Beverage, BeverageText);
-        yield return (BudgetCategory.Other, OtherText);
-    }
-
-    public decimal AmountOrZero(BudgetCategory category)
-    {
-        var text = category switch
-        {
-            BudgetCategory.Accommodation => AccommodationText,
-            BudgetCategory.Food => FoodText,
-            BudgetCategory.Beverage => BeverageText,
-            BudgetCategory.Other => OtherText,
-            _ => string.Empty
-        };
-
-        return TryParseAmount(text, out var amount) ? amount : 0m;
+        return cells.TryGetValue(categoryCode, out var cell) ? cell.AmountOrZero : 0m;
     }
 
     // Meme tolerance de saisie que les recettes journalieres et la facturation :
@@ -1008,14 +1044,6 @@ public sealed class BudgetMonthEditorRow(int month, string monthLabel) : INotify
 
         return decimal.TryParse(trimmed, NumberStyles.Number, CultureInfo.CurrentCulture, out value)
             || decimal.TryParse(trimmed, NumberStyles.Number, CultureInfo.InvariantCulture, out value);
-    }
-
-    private void SetAmountField(ref string field, string? value, [CallerMemberName] string? propertyName = null)
-    {
-        if (SetField(ref field, value ?? string.Empty, propertyName))
-        {
-            OnPropertyChanged(nameof(MonthTotalText));
-        }
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
@@ -1033,6 +1061,64 @@ public sealed class BudgetMonthEditorRow(int month, string monthLabel) : INotify
     private void OnPropertyChanged(string? propertyName)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+}
+
+/// <summary>Une cellule de saisie d'objectif : la categorie et le texte frappe.</summary>
+public sealed class BudgetCellEditor(string code, string label) : INotifyPropertyChanged
+{
+    private string text = string.Empty;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public string Code { get; } = code;
+
+    public string Label { get; } = label;
+
+    public string Text
+    {
+        get => text;
+        set
+        {
+            var normalized = value ?? string.Empty;
+
+            if (normalized == text)
+            {
+                return;
+            }
+
+            text = normalized;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Text)));
+        }
+    }
+
+    public decimal AmountOrZero => BudgetMonthEditorRow.TryParseAmount(text, out var amount) ? amount : 0m;
+}
+
+/// <summary>Le total d'une categorie sur l'exercice, tel qu'affiche dans le bandeau des totaux.</summary>
+public sealed class BudgetCategoryTotalView(string code, string label) : INotifyPropertyChanged
+{
+    private string totalText = "0,00";
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public string Code { get; } = code;
+
+    public string Label { get; } = label;
+
+    public string TotalText
+    {
+        get => totalText;
+        set
+        {
+            if (value == totalText)
+            {
+                return;
+            }
+
+            totalText = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TotalText)));
+        }
     }
 }
 

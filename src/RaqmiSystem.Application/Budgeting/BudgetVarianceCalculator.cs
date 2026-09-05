@@ -1,4 +1,5 @@
 using RaqmiSystem.Domain.Budgeting;
+using RaqmiSystem.Domain.Revenue;
 
 namespace RaqmiSystem.Application.Budgeting;
 
@@ -17,55 +18,50 @@ namespace RaqmiSystem.Application.Budgeting;
 /// same reason. The filtering itself happens in the query that builds
 /// <see cref="BudgetActualRevenue"/>; this class documents and depends on it.
 ///
-/// SHAPE OF THE REPORT: every month of the requested period is emitted, and every one of the four
-/// revenue categories inside it, whether or not a target or an actual exists for that cell. A
-/// month absent from the plan is a target of zero, not a missing row - the reader must be able to
-/// see that nothing was budgeted for it.
+/// SHAPE OF THE REPORT: every month of the requested period is emitted, and every category of
+/// the report inside it, whether or not a target or an actual exists for that cell. A month
+/// absent from the plan is a target of zero, not a missing row - the reader must be able to see
+/// that nothing was budgeted for it. Les catégories du rapport sont celles que l'appelant fournit
+/// (le paramétrage applicable à l'unité, dans son ordre), complétées par tout code rencontré dans
+/// les objectifs ou le réalisé qui n'y figurerait pas : un montant enregistré n'est jamais
+/// silencieusement écarté d'un rapport d'écarts.
 /// </summary>
 public sealed class BudgetVarianceCalculator
 {
-    private static readonly BudgetCategory[] Categories =
-    {
-        BudgetCategory.Accommodation,
-        BudgetCategory.Food,
-        BudgetCategory.Beverage,
-        BudgetCategory.Other
-    };
-
     public BudgetVarianceResponse Calculate(
         int year,
         string hotelUnitCode,
         int? month,
         Guid budgetPlanId,
         BudgetStatus planStatus,
+        IReadOnlyList<BudgetVarianceCategory> categories,
         IEnumerable<BudgetTargetLine> targets,
         IEnumerable<BudgetActualRevenue> actuals)
     {
+        ArgumentNullException.ThrowIfNull(categories);
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(actuals);
 
-        var targetsByCell = new Dictionary<(int Month, BudgetCategory Category), decimal>();
+        var targetsByCell = new Dictionary<(int Month, string Category), decimal>();
 
         foreach (var target in targets)
         {
-            var cell = (target.Month, target.Category);
+            var cell = (target.Month, RevenueCategoryCodes.Normalize(target.Category, nameof(targets)));
             targetsByCell[cell] = targetsByCell.GetValueOrDefault(cell) + target.AmountTarget;
         }
 
-        var actualsByCell = new Dictionary<(int Month, BudgetCategory Category), decimal>();
+        var actualsByCell = new Dictionary<(int Month, string Category), decimal>();
 
         foreach (var actual in actuals)
         {
             // The report is keyed by the BUSINESS date of the revenue, never by the date it was
             // captured or validated: a revenue belongs to the day it was produced, which is the
             // only reading under which the monthly targets mean anything.
-            var actualMonth = actual.BusinessDate.Month;
-
-            Accumulate(actualsByCell, actualMonth, BudgetCategory.Accommodation, actual.Accommodation);
-            Accumulate(actualsByCell, actualMonth, BudgetCategory.Food, actual.Food);
-            Accumulate(actualsByCell, actualMonth, BudgetCategory.Beverage, actual.Beverage);
-            Accumulate(actualsByCell, actualMonth, BudgetCategory.Other, actual.Other);
+            var cell = (actual.BusinessDate.Month, RevenueCategoryCodes.Normalize(actual.Category, nameof(actuals)));
+            actualsByCell[cell] = actualsByCell.GetValueOrDefault(cell) + actual.Amount;
         }
+
+        var reportCategories = ResolveCategories(categories, targetsByCell.Keys, actualsByCell.Keys);
 
         var monthsInScope = month.HasValue
             ? new[] { month.Value }
@@ -75,15 +71,16 @@ public sealed class BudgetVarianceCalculator
 
         foreach (var currentMonth in monthsInScope)
         {
-            var rows = Categories
+            var rows = reportCategories
                 .Select(category =>
                 {
-                    var budgetAmount = Round(targetsByCell.GetValueOrDefault((currentMonth, category)));
-                    var actualAmount = Round(actualsByCell.GetValueOrDefault((currentMonth, category)));
+                    var budgetAmount = Round(targetsByCell.GetValueOrDefault((currentMonth, category.Code)));
+                    var actualAmount = Round(actualsByCell.GetValueOrDefault((currentMonth, category.Code)));
 
                     return new BudgetVarianceRow(
                         currentMonth,
-                        category,
+                        category.Code,
+                        category.Label,
                         budgetAmount,
                         actualAmount,
                         actualAmount - budgetAmount,
@@ -119,14 +116,41 @@ public sealed class BudgetVarianceCalculator
             Percentage(totalBudget, totalActual - totalBudget));
     }
 
-    private static void Accumulate(
-        Dictionary<(int Month, BudgetCategory Category), decimal> accumulator,
-        int month,
-        BudgetCategory category,
-        decimal amount)
+    /// <summary>
+    /// Les catégories fournies, dans leur ordre, puis tout code vu dans les objectifs ou le
+    /// réalisé qui n'en fait pas partie (libellé par son code, par ordre alphabétique).
+    /// </summary>
+    private static IReadOnlyList<BudgetVarianceCategory> ResolveCategories(
+        IReadOnlyList<BudgetVarianceCategory> categories,
+        IEnumerable<(int Month, string Category)> targetCells,
+        IEnumerable<(int Month, string Category)> actualCells)
     {
-        var cell = (month, category);
-        accumulator[cell] = accumulator.GetValueOrDefault(cell) + amount;
+        var result = new List<BudgetVarianceCategory>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var category in categories)
+        {
+            var code = RevenueCategoryCodes.Normalize(category.Code, nameof(categories));
+
+            if (seen.Add(code))
+            {
+                result.Add(new BudgetVarianceCategory(code, category.Label));
+            }
+        }
+
+        var extras = targetCells
+            .Concat(actualCells)
+            .Select(cell => cell.Category)
+            .Where(code => !seen.Contains(code))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(code => code, StringComparer.Ordinal);
+
+        foreach (var code in extras)
+        {
+            result.Add(new BudgetVarianceCategory(code, code));
+        }
+
+        return result;
     }
 
     /// <summary>

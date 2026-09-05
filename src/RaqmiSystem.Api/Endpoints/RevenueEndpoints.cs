@@ -9,6 +9,13 @@ internal static class RevenueEndpoints
 {
     public static RouteGroupBuilder MapRevenueEndpoints(this RouteGroupBuilder api)
     {
+        MapDailyRevenueEndpoints(api);
+        MapRevenueCategoryEndpoints(api);
+        return api;
+    }
+
+    private static void MapDailyRevenueEndpoints(RouteGroupBuilder api)
+    {
         var revenue = api.MapGroup("/revenue/daily")
             .WithTags("Daily revenue");
 
@@ -128,8 +135,80 @@ internal static class RevenueEndpoints
             var result = await service.RejectAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
         }).RequireAuthorization(PermissionCatalog.RevenueValidate);
+    }
 
-        return api;
+    /// <summary>
+    /// Paramétrage des catégories de recettes. La lecture relève de revenue.read (les écrans de
+    /// saisie en ont besoin pour se construire) ; le paramétrage relève de revenue.write - pas
+    /// de clé nouvelle : qui peut saisir les recettes d'une entreprise peut en nommer les
+    /// catégories.
+    /// </summary>
+    private static void MapRevenueCategoryEndpoints(RouteGroupBuilder api)
+    {
+        var categories = api.MapGroup("/revenue/categories")
+            .WithTags("Revenue categories");
+
+        categories.MapGet("", async (
+            string? sector,
+            string? hotelUnitCode,
+            bool? includeInactive,
+            IRevenueCategoryService service,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryParseSector(sector, out var parsedSector, out var error))
+            {
+                return Results.BadRequest(new ErrorResponse(error));
+            }
+
+            var result = await service.ListAsync(parsedSector, hotelUnitCode, includeInactive == true, cancellationToken);
+            return result.ToHttpResult();
+        }).RequireAuthorization(PermissionCatalog.RevenueRead);
+
+        categories.MapGet("/{code}", async (
+            string code,
+            IRevenueCategoryService service,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.GetAsync(code, cancellationToken);
+            return result.ToHttpResult();
+        }).RequireAuthorization(PermissionCatalog.RevenueRead);
+
+        categories.MapPost("", async (
+            CreateRevenueCategoryRequest request,
+            IRevenueCategoryService service,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.CreateAsync(request, httpContext.ToOperationContext(), cancellationToken);
+
+            return result.Succeeded && result.Value is not null
+                ? Results.Created($"/api/v1/revenue/categories/{result.Value.Code}", result.Value)
+                : result.ToHttpResult();
+        }).RequireAuthorization(PermissionCatalog.RevenueWrite);
+
+        categories.MapPut("/{code}", async (
+            string code,
+            UpdateRevenueCategoryRequest request,
+            IRevenueCategoryService service,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.UpdateAsync(code, request, httpContext.ToOperationContext(), cancellationToken);
+            return result.ToHttpResult();
+        }).RequireAuthorization(PermissionCatalog.RevenueWrite);
+
+        categories.MapDelete("/{code}", async (
+            string code,
+            IRevenueCategoryService service,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.DeleteAsync(code, httpContext.ToOperationContext(), cancellationToken);
+
+            return result.Succeeded
+                ? Results.NoContent()
+                : result.ToHttpResult();
+        }).RequireAuthorization(PermissionCatalog.RevenueWrite);
     }
 
     private static bool TryParseStatus(string? status, out DailyRevenueStatus? parsedStatus, out string error)
@@ -150,6 +229,27 @@ internal static class RevenueEndpoints
         }
 
         error = "Daily revenue status must be Draft, Submitted, Validated or Rejected.";
+        return false;
+    }
+
+    private static bool TryParseSector(string? sector, out BusinessSector? parsedSector, out string error)
+    {
+        parsedSector = null;
+        error = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(sector))
+        {
+            return true;
+        }
+
+        if (Enum.TryParse<BusinessSector>(sector.Trim(), ignoreCase: true, out var value) &&
+            Enum.IsDefined(value))
+        {
+            parsedSector = value;
+            return true;
+        }
+
+        error = "Business sector must be one of: " + string.Join(", ", Enum.GetNames<BusinessSector>()) + ".";
         return false;
     }
 

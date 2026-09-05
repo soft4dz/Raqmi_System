@@ -390,51 +390,13 @@
                                                         Binding="{Binding MonthLabel}"
                                                         Width="130" />
 
-                                    <DataGridTemplateColumn Header="Hébergement" Width="*" MinWidth="120" HeaderStyle="{StaticResource RightAlignedColumnHeader}">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <TextBox Text="{Binding AccommodationText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                         Style="{StaticResource TargetCellTextBox}"
-                                                         IsEnabled="{Binding IsEditable}"
-                                                         ToolTip="Objectif d'hébergement du mois : positif ou nul, 2 décimales au maximum" />
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
+                                    <!-- Une colonne de saisie par catégorie de recettes, insérée ici par le
+                                         code-behind (BuildPlanColumns) à partir des catégories que le serveur
+                                         renvoie pour l'unité : la grille d'un hôtel garde ses quatre colonnes,
+                                         celle d'une autre entreprise a les siennes. Aucune catégorie en dur. -->
 
-                                    <DataGridTemplateColumn Header="Restauration" Width="*" MinWidth="120" HeaderStyle="{StaticResource RightAlignedColumnHeader}">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <TextBox Text="{Binding FoodText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                         Style="{StaticResource TargetCellTextBox}"
-                                                         IsEnabled="{Binding IsEditable}"
-                                                         ToolTip="Objectif de restauration du mois : positif ou nul, 2 décimales au maximum" />
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-
-                                    <DataGridTemplateColumn Header="Boissons" Width="*" MinWidth="120" HeaderStyle="{StaticResource RightAlignedColumnHeader}">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <TextBox Text="{Binding BeverageText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                         Style="{StaticResource TargetCellTextBox}"
-                                                         IsEnabled="{Binding IsEditable}"
-                                                         ToolTip="Objectif de boissons du mois : positif ou nul, 2 décimales au maximum" />
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-
-                                    <DataGridTemplateColumn Header="Autres" Width="*" MinWidth="120" HeaderStyle="{StaticResource RightAlignedColumnHeader}">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <TextBox Text="{Binding OtherText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                         Style="{StaticResource TargetCellTextBox}"
-                                                         IsEnabled="{Binding IsEditable}"
-                                                         ToolTip="Objectif des autres recettes du mois : positif ou nul, 2 décimales au maximum" />
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-
-                                    <DataGridTextColumn Header="Total du mois"
+                                    <DataGridTextColumn x:Name="PlanMonthTotalColumn"
+                                                        Header="Total du mois"
                                                         Binding="{Binding MonthTotalText, Mode=OneWay}"
                                                         Width="150"
                                                         ElementStyle="{StaticResource TotalCellText}"
@@ -469,13 +431,7 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="18" />
-                                    <ColumnDefinition Width="Auto" MinWidth="120" />
-                                    <ColumnDefinition Width="18" />
-                                    <ColumnDefinition Width="Auto" MinWidth="120" />
-                                    <ColumnDefinition Width="18" />
-                                    <ColumnDefinition Width="Auto" MinWidth="120" />
-                                    <ColumnDefinition Width="18" />
-                                    <ColumnDefinition Width="Auto" MinWidth="120" />
+                                    <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="18" />
                                     <ColumnDefinition Width="Auto" MinWidth="140" />
                                 </Grid.ColumnDefinitions>
@@ -485,35 +441,24 @@
                                            VerticalAlignment="Center"
                                            Margin="0,0,10,0" />
 
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="Hébergement" Style="{StaticResource TotalLabelText}" />
-                                    <TextBlock x:Name="PlanAccommodationTotalTextBlock"
-                                               Text="0,00"
-                                               Style="{StaticResource TotalValueText}" />
-                                </StackPanel>
+                                <!-- Un total par catégorie de la grille, dans le même ordre que ses colonnes. -->
+                                <ItemsControl x:Name="PlanCategoryTotalsItemsControl" Grid.Column="2">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel MinWidth="120" Margin="0,0,18,0">
+                                                <TextBlock Text="{Binding Label}" Style="{StaticResource TotalLabelText}" />
+                                                <TextBlock Text="{Binding TotalText}" Style="{StaticResource TotalValueText}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
 
                                 <StackPanel Grid.Column="4">
-                                    <TextBlock Text="Restauration" Style="{StaticResource TotalLabelText}" />
-                                    <TextBlock x:Name="PlanFoodTotalTextBlock"
-                                               Text="0,00"
-                                               Style="{StaticResource TotalValueText}" />
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="6">
-                                    <TextBlock Text="Boissons" Style="{StaticResource TotalLabelText}" />
-                                    <TextBlock x:Name="PlanBeverageTotalTextBlock"
-                                               Text="0,00"
-                                               Style="{StaticResource TotalValueText}" />
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="8">
-                                    <TextBlock Text="Autres" Style="{StaticResource TotalLabelText}" />
-                                    <TextBlock x:Name="PlanOtherTotalTextBlock"
-                                               Text="0,00"
-                                               Style="{StaticResource TotalValueText}" />
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="10">
                                     <TextBlock Text="Total de l'exercice" Style="{StaticResource TotalLabelText}" />
                                     <TextBlock x:Name="PlanGrandTotalTextBlock"
                                                Text="0,00"

@@ -87,6 +87,7 @@ public static class DependencyInjection
         services.AddScoped<ISecuritySeeder, SecuritySeeder>();
         services.AddScoped<IHotelUnitService, HotelUnitService>();
         services.AddScoped<IDailyRevenueService, DailyRevenueService>();
+        services.AddScoped<IRevenueCategoryService, RevenueCategoryService>();
         services.AddScoped<IDailyClosingService, DailyClosingService>();
         services.AddScoped<IDailyClosingReadService, DailyClosingService>();
         services.AddScoped<ITreasuryService, TreasuryService>();

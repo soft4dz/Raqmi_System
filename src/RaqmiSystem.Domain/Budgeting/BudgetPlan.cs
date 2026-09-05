@@ -5,7 +5,8 @@ namespace RaqmiSystem.Domain.Budgeting;
 
 /// <summary>
 /// The yearly budget of one hotel unit: a label, a status, and one target amount per month and
-/// revenue category (see <see cref="BudgetLine"/>). There is at most one plan per
+/// revenue category (see <see cref="BudgetLine"/> - the category is the code of a configurable
+/// <c>RaqmiSystem.Domain.Revenue.RevenueCategory</c>). There is at most one plan per
 /// (Year, HotelUnitCode) - a unit cannot be steered against two competing budgets for the same
 /// exercise - which the database enforces with the unique index ux_budget_plans_year_hotel_unit.
 ///
@@ -65,7 +66,7 @@ public sealed class BudgetPlan : AuditableEntity
     /// ux_budget_lines_plan_month_category - so setting an existing pair adjusts its amount
     /// instead of adding a second, contradictory target.
     /// </summary>
-    public BudgetLine SetLine(int month, BudgetCategory category, decimal amountTarget)
+    public BudgetLine SetLine(int month, string category, decimal amountTarget)
     {
         EnsureEditable();
 
@@ -183,7 +184,7 @@ public sealed class BudgetPlan : AuditableEntity
         ClosedBy = RequireActor(userName);
     }
 
-    private BudgetLine? FindLine(int month, BudgetCategory category)
+    private BudgetLine? FindLine(int month, string category)
     {
         return _lines.SingleOrDefault(line => line.Month == month && line.Category == category);
     }

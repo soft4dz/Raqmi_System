@@ -50,7 +50,9 @@ public sealed class BudgetService(
             .ThenBy(plan => plan.HotelUnitCode)
             .ToArrayAsync(cancellationToken);
 
-        return plans.Select(Map).ToArray();
+        var categories = await LoadCategoriesAsync(cancellationToken);
+
+        return plans.Select(plan => Map(plan, categories)).ToArray();
     }
 
     public async Task<ApplicationResult<BudgetPlanResponse>> GetPlanAsync(
@@ -67,7 +69,7 @@ public sealed class BudgetService(
             return ApplicationResult<BudgetPlanResponse>.NotFound("Budget plan was not found.");
         }
 
-        return ApplicationResult<BudgetPlanResponse>.Success(Map(plan));
+        return ApplicationResult<BudgetPlanResponse>.Success(Map(plan, await LoadCategoriesAsync(cancellationToken)));
     }
 
     public async Task<ApplicationResult<BudgetPlanResponse>> CreatePlanAsync(
@@ -108,6 +110,8 @@ public sealed class BudgetService(
                 "A budget plan already exists for this year and hotel unit.");
         }
 
+        var categories = await LoadCategoriesAsync(cancellationToken);
+
         BudgetPlan plan;
 
         try
@@ -116,6 +120,13 @@ public sealed class BudgetService(
 
             if (request.Lines is { Count: > 0 })
             {
+                var categoryError = ValidateCategories(request.Lines, categories);
+
+                if (categoryError is not null)
+                {
+                    return ApplicationResult<BudgetPlanResponse>.Validation(categoryError);
+                }
+
                 plan.ReplaceLines(BuildLines(request.Lines));
             }
         }
@@ -147,7 +158,7 @@ public sealed class BudgetService(
                 "A budget plan already exists for this year and hotel unit.");
         }
 
-        return ApplicationResult<BudgetPlanResponse>.Success(Map(plan));
+        return ApplicationResult<BudgetPlanResponse>.Success(Map(plan, categories));
     }
 
     public async Task<ApplicationResult<BudgetPlanResponse>> UpdatePlanAsync(
@@ -176,6 +187,13 @@ public sealed class BudgetService(
             return ApplicationResult<BudgetPlanResponse>.Validation("Budget lines are required.");
         }
 
+        var categoryError = ValidateCategories(request.Lines, await LoadCategoriesAsync(cancellationToken));
+
+        if (categoryError is not null)
+        {
+            return ApplicationResult<BudgetPlanResponse>.Validation(categoryError);
+        }
+
         return await MutatePlanAsync(
             id,
             context,
@@ -191,6 +209,13 @@ public sealed class BudgetService(
         OperationContext context,
         CancellationToken cancellationToken)
     {
+        var categoryError = ValidateCategories([request], await LoadCategoriesAsync(cancellationToken));
+
+        if (categoryError is not null)
+        {
+            return ApplicationResult<BudgetPlanResponse>.Validation(categoryError);
+        }
+
         return await MutatePlanAsync(
             id,
             context,
@@ -201,7 +226,7 @@ public sealed class BudgetService(
                 plan.Year,
                 plan.HotelUnitCode,
                 request.Month,
-                Category = request.Category.ToString(),
+                request.Category,
                 request.AmountTarget
             },
             cancellationToken);
@@ -250,7 +275,7 @@ public sealed class BudgetService(
 
         await SaveAsync(cancellationToken);
 
-        return ApplicationResult<BudgetPlanResponse>.Success(Map(plan));
+        return ApplicationResult<BudgetPlanResponse>.Success(Map(plan, await LoadCategoriesAsync(cancellationToken)));
     }
 
     public async Task<ApplicationResult<BudgetPlanResponse>> ApprovePlanAsync(
@@ -305,11 +330,11 @@ public sealed class BudgetService(
             return ApplicationResult<BudgetVarianceResponse>.Validation("Hotel unit code is required.");
         }
 
-        var unitExists = await dbContext.Set<HotelUnit>()
+        var unit = await dbContext.Set<HotelUnit>()
             .AsNoTracking()
-            .AnyAsync(current => current.Code == normalizedUnitCode, cancellationToken);
+            .SingleOrDefaultAsync(current => current.Code == normalizedUnitCode, cancellationToken);
 
-        if (!unitExists)
+        if (unit is null)
         {
             return ApplicationResult<BudgetVarianceResponse>.NotFound("Hotel unit was not found.");
         }
@@ -330,11 +355,13 @@ public sealed class BudgetService(
                 "No budget plan exists for this year and hotel unit.");
         }
 
-        var from = month.HasValue
+        // Nommées periodStart / periodEnd et non from / to : dans une expression de requête,
+        // « from » est un mot-clé contextuel et casserait la clause where ci-dessous.
+        var periodStart = month.HasValue
             ? new DateOnly(year, month.Value, 1)
             : new DateOnly(year, 1, 1);
 
-        var to = month.HasValue
+        var periodEnd = month.HasValue
             ? new DateOnly(year, month.Value, DateTime.DaysInMonth(year, month.Value))
             : new DateOnly(year, 12, 31);
 
@@ -344,19 +371,18 @@ public sealed class BudgetService(
         // would let an un-reviewed - or explicitly refused - figure close a budget gap on paper.
         // Same rule, same reason, as the treasury summary counting only Confirmed receipts. The
         // filter is applied here, in the query, so no code path can compute a variance without it.
-        var actuals = await dbContext.Set<DailyRevenue>()
-            .AsNoTracking()
-            .Where(revenue =>
-                revenue.HotelUnitCode == normalizedUnitCode &&
-                revenue.Status == DailyRevenueStatus.Validated &&
-                revenue.BusinessDate >= from &&
-                revenue.BusinessDate <= to)
-            .Select(revenue => new BudgetActualRevenue(
-                revenue.BusinessDate,
-                revenue.Accommodation,
-                revenue.Food,
-                revenue.Beverage,
-                revenue.Other))
+        //
+        // Jointure plate sur les lignes plutôt que projection de la navigation : une collection
+        // projetée compile en sous-requête corrélée (APPLY / LATERAL), que SQLite refuse.
+        var actuals = await (
+                from revenue in dbContext.Set<DailyRevenue>().AsNoTracking()
+                where revenue.HotelUnitCode == normalizedUnitCode
+                    && revenue.Status == DailyRevenueStatus.Validated
+                    && revenue.BusinessDate >= periodStart
+                    && revenue.BusinessDate <= periodEnd
+                join line in dbContext.Set<DailyRevenueLine>().AsNoTracking()
+                    on revenue.Id equals line.DailyRevenueId
+                select new BudgetActualRevenue(revenue.BusinessDate, line.CategoryCode, line.Amount))
             .ToArrayAsync(cancellationToken);
 
         var targets = plan.Lines
@@ -369,10 +395,43 @@ public sealed class BudgetService(
             month,
             plan.Id,
             plan.Status,
+            await ResolveReportCategoriesAsync(unit, targets, actuals, cancellationToken),
             targets,
             actuals);
 
         return ApplicationResult<BudgetVarianceResponse>.Success(report);
+    }
+
+    /// <summary>
+    /// Les catégories du rapport : celles qui s'appliquent au secteur de l'unité (le jeu dédié,
+    /// sinon le jeu générique), puis toute autre catégorie connue que le plan ou le réalisé
+    /// référence - une catégorie désactivée depuis, par exemple - dans l'ordre d'affichage.
+    /// </summary>
+    private async Task<IReadOnlyList<BudgetVarianceCategory>> ResolveReportCategoriesAsync(
+        HotelUnit unit,
+        IEnumerable<BudgetTargetLine> targets,
+        IEnumerable<BudgetActualRevenue> actuals,
+        CancellationToken cancellationToken)
+    {
+        var categories = await LoadCategoriesAsync(cancellationToken);
+
+        var applicable = RevenueCategoryCatalog.Applicable(
+            categories.Values.Where(category => category.IsActive),
+            RevenueCategoryCatalog.SectorOf(unit.UnitType));
+
+        var referenced = targets.Select(target => target.Category)
+            .Concat(actuals.Select(actual => actual.Category))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var extras = categories.Values
+            .Where(category => referenced.Contains(category.Code) && applicable.All(current => current.Code != category.Code))
+            .OrderBy(category => category.DisplayOrder)
+            .ThenBy(category => category.Code, StringComparer.Ordinal);
+
+        return applicable
+            .Concat(extras)
+            .Select(category => new BudgetVarianceCategory(category.Code, category.Label))
+            .ToArray();
     }
 
     /// <summary>
@@ -429,7 +488,39 @@ public sealed class BudgetService(
                 "The budget plan was modified by a concurrent operation. Please retry.");
         }
 
-        return ApplicationResult<BudgetPlanResponse>.Success(Map(plan));
+        return ApplicationResult<BudgetPlanResponse>.Success(Map(plan, await LoadCategoriesAsync(cancellationToken)));
+    }
+
+    /// <summary>
+    /// Une ligne de budget vise une catégorie du paramétrage, active ou non : un budget est une
+    /// planification, et une grille qui porte encore une catégorie désactivée doit pouvoir être
+    /// réenregistrée telle quelle. Une catégorie inconnue, elle, est refusée avec un message qui
+    /// la nomme plutôt que par une violation de clé étrangère.
+    /// </summary>
+    private static string? ValidateCategories(
+        IEnumerable<BudgetLineRequest> lines,
+        IReadOnlyDictionary<string, RevenueCategory> categories)
+    {
+        foreach (var line in lines)
+        {
+            string code;
+
+            try
+            {
+                code = RevenueCategoryCodes.Normalize(line.Category, nameof(lines));
+            }
+            catch (ArgumentException ex)
+            {
+                return ex.Message;
+            }
+
+            if (!categories.ContainsKey(code))
+            {
+                return $"Revenue category '{code}' is unknown.";
+            }
+        }
+
+        return null;
     }
 
     private static List<BudgetLine> BuildLines(IReadOnlyCollection<BudgetLineRequest> requests)
@@ -439,12 +530,27 @@ public sealed class BudgetService(
             .ToList();
     }
 
-    private static BudgetPlanResponse Map(BudgetPlan plan)
+    private async Task<IReadOnlyDictionary<string, RevenueCategory>> LoadCategoriesAsync(CancellationToken cancellationToken)
+    {
+        var categories = await dbContext.Set<RevenueCategory>()
+            .AsNoTracking()
+            .ToArrayAsync(cancellationToken);
+
+        return categories.ToDictionary(category => category.Code, StringComparer.Ordinal);
+    }
+
+    private static BudgetPlanResponse Map(BudgetPlan plan, IReadOnlyDictionary<string, RevenueCategory> categories)
     {
         var lines = plan.Lines
             .OrderBy(line => line.Month)
-            .ThenBy(line => line.Category)
-            .Select(line => new BudgetLineResponse(line.Id, line.Month, line.Category, line.AmountTarget))
+            .ThenBy(line => categories.TryGetValue(line.Category, out var category) ? category.DisplayOrder : int.MaxValue)
+            .ThenBy(line => line.Category, StringComparer.Ordinal)
+            .Select(line => new BudgetLineResponse(
+                line.Id,
+                line.Month,
+                line.Category,
+                line.AmountTarget,
+                categories.TryGetValue(line.Category, out var category) ? category.Label : line.Category))
             .ToArray();
 
         return new BudgetPlanResponse(

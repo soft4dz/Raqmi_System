@@ -36,6 +36,11 @@ public sealed class DailyRevenueConfiguration : IEntityTypeConfiguration<DailyRe
             .HasMaxLength(40)
             .IsRequired();
 
+        // Les quatre colonnes historiques sont conservées comme PROJECTION des lignes (voir
+        // DailyRevenue) : la recette les recalcule à chaque changement de lignes et rien d'autre
+        // ne les écrit. Elles restent en place pour que les lecteurs SQL non encore migrés (KPI,
+        // pilotage, états) continuent d'obtenir les mêmes chiffres ; la source de vérité est
+        // daily_revenue_lines. Elles pourront être retirées quand plus aucun lecteur ne les projette.
         builder.Property(revenue => revenue.Accommodation)
             .HasColumnName("accommodation")
             .HasPrecision(18, 2);
@@ -81,5 +86,18 @@ public sealed class DailyRevenueConfiguration : IEntityTypeConfiguration<DailyRe
             .HasPrincipalKey(unit => unit.Code)
             .HasForeignKey(revenue => revenue.HotelUnitCode)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasMany(revenue => revenue.Lines)
+            .WithOne()
+            .HasForeignKey(line => line.DailyRevenueId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Lines est une projection en lecture seule du champ _lines : EF doit remplir le champ.
+        // AutoInclude : les modules voisins chargent des recettes entières sans connaître les
+        // lignes ; les leur livrer d'office rend Lines fiable partout, et ne coûte rien aux
+        // requêtes qui projettent des colonnes (un Select ignore les inclusions).
+        builder.Navigation(revenue => revenue.Lines)
+            .UsePropertyAccessMode(PropertyAccessMode.Field)
+            .AutoInclude();
     }
 }

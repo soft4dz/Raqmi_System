@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using RaqmiSystem.Domain.Budgeting;
+using RaqmiSystem.Domain.Revenue;
 
 namespace RaqmiSystem.Infrastructure.Budgeting;
 
@@ -13,10 +14,6 @@ public sealed class BudgetLineConfiguration : IEntityTypeConfiguration<BudgetLin
             table.HasCheckConstraint(
                 "ck_budget_lines_month",
                 "month BETWEEN 1 AND 12");
-
-            table.HasCheckConstraint(
-                "ck_budget_lines_category",
-                "category IN ('Accommodation', 'Food', 'Beverage', 'Other')");
 
             // The CAST is not cosmetic: the SQLite provider used by the test harness stores
             // decimal as TEXT, and a text-versus-integer comparison there does not mean what it
@@ -52,10 +49,11 @@ public sealed class BudgetLineConfiguration : IEntityTypeConfiguration<BudgetLin
         builder.Property(line => line.Month)
             .HasColumnName("month");
 
+        // Le code d'une catégorie de recettes paramétrable : la contrainte CHECK sur quatre
+        // valeurs figées est remplacée par la clé étrangère vers exploitation.revenue_categories.
         builder.Property(line => line.Category)
             .HasColumnName("category")
-            .HasConversion<string>()
-            .HasMaxLength(30)
+            .HasMaxLength(RevenueCategoryCodes.MaxLength)
             .IsRequired();
 
         builder.Property(line => line.AmountTarget)
@@ -68,5 +66,14 @@ public sealed class BudgetLineConfiguration : IEntityTypeConfiguration<BudgetLin
         builder.HasIndex(line => new { line.BudgetPlanId, line.Month, line.Category })
             .IsUnique()
             .HasDatabaseName("ux_budget_lines_plan_month_category");
+
+        builder.HasIndex(line => line.Category)
+            .HasDatabaseName("ix_budget_lines_category");
+
+        // Restrict : une catégorie budgétée ne se supprime pas, elle se désactive.
+        builder.HasOne<RevenueCategory>()
+            .WithMany()
+            .HasForeignKey(line => line.Category)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
