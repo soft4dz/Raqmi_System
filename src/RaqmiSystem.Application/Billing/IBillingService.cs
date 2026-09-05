@@ -55,13 +55,27 @@ public interface IBillingService
         OperationContext context,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Emet la facture : numero legal, instantanes client et emetteur, et - pour chaque ligne
+    /// d'article suivi en stock - la sortie des quantites du magasin indique, dans la meme
+    /// transaction que l'emission. Un stock insuffisant refuse l'emission et laisse la facture
+    /// en brouillon, sans numero consomme.
+    /// </summary>
     Task<ApplicationResult<InvoiceResponse>> IssueInvoiceAsync(
         Guid id,
+        IssueInvoiceRequest? request,
         OperationContext context,
         CancellationToken cancellationToken);
 
-    Task<ApplicationResult<InvoiceResponse>> MarkInvoicePaidAsync(
+    /// <summary>
+    /// Regle une facture emise. Avec un mode de paiement, cree et confirme l'encaissement de
+    /// tresorerie correspondant (module Tresorerie) dans la meme transaction que le passage au
+    /// statut Payee ; sans, marque seulement la facture payee et le signale dans la reponse.
+    /// Une facture deja reglee ne cree jamais un second encaissement.
+    /// </summary>
+    Task<ApplicationResult<InvoicePaymentResponse>> PayInvoiceAsync(
         Guid id,
+        PayInvoiceRequest? request,
         OperationContext context,
         CancellationToken cancellationToken);
 

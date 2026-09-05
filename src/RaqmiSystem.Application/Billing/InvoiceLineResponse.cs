@@ -9,4 +9,5 @@ public sealed record InvoiceLineResponse(
     decimal VatRate,
     decimal LineTotalExclVat,
     decimal VatAmount,
-    decimal LineTotalInclVat);
+    decimal LineTotalInclVat,
+    string? ArticleCode = null);

@@ -90,6 +90,14 @@ public sealed class Invoice : AuditableEntity
 
     public string? PaidBy { get; private set; }
 
+    /// <summary>
+    /// Encaissement de tresorerie qui a solde la facture, quand le reglement en a cree un. Null
+    /// sur une facture marquee payee sans encaissement (chemin historique) et sur tout ce qui
+    /// precede le reglement. Un seul encaissement par facture : c'est ce lien qui empeche un
+    /// reglement rejoue de doubler l'argent en caisse.
+    /// </summary>
+    public Guid? CashReceiptId { get; private set; }
+
     public DateTimeOffset? CancelledAt { get; private set; }
 
     public string? CancelledBy { get; private set; }
@@ -227,6 +235,31 @@ public sealed class Invoice : AuditableEntity
         Status = InvoiceStatus.Paid;
         PaidAt = utcNow;
         PaidBy = RequireActor(userName);
+    }
+
+    /// <summary>
+    /// Rattache l'encaissement qui a solde la facture. Seule une facture Payee en porte un, et
+    /// une seule fois : une facture deja rattachee refuse, plutot que de perdre la trace du
+    /// premier encaissement.
+    /// </summary>
+    public void AttachCashReceipt(Guid cashReceiptId)
+    {
+        if (cashReceiptId == Guid.Empty)
+        {
+            throw new ArgumentException("L'identifiant de l'encaissement est requis.", nameof(cashReceiptId));
+        }
+
+        if (Status != InvoiceStatus.Paid)
+        {
+            throw new InvalidOperationException("Seule une facture payee porte un encaissement.");
+        }
+
+        if (CashReceiptId is not null)
+        {
+            throw new InvalidOperationException("Cette facture est deja rattachee a un encaissement.");
+        }
+
+        CashReceiptId = cashReceiptId;
     }
 
     public void Cancel(string reason, string userName, DateTimeOffset utcNow)

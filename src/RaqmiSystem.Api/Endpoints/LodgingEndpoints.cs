@@ -19,6 +19,11 @@ namespace RaqmiSystem.Api.Endpoints;
 ///   - "lodging.cancel"        annuler ;
 ///   - "lodging.noshow"        constater une non-presentation.
 ///
+/// Facturer un folio (POST .../folios/{folioId}/invoice) exige DEUX politiques, lodging.checkout
+/// ET invoices.write : la route ecrit une facture reelle a travers le module Facturation, et sans
+/// la seconde cle le comptoir deviendrait un chemin detourne vers la facturation - meme regle que
+/// la facturation d'un evenement MICE.
+///
 /// "lodging.write" reste en place et couvre le parametrage general du module : les installations
 /// existantes qui l'ont accorde continuent de fonctionner, les cles fines s'ajoutent par-dessus.
 /// </summary>
@@ -575,6 +580,23 @@ internal static class LodgingEndpoints
             var result = await service.TransferFolioChargeAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
         }).RequireAuthorization(PermissionCatalog.LodgingFolioManage);
+
+        // ------------------------------ Facturation du folio (A4) ------------------------------
+
+        // DEUX politiques exigees, et les deux doivent passer : la route cree une facture reelle
+        // a travers le module Facturation. Sans invoices.write (cle cible billing.invoice.manage),
+        // lodging.checkout deviendrait un chemin detourne permettant de facturer sans en avoir le
+        // droit - meme regle que POST /mice/events/{id}/invoice.
+        reservations.MapPost("/{id:guid}/folios/{folioId:guid}/invoice", async (
+            Guid id,
+            Guid folioId,
+            IFolioInvoicingService service,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.InvoiceFolioAsync(id, folioId, httpContext.ToOperationContext(), cancellationToken);
+            return result.ToHttpResult();
+        }).RequireAuthorization(PermissionCatalog.LodgingCheckoutExecute, PermissionCatalog.BillingInvoiceManage);
 
         // ------------------------------------- Extras -------------------------------------
 

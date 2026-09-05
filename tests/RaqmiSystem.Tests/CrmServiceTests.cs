@@ -760,10 +760,7 @@ public sealed class CrmServiceTests
 
         var auditWriter = new AuditLogWriter(dbContext);
 
-        var billingService = new BillingService(
-            dbContext,
-            auditWriter,
-            new ApplicationSettingsService(dbContext, auditWriter));
+        var billingService = SalesTestServices.CreateBillingService(dbContext, auditWriter);
 
         // The harness reads the stays the way production does - through the lodging adapter -
         // and can hand out a second service wired to another IStayHistoryReader.

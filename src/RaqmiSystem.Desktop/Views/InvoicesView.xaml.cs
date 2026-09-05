@@ -8,6 +8,8 @@ using System.Windows.Controls;
 using System.Windows.Markup;
 using System.Windows.Media;
 using RaqmiSystem.Application.Billing;
+using RaqmiSystem.Application.Catalog;
+using RaqmiSystem.Application.Inventory;
 using RaqmiSystem.Application.Organization;
 using RaqmiSystem.Domain.Billing;
 using RaqmiSystem.Domain.Identity;
@@ -34,6 +36,12 @@ public partial class InvoicesView : UserControl
     /// <summary>Entree de tete du choix du client : presente, mais non selectionnable.</summary>
     private const string CustomerPlaceholderLabel = "Sélectionner un client…";
 
+    /// <summary>Entree de tete du choix d'article d'une ligne : la saisie manuelle historique.</summary>
+    private const string FreeLineLabel = "Ligne libre";
+
+    /// <summary>Entree de tete du magasin de sortie : aucune sortie de stock demandee.</summary>
+    private const string NoWarehouseLabel = "Aucun (pas de sortie de stock)";
+
     /// <summary>
     /// Capacite des colonnes de ligne de facture (InvoiceLineConfiguration) :
     /// quantite numeric(18,3), prix unitaire et total HT numeric(18,2). Au-dela,
@@ -50,6 +58,9 @@ public partial class InvoicesView : UserControl
     private const string IssuePermissionHint =
         "Permission invoices.issue requise : votre profil ne peut pas émettre de facture.";
 
+    private const string StockPermissionHint =
+        "Permission inventory.write requise : votre profil ne peut pas faire sortir de stock à l'émission.";
+
     private readonly ObservableCollection<InvoiceLineEditorRow> editorLines = new();
 
     // Info-bulles d'origine des boutons d'ecriture, capturees avant toute
@@ -65,10 +76,24 @@ public partial class InvoicesView : UserControl
     private bool canWrite = true;
     private bool canIssue = true;
 
+    // Faire sortir du stock a l'emission est un levier que le serveur n'ouvre qu'aux profils
+    // qui enregistrent des mouvements (inventory.write) ; la liste des magasins, elle, se lit
+    // avec inventory.read. Sans ces droits, le choix du magasin reste ferme plutot que de
+    // laisser decouvrir un 403 apres coup.
+    private bool canReadStock = true;
+    private bool canRecordStock = true;
+
     private ModuleViewContext? context;
     private IReadOnlyList<InvoiceResponse> invoices = Array.Empty<InvoiceResponse>();
     private IReadOnlyList<CustomerResponse> customers = Array.Empty<CustomerResponse>();
     private IReadOnlyList<HotelUnitResponse> hotelUnits = Array.Empty<HotelUnitResponse>();
+    private IReadOnlyList<WarehouseResponse> warehouses = Array.Empty<WarehouseResponse>();
+
+    /// <summary>
+    /// Articles du catalogue proposes sur chaque ligne du formulaire, precedes de l'entree
+    /// "Ligne libre". Collection observable : les lignes deja affichees suivent un rechargement.
+    /// </summary>
+    public ObservableCollection<InvoiceArticleOption> ArticleOptions { get; } = new() { new InvoiceArticleOption(null, FreeLineLabel, null) };
 
     // Null : le formulaire cree une nouvelle facture. Renseigne : il modifie les
     // lignes du brouillon dont l'identifiant est memorise ici.
@@ -110,6 +135,8 @@ public partial class InvoicesView : UserControl
 
         canWrite = moduleViewContext.HasPermission(PermissionCatalog.InvoicesWrite);
         canIssue = moduleViewContext.HasPermission(PermissionCatalog.InvoicesIssue);
+        canReadStock = moduleViewContext.HasPermission(PermissionCatalog.InventoryStockRead);
+        canRecordStock = moduleViewContext.HasPermission(PermissionCatalog.InventoryMovementRecord);
 
         UpdateActionAvailability();
     }
@@ -151,12 +178,15 @@ public partial class InvoicesView : UserControl
         invoices = Array.Empty<InvoiceResponse>();
         customers = Array.Empty<CustomerResponse>();
         hotelUnits = Array.Empty<HotelUnitResponse>();
+        warehouses = Array.Empty<WarehouseResponse>();
 
         InvoicesDataGrid.ItemsSource = null;
         CustomerFilterComboBox.ItemsSource = null;
         UnitFilterComboBox.ItemsSource = null;
         EditorCustomerComboBox.ItemsSource = null;
         EditorUnitComboBox.ItemsSource = null;
+        IssueWarehouseComboBox.ItemsSource = null;
+        ReplaceArticleOptions(Array.Empty<ArticleResponse>());
         StatusFilterComboBox.SelectedIndex = 0;
         CancelReasonTextBox.Text = string.Empty;
         InvoiceCountTextBlock.Text = "Aucune facture chargée.";
@@ -179,6 +209,20 @@ public partial class InvoicesView : UserControl
             .OrderBy(unit => unit.DisplayOrder)
             .ThenBy(unit => unit.Name)
             .ToArray();
+
+        // Le catalogue partage les droits de la facturation : il se charge avec les clients.
+        ReplaceArticleOptions(
+            (await active.ApiClient.GetArticlesAsync(active.ApiBaseUrl, search: null, family: null, includeInactive: false))
+                .OrderBy(article => article.Code, StringComparer.OrdinalIgnoreCase)
+                .ToArray());
+
+        // Les magasins se lisent avec inventory.read : un profil de facturation pure ne les
+        // demande pas, et garde une emission sans sortie de stock.
+        warehouses = canReadStock
+            ? (await active.ApiClient.GetWarehousesAsync(active.ApiBaseUrl, includeInactive: false))
+                .OrderBy(warehouse => warehouse.Code, StringComparer.OrdinalIgnoreCase)
+                .ToArray()
+            : Array.Empty<WarehouseResponse>();
 
         var customerOptions = customers
             .Select(customer => new InvoiceCodeOption(customer.Code, $"{customer.Code} — {customer.Name}"))
@@ -205,6 +249,29 @@ public partial class InvoicesView : UserControl
         RebindOptions(UnitFilterComboBox, unitFilterOptions, unitFilterOptions[0]);
         RebindOptions(EditorCustomerComboBox, editorCustomerOptions, editorCustomerOptions[0]);
         RebindOptions(EditorUnitComboBox, unitOptions, unitOptions.FirstOrDefault());
+
+        var warehouseOptions = new List<InvoiceCodeOption> { new(null, NoWarehouseLabel) };
+        warehouseOptions.AddRange(warehouses.Select(warehouse =>
+            new InvoiceCodeOption(warehouse.Code, $"{warehouse.Code} — {warehouse.Label}")));
+
+        RebindOptions(IssueWarehouseComboBox, warehouseOptions, warehouseOptions[0]);
+    }
+
+    /// <summary>
+    /// Remplace les articles proposes sur les lignes, en gardant l'entree "Ligne libre" en tete.
+    /// Modification en place : les listes deroulantes des lignes deja ouvertes suivent.
+    /// </summary>
+    private void ReplaceArticleOptions(IReadOnlyCollection<ArticleResponse> loaded)
+    {
+        while (ArticleOptions.Count > 1)
+        {
+            ArticleOptions.RemoveAt(ArticleOptions.Count - 1);
+        }
+
+        foreach (var article in loaded)
+        {
+            ArticleOptions.Add(new InvoiceArticleOption(article.Code, $"{article.Code} — {article.Designation}", article));
+        }
     }
 
     private static void RebindOptions(ComboBox comboBox, List<InvoiceCodeOption> options, InvoiceCodeOption? fallback)
@@ -414,6 +481,10 @@ public partial class InvoicesView : UserControl
         SaveInvoiceButton.IsEnabled = canWrite;
         EditLinesButton.IsEnabled = canWrite && status == InvoiceStatus.Draft;
         IssueInvoiceButton.IsEnabled = canIssue && status == InvoiceStatus.Draft;
+        IssueWarehouseComboBox.IsEnabled = canIssue && canRecordStock && status == InvoiceStatus.Draft;
+        IssueWarehouseComboBox.ToolTip = canRecordStock
+            ? "Magasin d'où sortent les articles suivis en stock à l'émission"
+            : StockPermissionHint;
         MarkPaidButton.IsEnabled = canWrite && status == InvoiceStatus.Issued;
 
         // L'annulation exige un motif : le bouton ne s'active qu'une fois ce motif
@@ -494,6 +565,14 @@ public partial class InvoicesView : UserControl
             return;
         }
 
+        var warehouse = IssueWarehouseComboBox.SelectedItem as InvoiceCodeOption;
+
+        // Le magasin est transmis tel quel : c'est le serveur qui dit s'il est requis (lignes
+        // d'articles suivis en stock) et si le stock couvre les quantites.
+        var stockNotice = warehouse?.Code is null
+            ? "• aucune sortie de stock n'est demandée."
+            : $"• les articles suivis en stock sortiront du magasin {warehouse.Label}.";
+
         var confirmed = Confirm(
             "L'émission attribue le numéro définitif de la facture et la fige :"
             + Environment.NewLine + Environment.NewLine
@@ -501,7 +580,9 @@ public partial class InvoicesView : UserControl
             + Environment.NewLine
             + "• les montants et les lignes ne seront plus modifiables ;"
             + Environment.NewLine
-            + "• l'identification du client (nom, NIF, RC, AI, NIS, adresse) est conservée telle qu'elle est aujourd'hui."
+            + "• l'identification du client (nom, NIF, RC, AI, NIS, adresse) est conservée telle qu'elle est aujourd'hui ;"
+            + Environment.NewLine
+            + stockNotice
             + Environment.NewLine + Environment.NewLine
             + $"Client : {selected.CustomerName ?? selected.CustomerCode}"
             + Environment.NewLine
@@ -517,7 +598,10 @@ public partial class InvoicesView : UserControl
 
         await active.RunAsync(async () =>
         {
-            var issued = await active.ApiClient.IssueInvoiceAsync(active.ApiBaseUrl, selected.Id);
+            var issued = await active.ApiClient.IssueInvoiceAsync(
+                active.ApiBaseUrl,
+                selected.Id,
+                warehouse?.Code is null ? null : new IssueInvoiceRequest(warehouse.Code));
 
             await LoadInvoicesAsync(active);
             SelectInvoice(issued.Id);
@@ -553,11 +637,16 @@ public partial class InvoicesView : UserControl
 
         await active.RunAsync(async () =>
         {
-            var paid = await active.ApiClient.MarkInvoicePaidAsync(active.ApiBaseUrl, selected.Id);
+            var payment = await active.ApiClient.MarkInvoicePaidAsync(active.ApiBaseUrl, selected.Id);
 
             await LoadInvoicesAsync(active);
-            SelectInvoice(paid.Id);
-            active.SetStatus($"Facture {paid.Number} marquée payée.");
+            SelectInvoice(payment.Invoice.Id);
+
+            // Le serveur dit si un encaissement a ete cree ; cet ecran ne precise pas de mode de
+            // paiement, la mention "sans encaissement" est donc relayee telle quelle.
+            active.SetStatus(string.IsNullOrWhiteSpace(payment.Notice)
+                ? $"Facture {payment.Invoice.Number} marquée payée."
+                : $"Facture {payment.Invoice.Number} marquée payée. {payment.Notice}");
         });
     }
 
@@ -803,7 +892,10 @@ public partial class InvoicesView : UserControl
                 return false;
             }
 
-            result.Add(new InvoiceLineRequest(designation, quantity, unitPrice, row.VatRate));
+            // Le code article voyage avec les valeurs affichees : le serveur les garde telles
+            // quelles (elles peuvent avoir ete surchargees) et ne reprend du catalogue que ce
+            // qui manque.
+            result.Add(new InvoiceLineRequest(designation, quantity, unitPrice, row.VatRate, row.ArticleCode));
             lineNumber++;
         }
 
@@ -819,7 +911,7 @@ public partial class InvoicesView : UserControl
 
         foreach (var line in invoice.Lines.OrderBy(item => item.LineNumber))
         {
-            editorLines.Add(InvoiceLineEditorRow.FromResponse(line));
+            editorLines.Add(InvoiceLineEditorRow.FromResponse(line, ArticleOptions));
         }
 
         SelectOption(EditorCustomerComboBox, invoice.CustomerCode);
@@ -964,10 +1056,15 @@ public partial class InvoicesView : UserControl
 }
 
 /// <summary>
-/// Option d'une liste deroulante de codes (client ou unite). Code null : entree
-/// "tous" des filtres.
+/// Option d'une liste deroulante de codes (client, unite, magasin). Code null : entree
+/// "tous" des filtres ou "aucun" du magasin de sortie.
 /// </summary>
 public sealed record InvoiceCodeOption(string? Code, string Label);
+
+/// <summary>
+/// Option du choix d'article d'une ligne. Code et Article nuls : la ligne libre.
+/// </summary>
+public sealed record InvoiceArticleOption(string? Code, string Label, ArticleResponse? Article);
 
 /// <summary>
 /// Ligne en cours de saisie dans la grille editable. Les montants sont conserves
@@ -980,8 +1077,38 @@ public sealed class InvoiceLineEditorRow : INotifyPropertyChanged
     private string quantityText = "1";
     private string unitPriceText = "0";
     private decimal vatRate = 19m;
+    private InvoiceArticleOption? selectedArticle;
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>
+    /// Article choisi pour la ligne. Le choisir recopie sa designation, son prix HT et son
+    /// taux de TVA dans la ligne - valeurs que l'utilisateur peut ensuite retoucher. Revenir a
+    /// "Ligne libre" detache la ligne de l'article sans effacer ce qui est saisi.
+    /// </summary>
+    public InvoiceArticleOption? SelectedArticle
+    {
+        get => selectedArticle;
+        set
+        {
+            if (!SetField(ref selectedArticle, value))
+            {
+                return;
+            }
+
+            if (value?.Article is { } article)
+            {
+                Designation = article.Designation;
+                UnitPriceText = article.UnitPriceExclVat.ToString("0.00", CultureInfo.CurrentCulture);
+                VatRate = article.VatRate;
+            }
+
+            OnPropertyChanged(nameof(ArticleCode));
+        }
+    }
+
+    /// <summary>Code de l'article du catalogue dont la ligne est issue ; null pour une ligne libre.</summary>
+    public string? ArticleCode => selectedArticle?.Code;
 
     public string Designation
     {
@@ -1049,15 +1176,24 @@ public sealed class InvoiceLineEditorRow : INotifyPropertyChanged
 
     public string LineTotalExclVatText => LineTotalExclVat.ToString("N2", CultureInfo.CurrentCulture);
 
-    public static InvoiceLineEditorRow FromResponse(InvoiceLineResponse line)
+    public static InvoiceLineEditorRow FromResponse(InvoiceLineResponse line, IEnumerable<InvoiceArticleOption> articleOptions)
     {
-        return new InvoiceLineEditorRow
-        {
-            Designation = line.Designation,
-            QuantityText = line.Quantity.ToString("0.###", CultureInfo.CurrentCulture),
-            UnitPriceText = line.UnitPrice.ToString("0.00", CultureInfo.CurrentCulture),
-            VatRate = line.VatRate
-        };
+        var row = new InvoiceLineEditorRow();
+
+        // L'article est retrouve SANS recopier ses valeurs courantes : la ligne stockee garde
+        // ce qui a ete saisi (eventuellement surcharge), pas le tarif du catalogue d'aujourd'hui.
+        // Un article qui n'est plus propose (desactive) laisse la ligne libre, code compris.
+        row.selectedArticle = line.ArticleCode is null
+            ? null
+            : articleOptions.FirstOrDefault(option =>
+                string.Equals(option.Code, line.ArticleCode, StringComparison.OrdinalIgnoreCase));
+
+        row.Designation = line.Designation;
+        row.QuantityText = line.Quantity.ToString("0.###", CultureInfo.CurrentCulture);
+        row.UnitPriceText = line.UnitPrice.ToString("0.00", CultureInfo.CurrentCulture);
+        row.VatRate = line.VatRate;
+
+        return row;
     }
 
     public bool TryGetQuantity(out decimal value) => TryParseNumber(quantityText, out value);

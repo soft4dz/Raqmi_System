@@ -151,23 +151,51 @@ internal static class BillingEndpoints
             return result.ToHttpResult();
         }).RequireAuthorization(PermissionCatalog.BillingInvoiceManage);
 
+        // Le corps est OPTIONNEL : une facture de prestations s'emet comme avant, sans rien
+        // preciser. Il ne devient necessaire que pour indiquer le magasin d'ou sortent les lignes
+        // d'articles suivis en stock.
         invoices.MapPost("/{id:guid}/issue", async (
             Guid id,
+            IssueInvoiceRequest? request,
             IBillingService service,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await service.IssueInvoiceAsync(id, httpContext.ToOperationContext(), cancellationToken);
+            // LEVIER OPTIONNEL (voir SecurityContextExtensions.HasPermission) : indiquer un
+            // magasin de sortie fait sortir des quantites du stock a travers le module Stocks.
+            // Sans inventory.write, invoices.issue deviendrait un chemin detourne vers le registre
+            // des mouvements - meme doctrine que la double cle des routes MICE, appliquee ici a
+            // un drapeau parce qu'une emission sans magasin reste ouverte a invoices.issue seul.
+            if (!string.IsNullOrWhiteSpace(request?.WarehouseCode)
+                && !httpContext.User.HasPermission(PermissionCatalog.InventoryMovementRecord))
+            {
+                return Results.Forbid();
+            }
+
+            var result = await service.IssueInvoiceAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
         }).RequireAuthorization(PermissionCatalog.BillingInvoiceIssue);
 
+        // Le corps est OPTIONNEL : sans mode de paiement, la facture est seulement marquee
+        // payee (comportement historique) et la reponse le signale ; avec, un encaissement reel
+        // est cree en tresorerie.
         invoices.MapPost("/{id:guid}/pay", async (
             Guid id,
+            PayInvoiceRequest? request,
             IBillingService service,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await service.MarkInvoicePaidAsync(id, httpContext.ToOperationContext(), cancellationToken);
+            // LEVIER OPTIONNEL : indiquer un mode de paiement ecrit un encaissement dans le
+            // module Tresorerie. Sans treasury.write, invoices.write deviendrait un chemin
+            // detourne vers la caisse - meme doctrine que la double cle des routes MICE.
+            if (request?.Method is not null
+                && !httpContext.User.HasPermission(PermissionCatalog.FinanceReceiptManage))
+            {
+                return Results.Forbid();
+            }
+
+            var result = await service.PayInvoiceAsync(id, request, httpContext.ToOperationContext(), cancellationToken);
             return result.ToHttpResult();
         }).RequireAuthorization(PermissionCatalog.BillingInvoiceManage);
 

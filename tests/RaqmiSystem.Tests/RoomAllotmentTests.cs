@@ -485,10 +485,7 @@ public sealed class RoomAllotmentTests
 
         var lodging = new LodgingService(dbContext, auditWriter, new StubTariffResolutionService());
 
-        var billing = new BillingService(
-            dbContext,
-            auditWriter,
-            new ApplicationSettingsService(dbContext, auditWriter));
+        var billing = SalesTestServices.CreateBillingService(dbContext, auditWriter);
 
         var mice = new MiceService(dbContext, billing, lodging);
 

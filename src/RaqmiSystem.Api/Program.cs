@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -38,6 +38,7 @@ var jwtOptions = JwtOptions.FromConfiguration(
 builder.Services.AddRaqmiInfrastructure(builder.Configuration, jwtOptions);
 builder.Services.AddRaqmiUnitScope();
 builder.Services.AddRaqmiDocuments();
+RaqmiSystem.Infrastructure.Catalog.CatalogDependencyInjection.AddRaqmiCatalog(builder.Services);
 
 // Rapport de migration RBAC (lot 2.1) : lecture seule, enregistre ici a cote des politiques
 // d'autorisation qu'il sert a preparer. A rapatrier dans AddRaqmiInfrastructure avec le prochain
@@ -196,6 +197,7 @@ api.MapAuditEndpoints();
 api.MapClosingEndpoints();
 api.MapTreasuryEndpoints();
 api.MapBillingEndpoints();
+api.MapCatalogEndpoints();
 api.MapTariffsEndpoints();
 api.MapLodgingEndpoints();
 api.MapLodgingInventoryEndpoints();

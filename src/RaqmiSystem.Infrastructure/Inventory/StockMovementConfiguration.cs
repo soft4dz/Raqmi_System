@@ -12,7 +12,7 @@ public sealed class StockMovementConfiguration : IEntityTypeConfiguration<StockM
         {
             table.HasCheckConstraint(
                 "ck_stock_movements_kind",
-                "kind IN ('PurchaseEntry', 'Consumption', 'TransferOut', 'TransferIn', 'InventoryAdjustment')");
+                "kind IN ('PurchaseEntry', 'Consumption', 'TransferOut', 'TransferIn', 'InventoryAdjustment', 'Sale')");
 
             // The CAST is not cosmetic: the SQLite provider used by the test harness stores
             // decimal as TEXT, and a text-versus-integer comparison there does not mean what

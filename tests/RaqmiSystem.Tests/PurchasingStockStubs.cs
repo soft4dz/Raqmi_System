@@ -44,6 +44,15 @@ internal sealed class PurchasingStockOperationStub : IStockOperationService
         return Task.FromResult(ApplicationResult<StockEntryResult>.Success(
             new StockEntryResult(request.Lines.Count)));
     }
+
+    // Le module Achats ne vend rien : ce membre du port n'est jamais atteint par ses tests.
+    public Task<ApplicationResult<StockExitResult>> RegisterSaleAsync(
+        RegisterSaleRequest request,
+        OperationContext context,
+        CancellationToken cancellationToken)
+    {
+        throw new NotSupportedException("Purchasing never registers a sale.");
+    }
 }
 
 /// <summary>

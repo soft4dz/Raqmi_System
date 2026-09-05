@@ -192,6 +192,8 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" MinWidth="150" />
                             <ColumnDefinition Width="14" />
+                            <ColumnDefinition Width="200" />
+                            <ColumnDefinition Width="14" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="8" />
                             <ColumnDefinition Width="Auto" />
@@ -210,8 +212,20 @@
                                      ToolTip="Motif conservé dans le dossier de la facture et dans le journal d'audit" />
                         </StackPanel>
 
+                        <!-- Magasin d'ou sortent, a l'emission, les lignes d'articles suivis en
+                             stock. Le choix est transmis tel quel : c'est le serveur qui dit s'il
+                             est requis (lignes suivies) et si le stock couvre les quantites. -->
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Magasin de sortie (émission)"
+                                       Style="{StaticResource LabelText}" />
+                            <ComboBox x:Name="IssueWarehouseComboBox"
+                                      DisplayMemberPath="Label"
+                                      ToolTip="Magasin d'où sortent les articles suivis en stock à l'émission"
+                                      ToolTipService.ShowOnDisabled="True" />
+                        </StackPanel>
+
                         <Button x:Name="EditLinesButton"
-                                Grid.Column="2"
+                                Grid.Column="4"
                                 Content="Modifier les lignes"
                                 Style="{StaticResource SecondaryButton}"
                                 ToolTip="Reprendre les lignes du brouillon sélectionné dans le formulaire de saisie"
@@ -220,7 +234,7 @@
                                 Click="EditLinesButton_Click" />
 
                         <Button x:Name="IssueInvoiceButton"
-                                Grid.Column="4"
+                                Grid.Column="6"
                                 Content="Émettre"
                                 Style="{StaticResource PrimaryButton}"
                                 ToolTip="Attribuer le numéro définitif et figer la facture"
@@ -229,7 +243,7 @@
                                 Click="IssueInvoiceButton_Click" />
 
                         <Button x:Name="MarkPaidButton"
-                                Grid.Column="6"
+                                Grid.Column="8"
                                 Content="Marquer payée"
                                 Style="{StaticResource SecondaryButton}"
                                 ToolTip="Enregistrer l'encaissement de la facture émise"
@@ -238,7 +252,7 @@
                                 Click="MarkPaidButton_Click" />
 
                         <Button x:Name="CancelInvoiceButton"
-                                Grid.Column="8"
+                                Grid.Column="10"
                                 Content="Annuler"
                                 Style="{StaticResource DangerButton}"
                                 ToolTip="Annuler la facture sélectionnée (motif obligatoire)"
@@ -654,6 +668,22 @@
                               CanUserSortColumns="False"
                               VerticalScrollBarVisibility="Auto">
                         <DataGrid.Columns>
+                            <!-- Article du catalogue : choisir un article recopie sa designation,
+                                 son prix HT et son taux de TVA dans la ligne, qui restent
+                                 modifiables (remise negociee, libelle precise). "Ligne libre"
+                                 garde la saisie manuelle historique. -->
+                            <DataGridTemplateColumn Header="Article" Width="200">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ComboBox ItemsSource="{Binding ArticleOptions, RelativeSource={RelativeSource AncestorType=views:InvoicesView}}"
+                                                  SelectedItem="{Binding SelectedArticle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  DisplayMemberPath="Label"
+                                                  Style="{StaticResource LineEditorComboBox}"
+                                                  ToolTip="Article du catalogue, ou ligne libre" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
                             <DataGridTemplateColumn Header="Désignation" Width="*">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>

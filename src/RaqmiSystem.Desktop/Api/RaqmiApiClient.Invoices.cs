@@ -69,28 +69,35 @@ public sealed partial class RaqmiApiClient
         return await ReadResponseAsync<InvoiceResponse>(response, cancellationToken);
     }
 
+    // Le corps est optionnel cote serveur : sans magasin de sortie, aucun corps n'est envoye et
+    // l'emission se comporte comme avant.
     public async Task<InvoiceResponse> IssueInvoiceAsync(
         string apiBaseUrl,
         Guid id,
+        IssueInvoiceRequest? request = null,
         CancellationToken cancellationToken = default)
     {
         EnsureAuthenticated();
 
-        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, $"/api/v1/billing/invoices/{id}/issue", null, includeAuthorization: true, cancellationToken);
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, $"/api/v1/billing/invoices/{id}/issue", request, includeAuthorization: true, cancellationToken);
 
         return await ReadResponseAsync<InvoiceResponse>(response, cancellationToken);
     }
 
-    public async Task<InvoiceResponse> MarkInvoicePaidAsync(
+    // Sans requete, la facture est seulement marquee payee et la reponse porte la mention
+    // "sans encaissement" ; avec un mode de paiement, le serveur cree l'encaissement en
+    // tresorerie et le rend dans la reponse.
+    public async Task<InvoicePaymentResponse> MarkInvoicePaidAsync(
         string apiBaseUrl,
         Guid id,
+        PayInvoiceRequest? request = null,
         CancellationToken cancellationToken = default)
     {
         EnsureAuthenticated();
 
-        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, $"/api/v1/billing/invoices/{id}/pay", null, includeAuthorization: true, cancellationToken);
+        var response = await SendAsync(apiBaseUrl, HttpMethod.Post, $"/api/v1/billing/invoices/{id}/pay", request, includeAuthorization: true, cancellationToken);
 
-        return await ReadResponseAsync<InvoiceResponse>(response, cancellationToken);
+        return await ReadResponseAsync<InvoicePaymentResponse>(response, cancellationToken);
     }
 
     public async Task<InvoiceResponse> CancelInvoiceAsync(

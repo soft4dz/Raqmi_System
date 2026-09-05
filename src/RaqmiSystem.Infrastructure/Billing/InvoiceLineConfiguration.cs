@@ -34,6 +34,13 @@ public sealed class InvoiceLineConfiguration : IEntityTypeConfiguration<InvoiceL
             .HasMaxLength(300)
             .IsRequired();
 
+        // Nullable : les factures anterieures au catalogue et les lignes libres n'en portent pas.
+        // Pas de cle etrangere vers catalog.articles : la ligne fige ce qu'elle a repris de
+        // l'article, et un article supprime ou renomme ne doit pas empecher de relire une facture.
+        builder.Property(line => line.ArticleCode)
+            .HasColumnName("article_code")
+            .HasMaxLength(40);
+
         builder.Property(line => line.Quantity)
             .HasColumnName("quantity")
             .HasPrecision(18, 3);
@@ -50,10 +57,21 @@ public sealed class InvoiceLineConfiguration : IEntityTypeConfiguration<InvoiceL
             .HasColumnName("line_total_excl_vat")
             .HasPrecision(18, 2);
 
-        builder.Ignore(line => line.VatAmount);
+        // Stockee (et non plus derivee a la lecture) : la TVA d'une ligne emise est un montant
+        // legal, et une ligne construite depuis un TTC la fige au centime. La migration qui ajoute
+        // la colonne doit la remplir pour les lignes existantes : round(line_total_excl_vat *
+        // vat_rate / 100, 2), la regle que la propriete calculait jusqu'ici.
+        builder.Property(line => line.VatAmount)
+            .HasColumnName("vat_amount")
+            .HasPrecision(18, 2);
+
         builder.Ignore(line => line.LineTotalInclVat);
 
         builder.HasIndex(line => line.InvoiceId)
             .HasDatabaseName("ix_invoice_lines_invoice_id");
+
+        // Chemin d'acces des statistiques de vente par article.
+        builder.HasIndex(line => line.ArticleCode)
+            .HasDatabaseName("ix_invoice_lines_article_code");
     }
 }

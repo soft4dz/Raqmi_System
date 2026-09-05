@@ -100,6 +100,31 @@ public sealed class BillingTests
     }
 
     [Fact]
+    public void Invoice_line_vat_can_be_pinned_within_one_cent_of_the_computed_amount()
+    {
+        // Un diner a 4 000 TTC a 9 % : HT 3 669,72, TVA extraite 330,28. Recalculee depuis le HT,
+        // la TVA vaut 330,27 et la facture dirait 3 999,99 : figer la TVA garde le TTC exact.
+        var computed = new InvoiceLine("Diner", 1m, 3_669.72m, 9m);
+        Assert.Equal(330.27m, computed.VatAmount);
+        Assert.Equal(3_999.99m, computed.LineTotalInclVat);
+
+        var pinned = new InvoiceLine("Diner", 1m, 3_669.72m, 9m, articleCode: null, vatAmount: 330.28m);
+        Assert.Equal(330.28m, pinned.VatAmount);
+        Assert.Equal(4_000.00m, pinned.LineTotalInclVat);
+
+        // Au-dela d'un centime, ce n'est plus un arrondi.
+        Assert.Throws<ArgumentException>(() => new InvoiceLine("Diner", 1m, 3_669.72m, 9m, null, 330.29m));
+        Assert.Throws<ArgumentException>(() => new InvoiceLine("Diner", 1m, 3_669.72m, 9m, null, 330.275m));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new InvoiceLine("Gratuit", 1m, 0m, 0m, null, -0.01m));
+
+        // Les totaux de la facture suivent la TVA stockee, pas un recalcul.
+        var invoice = CreateDraft();
+        invoice.ReplaceLines(new[] { pinned });
+        Assert.Equal(330.28m, invoice.TotalVat);
+        Assert.Equal(4_000.00m, invoice.TotalInclVat);
+    }
+
+    [Fact]
     public void Customer_snapshot_can_only_be_captured_on_a_draft_invoice()
     {
         var invoice = CreateDraftWithOneLine();
