@@ -14,7 +14,9 @@ namespace RaqmiSystem.Domain.Crm;
 /// the same set of answers is worth.
 ///
 /// <see cref="ReservationId"/> is optional: an answer collected online months later belongs to the
-/// guest without belonging to an identified stay, and refusing it would only mean losing it.
+/// guest without belonging to an identified stay, and refusing it would only mean losing it. It is
+/// a plain reference, not a foreign key: the CRM does not depend on the module that keeps the
+/// stays, and an installation without lodging simply never fills it.
 /// </summary>
 public sealed class SatisfactionEntry : AuditableEntity
 {
@@ -67,7 +69,7 @@ public sealed class SatisfactionEntry : AuditableEntity
 
     public SatisfactionSource Source { get; private set; }
 
-    /// <summary>The stay the answer is about, when it is known.</summary>
+    /// <summary>The stay the answer is about, when it is known. A reference vouched for at write time, never a foreign key.</summary>
     public Guid? ReservationId { get; private set; }
 
     public string? Comment { get; private set; }

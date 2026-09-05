@@ -1,3 +1,5 @@
+using RaqmiSystem.Domain.Organization;
+
 namespace RaqmiSystem.Domain.Kpi;
 
 /// <summary>
@@ -18,6 +20,12 @@ namespace RaqmiSystem.Domain.Kpi;
 /// <param name="Name">Libelle complet, affiche en titre de fiche.</param>
 /// <param name="ShortName">Libelle court, pour les tuiles et les en-tetes de colonne.</param>
 /// <param name="Category">Famille metier, pour le regroupement des ecrans.</param>
+/// <param name="Pack">
+/// Paquet fonctionnel dont l'indicateur fait partie (voir <see cref="ModulePack"/>). Un
+/// indicateur n'existe que la ou son paquet est actif : un commerce n'a pas de RevPAR a
+/// afficher, meme "non disponible". Le paquet est declare et non deduit du module source :
+/// un indicateur en attente de source (module None) doit quand meme savoir a qui il parle.
+/// </param>
 /// <param name="Description">Ce que l'indicateur dit reellement, en une phrase de gestion.</param>
 /// <param name="Formula">
 /// La formule telle qu'un controleur de gestion l'ecrirait, en clair. Elle est affichee a
@@ -60,6 +68,7 @@ public sealed record KpiDefinition(
     string Name,
     string ShortName,
     KpiCategory Category,
+    ModulePack Pack,
     string Description,
     string Formula,
     KpiUnit Unit,

@@ -7,6 +7,7 @@ public sealed record HotelUnitResponse(
     string Code,
     string Name,
     HotelUnitType UnitType,
+    BusinessSector Sector,
     int DisplayOrder,
     bool IsActive,
     DateTimeOffset CreatedAt,

@@ -14,9 +14,16 @@ public sealed class HotelUnitConfiguration : IEntityTypeConfiguration<HotelUnit>
                 "ck_hotel_units_display_order_non_negative",
                 "display_order >= 0");
 
+            // Les deux listes recopient les énumérations du domaine : la base refuse ce que le
+            // code ne connaît pas, et un type ajouté au C# sans l'être ici se voit au premier test.
             table.HasCheckConstraint(
                 "ck_hotel_units_unit_type",
-                "unit_type IN ('Hotel', 'Residence', 'BeachClub', 'Marina', 'Other')");
+                "unit_type IN ('Hotel', 'Residence', 'BeachClub', 'Marina', 'Restaurant', 'Shop', "
+                + "'Office', 'Warehouse', 'School', 'Clinic', 'Other')");
+
+            table.HasCheckConstraint(
+                "ck_hotel_units_sector",
+                "sector IN ('Hospitality', 'Retail', 'Services', 'Manufacturing', 'Education', 'Health', 'Other')");
         });
 
         builder.HasKey(unit => unit.Id);
@@ -41,6 +48,15 @@ public sealed class HotelUnitConfiguration : IEntityTypeConfiguration<HotelUnit>
             .HasColumnName("unit_type")
             .HasConversion<string>()
             .HasMaxLength(40)
+            .IsRequired();
+
+        // Non nulle, avec une valeur par défaut en base : la migration qui ajoute la colonne
+        // remplit les unités existantes - toutes hôtelières - sans script de reprise.
+        builder.Property(unit => unit.Sector)
+            .HasColumnName("sector")
+            .HasConversion<string>()
+            .HasMaxLength(40)
+            .HasDefaultValue(BusinessSector.Hospitality)
             .IsRequired();
 
         builder.Property(unit => unit.DisplayOrder)
