@@ -36,6 +36,7 @@ var jwtOptions = JwtOptions.FromConfiguration(
     allowEphemeralDevelopmentKey: builder.Environment.IsDevelopment());
 
 builder.Services.AddRaqmiInfrastructure(builder.Configuration, jwtOptions);
+RaqmiSystem.Infrastructure.Catalog.CatalogDependencyInjection.AddRaqmiCatalog(builder.Services);
 
 // Rapport de migration RBAC (lot 2.1) : lecture seule, enregistre ici a cote des politiques
 // d'autorisation qu'il sert a preparer. A rapatrier dans AddRaqmiInfrastructure avec le prochain
@@ -187,6 +188,7 @@ api.MapAuditEndpoints();
 api.MapClosingEndpoints();
 api.MapTreasuryEndpoints();
 api.MapBillingEndpoints();
+api.MapCatalogEndpoints();
 api.MapTariffsEndpoints();
 api.MapLodgingEndpoints();
 api.MapLodgingInventoryEndpoints();
