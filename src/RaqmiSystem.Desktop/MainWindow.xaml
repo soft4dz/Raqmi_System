@@ -605,7 +605,7 @@
                                     <StackPanel>
                                         <TextBlock Text="Liste des unités"
                                                    Style="{StaticResource PageTitleText}" />
-                                        <TextBlock Text="Référentiel des hôtels et unités d'exploitation"
+                                        <TextBlock Text="Référentiel des établissements : hôtels, boutiques, cabinets et unités d'exploitation"
                                                    Style="{StaticResource SubtitleText}"
                                                    Margin="0,4,0,0" />
                                     </StackPanel>
@@ -649,6 +649,8 @@
                                                 <ColumnDefinition Width="14" />
                                                 <ColumnDefinition Width="160" />
                                                 <ColumnDefinition Width="14" />
+                                                <ColumnDefinition Width="150" />
+                                                <ColumnDefinition Width="14" />
                                                 <ColumnDefinition Width="90" />
                                                 <ColumnDefinition Width="14" />
                                                 <ColumnDefinition Width="Auto" />
@@ -676,6 +678,12 @@
                                             </StackPanel>
 
                                             <StackPanel Grid.Column="6">
+                                                <TextBlock Text="Secteur" Style="{StaticResource LabelText}" />
+                                                <ComboBox x:Name="UnitSectorComboBox"
+                                                          ToolTip="Secteur d'activité de l'établissement : décide des modules proposés par défaut" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="8">
                                                 <TextBlock Text="Ordre" Style="{StaticResource LabelText}" />
                                                 <TextBox x:Name="UnitDisplayOrderTextBox"
                                                          Text="0"
@@ -683,7 +691,7 @@
                                             </StackPanel>
 
                                             <Button x:Name="NewUnitButton"
-                                                    Grid.Column="8"
+                                                    Grid.Column="10"
                                                     Content="Nouveau"
                                                     Style="{StaticResource GhostButton}"
                                                     ToolTip="Vider le formulaire pour créer une nouvelle unité"
@@ -691,7 +699,7 @@
                                                     Click="NewUnitButton_Click" />
 
                                             <Button x:Name="SaveUnitButton"
-                                                    Grid.Column="10"
+                                                    Grid.Column="12"
                                                     Content="Créer"
                                                     Style="{StaticResource PrimaryButton}"
                                                     ToolTip="Enregistrer l'unité"
@@ -700,7 +708,7 @@
                                                     Click="SaveUnitButton_Click" />
 
                                             <Button x:Name="ActivateUnitButton"
-                                                    Grid.Column="12"
+                                                    Grid.Column="14"
                                                     Content="Activer"
                                                     Style="{StaticResource SecondaryButton}"
                                                     ToolTip="Réactiver l'unité sélectionnée"
@@ -709,7 +717,7 @@
                                                     Click="ActivateUnitButton_Click" />
 
                                             <Button x:Name="DeactivateUnitButton"
-                                                    Grid.Column="14"
+                                                    Grid.Column="16"
                                                     Content="Désactiver"
                                                     Style="{StaticResource DangerButton}"
                                                     ToolTip="Désactiver l'unité sélectionnée"
@@ -727,6 +735,7 @@
                                             <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="130" />
                                             <DataGridTextColumn Header="Nom" Binding="{Binding Name}" Width="*" />
                                             <DataGridTextColumn Header="Type" Binding="{Binding UnitType}" Width="120" />
+                                            <DataGridTextColumn Header="Secteur" Binding="{Binding Sector}" Width="110" />
                                             <DataGridTextColumn Header="Ordre"
                                                                 Binding="{Binding DisplayOrder}"
                                                                 Width="75"

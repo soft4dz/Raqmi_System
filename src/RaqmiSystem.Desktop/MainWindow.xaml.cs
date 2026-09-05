@@ -136,6 +136,7 @@ public partial class MainWindow : Window
         BeverageTextBox.Text = "0";
         OtherTextBox.Text = "0";
         UnitTypeComboBox.ItemsSource = Enum.GetValues<HotelUnitType>();
+        UnitSectorComboBox.ItemsSource = Enum.GetValues<BusinessSector>();
         ResetUnitForm();
         InitializeNavigation();
         SetStatus("Connectez-vous pour charger les données de l'API.");
@@ -950,6 +951,7 @@ public partial class MainWindow : Window
         UnitCodeTextBox.IsEnabled = false;
         UnitNameTextBox.Text = selected.Name;
         UnitTypeComboBox.SelectedItem = selected.UnitType;
+        UnitSectorComboBox.SelectedItem = selected.Sector;
         UnitDisplayOrderTextBox.Text = selected.DisplayOrder.ToString(CultureInfo.CurrentCulture);
         SaveUnitButton.Content = "Modifier";
     }
@@ -967,6 +969,7 @@ public partial class MainWindow : Window
         UnitCodeTextBox.IsEnabled = true;
         UnitNameTextBox.Text = string.Empty;
         UnitTypeComboBox.SelectedItem = HotelUnitType.Hotel;
+        UnitSectorComboBox.SelectedItem = BusinessSector.Hospitality;
         UnitDisplayOrderTextBox.Text = "0";
         SaveUnitButton.Content = "Créer";
         UnitsDataGrid.SelectedItem = null;
@@ -991,6 +994,12 @@ public partial class MainWindow : Window
                 return;
             }
 
+            if (UnitSectorComboBox.SelectedItem is not BusinessSector sector)
+            {
+                SetStatus("Sélectionnez un secteur d'activité.", isError: true);
+                return;
+            }
+
             if (!int.TryParse(UnitDisplayOrderTextBox.Text.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out var displayOrder))
             {
                 SetStatus("L'ordre d'affichage doit être un nombre entier.", isError: true);
@@ -1001,7 +1010,7 @@ public partial class MainWindow : Window
             {
                 await apiClient.CreateHotelUnitAsync(
                     ApiBaseUrlTextBox.Text,
-                    new CreateHotelUnitRequest(code, name, unitType, displayOrder));
+                    new CreateHotelUnitRequest(code, name, unitType, displayOrder, sector));
                 SetStatus("Unité créée.");
             }
             else
@@ -1009,7 +1018,7 @@ public partial class MainWindow : Window
                 await apiClient.UpdateHotelUnitAsync(
                     ApiBaseUrlTextBox.Text,
                     editingUnitCode,
-                    new UpdateHotelUnitRequest(name, unitType, displayOrder));
+                    new UpdateHotelUnitRequest(name, unitType, displayOrder, sector));
                 SetStatus("Unité mise à jour.");
             }
 

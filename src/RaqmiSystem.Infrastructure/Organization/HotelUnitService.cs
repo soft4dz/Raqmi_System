@@ -60,7 +60,13 @@ public sealed class HotelUnitService(
 
         try
         {
-            unit = new HotelUnit(request.Code, request.Name, request.UnitType, request.DisplayOrder);
+            // Secteur absent = hôtellerie : le contrat des clients antérieurs à la notion.
+            unit = new HotelUnit(
+                request.Code,
+                request.Name,
+                request.UnitType,
+                request.DisplayOrder,
+                request.Sector ?? BusinessSector.Hospitality);
         }
         catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -83,7 +89,7 @@ public sealed class HotelUnitService(
             "organization.hotel_unit.created",
             unit,
             context,
-            new { unit.Code, unit.Name, UnitType = unit.UnitType.ToString(), unit.DisplayOrder },
+            new { unit.Code, unit.Name, UnitType = unit.UnitType.ToString(), Sector = unit.Sector.ToString(), unit.DisplayOrder },
             cancellationToken);
 
         return ApplicationResult<HotelUnitResponse>.Success(Map(unit));
@@ -112,7 +118,8 @@ public sealed class HotelUnitService(
 
         try
         {
-            unit.UpdateDetails(request.Name, request.UnitType, request.DisplayOrder);
+            // Secteur absent = inchangé (voir UpdateHotelUnitRequest).
+            unit.UpdateDetails(request.Name, request.UnitType, request.DisplayOrder, request.Sector);
         }
         catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -125,7 +132,7 @@ public sealed class HotelUnitService(
             "organization.hotel_unit.updated",
             unit,
             context,
-            new { unit.Code, unit.Name, UnitType = unit.UnitType.ToString(), unit.DisplayOrder, unit.IsActive },
+            new { unit.Code, unit.Name, UnitType = unit.UnitType.ToString(), Sector = unit.Sector.ToString(), unit.DisplayOrder, unit.IsActive },
             cancellationToken);
 
         return ApplicationResult<HotelUnitResponse>.Success(Map(unit));
@@ -180,6 +187,7 @@ public sealed class HotelUnitService(
             unit.Code,
             unit.Name,
             unit.UnitType,
+            unit.Sector,
             unit.DisplayOrder,
             unit.IsActive,
             unit.CreatedAt,
