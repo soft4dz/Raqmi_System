@@ -24,12 +24,17 @@
 #   RAQMI_COMPOSE_SERVICE  Name of the postgres service in that file.
 #                          Default: postgres
 #   RAQMI_BACKUP_PG_USER   Postgres role pg_dump connects as. Must be able to
-#                          read every schema (security, audit, organization,
-#                          exploitation) - the restricted `raqmi_app` role
-#                          created by deploy/postgres/create-app-role.sql is
-#                          NOT guaranteed to be enough for future schemas, so
-#                          this defaults to the admin/migration account
-#                          (RAQMI_POSTGRES_ADMIN_USER) unless overridden.
+#                          read every schema the migrations create (19 today;
+#                          no list is hard-coded here on purpose). The
+#                          restricted `raqmi_app` role created by
+#                          deploy/postgres/create-app-role.sql covers them all -
+#                          tests/RaqmiSystem.Tests/Postgres/PostgresSchemaGrantTests.cs
+#                          fails as soon as a migration adds a schema the script
+#                          does not grant - but this script still defaults to the
+#                          admin/migration account (RAQMI_POSTGRES_ADMIN_USER):
+#                          it runs inside the container over the trusted local
+#                          socket, where that account costs nothing extra, and a
+#                          dump must never depend on a grant being replayed.
 #   RAQMI_POSTGRES_ADMIN_USER, RAQMI_POSTGRES__DATABASE
 #                          Same admin variable docker-compose.prod.yml uses to
 #                          bootstrap the postgres container (never the app's
