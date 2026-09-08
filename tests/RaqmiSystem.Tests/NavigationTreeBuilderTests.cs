@@ -354,4 +354,162 @@ public sealed class NavigationTreeBuilderTests
         Assert.Equal(HomeTab, NavigationKeyboardOrder.Next([], HomeTab, HomeTab, -1));
         Assert.Equal(7, NavigationKeyboardOrder.Next([7], HomeTab, 7, 0));
     }
+
+    // ------------------------------------------------------- libellé court
+
+    [Theory]
+    [InlineData("revenue", "07")]
+    // « admin & socle » n'est pas une sous-chaîne du nom complet (« administration & socle ») :
+    // seul le libellé court indexé peut le trouver.
+    [InlineData("admin & socle", "02")]
+    public void Search_finds_a_domain_by_its_short_label(string query, string domainId)
+    {
+        var tree = NavigationTreeBuilder.Build(Tree, AllPermissions, NavigationFilter.Sidebar with { SearchText = query });
+
+        Assert.NotNull(tree.FindDomain(domainId));
+    }
+
+    [Fact]
+    public void Search_text_indexes_the_short_label_next_to_the_full_label()
+    {
+        var domain = Tree.Single(domain => domain.Id == "02");
+        var module = domain.Modules[0];
+        var submodule = module.Submodules[0];
+
+        var text = NavigationTreeBuilder.SearchTextOf(domain, module, submodule, submodule.Screens[0]);
+
+        Assert.Contains("admin & socle erp", text, StringComparison.Ordinal);
+        Assert.Contains("administration & socle erp", text, StringComparison.Ordinal);
+    }
+
+    // ------------------------------------------------ projection barre latérale
+
+    private static IEnumerable<int> Tabs(IEnumerable<SidebarRow> rows) =>
+        rows.OfType<SidebarScreenRow>().Select(row => row.TabIndex);
+
+    [Fact]
+    public void Flattening_labels_a_module_only_when_it_keeps_at_least_two_screens()
+    {
+        var tree = NavigationTreeBuilder.Build(Tree, AllPermissions, NavigationFilter.Sidebar);
+
+        // Pilotage : Dashboards (3 écrans) porte un séparateur ; KPI Engine et BI (1 écran) sont à plat.
+        var pilotage = SidebarProjection.FlattenForSidebar(tree.FindDomain("20")!);
+        Assert.Collection(
+            pilotage,
+            row => Assert.Equal("Dashboards", Assert.IsType<SidebarSectionRow>(row).Label),
+            row => Assert.Equal(3, Assert.IsType<SidebarScreenRow>(row).TabIndex),
+            row => Assert.Equal(19, Assert.IsType<SidebarScreenRow>(row).TabIndex),
+            row => Assert.Equal(20, Assert.IsType<SidebarScreenRow>(row).TabIndex),
+            row => Assert.Equal(29, Assert.IsType<SidebarScreenRow>(row).TabIndex),
+            row => Assert.Equal(17, Assert.IsType<SidebarScreenRow>(row).TabIndex));
+        Assert.All(pilotage.OfType<SidebarScreenRow>().Take(3), row => Assert.Equal("20.dashboards", row.Module.Id));
+
+        // Finance : cinq modules à un écran, cinq rangées, aucun titre de module mort.
+        var finance = SidebarProjection.FlattenForSidebar(tree.FindDomain("03")!);
+        Assert.All(finance, row => Assert.IsType<SidebarScreenRow>(row));
+        Assert.Equal([11, 6, 13, 12, 2], Tabs(finance));
+
+        // Administration Système : Maintenance (2 écrans) séparée, Diagnostic (1 écran) à plat.
+        var system = SidebarProjection.FlattenForSidebar(tree.FindDomain("22")!);
+        Assert.Equal(["Maintenance"], system.OfType<SidebarSectionRow>().Select(row => row.Label));
+        Assert.Equal([18, 4, 27], Tabs(system));
+        Assert.IsType<SidebarSectionRow>(system[0]);
+    }
+
+    [Fact]
+    public void Flattening_drops_the_section_label_when_a_search_leaves_a_single_screen()
+    {
+        var tree = NavigationTreeBuilder.Build(Tree, AllPermissions, NavigationFilter.Sidebar with { SearchText = "PDG" });
+
+        var row = Assert.Single(SidebarProjection.FlattenForSidebar(tree.FindDomain("20")!));
+        Assert.Equal(19, Assert.IsType<SidebarScreenRow>(row).TabIndex);
+    }
+
+    [Fact]
+    public void Flattening_lists_a_tab_once_even_when_the_tree_keeps_aliases()
+    {
+        var tree = NavigationTreeBuilder.Build(Tree, AllPermissions, NavigationFilter.Sidebar with { IncludeAliases = true });
+
+        // L'hébergement atteint le PMS par cinq chemins : une rangée, et aucun séparateur né des alias.
+        var lodging = SidebarProjection.FlattenForSidebar(tree.FindDomain("06")!);
+        Assert.Equal([15, 30, 5], Tabs(lodging));
+        Assert.DoesNotContain(lodging, row => row is SidebarSectionRow);
+    }
+
+    [Fact]
+    public void Layout_puts_home_apart_pins_the_system_domain_and_lists_the_others()
+    {
+        var layout = SidebarProjection.Project(NavigationTreeBuilder.Build(Tree, AllPermissions, NavigationFilter.Sidebar));
+
+        Assert.NotNull(layout.Home);
+        Assert.Equal("01", layout.Home!.Id);
+        Assert.True(layout.Home.IsHome);
+        Assert.Equal([16], layout.Home.Screens.Select(screen => screen.TabIndex));
+
+        // Le domaine 01 élagué ne contient que des écrans ouvrables, jamais un alias.
+        Assert.All(
+            FunctionalArchitectureCatalog.EnumeratePaths([layout.Home.Domain]),
+            path =>
+            {
+                Assert.False(path.Screen.IsAlias);
+                Assert.True(path.Screen.IsOpenable);
+            });
+
+        Assert.NotNull(layout.Pinned);
+        Assert.Equal("22", layout.Pinned!.Id);
+        Assert.True(layout.Pinned.IsPinned);
+        Assert.Equal("Administration Système", layout.Pinned.ShortLabel);
+        Assert.True(layout.Pinned.Owns(18));
+        Assert.False(layout.Pinned.Owns(16));
+
+        // Treize domaines dans la liste pour l'administrateur : ni 01, ni 22, ni un domaine sans écran (15 n'a qu'un alias).
+        Assert.Equal(["02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "20"], layout.Domains.Select(domain => domain.Id));
+        Assert.DoesNotContain(layout.Domains, domain => domain.IsHome || domain.IsPinned);
+        Assert.All(layout.Domains, domain => Assert.True(domain.ScreenCount > 0));
+    }
+
+    [Fact]
+    public void Layout_leaves_home_and_foot_empty_when_the_profile_opens_nothing_there()
+    {
+        var layout = SidebarProjection.Project(NavigationTreeBuilder.Build(Tree, Only(PermissionCatalog.LodgingRead), NavigationFilter.Sidebar));
+
+        Assert.Null(layout.Home);
+        Assert.Null(layout.Pinned);
+        var lodging = Assert.Single(layout.Domains);
+        Assert.Equal("06", lodging.Id);
+        Assert.Equal(2, lodging.ScreenCount);
+    }
+
+    [Fact]
+    public void Layout_ignores_domains_without_openable_screen()
+    {
+        // Le filtre de l'accueil garde des domaines entièrement planifiés : la barre n'a rien à y déplier.
+        var layout = SidebarProjection.Project(NavigationTreeBuilder.Build(Tree, NoPermission, NavigationFilter.Home));
+
+        Assert.Null(layout.Home);
+        Assert.Empty(layout.Domains);
+        Assert.Null(layout.Pinned);
+    }
+
+    [Fact]
+    public async Task Unit_manager_lists_exactly_the_twelve_domains_of_the_specification()
+    {
+        // Les clés viennent du seeder, pas d'une recopie : si le rôle change, ce test le dit.
+        var keys = (await SeededRoleKeys.LoadAsync())[RoleCatalog.UnitManager];
+
+        var layout = SidebarProjection.Project(NavigationTreeBuilder.Build(Tree, keys, NavigationFilter.Sidebar));
+
+        Assert.Equal(["02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "20"], layout.Domains.Select(domain => domain.Id));
+        Assert.DoesNotContain(layout.Domains, domain => domain.Id is "13" or "22");
+        Assert.Null(layout.Pinned);
+
+        // Mon Espace : « Workflows & validations » (approvals.read), sous la rangée fixe.
+        Assert.NotNull(layout.Home);
+        Assert.Equal([16], layout.Home!.Screens.Select(screen => screen.TabIndex));
+
+        // Finance = Budget + CA journalier seulement, à plat.
+        var finance = layout.Domains.Single(domain => domain.Id == "03");
+        Assert.Equal([12, 2], finance.Screens.Select(screen => screen.TabIndex));
+        Assert.DoesNotContain(finance.Rows, row => row is SidebarSectionRow);
+    }
 }

@@ -121,7 +121,17 @@ public sealed record DomainNode(
     FunctionalMaturity Maturity,
     string? LicenseFeature,
     NavigationScope Scope,
-    IReadOnlyList<ModuleNode> Modules) : INavigationNode;
+    IReadOnlyList<ModuleNode> Modules) : INavigationNode
+{
+    /// <summary>
+    /// Libellé court du domaine (≤ 22 caractères), affiché par la barre latérale et par les
+    /// puces de domaine du catalogue de l'accueil. C'est une contraction du nom officiel
+    /// (« Admin &amp; Socle ERP »), jamais un renommage : le nom complet reste
+    /// <see cref="Label"/>, pour le fil d'Ariane, l'info-bulle et le lecteur d'écran.
+    /// Vaut <see cref="Label"/> tant que le catalogue n'en déclare pas un autre.
+    /// </summary>
+    public string ShortLabel { get; init; } = Label;
+}
 
 /// <summary>
 /// Chemin complet vers un écran : ce que le fil d'Ariane affiche.

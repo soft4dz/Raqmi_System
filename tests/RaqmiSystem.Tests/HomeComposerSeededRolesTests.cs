@@ -1,9 +1,5 @@
-using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
 using RaqmiSystem.Application.Navigation;
 using RaqmiSystem.Domain.Identity;
-using RaqmiSystem.Infrastructure.Persistence;
-using RaqmiSystem.Infrastructure.Security;
 
 namespace RaqmiSystem.Tests;
 
@@ -71,8 +67,7 @@ public sealed class HomeComposerSeededRolesTests
         string expectedWatch,
         int expectedSourceCount)
     {
-        await using var dbContext = await CreateSeededContextAsync();
-        var keys = (await LoadRolesWithKeysAsync(dbContext))[roleName];
+        var keys = (await SeededRoleKeys.LoadAsync())[roleName];
 
         var layout = HomeComposer.Compose(keys, hasStationUnit);
 
@@ -85,8 +80,7 @@ public sealed class HomeComposerSeededRolesTests
     [Fact]
     public async Task Modes_follow_the_seeded_action_keys()
     {
-        await using var dbContext = await CreateSeededContextAsync();
-        var roles = await LoadRolesWithKeysAsync(dbContext);
+        var roles = await SeededRoleKeys.LoadAsync();
 
         // Direction : décide et approuve, mais ne saisit ni ne clôture.
         var direction = HomeComposer.Compose(roles[RoleCatalog.Direction], hasStationUnit: false);
@@ -146,39 +140,4 @@ public sealed class HomeComposerSeededRolesTests
 
     private static string[] Split(string ids) =>
         string.IsNullOrWhiteSpace(ids) ? [] : ids.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-
-    private static async Task<RaqmiDbContext> CreateSeededContextAsync()
-    {
-        // La connexion vit aussi longtemps que le contexte : le disposer ferme la base ":memory:".
-        var connection = new SqliteConnection("DataSource=:memory:");
-        await connection.OpenAsync();
-
-        var dbContext = new RaqmiDbContext(
-            new DbContextOptionsBuilder<RaqmiDbContext>()
-                .UseSqlite(connection)
-                .Options);
-
-        await dbContext.Database.EnsureCreatedAsync();
-
-        var seeder = new SecuritySeeder(dbContext, new Pbkdf2PasswordHasher());
-        await seeder.SeedAsync(CancellationToken.None);
-
-        return dbContext;
-    }
-
-    private static async Task<Dictionary<string, IReadOnlySet<string>>> LoadRolesWithKeysAsync(RaqmiDbContext dbContext)
-    {
-        var roles = await dbContext.Roles
-            .AsNoTracking()
-            .Include(role => role.Permissions)
-            .ThenInclude(rolePermission => rolePermission.Permission)
-            .ToArrayAsync();
-
-        return roles.ToDictionary(
-            role => role.Name,
-            role => (IReadOnlySet<string>)role.Permissions
-                .Select(rolePermission => rolePermission.Permission.Key)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase),
-            StringComparer.Ordinal);
-    }
 }
