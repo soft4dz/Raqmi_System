@@ -68,9 +68,65 @@ comme l'apparence et la densité — jamais par compte :
 
 ### Raccourcis
 
-`Alt+Origine` revient à Mon Espace **et** à la section « Mon travail ». `Ctrl+K` bascule sur la section
-Catalogue et donne le focus à sa recherche. `F5` actualise les files. Spécification complète :
+`Alt+Origine` revient à Mon Espace **et** à la section « Mon travail ». Sur Mon Espace, `Ctrl+K` bascule
+sur la section Catalogue et donne le focus à sa recherche ; sur un écran de module, il donne le focus à
+la recherche de la barre latérale. `F5` actualise les files. Spécification complète :
 [`design/accueil/refonte-accueil.md`](design/accueil/refonte-accueil.md).
+
+## La barre latérale
+
+Un panneau de **260 px**, collé au bord gauche sous l'en-tête, pleine hauteur, séparé du contenu par un
+filet ; il **ne disparaît jamais**, Mon Espace compris (décision du 08/09/2026, spécification
+[`design/navigation/refonte-barre-laterale.md`](design/navigation/refonte-barre-laterale.md), maquette
+[`design/navigation/maquette-barre-laterale.html`](design/navigation/maquette-barre-laterale.html)).
+Elle présente l'arbre **déjà élagué** par `NavigationTreeBuilder` (`RaqmiSystem.Application`) : seuls
+les écrans que le jeton autorise y figurent, aucune règle de permission ni de maturité n'est évaluée
+dans le client.
+
+### Trois strates
+
+| Strate | Contenu | Défile ? |
+|---|---|---|
+| **Mon Espace** | rangée du domaine 01 (retour à l'onglet 0, état actif quand on y est), puis ses écrans ouvrables (« Workflows & validations » si `approvals.read`) ; le domaine 01 n'apparaît pas une seconde fois dans la liste | non |
+| **Recherche** | « Rechercher un écran… » : nom, description, famille, numéro d'ordre et libellé court, sans accent ni casse ; `Échap` efface, `Entrée` ouvre le premier résultat ; sans résultat, un bouton « Ouvrir le catalogue » | non |
+| **Domaines 02 → 21** puis, en pied, **22 Administration Système** épinglée | un en-tête par domaine (icône, libellé court, chevron) et, déplié, ses écrans **à plat** — deux niveaux, Domaine › Écran ; le libellé de module ne subsiste que comme séparateur d'un module qui regroupe au moins deux écrans, le sous-module vit dans le fil d'Ariane. Le pied n'existe que pour les profils qui détiennent un écran du domaine 22 | oui (la liste seule) |
+
+Le vocabulaire est celui des cartes de l'accueil et du fil d'Ariane : `ShortLabel` est une contraction
+du nom officiel portée par le catalogue (« Admin & Socle ERP », « Revenue Management », « Groupes &
+MICE »), jamais un synonyme ; le nom complet et le numéro de domaine restent dans l'info-bulle, le nom
+d'automatisation et le fil d'Ariane. L'écran affiché porte un filet, un fond et une graisse ; son domaine
+porte son icône en accent (et un point s'il est replié).
+
+### Clavier
+
+`Tab` fait un arrêt par strate (la liste des domaines n'en compte qu'un) ; dans la liste, `↑` / `↓`
+passent d'une rangée à l'autre, `→` / `←` déplient et replient un domaine, `Origine` / `Fin` vont aux
+extrémités, `Échap` ramène au champ de recherche ; `Espace` ou `Entrée` sur un domaine le bascule sans
+naviguer, `Entrée` sur un écran l'ouvre (`NavigateToModule`, seul chemin de navigation, gardé par
+`CanOpenModule`) ; `Ctrl+Page haut / bas` passent au module précédent / suivant et la barre suit. Le
+focus clavier est un anneau de 2 px, distinct du survol.
+
+### Mémorisation par poste
+
+Les domaines dépliés sont enregistrés dans `DesktopSettings.SidebarExpandedDomains`
+(`%APPDATA%\RaqmiSystem\desktop-settings.json`), **par poste** comme l'apparence et la densité : sur un
+comptoir partagé, l'état laissé par l'équipe du matin s'applique au soir. L'écriture est différée de
+500 ms et n'a jamais lieu pendant une recherche (le dépliage forcé par le filtre n'est pas un choix ;
+la fin de la recherche écrit une fois l'état restauré) ; au démarrage, un identifiant inconnu est
+ignoré, un domaine sans écran ouvrable pour le profil reste masqué (son état déplié est inerte), puis
+le domaine de l'écran courant est ouvert en plus, sans replier les autres. La densité Compact
+(Paramétrage global › Poste de travail) ramène les rangées à 32 px et le séparateur de module à 22 px.
+
+### Info-bulle de permission
+
+En régime permanent, un écran non autorisé n'est **pas dans la barre**. Une rangée désactivée n'existe
+que si la permission est retirée en cours de session, après le chargement de l'arbre : elle n'est pas
+focalisable (contrôle désactivé, les flèches la sautent), mais son motif reste lisible à la souris
+(`ToolTipService.ShowOnDisabled`), en mode balayage du lecteur d'écran (`HelpText`) et sur la carte du
+catalogue, avec la même phrase partout — résultats de recherche du catalogue et cartes de files
+comprises : « Accès non autorisé pour votre profil — permission requise : Lire la comptabilite »,
+libellé lu dans `PermissionCatalog` (sans accent, tel que le catalogue l'écrit), jamais la clé
+technique.
 
 ## Ecrans disponibles
 

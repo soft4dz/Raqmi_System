@@ -8,6 +8,15 @@
 - [Matrice de readiness](stabilization/module-readiness.md)
 - [Catalogue des modules](modules-catalog.md)
 - [Périmètre fonctionnel cible](perimetre-fonctionnel-cible.md)
+- [Client Desktop WPF — Mon Espace, barre latérale, raccourcis](desktop-client.md)
+- [Charte UI Desktop](charte-ui-desktop.md)
+
+## Design
+
+- [Shell de navigation — spécification](design/navigation-shell.md)
+- [Refonte de la barre latérale — décision « Panneau plat, présent partout » (08/09/2026)](design/navigation/refonte-barre-laterale.md) — maquette interactive : [`design/navigation/maquette-barre-laterale.html`](design/navigation/maquette-barre-laterale.html)
+- [Refonte de l'accueil — « Mon Espace · Mon travail »](design/accueil/refonte-accueil.md) — maquette : [`design/accueil/maquette-accueil.html`](design/accueil/maquette-accueil.html)
+- [Icônes des domaines](design/icones-domaines.md)
 
 ## Références historiques importées
 
