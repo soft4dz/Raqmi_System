@@ -19,12 +19,14 @@
     <sys:Double x:Key="GridRowHeight">40</sys:Double>
     <sys:Double x:Key="GridHeaderHeight">40</sys:Double>
 
-    <!-- Rangees de la barre laterale : domaine 36 px, ecran 34 px (32 / 32 en compact,
-         jamais moins : c'est la cible minimale de la charte). Memes raisons que ci-dessus,
-         posees par ThemeManager.AppliquerDensite. Les rangees les lisent en MinHeight :
-         un libelle sur deux lignes les depasse au lieu d'etre coupe. -->
+    <!-- Rangees de la barre laterale : domaine 36 px, ecran 34 px, separateur de module
+         24 px (32 / 32 / 22 en compact, jamais moins pour les deux cibles cliquables :
+         c'est le minimum de la charte). Memes raisons que ci-dessus, posees par
+         ThemeManager.AppliquerDensite. Les rangees les lisent en MinHeight : un libelle
+         sur deux lignes les depasse au lieu d'etre coupe. -->
     <sys:Double x:Key="SidebarDomainRowHeight">36</sys:Double>
     <sys:Double x:Key="SidebarScreenRowHeight">34</sys:Double>
+    <sys:Double x:Key="SidebarSectionRowHeight">24</sys:Double>
 
     <!-- Cartes de file de travail de l'accueil (Mon Espace, Mon travail) : meme
          mecanique et memes raisons. Compact retire de l'air autour du chiffre,
@@ -624,11 +626,14 @@
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="HorizontalContentAlignment" Value="Left" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-        <!-- L'info-bulle n'existe que sur une rangee verrouillee ou tronquee : 600 ms pour
-             qu'elle ne surgisse pas au simple passage de la souris. Au clavier, elle
-             s'ouvre avec le focus (KeyboardFocusToolTip), pour ne pas dependre de la souris. -->
+        <!-- 600 ms avant une info-bulle : elle ne surgit pas au simple passage de la souris.
+             L'ouverture au focus clavier (KeyboardFocusToolTip) n'est pas posee ici mais sur
+             les seuls gabarits de la barre qui n'ont d'info-bulle que verrouilles ou
+             tronques : « Mon Espace » et les resultats du catalogue, qui partagent ce style,
+             en ont une permanente. Le cadenas d'un ecran verrouille est lui aussi porte par
+             la rangee de la barre (MainWindow.xaml), pas par ce gabarit : les resultats du
+             catalogue ont deja leur pastille « Accès refusé ». -->
         <Setter Property="ToolTipService.InitialShowDelay" Value="600" />
-        <Setter Property="desktop:KeyboardFocusToolTip.IsEnabled" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -645,30 +650,10 @@
                                    HorizontalAlignment="Left"
                                    Fill="{StaticResource SidebarActiveIndicatorBrush}"
                                    Opacity="0" />
-                        <Grid Margin="{TemplateBinding Padding}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              VerticalAlignment="Center"
-                                              RecognizesAccessKey="True" />
-                            <!-- Cadenas d'un ecran verrouille : le texte grise ne dit jamais seul. -->
-                            <Path x:Name="lock"
-                                  Grid.Column="1"
-                                  Width="12"
-                                  Height="12"
-                                  Stretch="None"
-                                  Data="{StaticResource LockIconGeometry}"
-                                  Stroke="{StaticResource SidebarDisabledForegroundBrush}"
-                                  StrokeThickness="1.3"
-                                  StrokeStartLineCap="Round"
-                                  StrokeEndLineCap="Round"
-                                  StrokeLineJoin="Round"
-                                  Margin="8,0,0,0"
-                                  VerticalAlignment="Center"
-                                  Visibility="Collapsed" />
-                        </Grid>
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="True" />
                         <!-- Anneau de focus : 2 px, inset 1 px, par-dessus tout, jamais un fond. -->
                         <Border x:Name="focusRing"
                                 BorderBrush="Transparent"
@@ -693,7 +678,6 @@
                             <Setter TargetName="focusRing" Property="BorderBrush" Value="{StaticResource SidebarFocusRingBrush}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="lock" Property="Visibility" Value="Visible" />
                             <Setter TargetName="bg" Property="Background" Value="Transparent" />
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -1539,7 +1523,7 @@
          majuscules de 11 px, aligne sur les ecrans. Ni cliquable ni focalisable : il
          separe, il n'ouvre rien ; le fil d'Ariane, lui, montre toujours le module. -->
     <Style x:Key="ModuleNavSectionLabel" TargetType="TextBlock">
-        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="MinHeight" Value="{DynamicResource SidebarSectionRowHeight}" />
         <Setter Property="Padding" Value="36,6,10,0" />
         <Setter Property="FontSize" Value="11" />
         <Setter Property="FontWeight" Value="SemiBold" />

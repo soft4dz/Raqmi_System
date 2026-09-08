@@ -717,7 +717,9 @@ public partial class MainWindow
                 filter with { SearchText = query })
             : navigableTree;
 
-        if (isSearching && !isSidebarSearchActive)
+        var wasSearching = isSidebarSearchActive;
+
+        if (isSearching && !wasSearching)
         {
             groupsExpandedBeforeSearch.Clear();
 
@@ -725,6 +727,12 @@ public partial class MainWindow
             {
                 groupsExpandedBeforeSearch.Add(group);
             }
+
+            // Le drapeau AVANT la premiere mutation d'IsExpanded : c'est lui que lit
+            // SidebarGroup_PropertyChanged pour ne pas armer l'ecriture sur le disque. Pose
+            // apres la boucle, le depliage force par la premiere frappe serait ecrit comme
+            // un choix de l'utilisateur.
+            isSidebarSearchActive = true;
         }
 
         var matches = 0;
@@ -763,9 +771,18 @@ public partial class MainWindow
 
         if (!isSearching)
         {
-            // Apres la restauration, pour que l'ouverture du domaine courant soit ecrite
-            // avec l'etat rendu, et non avalee par la coupure d'ecriture de la recherche.
+            // Apres la restauration, et le drapeau baisse : l'ouverture du domaine courant
+            // s'ajoute a l'etat rendu.
             SyncSidebarToTab(MainTabs.SelectedIndex);
+
+            if (wasSearching)
+            {
+                // Une seule ecriture en fin de recherche, explicite : la restauration s'est
+                // faite drapeau leve (rien d'arme), et un clic sur un en-tete juste avant la
+                // premiere frappe a pu etre avale par la coupure. Le disque doit refleter
+                // l'etat rendu, pas celui d'avant ce clic.
+                ScheduleSidebarExpansionSave();
+            }
         }
 
         // Le filet de separation du pied ne doit pas rester seul quand la recherche ne
@@ -779,11 +796,13 @@ public partial class MainWindow
             ? Visibility.Visible
             : Visibility.Collapsed;
 
-        // Annonce du filtrage, au lecteur d'ecran comme a l'oeil ; rien hors recherche.
+        // Annonce du filtrage, au lecteur d'ecran comme a l'oeil ; rien hors recherche. La
+        // visibilite AVANT le texte : un element Collapsed n'a pas de pair UIA, le changement
+        // de texte de la premiere frappe ne serait annonce a personne.
+        SidebarSearchLiveTextBlock.Visibility = isSearching ? Visibility.Visible : Visibility.Collapsed;
         SidebarSearchLiveTextBlock.Text = isSearching
             ? matches == 0 ? "Aucun écran ne correspond" : SearchResultSummary(matches, domainsWithMatches)
             : string.Empty;
-        SidebarSearchLiveTextBlock.Visibility = isSearching ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // « 1 écran dans 1 domaine », « 3 écrans dans 2 domaines ».
@@ -809,13 +828,14 @@ public partial class MainWindow
         var rows = VisibleSidebarRows();
         var focused = Keyboard.FocusedElement as FrameworkElement;
 
-        // Depuis le champ de recherche : seule Fleche bas descend dans la liste. Les autres
+        // Depuis le champ de recherche : seule Fleche bas descend, sur la premiere rangee de
+        // la liste SOUS le champ - pas sur « Mon Espace », qui est au-dessus. Les autres
         // touches gardent leur sens dans un champ de texte (Echap y est deja traite).
         if (ReferenceEquals(focused, ModuleSearchTextBox))
         {
-            if (e.Key == Key.Down && rows.Count > 0)
+            if (e.Key == Key.Down && (FirstSidebarListRow() ?? rows.FirstOrDefault()) is { } first)
             {
-                FocusSidebarRow(rows[0]);
+                FocusSidebarRow(first);
                 e.Handled = true;
             }
 
@@ -832,6 +852,11 @@ public partial class MainWindow
         switch (e.Key)
         {
             case Key.Escape:
+                ModuleSearchTextBox.Focus();
+                break;
+            case Key.Up when ReferenceEquals(rows[index], FirstSidebarListRow()):
+                // Symetrique de Fleche bas depuis le champ : remonter de la premiere rangee
+                // de la liste rend le champ, qui est juste au-dessus.
                 ModuleSearchTextBox.Focus();
                 break;
             case Key.Up:
@@ -899,6 +924,21 @@ public partial class MainWindow
         return rows;
     }
 
+    // La premiere rangee visible sous le champ de recherche : dans la liste des domaines,
+    // sinon dans le pied. Null quand la recherche n'a rien laisse.
+    private FrameworkElement? FirstSidebarListRow()
+    {
+        var rows = new List<FrameworkElement>();
+        CollectSidebarRows(SidebarListScrollViewer, rows);
+
+        if (rows.Count == 0)
+        {
+            CollectSidebarRows(SidebarPinnedPanel, rows);
+        }
+
+        return rows.FirstOrDefault();
+    }
+
     private void CollectSidebarRows(DependencyObject parent, List<FrameworkElement> rows)
     {
         for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
@@ -939,8 +979,9 @@ public partial class MainWindow
     }
 
     // Une recherche ouvre et referme les domaines toute seule : cet etat-la n'est pas celui
-    // de l'utilisateur, il n'est jamais ecrit. La restauration en fin de recherche rend
-    // l'etat deja memorise, l'ouverture du domaine courant qui suit est ecrite normalement.
+    // de l'utilisateur, il n'est jamais ecrit. RefreshSidebar leve le drapeau avant de
+    // toucher au premier IsExpanded et le rabaisse apres la restauration ; c'est lui qui
+    // arme une ecriture en fin de recherche (ScheduleSidebarExpansionSave).
     private void SidebarGroup_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(ModuleNavigationGroup.IsExpanded) || isSidebarSearchActive)
@@ -948,6 +989,12 @@ public partial class MainWindow
             return;
         }
 
+        ScheduleSidebarExpansionSave();
+    }
+
+    // Relance du delai a chaque changement : une rafale de clics = une ecriture.
+    private void ScheduleSidebarExpansionSave()
+    {
         if (sidebarExpansionSaveTimer is null)
         {
             sidebarExpansionSaveTimer = new DispatcherTimer(DispatcherPriority.Background)
@@ -957,7 +1004,6 @@ public partial class MainWindow
             sidebarExpansionSaveTimer.Tick += SidebarExpansionSaveTimer_Tick;
         }
 
-        // Relance du delai a chaque changement : une rafale de clics = une ecriture.
         sidebarExpansionSaveTimer.Stop();
         sidebarExpansionSaveTimer.Start();
     }
@@ -965,6 +1011,14 @@ public partial class MainWindow
     private void SidebarExpansionSaveTimer_Tick(object? sender, EventArgs e)
     {
         sidebarExpansionSaveTimer?.Stop();
+
+        // Un clic sur un en-tete suivi d'une frappe dans les 500 ms : le delai expire en
+        // pleine recherche, avec les domaines deplies par le filtre. Rien n'est ecrit ; la
+        // fin de recherche rearme une ecriture avec l'etat restaure.
+        if (isSidebarSearchActive)
+        {
+            return;
+        }
 
         DesktopSettings.SaveSidebarExpandedDomains(
             sidebarGroups.Where(group => !group.IsHome && group.IsExpanded).Select(group => group.Id));

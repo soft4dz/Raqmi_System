@@ -68,6 +68,15 @@
                     Click="ModuleTileNavigate_Click">
                 <Button.Style>
                     <Style TargetType="Button" BasedOn="{StaticResource ModuleNavSubButton}">
+                        <!-- Le contenu prend toute la largeur : le cadenas se cale au bord
+                             droit de la rangee, pas contre le texte. -->
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <!-- Au clavier, l'info-bulle (motif de verrouillage ou libelle tronque)
+                             s'ouvre avec le focus : declare ici, sur la seule rangee qui n'a
+                             d'info-bulle que dans ces deux cas, et non dans le style de base,
+                             que « Mon Espace » et les resultats du catalogue partagent avec
+                             une info-bulle permanente. -->
+                        <Setter Property="desktop:KeyboardFocusToolTip.IsEnabled" Value="True" />
                         <Style.Triggers>
                             <!-- Info-bulle et aide UIA seulement sur une rangee verrouillee :
                                  le motif, permission manquante comprise. Une rangee ouvrable
@@ -82,16 +91,40 @@
                         </Style.Triggers>
                     </Style>
                 </Button.Style>
-                <!-- Deux lignes plutot qu'une ellipse ; le libelle complet n'est en info-bulle
-                     que s'il a quand meme du etre tronque. -->
-                <TextBlock Text="{Binding Label}"
-                           TextWrapping="Wrap"
-                           LineHeight="17"
-                           LineStackingStrategy="BlockLineHeight"
-                           MaxHeight="34"
-                           TextTrimming="CharacterEllipsis"
-                           VerticalAlignment="Center"
-                           desktop:TrimmedTextToolTip.Text="{Binding Label}" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <!-- Deux lignes plutot qu'une ellipse ; le libelle complet n'est en
+                         info-bulle que s'il a quand meme du etre tronque. -->
+                    <TextBlock Text="{Binding Label}"
+                               TextWrapping="Wrap"
+                               LineHeight="17"
+                               LineStackingStrategy="BlockLineHeight"
+                               MaxHeight="34"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center"
+                               desktop:TrimmedTextToolTip.Text="{Binding Label}" />
+                    <!-- Cadenas d'un ecran verrouille : le texte grise ne le dit jamais seul.
+                         Porte par la rangee de la barre, pas par le style du bouton : les
+                         resultats du catalogue ont deja leur pastille « Accès refusé ». -->
+                    <Path Grid.Column="1"
+                          Stroke="{StaticResource SidebarDisabledForegroundBrush}"
+                          Margin="8,0,0,0"
+                          VerticalAlignment="Center">
+                        <Path.Style>
+                            <Style TargetType="Path" BasedOn="{StaticResource ModuleCardLockIcon}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Tile.IsClickable}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Path.Style>
+                    </Path>
+                </Grid>
             </Button>
         </DataTemplate>
 
@@ -117,7 +150,10 @@
                       HeaderTemplate="{StaticResource ModuleNavGroupHeaderTemplate}"
                       IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
                       Visibility="{Binding HasMatches, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <ItemsControl ItemsSource="{Binding Rows}" />
+                <!-- IsTabStop=False : un ItemsControl est un arret de tabulation par defaut
+                     en WPF, et Tab s'arreterait sur le conteneur vide avant la premiere
+                     rangee. -->
+                <ItemsControl ItemsSource="{Binding Rows}" IsTabStop="False" />
             </Expander>
         </DataTemplate>
     </Window.Resources>
@@ -523,6 +559,7 @@
                                  profil peut les ouvrir), rendus comme toute rangee d'ecran.
                                  Alimente par InitializeNavigation depuis le groupe IsHome. -->
                             <ItemsControl x:Name="SidebarHomeScreensItemsControl"
+                                          IsTabStop="False"
                                           AutomationProperties.Name="Écrans de Mon Espace" />
 
                             <Border BorderBrush="{StaticResource PanelBorderBrush}"
@@ -576,14 +613,22 @@
                         </StackPanel>
 
                         <!-- Seule strate qui defile : les domaines 02 → 21. Un seul arret de
-                             tabulation pour toute la liste ; les fleches font le reste. -->
-                        <ScrollViewer Grid.Row="1"
+                             tabulation pour toute la liste (TabNavigation=Once) ; les fleches
+                             font le reste. Le ScrollViewer et l'ItemsControl sont eux-memes
+                             des arrets de tabulation par defaut en WPF : sans Focusable=False
+                             et IsTabStop=False, Tab depuis la recherche s'arreterait deux fois
+                             sur des conteneurs invisibles avant le premier en-tete, et les
+                             fleches n'y feraient rien. -->
+                        <ScrollViewer x:Name="SidebarListScrollViewer"
+                                      Grid.Row="1"
                                       VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled"
+                                      Focusable="False"
                                       Padding="0,0,4,0">
                             <StackPanel>
                                 <ItemsControl x:Name="SidebarGroupsItemsControl"
                                               ItemTemplate="{StaticResource SidebarGroupTemplate}"
+                                              IsTabStop="False"
                                               KeyboardNavigation.TabNavigation="Once"
                                               KeyboardNavigation.DirectionalNavigation="Contained"
                                               AutomationProperties.Name="Domaines" />
@@ -621,8 +666,11 @@
                             <Border BorderBrush="{StaticResource PanelBorderBrush}"
                                     BorderThickness="0,1,0,0"
                                     Margin="4,0,4,8" />
+                            <!-- Le pied compte pour un arret de tabulation, comme la liste. -->
                             <ItemsControl x:Name="SidebarPinnedGroupsItemsControl"
                                           ItemTemplate="{StaticResource SidebarGroupTemplate}"
+                                          IsTabStop="False"
+                                          KeyboardNavigation.TabNavigation="Once"
                                           AutomationProperties.Name="Administration système" />
                         </StackPanel>
                     </Grid>

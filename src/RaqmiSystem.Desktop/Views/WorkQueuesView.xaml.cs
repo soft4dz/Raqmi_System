@@ -7,6 +7,7 @@ using System.Windows.Shapes;
 using RaqmiSystem.Application.Identity;
 using RaqmiSystem.Application.Navigation;
 using RaqmiSystem.Domain.HumanResources;
+using RaqmiSystem.Domain.Identity;
 using RaqmiSystem.Domain.Inventory;
 using RaqmiSystem.Domain.Purchasing;
 using RaqmiSystem.Domain.Treasury;
@@ -620,12 +621,14 @@ public partial class WorkQueuesView : UserControl
 
         ProfileButton.IsEnabled = layout.CanOpenSettings;
         PreferencesButton.IsEnabled = layout.CanOpenSettings;
+        // Verrouilles : la meme phrase que la carte « Paramétrage global » du catalogue,
+        // permission manquante nommee (celle que HomeComposer teste pour CanOpenSettings).
         ProfileButton.ToolTip = layout.CanOpenSettings
             ? "Votre compte, vos rôles et vos permissions, dans Paramétrage global"
-            : ModuleTile.AccessDeniedToolTip;
+            : AccessDeniedMessage.For(PermissionCatalog.SettingsRead);
         PreferencesButton.ToolTip = layout.CanOpenSettings
             ? "Apparence, densité et unité de ce poste, dans Paramétrage global"
-            : ModuleTile.AccessDeniedToolTip;
+            : AccessDeniedMessage.For(PermissionCatalog.SettingsRead);
 
         // Ligne « Unité du poste » : elle n'a de sens que si au moins une file unitaire
         // est LISIBLE. Un poste RH n'a rien a regler, donc rien a lire.

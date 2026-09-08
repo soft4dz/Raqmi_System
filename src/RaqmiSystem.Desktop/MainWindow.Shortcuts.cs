@@ -105,8 +105,10 @@ public partial class MainWindow
             return;
         }
 
-        // Sur l'accueil la barre laterale est repliee par design (la racine EST le
-        // sommaire) : c'est la recherche du catalogue qui joue le meme role.
+        // Sur l'accueil, la barre laterale est visible mais Ctrl+K vise la recherche du
+        // catalogue : elle couvre les 50 modules, planifies et verrouilles compris, quand la
+        // barre ne liste que les ecrans ouvrables. Comportement existant conserve par defaut
+        // (question ouverte n° 2 de refonte-barre-laterale.md § 4.3).
         if (MainTabs.SelectedIndex == HomeTabIndex)
         {
             HomeView.FocusCatalogSearch();

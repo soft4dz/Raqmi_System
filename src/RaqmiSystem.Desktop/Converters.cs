@@ -180,9 +180,11 @@ public sealed class DomainAutomationNameConverter : IMultiValueConverter
 // Une info-bulle WPF ne s'ouvre qu'a la souris. Or dans la barre laterale, elle porte le
 // nom complet d'un libelle tronque, ou le motif d'un ecran verrouille : une information
 // que l'utilisateur au clavier ne doit pas avoir a aller chercher a la souris. Le
-// comportement est declare une fois dans les styles du theme (ModuleNavButton,
-// ModuleNavGroup) ; il ne fait rien tant que la rangee - ou le libelle qu'elle contient -
-// n'a pas d'info-bulle, ce qui est le cas de toute rangee ouvrable non tronquee.
+// comportement est declare sur les seuls gabarits de la barre dont l'info-bulle n'existe
+// que dans ces deux cas (rangee d'ecran de MainWindow.xaml, en-tete ModuleNavGroupHeader
+// du theme) : ni sur « Mon Espace » ni sur les resultats du catalogue, dont l'info-bulle
+// est permanente et surgirait a chaque Tab. Il ne fait rien tant que la rangee - ou le
+// libelle qu'elle contient - n'a pas d'info-bulle.
 public static class KeyboardFocusToolTip
 {
     public static readonly DependencyProperty IsEnabledProperty =

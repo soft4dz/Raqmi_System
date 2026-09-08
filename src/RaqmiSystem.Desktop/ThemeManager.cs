@@ -168,8 +168,10 @@ internal static class ThemeManager
 
             // Rangees de la barre laterale : un domaine sur 36 px, un ecran sur 34 px, les
             // deux a 32 px en compact - jamais moins, c'est le minimum de cible de la charte.
+            // Le separateur de module (24 px, ni cliquable ni focalisable) descend a 22.
             dictionnaire["SidebarDomainRowHeight"] = compact ? 32d : 36d;
             dictionnaire["SidebarScreenRowHeight"] = compact ? 32d : 34d;
+            dictionnaire["SidebarSectionRowHeight"] = compact ? 22d : 24d;
         }
 
         DensiteAppliquee = densite;

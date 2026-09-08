@@ -122,8 +122,11 @@ public sealed class HomeCardModel : INotifyPropertyChanged
     // deux cas le clic n'aurait rien a ouvrir, et le dire vaut mieux que le laisser croire.
     public bool IsButtonEnabled => !IsTargetLocked && card.State != HomeCardState.Loading;
 
+    // Cible verrouillee : la meme phrase que la carte du catalogue et la rangee de la barre
+    // pour le meme ecran - motif, puis la permission de lecture de la cible, celle que la
+    // composition a testee (HomeComposer) et trouvee manquante.
     public string ButtonToolTip => IsTargetLocked
-        ? ModuleTile.AccessDeniedToolTip
+        ? AccessDeniedMessage.For(Slot.Queue.TargetReadKey)
         : $"Ouvrir {TargetLabel}";
 
     /// <summary>

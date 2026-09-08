@@ -12,11 +12,6 @@ namespace RaqmiSystem.Desktop;
 // surfaces disent la meme chose du meme module sans code de synchronisation.
 public sealed class ModuleTile : INotifyPropertyChanged
 {
-    // Le motif seul, partage avec les cartes de files et les resultats du catalogue. La
-    // phrase complete d'une tuile verrouillee (motif + permission manquante) vient du meme
-    // socle : AccessDeniedMessage.For.
-    public const string AccessDeniedToolTip = AccessDeniedMessage.Text;
-
     private bool isLocked;
     private bool isActive;
     private readonly FunctionalDomainDefinition functionalDomain;
