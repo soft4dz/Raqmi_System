@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette — barre latérale Raqmi System (Avant / Après)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     Jetons — valeurs de RaqmiTheme.xaml (clair) et ThemePalette.cs (sombre).
+     Les alias Sidebar* sont ceux documentés dans refonte-barre-laterale.md (annexe A.3).
+     ============================================================ */
+  :root {
+    --structure:#071525; --structure-elevated:#0C2135; --header-fg:#FFFFFF; --header-muted:#9FC3DC;
+    --primary:#073B78; --primary-hover:#0A4C97; --primary-pressed:#052B57;
+    --accent:#0AA3AD; --accent-action:#07767D; --accent-action-fg:#FFFFFF; --accent-action-hover:#08838B; --accent-soft:#E1F4F5;
+    --app-bg:#F4F7FA; --surface:#FFFFFF; --surface-subtle:#EEF4F8; --surface-hover:#E4EDF4;
+    --panel-border:#DCE6EF; --field-border:#7A8FA3; --border-strong:#B9CCDD;
+    --text-primary:#0F2337; --text-secondary:#4A6A87; --text-muted:#5B6C7E; --text-label:#475569; --text-placeholder:#5C7188;
+    --focus-ring:#073B78; --focus-ring-dark:#FFFFFF;
+    --disabled-fg:#576C82; --disabled-bg:#E5EBF1;
+    --module-active-bg:rgba(10,163,173,.102); /* ModuleActiveBackgroundBrush #1A0AA3AD, utilisé par l'AVANT seulement */
+    --grid-header-fg:#5B7591; --row-alt:#FAFCFE; --row-hover:#F0F6FA;
+    --danger:#C0392B; --status-submitted:#8A5A00;
+    /* Alias de la barre (Après) */
+    --sb-bg:var(--surface); --sb-border:var(--border-strong); --sb-text:var(--text-primary); --sb-screen-text:var(--text-secondary);
+    --sb-section:var(--text-label); --sb-icon:var(--text-secondary); --sb-hover:var(--surface-hover);
+    --sb-active-bg:var(--accent-soft); --sb-active-ind:var(--accent-action); --sb-active-fg:var(--primary);
+    --sb-focus:var(--focus-ring); --sb-disabled:var(--disabled-fg);
+    --h-dom:36px; --h-scr:34px; --h-sec:24px;
+  }
+  [data-theme="dark"] {
+    --structure:#050F1C; --structure-elevated:#0C1B2B; --header-fg:#EAF2F9; --header-muted:#8FB0CA;
+    --primary:#5B9BE8; --primary-hover:#77AEEE; --primary-pressed:#4585D2;
+    --accent:#22C4CE; --accent-action:#2FCBD6; --accent-action-fg:#062227; --accent-action-hover:#4CDAE3; --accent-soft:#0E3B40;
+    --app-bg:#0E1826; --surface:#152233; --surface-subtle:#1B2B3E; --surface-hover:#22344A;
+    --panel-border:#26374D; --field-border:#62748D; --border-strong:#4B6E93;
+    --text-primary:#E6EEF7; --text-secondary:#AFC3D6; --text-muted:#98AFC6; --text-label:#C2D2E1; --text-placeholder:#8DA4BC;
+    --focus-ring:#7FB6F5; --focus-ring-dark:#EAF2F9;
+    --disabled-fg:#8195AB; --disabled-bg:#1C2938;
+    --module-active-bg:rgba(34,196,206,.149);
+    --grid-header-fg:#9CB3C9; --row-alt:#182637; --row-hover:#1B2B3E;
+    --danger:#F4776A; --status-submitted:#F2C14E;
+    /* Seul alias divergent : le texte actif prend TextPrimary sombre (10,44:1 sur AccentSoft) */
+    --sb-active-fg:var(--text-primary);
+  }
+
+  * { box-sizing:border-box; }
+  html, body { margin:0; }
+  body { background:#F4F7FA; color:var(--text-primary); font-family:Manrope, "Segoe UI", system-ui, sans-serif; font-size:13px; line-height:1.35; }
+  [data-theme="dark"] body { background:#0E1826; }
+  button { font:inherit; color:inherit; }
+  svg.ic { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+
+  /* ---------- Barre de maquette ---------- */
+  .maquette-bar { position:sticky; top:0; z-index:20; display:flex; align-items:center; flex-wrap:wrap; gap:14px 18px; padding:10px 20px;
+    background:var(--structure-elevated); color:var(--header-fg); font-size:12px; }
+  .maquette-bar strong { color:var(--header-muted); font-weight:600; letter-spacing:.04em; text-transform:uppercase; font-size:10.5px; }
+  .seg { display:inline-flex; border:1px solid rgba(255,255,255,.22); border-radius:8px; overflow:hidden; }
+  .seg button { padding:6px 14px; background:transparent; border:0; cursor:pointer; font-weight:600; font-size:12px; color:var(--header-fg); }
+  .seg button[aria-pressed="true"] { background:var(--accent-action); color:var(--accent-action-fg); }
+  .seg button:focus-visible { outline:2px solid var(--focus-ring-dark); outline-offset:-3px; }
+  .maquette-bar label { display:inline-flex; align-items:center; gap:6px; cursor:pointer; }
+  .maquette-bar .note { margin-left:auto; color:var(--header-muted); }
+  .maquette-bar .grp { display:inline-flex; align-items:center; gap:10px; }
+  .maquette-bar .grp[hidden] { display:none; }
+
+  /* ---------- Cadre fenêtre 1280 × 800 ---------- */
+  .page { width:1280px; margin:20px auto 40px; }
+  .fenetre { width:1280px; height:800px; background:var(--app-bg); border-radius:10px; overflow:hidden;
+    box-shadow:0 12px 40px rgba(7,21,37,.18); display:grid; grid-template-rows:76px 1fr; }
+  header.entete { height:76px; background:var(--structure); color:var(--header-fg); display:flex; align-items:center; gap:14px; padding:0 24px; }
+  .entete .marque { width:34px; height:34px; border-radius:8px; background:var(--accent-action); color:#FFFFFF; display:grid; place-items:center; font-weight:700; font-size:18px; }
+  .entete h1 { margin:0; font-size:18px; font-weight:600; letter-spacing:.01em; }
+  .entete .signature { font-size:12px; color:var(--header-muted); margin-left:2px; }
+  .entete .session { margin-left:auto; display:flex; align-items:center; gap:14px; font-size:12px; color:var(--header-muted); }
+  .entete .session b { color:var(--header-fg); font-weight:600; }
+  .entete .ghost { border:1px solid rgba(255,255,255,.25); border-radius:8px; padding:6px 10px; color:var(--header-fg); font-size:12px; display:inline-flex; gap:8px; align-items:center; background:transparent; }
+
+  .fil { height:24px; font-size:12px; color:var(--text-secondary); display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  .fil b { color:var(--text-primary); font-weight:600; }
+  .fil .sep { color:var(--text-muted); padding:0 4px; }
+  .bandeau-session { font-size:12px; color:var(--text-muted); padding-top:10px; }
+
+  /* ---------- Contenu (commun) ---------- */
+  .carte { background:var(--surface); border:1px solid var(--panel-border); border-radius:10px; padding:18px 20px; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
+  .carte h2 { margin:0; font-size:18px; font-weight:600; color:var(--text-primary); }
+  .carte .sous { margin:4px 0 0; color:var(--text-muted); font-size:12px; }
+  .toolbar { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .btn-primaire { margin-left:auto; background:var(--accent-action); color:var(--accent-action-fg); border:0; border-radius:8px; padding:8px 14px; font-weight:600; font-size:12.5px; cursor:pointer; }
+  .btn-primaire:hover { background:var(--accent-action-hover); }
+  .btn-fantome { background:transparent; border:1px solid var(--field-border); color:var(--text-primary); border-radius:8px; padding:7px 12px; font-weight:600; font-size:12px; cursor:pointer; }
+  .btn-fantome:hover { background:var(--surface-hover); }
+  .btn-fantome:focus-visible, .btn-primaire:focus-visible { outline:2px solid var(--focus-ring); outline-offset:2px; }
+  .filtres { display:flex; gap:8px; margin-bottom:12px; }
+  .filtre { border:1px solid var(--field-border); border-radius:8px; padding:6px 10px; font-size:12px; color:var(--text-secondary); background:var(--surface); }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th { text-align:left; font-weight:600; color:var(--grid-header-fg); font-size:12px; height:40px; padding:0 12px; border-bottom:1px solid var(--panel-border); }
+  td { height:40px; padding:0 12px; border-bottom:1px solid var(--panel-border); color:var(--text-primary); }
+  tr:nth-child(even) td { background:var(--row-alt); }
+  tbody tr:hover td { background:var(--row-hover); }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .statut { display:inline-flex; align-items:center; gap:6px; color:var(--text-secondary); }
+  .statut::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--text-muted); }
+  .statut.emise::before { background:var(--accent-action); }
+  .statut.payee::before { background:var(--primary); }
+  .statut.retard::before { background:var(--danger); }
+  .squelette { margin-top:18px; display:grid; gap:10px; }
+  .squelette div { height:14px; border-radius:4px; background:var(--surface-subtle); }
+  .squelette div:nth-child(2) { width:82%; } .squelette div:nth-child(3) { width:64%; } .squelette div:nth-child(4) { width:72%; }
+
+  /* Accueil (HomeView) */
+  .onglets { display:flex; gap:22px; border-bottom:1px solid var(--panel-border); margin-bottom:16px; flex:none; }
+  .onglets button { background:transparent; border:0; padding:6px 2px 10px; font-weight:600; font-size:13px; color:var(--text-secondary); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .onglets button[aria-selected="true"] { color:var(--text-primary); border-bottom-color:var(--accent-action); }
+  .onglets button:focus-visible { outline:2px solid var(--focus-ring); outline-offset:2px; border-radius:4px; }
+  .accueil-defile { overflow-y:auto; min-height:0; flex:1; padding-right:4px; scrollbar-width:thin; }
+  .bienvenue { display:flex; justify-content:space-between; align-items:flex-start; padding:14px 16px; border:1px solid var(--panel-border); border-radius:10px; background:var(--surface); margin-bottom:16px; }
+  .bienvenue h3 { margin:0; font-size:16px; font-weight:600; }
+  .bienvenue .date { color:var(--text-muted); font-size:12px; margin-top:2px; }
+  .bienvenue dl { margin:0; display:grid; grid-template-columns:auto auto; gap:2px 14px; font-size:12px; }
+  .bienvenue dt { color:var(--text-muted); } .bienvenue dd { margin:0; font-weight:600; }
+  .bande-titre { font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--text-label); margin:6px 0 8px; display:flex; align-items:center; gap:8px; }
+  .bande-titre::before { content:""; width:8px; height:8px; border-radius:50%; background:var(--text-muted); }
+  .bande-titre.retard::before { background:var(--status-submitted); }
+  .bande-titre.jour::before { background:var(--accent); }
+  .bande-titre .n { font-weight:500; color:var(--text-muted); letter-spacing:0; text-transform:none; }
+  .bande { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:14px; }
+  .file-carte { width:222px; border:1px solid var(--panel-border); border-radius:10px; padding:12px 14px; background:var(--surface); }
+  .file-carte .n { font-size:22px; font-weight:600; line-height:1; }
+  .file-carte .t { font-size:13px; font-weight:600; margin-top:6px; }
+  .file-carte .s { font-size:12px; color:var(--text-muted); margin-top:2px; }
+  .file-carte:focus-visible { outline:2px solid var(--focus-ring); outline-offset:2px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { border:1px solid var(--border-strong); border-radius:999px; padding:5px 11px; font-size:12px; color:var(--text-secondary); background:var(--surface); }
+  .chip.on { background:var(--accent-soft); color:var(--sb-active-fg); border-color:var(--accent-action); font-weight:600; }
+  .rangees-note { font-size:11.5px; color:var(--text-muted); margin:-6px 0 12px; }
+
+  /* ---------- Légendes ---------- */
+  .legende { display:grid; grid-template-columns:repeat(2, 1fr); gap:6px 24px; margin:14px 4px 0; font-size:12.5px; color:var(--text-secondary); padding:0; }
+  .legende li { list-style:none; padding-left:18px; position:relative; }
+  .legende li::before { content:"•"; position:absolute; left:4px; color:var(--accent-action); font-weight:700; }
+  .legende.probleme li::before { color:var(--danger); }
+  .legende code { font-family:Consolas, "Cascadia Mono", monospace; font-size:11.5px; color:var(--text-primary); }
+  h2.section-titre { font-size:15px; margin:0 4px 8px; font-weight:600; }
+  .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+
+  /* ============================================================
+     AVANT — réplique de la barre actuelle (MainWindow.xaml 425-575)
+     Grille réelle : colonnes 248 | 20 | * ; lignes fil d'Ariane (Auto) | contenu (*) | bandeau (Auto, ColumnSpan=3)
+     ============================================================ */
+  .corps-avant { padding:24px; display:grid; grid-template-columns:248px 20px 1fr; grid-template-rows:auto 1fr auto; gap:0; height:724px; }
+  .corps-avant.accueil { grid-template-columns:0 0 1fr; } /* SyncSidebarToTab : SidebarColumn = SidebarGapColumn = 0, SidebarBorder Collapsed */
+  .card-av { grid-row:1 / 3; grid-column:1; background:var(--surface); border:1px solid var(--panel-border); border-radius:10px; padding:18px 14px; display:flex; flex-direction:column; min-height:0; }
+  .card-av[hidden] { display:none; }
+  .av-label { font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--text-muted); margin:0 0 10px 14px; }
+  .av-btn { display:flex; align-items:center; gap:10px; width:100%; height:40px; padding:0 14px; border:0; border-radius:6px; background:transparent; color:var(--text-secondary); font-size:13px; font-weight:600; cursor:pointer; text-align:left; position:relative; }
+  .av-btn:hover, .av-btn:focus { background:var(--surface-subtle); outline:none; } /* survol et focus identiques : P07 */
+  .av-btn .ic, .av-head .ic { color:var(--text-muted); stroke-width:1.4; } /* ModuleGroupIcon : trait 1,4 TextMutedBrush */
+  .av-search { position:relative; margin:10px 0 14px; }
+  .av-search input { width:100%; height:34px; border:1px solid var(--field-border); border-radius:8px; padding:0 32px; font:inherit; font-size:12.5px; color:var(--text-primary); background:var(--surface); }
+  .av-search .ic { position:absolute; left:10px; top:9px; color:var(--text-placeholder); }
+  .av-list { flex:1; overflow-y:auto; overflow-x:hidden; padding:0 2px; }
+  .av-head { display:flex; align-items:center; gap:0; width:100%; height:36px; margin-bottom:2px; padding:0 10px; border:0; border-radius:6px; background:transparent; cursor:pointer; text-align:left; color:var(--text-primary); }
+  .av-head:hover, .av-head:focus { background:var(--surface-subtle); outline:none; }
+  .av-head .ic { margin-right:10px; }
+  .av-head .lbl { flex:1; min-width:0; font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .av-head .badge { background:var(--surface-subtle); color:var(--text-secondary); font-size:10.5px; font-weight:600; border-radius:999px; padding:2px 7px; margin-left:8px; }
+  .av-head .chev { width:9px; height:7px; margin-left:8px; color:var(--text-muted); transform:rotate(-90deg); } /* RaqmiTheme.xaml:1454-1456 : −90° replié */
+  .av-head[aria-expanded="true"] .chev { transform:rotate(0); }                                                 /* :1467-1472 : 0° déplié */
+  .av-groupe .av-corps { display:none; }
+  .av-groupe.ouvert .av-corps { display:block; }
+  .av-mod { font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--text-muted); margin:6px 0 3px 18px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .av-sub { display:flex; align-items:center; width:calc(100% - 8px); margin:0 0 2px 8px; height:34px; padding:0 14px 0 10px; border:0; border-radius:6px; background:transparent; color:var(--text-secondary); font-size:12.5px; cursor:pointer; text-align:left; position:relative; }
+  .av-sub span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .av-sub:hover, .av-sub:focus { background:var(--surface-subtle); outline:none; }
+  .av-sub.active { background:var(--module-active-bg); color:var(--primary); font-weight:600; }
+  .av-sub.active::before { content:""; position:absolute; left:0; top:8px; bottom:8px; width:3px; border-radius:1.5px; background:var(--accent); }
+  .av-sub[aria-disabled="true"] { color:var(--disabled-fg); cursor:default; }
+  .av-foot { border-top:1px solid var(--panel-border); margin-top:10px; padding-top:9px; }
+  .av-foot[hidden] { display:none; }
+  .av-content { grid-column:3; grid-row:2; min-height:0; display:flex; flex-direction:column; }
+  .av-content > .carte { flex:1; }
+  .av-fil { grid-column:3; grid-row:1; margin-bottom:12px; }
+  .av-fil.cache { display:none; } /* Visibility=Collapsed : la ligne Auto tombe à 0, le contenu remonte de 34 px */
+  .av-session { grid-column:1 / 4; grid-row:3; } /* Grid.ColumnSpan=3 : le bandeau passe sous la colonne de la barre */
+
+  /* ============================================================
+     APRÈS — panneau plat 260 px, présent partout
+     ============================================================ */
+  .corps-apres { display:grid; grid-template-columns:260px 1fr; height:724px; }
+  .fenetre.compacte { --h-dom:32px; --h-scr:32px; --h-sec:22px; }
+  .sb { background:var(--sb-bg); border-right:1px solid var(--sb-border); padding:12px 8px; display:flex; flex-direction:column; min-height:0; }
+  .sb-sep { height:1px; background:var(--panel-border); margin:8px 4px; flex:none; }
+  .sb-row, .sb-screen, .sb-home { position:relative; display:flex; align-items:center; gap:10px; width:100%; border:0; border-radius:6px; background:transparent; cursor:pointer; text-align:left; padding:0 10px; }
+  .sb-row:focus-visible, .sb-screen:focus-visible, .sb-home:focus-visible, .sb-search input:focus-visible, .sb-clear:focus-visible, .sb-empty button:focus-visible { outline:2px solid var(--sb-focus); outline-offset:-1px; }
+  .sb-row:hover, .sb-home:hover { background:var(--sb-hover); }
+  .sb-home { min-height:40px; color:var(--sb-text); font-weight:600; font-size:13px; }
+  .sb-home .ic { color:var(--sb-icon); }
+  .sb-row { min-height:var(--h-dom); color:var(--sb-text); font-weight:600; font-size:13px; }
+  .sb-row .ic { color:var(--sb-icon); }
+  .sb-row.contains .ic, .sb-home.active .ic { color:var(--sb-active-ind); }
+  .sb-row .lbl, .sb-home .lbl { flex:1; min-width:0; line-height:17px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .sb-row .dot { width:6px; height:6px; border-radius:50%; background:var(--sb-active-ind); margin-right:6px; display:none; }
+  .sb-row.contains[aria-expanded="false"] .dot { display:block; }
+  .sb-row .cnt { display:none; background:var(--surface-subtle); color:var(--text-secondary); font-size:11px; font-weight:600; border-radius:999px; padding:1px 7px; }
+  .sb.recherche .sb-row .cnt { display:inline-block; }
+  .sb-row .chev { width:9px; height:7px; color:var(--text-muted); margin-left:8px; transition:transform .12s; transform:rotate(-90deg); } /* ▸ au repos */
+  .sb-row[aria-expanded="true"] .chev { transform:rotate(0); }                                                                              /* ▾ déplié */
+  .sb-row[hidden] { display:none; }
+  .sb-groupe { margin-bottom:0; }
+  .sb-groupe .ecrans { display:none; padding-bottom:6px; }
+  .sb-groupe.ouvert .ecrans { display:block; }
+  .sb-screen { min-height:var(--h-scr); padding-left:36px; color:var(--sb-screen-text); font-size:13px; font-weight:400; margin-top:2px; }
+  .sb-screen .lbl { flex:1; line-height:17px; }
+  .sb-screen:hover { background:var(--sb-hover); color:var(--text-primary); }
+  .sb-screen.active, .sb-home.active { background:var(--sb-active-bg); color:var(--sb-active-fg); font-weight:600; }
+  .sb-screen.active::before, .sb-home.active::before { content:""; position:absolute; left:0; top:6px; bottom:6px; width:3px; border-radius:1.5px; background:var(--sb-active-ind); }
+  .sb-screen[aria-disabled="true"] { color:var(--sb-disabled); cursor:default; }
+  .sb-screen[aria-disabled="true"]:hover { background:transparent; color:var(--sb-disabled); }
+  .sb-screen .lock { width:12px; height:12px; color:var(--sb-disabled); }
+  /* Info-bulle simulée : multiligne et bornée à la largeur de la rangée, pour ne jamais créer de défilement horizontal dans .sb-list */
+  .sb-screen[data-tip]::after { content:attr(data-tip); position:absolute; left:10px; right:10px; top:calc(100% - 2px); z-index:5; background:var(--structure); color:#FFFFFF; font-size:12px; font-weight:400; line-height:1.3; padding:6px 10px; border-radius:6px; white-space:normal; max-width:220px; opacity:0; pointer-events:none; transition:opacity .1s; transition-delay:0s; box-shadow:0 6px 18px rgba(7,21,37,.25); }
+  .sb-screen[data-tip]:hover::after, .sb-screen[data-tip]:focus::after { opacity:1; transition-delay:.6s; }
+  .sb-screen[hidden] { display:none; }
+  .sb-section { height:var(--h-sec); padding:6px 10px 0 36px; font-size:11px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--sb-section); pointer-events:none; }
+  .sb-section[hidden] { display:none; }
+  .sb-search { position:relative; margin:0 4px 10px; flex:none; }
+  .sb-search input { width:100%; height:34px; border:1px solid var(--field-border); border-radius:6px; padding:0 26px 0 30px; font:inherit; font-size:13px; color:var(--text-primary); background:var(--surface); }
+  .sb-search input::placeholder { color:var(--text-placeholder); }
+  .sb-search input:focus { border-color:var(--sb-focus); }
+  .sb-search .loupe { position:absolute; left:9px; top:10px; width:14px; height:14px; color:var(--text-placeholder); }
+  .sb-clear { position:absolute; right:4px; top:6px; width:22px; height:22px; border:0; border-radius:5px; background:transparent; color:var(--text-muted); cursor:pointer; display:none; padding:0; }
+  .sb-clear:hover { background:var(--surface-hover); }
+  .sb.recherche .sb-clear { display:grid; place-items:center; }
+  .sb-list { flex:1; overflow-y:auto; overflow-x:hidden; min-height:0; scrollbar-width:thin; scrollbar-color:var(--border-strong) transparent; }
+  .sb-empty { display:none; padding:8px 10px 0; font-size:12px; color:var(--text-muted); }
+  .sb-empty.on { display:block; }
+  .sb-empty button { margin-top:8px; background:transparent; border:1px solid var(--field-border); color:var(--text-primary); border-radius:6px; padding:6px 10px; font-weight:600; font-size:12px; cursor:pointer; }
+  .sb-empty button:hover { background:var(--surface-hover); }
+  .sb-foot { flex:none; }
+  .sb-foot[hidden] { display:none; }
+  .sb-foot .sb-sep[hidden] { display:none; }
+  .ap-col { padding:24px; display:grid; grid-template-rows:24px 1fr auto; row-gap:0; min-height:0; }
+  .ap-col .fil { margin-bottom:0; }
+  .ap-col .fil.cache { visibility:hidden; } /* Visibility=Hidden : la ligne de 24 px reste réservée, rien ne saute */
+  .ap-content { margin-top:12px; min-height:0; display:flex; flex-direction:column; }
+  .ap-content > .carte { flex:1; }
+</style>
+</head>
+<body>
+
+<div class="maquette-bar" role="toolbar" aria-label="Commandes de la maquette">
+  <strong>Barre latérale</strong>
+  <div class="seg" role="tablist" aria-label="Avant / Après">
+    <button role="tab" id="tab-avant" aria-pressed="true" aria-controls="avant">Avant</button>
+    <button role="tab" id="tab-apres" aria-pressed="false" aria-controls="apres">Après</button>
+  </div>
+  <div class="grp">
+    <strong>Profil</strong>
+    <div class="seg" aria-label="Profil connecté (clés de SecuritySeeder.cs)">
+      <button id="btn-prof-um" aria-pressed="true" title="Rôle unit.manager : 12 domaines, pas d'Administration Système">Directeur d'unité</button>
+      <button id="btn-prof-adm" aria-pressed="false" title="Rôle system.administrator : 15 domaines + Administration Système épinglée">Administrateur</button>
+    </div>
+  </div>
+  <div class="grp">
+    <strong>Écran</strong>
+    <div class="seg" aria-label="Écran affiché">
+      <button id="btn-fact" aria-pressed="true">Facturation</button>
+      <button id="btn-home" aria-pressed="false">Mon Espace</button>
+    </div>
+  </div>
+  <div class="grp" id="ctl-apres" hidden>
+    <label><input type="checkbox" id="chk-compacte"> Densité compacte</label>
+    <label title="Seul cas où une rangée désactivée existe : l'écran est dans l'arbre au chargement, la permission est révoquée ensuite. En régime permanent, NavigationTreeBuilder élague et la barre n'affiche aucun cadenas."><input type="checkbox" id="chk-lock"> Simuler une permission retirée en cours de session</label>
+  </div>
+  <label><input type="checkbox" id="chk-sombre"> Thème sombre</label>
+  <span class="note" id="note-profil">1280 × 800 · Manrope</span>
+</div>
+
+<!-- Sprite d'icônes : géométries 16 × 16, trait 1,5, sans remplissage (docs/design/icones-domaines.md) -->
+<svg hidden xmlns="http://www.w3.org/2000/svg">
+  <symbol id="ic-MonEspace" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="6.5" r="2.1"/><path d="M4.4 12.6c.8-2 2-2.9 3.6-2.9s2.8.9 3.6 2.9"/></symbol>
+  <!-- Maison : géométrie exacte de ShowHomeButton (MainWindow.xaml:483) -->
+  <symbol id="ic-maison" viewBox="0 0 16 16"><path d="M2,8.2 L8,2.5 L14,8.2 M3.8,7 V14 H6.8 V10.2 H9.2 V14 H12.2 V7"/></symbol>
+  <symbol id="ic-Administration" viewBox="0 0 16 16"><rect x="5.5" y="1.6" width="5" height="3.4" rx=".7"/><rect x="1.6" y="10.8" width="4.8" height="3.4" rx=".7"/><rect x="9.6" y="10.8" width="4.8" height="3.4" rx=".7"/><path d="M8 5v2.6M4 10.8V7.6h8v3.2"/></symbol>
+  <symbol id="ic-Finance" viewBox="0 0 16 16"><rect x="1.6" y="4" width="12.8" height="8" rx="1"/><circle cx="8" cy="8" r="1.9"/><path d="M4.2 8h.01M11.8 8h.01"/></symbol>
+  <symbol id="ic-Commercial" viewBox="0 0 16 16"><rect x="1.6" y="3" width="12.8" height="10" rx="1.2"/><circle cx="5.4" cy="7.1" r="1.5"/><path d="M3.5 11c.4-1.2 1.1-1.8 1.9-1.8s1.5.6 1.9 1.8M9.2 6.5h3.2M9.2 9.5h3.2"/></symbol>
+  <symbol id="ic-Facturation" viewBox="0 0 16 16"><path d="M3 1.8h10v11.6l-1.7-1.2-1.7 1.2-1.6-1.2-1.6 1.2-1.7-1.2L3 13.4z"/><path d="M5.5 5.5h5M5.5 8.5h3"/></symbol>
+  <symbol id="ic-Hebergement" viewBox="0 0 16 16"><path d="M1.8 13.2V5.6M1.8 9.4h12.4v3.8M4 9.4V7.2a1.2 1.2 0 011.2-1.2h4.4a2.6 2.6 0 012.6 2.6v.8M7.6 9.4V6"/></symbol>
+  <symbol id="ic-Revenue" viewBox="0 0 16 16"><path d="M1.8 12.5c2.5 0 3.5-3.5 5.5-3.5s2.5 2 4.2 2 2.2-3.8 2.7-6M10.8 4.7h3.4v3.4"/></symbol>
+  <symbol id="ic-Housekeeping" viewBox="0 0 16 16"><path d="M11.4 1.8L6.6 8.4M4.9 8.2l3.6 2.4-1.4 3.4H3.7L2.6 11.2zM6.4 9.2l-1.4 3.8"/></symbol>
+  <symbol id="ic-Evenementiel" viewBox="0 0 16 16"><rect x="1.8" y="3" width="12.4" height="11" rx="1.2"/><path d="M1.8 6.6h12.4M5 1.6v2.8M11 1.6v2.8"/><rect x="4.2" y="8.6" width="3.4" height="2.6" rx=".4"/></symbol>
+  <symbol id="ic-Restauration" viewBox="0 0 16 16"><path d="M3 11.4a5 5 0 0110 0M8 6.4V5.2M7 5.2h2M1.6 13.6h12.8M2 11.4h12"/></symbol>
+  <symbol id="ic-Stocks" viewBox="0 0 16 16"><rect x="1.8" y="8.4" width="5.6" height="5.6" rx=".6"/><rect x="8.6" y="8.4" width="5.6" height="5.6" rx=".6"/><rect x="5.2" y="2" width="5.6" height="5.6" rx=".6"/></symbol>
+  <symbol id="ic-Achats" viewBox="0 0 16 16"><path d="M8 1.8l6 3v6.4l-6 3-6-3V4.8zM2 4.8l6 3 6-3M8 7.8v6.4M5 3.3l6 3"/></symbol>
+  <symbol id="ic-RessourcesHumaines" viewBox="0 0 16 16"><circle cx="5.5" cy="5" r="2.2"/><circle cx="11" cy="5.6" r="1.8"/><path d="M1.8 13.4c.5-2.7 1.8-4 3.7-4s3.2 1.3 3.7 4M9.6 13.4c.3-2 1-3 2.2-3s1.9 1 2.2 3"/></symbol>
+  <symbol id="ic-Maintenance" viewBox="0 0 16 16"><path d="M13.8 4.4a3.6 3.6 0 01-4.6 4.4L4 14l-2-2 5.2-5.2a3.6 3.6 0 014.4-4.6L9.4 4.4l2.2 2.2z"/></symbol>
+  <symbol id="ic-Qualite" viewBox="0 0 16 16"><rect x="3" y="2.6" width="10" height="12" rx="1.2"/><rect x="5.8" y="1.4" width="4.4" height="2.4" rx=".6"/><path d="M5.6 9.4l1.8 1.8 3.4-3.6"/></symbol>
+  <symbol id="ic-Juridique" viewBox="0 0 16 16"><path d="M8 2v11.6M4.6 13.6h6.8M3 4.4h10M3 4.4L1.4 9a1.6 1.6 0 003.2 0zM13 4.4L11.4 9a1.6 1.6 0 003.2 0z"/></symbol>
+  <symbol id="ic-Documentaire" viewBox="0 0 16 16"><path d="M1.8 4.2a1 1 0 011-1h3.6l1.6 1.8h5.2a1 1 0 011 1v7a1 1 0 01-1 1H2.8a1 1 0 01-1-1z"/></symbol>
+  <symbol id="ic-Marina" viewBox="0 0 16 16"><path d="M8 1.8v9.6M8 2.4l5.2 8.4H8M8 5.2L4.2 10.8H8M1.8 13h12.4l-1.2 1.4H3z"/></symbol>
+  <symbol id="ic-Parking" viewBox="0 0 16 16"><path d="M2.4 12.8V9.6l1.6-4.2a1.4 1.4 0 011.3-.9h5.4a1.4 1.4 0 011.3.9l1.6 4.2v3.2M2.4 9.6h11.2M4.4 12.8v1.4M11.6 12.8v1.4M4.6 11.4h.01M11.4 11.4h.01"/></symbol>
+  <symbol id="ic-Pilotage" viewBox="0 0 16 16"><path d="M2.2 12a6 6 0 0111.6 0M8 12l2.8-3.6M2.2 12h11.6"/></symbol>
+  <symbol id="ic-Integrations" viewBox="0 0 16 16"><path d="M5.6 1.8v3.4M10.4 1.8v3.4M3.6 5.2h8.8v2.4a4.4 4.4 0 01-8.8 0zM8 12v2.4"/></symbol>
+  <symbol id="ic-Systeme" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.2"/><circle cx="8" cy="8" r="4.6"/><path d="M8 1.6v2M8 12.4v2M1.6 8h2M12.4 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M3.5 12.5l1.4-1.4M11.1 4.9l1.4-1.4"/></symbol>
+  <!-- Chevron dessiné pointe en bas ; la CSS le tourne à −90° au repos (pointe à droite), 0° déplié, comme RaqmiTheme.xaml -->
+  <symbol id="ic-chevron" viewBox="0 0 9 7"><path d="M1 1.5l3.5 3.5L8 1.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-loupe" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.6"/><path d="M10.4 10.4L14 14"/></symbol>
+  <symbol id="ic-croix" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
+  <symbol id="ic-cadenas" viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="7.5" rx="1.2"/><path d="M5.2 7V5a2.8 2.8 0 015.6 0v2"/></symbol>
+  <symbol id="ic-power" viewBox="0 0 16 16"><path d="M8 1.8v6M4.2 4.6a5.4 5.4 0 107.6 0"/></symbol>
+</svg>
+
+<!-- ===================================================================== -->
+<!-- AVANT                                                                   -->
+<!-- ===================================================================== -->
+<div class="page" id="avant" role="tabpanel" aria-labelledby="tab-avant">
+  <h2 class="section-titre">Avant — barre actuelle (carte blanche 248 px, repliée à zéro sur Mon Espace : cliquez « Mon Espace » ci-dessus)</h2>
+  <div class="fenetre">
+    <header class="entete">
+      <div class="marque">R</div>
+      <h1>Raqmi System</h1>
+      <span class="signature">Groupe Riadh Hôtels</span>
+      <div class="session"><span id="av-entete-unite"></span><span class="ghost"><b id="av-entete-nom"></b> ▾</span><span class="ghost" aria-label="Déconnexion"><svg class="ic" style="width:14px;height:14px"><use href="#ic-power"/></svg></span></div>
+    </header>
+    <div class="corps-avant" id="corps-avant">
+      <aside class="card-av" id="card-av" aria-label="Navigation des modules (actuelle)">
+        <p class="av-label">Modules</p>
+        <button class="av-btn" id="av-home" aria-label="Mon Espace, accueil"><svg class="ic"><use href="#ic-maison"/></svg><span>Mon Espace</span></button>
+        <div class="av-search"><svg class="ic"><use href="#ic-loupe"/></svg><input type="text" placeholder="Rechercher un module…" aria-label="Rechercher un module" disabled title="Recherche non simulée dans l'Avant"></div>
+        <div class="av-list" id="av-list"></div>
+        <div class="av-foot" id="av-foot"></div>
+      </aside>
+      <div class="fil av-fil" id="av-fil"></div>
+      <div class="av-content" id="av-content"></div>
+      <div class="bandeau-session av-session" id="av-session"></div>
+    </div>
+  </div>
+  <ul class="legende probleme">
+    <li>Sur Mon Espace, cette barre disparaît : le contenu saute de 268 px vers la gauche et d'≈ 26 px vers le haut, sans transition (<code>MainWindow.Navigation.cs:204-206</code>) — l'écran le plus visité n'a plus aucun chemin visible vers un module.</li>
+    <li>Carte blanche arrondie à 24 px du bord, à 1,08:1 du fond : ni chrome, ni prolongement de l'en-tête bleu nuit.</li>
+    <li>« Mon Espace » deux fois (bouton + domaine 01 repliable) ; en profil Administrateur, « Administration & Socle ERP » et « Administration Système » se tronquent en deux « Administration… ».</li>
+    <li>Trois niveaux : « Facturation & Ventes › Documents de vente › Facturation » pour un seul écran ; badge « 1 » sur presque chaque ligne.</li>
+    <li>Survol et focus clavier identiques (fond #EEF4F8, 1,11:1) : essayez Tab dans ce panneau.</li>
+    <li>Noms coupés par des points de suspension sans info-bulle ; libellé « Modules », quatre tailles de texte.</li>
+  </ul>
+</div>
+
+<!-- ===================================================================== -->
+<!-- APRÈS                                                                   -->
+<!-- ===================================================================== -->
+<div class="page" id="apres" role="tabpanel" aria-labelledby="tab-apres" hidden>
+  <h2 class="section-titre">Après — panneau plat 260 px, deux niveaux, présent partout (interactif : clic, clavier, recherche)</h2>
+  <div class="fenetre" id="fenetre-apres">
+    <header class="entete">
+      <div class="marque">R</div>
+      <h1>Raqmi System</h1>
+      <span class="signature">Groupe Riadh Hôtels</span>
+      <div class="session"><span id="ap-entete-unite"></span><span class="ghost"><b id="ap-entete-nom"></b> ▾</span><span class="ghost" aria-label="Déconnexion"><svg class="ic" style="width:14px;height:14px"><use href="#ic-power"/></svg></span></div>
+    </header>
+    <div class="corps-apres">
+      <aside class="sb" id="sb" aria-label="Navigation des modules">
+        <button class="sb-home" id="sb-home" aria-label="Mon Espace, accueil" data-nav-row data-strate="home" data-tab="0"><svg class="ic"><use href="#ic-maison"/></svg><span class="lbl">Mon Espace</span></button>
+        <div id="sb-home-ecrans"></div>
+        <div class="sb-sep"></div>
+        <div class="sb-search">
+          <svg class="loupe ic"><use href="#ic-loupe"/></svg>
+          <input type="search" id="sb-q" placeholder="Rechercher un écran…" aria-label="Rechercher un écran" autocomplete="off">
+          <button class="sb-clear" id="sb-clear" aria-label="Effacer la recherche"><svg class="ic" style="width:12px;height:12px"><use href="#ic-croix"/></svg></button>
+        </div>
+        <div class="sb-sep" style="margin-top:0"></div>
+        <div class="sb-list" id="sb-list" role="group" aria-label="Domaines"></div>
+        <div class="sb-empty" id="sb-empty">Aucun écran ne correspond. L'accueil liste les 50 modules du catalogue.<br><button type="button" id="sb-ouvrir-catalogue">Ouvrir le catalogue</button></div>
+        <div class="sb-foot" id="sb-foot"><div class="sb-sep" id="sb-foot-sep"></div><div id="sb-foot-groupe"></div></div>
+        <div class="sr-only" id="sb-live" aria-live="polite"></div>
+      </aside>
+      <div class="ap-col">
+        <div class="fil" id="ap-fil" aria-live="polite"></div>
+        <div class="ap-content" id="ap-content"></div>
+        <div class="bandeau-session" id="ap-session"></div>
+      </div>
+    </div>
+  </div>
+  <ul class="legende">
+    <li>Panneau de structure collé au bord, pleine hauteur, un seul filet <code>BorderStrongBrush</code> ; il reste sur Mon Espace (bouton « Mon Espace » ci-dessus) : aucune colonne ne bouge. Le bandeau de session passe dans la colonne de contenu.</li>
+    <li>Les domaines affichés sont ceux dont le profil détient au moins une permission de lecture (clés de <code>SecuritySeeder.cs</code>) : Directeur d'unité = 12 domaines, sans Administration Système ; Administrateur = 15 domaines + Administration Système épinglée en pied.</li>
+    <li>Deux niveaux : dépliez « Pilotage, KPI & BI » (séparateur DASHBOARDS car 3 écrans) ; en Administrateur, « Finance » montre 6 écrans à plat, sans libellé de module.</li>
+    <li>Clavier : Tab s'arrête sur Mon Espace, ses écrans, la recherche, <em>une seule rangée</em> de la liste, puis le pied (tabindex tournant) ; ↑ ↓ entre rangées, → déplie, ← replie, Origine / Fin, Échap revient au champ ; l'anneau de focus (2 px navy) ne ressemble jamais au survol.</li>
+    <li>Recherche : tapez « tarif », « clôture », « 5.2 » (ordre du catalogue) ou « xyz » ; Entrée ouvre le premier résultat ; Échap efface sans quitter le champ ; compteur seulement en recherche.</li>
+    <li>Aucun cadenas en régime permanent : un écran non autorisé n'est pas dans l'arbre. La case « Simuler une permission retirée en cours de session » montre le seul cas d'une rangée désactivée, avec le texte réel de <code>ModuleTile.AccessDeniedToolTip</code> : « Accès non autorisé pour votre profil ».</li>
+    <li>Libellés courts du catalogue (« Admin & Socle ERP », « Groupes & MICE », « Revenue Management ») ; nom complet et numéro en info-bulle de l'en-tête ; les libellés d'écran longs passent sur deux lignes (Administrateur › Administration Système › Registre des postes).</li>
+  </ul>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------ */
+  /* Catalogue : FunctionalArchitectureCatalog.Tree.cs, écrans réels      */
+  /* (clé, onglet, ordre du catalogue, libellé, permission de lecture,   */
+  /* description). Les alias ne sont pas des rangées (ModuleNavigationGroup */
+  /* l. 90 les exclut). Aucune règle métier : la maquette rejoue l'élagage */
+  /* de NavigationTreeBuilder à partir des clés du profil, comme le fait  */
+  /* l'application au chargement.                                         */
+  /* ------------------------------------------------------------------ */
+  function S(tab, order, label, perm, desc) { return { tab: tab, order: order, label: label, perm: perm, desc: desc }; }
+
+  var CATALOGUE = [
+    { id: '01', label: 'Mon Espace', short: 'Mon Espace', icon: 'MonEspace', desc: 'Files de travail, validations et compte de la personne connectée', modules: [
+      { label: 'Mon travail', screens: [ S(16, '22.2', 'Workflows & validations', 'approvals.read', 'Circuits d’approbation par type de sujet et décisions étape par étape') ] } ] },
+    { id: '02', label: 'Administration & Socle ERP', short: 'Admin & Socle ERP', icon: 'Administration', desc: 'Organisation, utilisateurs, référentiels et paramétrage', modules: [
+      { label: 'Organisation', sub: 'Unités hôtelières', screens: [ S(1, '3', 'Unités hôtelières', 'units.read', 'Référentiel des unités et des établissements') ] },
+      { label: 'Utilisateurs', sub: 'Comptes et rôles', screens: [ S(10, '1', 'Administration & utilisateurs', 'users.read', 'Comptes, rôles, permissions et périmètres') ] },
+      { label: 'Paramétrage', sub: 'Paramètres globaux', screens: [ S(9, '2', 'Paramétrage global', 'settings.read', 'Identité de l’établissement, réglages du poste et santé du système') ] } ] },
+    { id: '03', label: 'Finance & Comptabilité', short: 'Finance & Comptabilité', icon: 'Finance', desc: 'Comptabilité SCF, trésorerie, créances, budget et fiscalité', modules: [
+      { label: 'Comptabilité', screens: [ S(11, '5.2', 'Comptabilité SCF', 'accounting.read', 'Plan de comptes, journaux, écritures en partie double et balance') ] },
+      { label: 'Trésorerie', screens: [ S(6, '5', 'Encaissements & trésorerie', 'treasury.read', 'Caisses, banques et ordres de paiement') ] },
+      { label: 'Créances', screens: [ S(13, '9', 'Créances & recouvrement', 'receivables.read', 'Balance âgée, relances et risque client') ] },
+      { label: 'Budget', sub: 'Budget vs réalisé', screens: [ S(12, '6', 'Budget & prévisions', 'budget.read', 'Objectifs, budgets mensuels et écarts') ] },
+      { label: 'Fiscalité', sub: 'Déclarations DGI et SIFEC', screens: [ S(31, '5.4', 'Fiscalité DGI & SIFEC', 'finance.fiscal.read', 'TVA, déclarations, liasse et lien SIFEC') ] },
+      { label: 'Recettes journalières', sub: 'CA journalier', screens: [ S(2, '4', 'CA journalier (ERP)', 'revenue.read', 'Saisie du jour, validation unité et DEC') ] } ] },
+    { id: '04', label: 'Commercial, Clients & CRM', short: 'Commercial & CRM', icon: 'Commercial', desc: 'Clients, conventions, CRM et satisfaction', modules: [
+      { label: 'Clients', screens: [ S(7, '9.2', 'Clients', 'customers.read', 'Fichier clients et historique commercial') ] },
+      { label: 'CRM', screens: [ S(23, '10.4', 'CRM & expérience client', 'crm.read', 'Vue client 360°, segmentation, fidélité, campagnes et NPS') ] } ] },
+    { id: '05', label: 'Facturation & Ventes', short: 'Facturation & Ventes', icon: 'Facturation', desc: 'Factures clients, avoirs et registre des ventes', modules: [
+      { label: 'Documents de vente', sub: 'Factures', screens: [ S(8, '8', 'Facturation', 'invoices.read', 'Factures clients, avoirs et registre des ventes') ] } ] },
+    { id: '06', label: 'PMS / Hébergement', short: 'PMS / Hébergement', icon: 'Hebergement', desc: 'Inventaire, réservations, front office et clôture', modules: [
+      { label: 'Inventaire', screens: [ S(15, '10', 'Hébergement & occupation', 'lodging.read', 'Types de chambre, réservations, folios et taux d’occupation') ] },
+      { label: 'Front Office', screens: [ S(30, '10.1', 'PMS front office', 'lodging.read', 'Planning, arrivées, départs, clients présents, prévisionnel, hors service et night audit') ] },
+      { label: 'Contrôle', screens: [ S(5, '4.5', 'Clôture journalière & Night Audit', 'closing.read', 'Clôture de la date métier et Night Audit') ] } ] },
+    { id: '07', label: 'Revenue Management & Distribution', short: 'Revenue Management', icon: 'Revenue', desc: 'Tarification, restrictions, yield et distribution', modules: [
+      { label: 'Tarification', sub: 'Plans tarifaires et périodes', screens: [ S(14, '14.5', 'Tarifs & conventions', 'tariffs.read', 'Plans tarifaires, périodes de tarif et conventions clients') ] } ] },
+    { id: '08', label: 'Housekeeping', short: 'Housekeeping', icon: 'Housekeeping', desc: 'Statut des chambres, inspections et minibar', modules: [
+      { label: 'Housekeeping', screens: [ S(21, '10.2', 'Housekeeping & chambres', 'housekeeping.read', 'Planning des équipes, inspection, minibar') ] } ] },
+    { id: '09', label: 'Groupes, MICE & Événementiel', short: 'Groupes & MICE', icon: 'Evenementiel', desc: 'Groupes, allotements, salles et événements', modules: [
+      { label: 'Groupes', sub: 'Allotements et rooming lists', screens: [ S(28, '10.6', 'Groupes & MICE', 'mice.read', 'Salles, événements, devis, BEO, allotements et rooming lists') ] } ] },
+    { id: '10', label: 'F&B / Restauration', short: 'F&B / Restauration', icon: 'Restauration', desc: 'Fiches techniques, hygiène et points de vente', modules: [
+      { label: 'Fiches techniques', sub: 'Recettes, portions et coût matière', screens: [ S(26, '11.5', 'Cuisine, production & qualité', 'kitchen.read', 'Fiches techniques, coût matière et relevés de température HACCP') ] } ] },
+    { id: '11', label: 'Stocks & Économat', short: 'Stocks & Économat', icon: 'Stocks', desc: 'Stocks, mouvements, valorisation et inventaires', modules: [
+      { label: 'Stocks', screens: [ S(24, '11', 'Stocks & consommations', 'inventory.read', 'Magasins, articles, mouvements valorisés au PMP et inventaires physiques') ] } ] },
+    { id: '12', label: 'Achats & Fournisseurs', short: 'Achats & Fournisseurs', icon: 'Achats', desc: 'Fournisseurs, commandes, réceptions et marchés', modules: [
+      { label: 'Fournisseurs', sub: 'Fiches fournisseurs', screens: [ S(25, '12', 'Achats & approvisionnements', 'purchasing.read', 'Fournisseurs, bons de commande et réceptions entrées en stock') ] } ] },
+    { id: '13', label: 'Ressources Humaines & Paie', short: 'RH & Paie', icon: 'RessourcesHumaines', desc: 'Personnel, temps, congés et paie', modules: [
+      { label: 'Personnel', screens: [ S(22, '21', 'RH & paie', 'hr.read', 'Collaborateurs, contrats, temps et absences, paie algérienne') ] } ] },
+    { id: '20', label: 'Pilotage, KPI & BI', short: 'Pilotage, KPI & BI', icon: 'Pilotage', desc: 'Tableaux de bord, KPI et rapports', modules: [
+      { label: 'Dashboards', screens: [
+        S(3, '24', 'Tableaux de bord directionnels', 'dashboard.read', 'Indicateurs consolidés par période et unité'),
+        S(19, '24.2', 'Dashboard PDG', 'dashboard.read', 'Vision groupe et alertes de direction'),
+        S(20, '24.4', 'Cockpit DEC', 'dashboard.read', 'Pilotage exploitation et contrôles quotidiens') ] },
+      { label: 'KPI Engine', screens: [ S(29, '25.4', 'Comparatif inter-unités', 'dashboard.read', 'Bibliothèque KPI, classement des unités et comparaisons N/N-1') ] },
+      { label: 'BI', screens: [ S(17, '25', 'Rapports automatiques', 'reports.read', 'Catalogue de rapports paramétrables, export CSV et journal des exécutions') ] } ] },
+    { id: '22', label: 'Administration Système', short: 'Administration Système', icon: 'Systeme', desc: 'Sauvegarde, journalisation, postes clients', modules: [
+      { label: 'Maintenance', screens: [
+        S(18, '28', 'Sauvegarde & restauration', 'maintenance.read', 'État des sauvegardes, déclenchement à la demande et paliers de rétention'),
+        S(4, '30', 'Journalisation & traçabilité', 'audit.read', 'Journal d’audit, recherche et export') ] },
+      { label: 'Diagnostic', screens: [ S(27, '29', 'Registre des postes & erreurs clients', 'sync.read', 'Postes déclarés, dernier contact et erreurs remontées par les clients') ] } ] }
+  ];
+
+  /* Profils : clés de lecture de SecuritySeeder.RolePermissions (HEAD). */
+  var PROFILS = {
+    um: { id: 'um', role: 'unit.manager', libelle: 'Directeur d’unité', nom: 'Samir Merzouk', court: 'Samir M.', unite: '<b>ALG-CEN</b> · Hôtel Riadh', bandeau: 'Session : Samir Merzouk · Directeur d’unité · ALG-CEN · date métier 06/09/2026', simulLockTab: 12,
+      perms: ['units.read', 'revenue.read', 'dashboard.read', 'closing.read', 'customers.read', 'invoices.read', 'settings.read', 'budget.read', 'tariffs.read', 'lodging.read', 'housekeeping.read', 'crm.read', 'approvals.read', 'reports.read', 'inventory.read', 'purchasing.read', 'kitchen.read', 'mice.read'] },
+    adm: { id: 'adm', role: 'system.administrator', libelle: 'Administrateur', nom: 'Nadia Benali', court: 'Nadia B.', unite: '<b>Siège</b> · Groupe Riadh Hôtels', bandeau: 'Session : Nadia Benali · Administrateur · siège (unité du poste non définie) · date métier —', simulLockTab: 11,
+      perms: '*' }
+  };
+
+  var FACTURES = [
+    ['F-2026-0412', 'SARL Numidia', '06/09/2026', '120 000,00', '142 800,00', 'emise', 'Émise'],
+    ['F-2026-0411', 'EURL Tassili Tours', '06/09/2026', '48 500,00', '57 715,00', 'payee', 'Payée'],
+    ['F-2026-0410', 'Hôtel Riadh Ouest', '05/09/2026', '12 000,00', '14 280,00', 'brouillon', 'Brouillon'],
+    ['F-2026-0409', 'Agence Aurès Voyages', '04/09/2026', '310 500,00', '369 495,00', 'retard', 'En retard'],
+    ['F-2026-0408', 'SPA Cévital', '03/09/2026', '86 200,00', '102 578,00', 'payee', 'Payée'],
+    ['F-2026-0407', 'Ministère du Tourisme', '02/09/2026', '54 000,00', '64 260,00', 'emise', 'Émise']
+  ];
+
+  /* Files de travail de l'accueil (refonte-accueil.md § 3.7), par profil : [n, titre, sous-titre, onglet cible] */
+  var FILES = {
+    um: {
+      retard: [[2, 'Arrivées en retard', 'PMS front office · ALG-CEN', 30], [1, 'Départ en retard', 'PMS front office · ALG-CEN', 30], [1, 'Journée à clôturer', 'dernière clôture 05/09', 5], [2, 'Journées non clôturées', 'Groupe · toutes unités', 20], [1, 'Recette rejetée', 'rejetée par la DEC', 2]],
+      jour: [[14, 'Arrivées', '4 VIP · 3 groupes', 30], [3, 'Sans chambre affectée', 'arrivées du jour', 30], [9, 'Départs', 'check-out prévu avant 12 h', 30], [2, 'Départs avec solde', '27 400,00 DA', 30], [6, 'Chambres à préparer', 'housekeeping', 21], [2, 'Validations', 'ma décision', 16], [3, 'Commandes à réceptionner', 'achats', 25]],
+      surveiller: [[1, 'Chambre hors service', 'ALG-CEN', 30], [5, 'Articles sous le minimum', 'économat', 24]],
+      recents: ['Facturation', 'PMS front office', 'Clôture journalière & Night Audit', 'Clients']
+    },
+    adm: {
+      retard: [[2, 'Journées non clôturées', 'Groupe · toutes unités', 20], [1, 'Recette rejetée', 'à corriger', 2], [7, 'Créances > 90 j', '1,2 MDA à recouvrer', 13], [1, 'Sauvegarde en retard', 'dernière : il y a 31 h', 18]],
+      jour: [[2, 'Validations', 'ma décision', 16], [3, 'OP à approuver', 'trésorerie', 6], [1, 'Inventaire à valider', 'économat', 24], [4, 'Commandes à approuver', 'achats', 25], [5, 'Recettes à valider', 'DEC', 2]],
+      surveiller: [[5, 'Articles sous le minimum', 'économat', 24], [12, 'Postes en service', 'registre des postes', 27]],
+      recents: ['Administration & utilisateurs', 'Journalisation & traçabilité', 'Paramétrage global']
+    }
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* État de présentation (ce que DesktopSettings mémoriserait par poste) */
+  /* ------------------------------------------------------------------ */
+  var state = { profil: 'um', activeTab: 8, expanded: { '05': true }, query: '', homeSection: 'travail', simulLock: false };
+
+  function profil() { return PROFILS[state.profil]; }
+  function allowed(perm) { var p = profil().perms; return p === '*' || p.indexOf(perm) !== -1; }
+
+  /* Élagage : un écran est retenu si sa permission est détenue ; un module sans écran disparaît ; un domaine sans module disparaît. */
+  function pruned() {
+    var out = { home: null, list: [], admin: null };
+    CATALOGUE.forEach(function (d) {
+      var modules = [];
+      d.modules.forEach(function (m) {
+        var screens = m.screens.filter(function (s) { return allowed(s.perm); });
+        if (screens.length) modules.push({ label: m.label, sub: m.sub, screens: screens });
+      });
+      if (!modules.length) return;
+      var dd = { id: d.id, label: d.label, short: d.short, icon: d.icon, desc: d.desc, modules: modules };
+      if (d.id === '01') out.home = dd; else if (d.id === '22') out.admin = dd; else out.list.push(dd);
+    });
+    return out;
+  }
+  var TREE = pruned();
+  var screensByTab = {};
+  function indexTree() {
+    screensByTab = {};
+    [TREE.home].concat(TREE.list, [TREE.admin]).forEach(function (d) {
+      if (!d) return;
+      d.modules.forEach(function (m) { m.screens.forEach(function (s) { screensByTab[s.tab] = { domain: d, module: m, screen: s }; }); });
+    });
+  }
+  indexTree();
+
+  function isLocked(s) { return state.simulLock && s.tab === profil().simulLockTab; }
+  var ACCESS_DENIED = 'Accès non autorisé pour votre profil'; /* ModuleTile.AccessDeniedToolTip */
+
+  function norm(s) { return String(s || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase(); } /* retire les diacritiques (sans accent ni casse) */
+  function h(html) { var t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstChild; }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function icon(key, cls) { return '<svg class="' + (cls || 'ic') + '" aria-hidden="true"><use href="#ic-' + key + '"/></svg>'; }
+
+  /* Recherche : nom, description, module, domaine (complet et court), numéro de domaine et ordre du catalogue (« 5.2 ») — jamais l'index d'onglet */
+  function screenMatches(d, m, s, q) {
+    if (!q) return true;
+    var hay = norm([s.label, s.desc, m.label, d.label, d.short, d.id, s.order].join(' '));
+    return hay.indexOf(q) !== -1;
+  }
+  function countMatches(d, q) {
+    var n = 0;
+    d.modules.forEach(function (m) { m.screens.forEach(function (s) { if (screenMatches(d, m, s, q)) n++; }); });
+    return n;
+  }
+  function domainOfTab(tab) { var e = screensByTab[tab]; return e ? e.domain : (tab === 0 ? TREE.home : null); }
+
+  /* Règle d'aplatissement : séparateur de module seulement si le module retient >= 2 écrans */
+  function buildRows(d, q) {
+    var rows = [];
+    d.modules.forEach(function (m) {
+      var kept = m.screens.filter(function (s) { return screenMatches(d, m, s, q); });
+      if (!kept.length) return;
+      if (kept.length >= 2) rows.push({ type: 'section', label: m.label });
+      kept.forEach(function (s) { rows.push({ type: 'screen', screen: s, module: m }); });
+    });
+    return rows;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* APRÈS — rendu de la barre                                            */
+  /* ------------------------------------------------------------------ */
+  function screenButton(d, m, s, strate) {
+    var active = s.tab === state.activeTab;
+    var locked = isLocked(s);
+    var btn = h('<button class="sb-screen' + (active ? ' active' : '') + '" type="button" data-nav-row data-strate="' + strate + '" data-tab="' + s.tab + '" tabindex="-1"' +
+      (locked ? ' aria-disabled="true" data-tip="' + esc(ACCESS_DENIED) + '"' : '') +
+      ' aria-label="' + esc(s.label) + (active ? ', écran affiché' : '') + (locked ? ', ' + esc(ACCESS_DENIED.toLowerCase()) : '') + '">' +
+      '<span class="lbl">' + esc(s.label) + '</span>' + (locked ? icon('cadenas', 'ic lock') : '') + '</button>');
+    btn.addEventListener('click', function () {
+      if (locked) return;          /* CanOpenModule refuse : rien ne se passe, l'info-bulle explique */
+      setActive(s.tab);
+    });
+    return btn;
+  }
+
+  function domainGroup(d, q, strate) {
+    var n = countMatches(d, q);
+    var visible = n > 0;
+    var expanded = q ? visible : !!state.expanded[d.id];
+    var contains = domainOfTab(state.activeTab) === d;
+    var grp = h('<div class="sb-groupe' + (expanded ? ' ouvert' : '') + '" data-domain="' + d.id + '"></div>');
+    var head = h('<button class="sb-row' + (contains ? ' contains' : '') + '" type="button" data-nav-row data-strate="' + strate + '" data-domain="' + d.id + '" tabindex="-1" aria-expanded="' + expanded + '"' +
+      ' title="' + d.id + ' · ' + esc(d.label) + '"' +
+      ' aria-label="Domaine ' + d.id + ' ' + esc(d.label) + ', ' + (q ? n + ' résultat' + (n > 1 ? 's' : '') : n + ' écran' + (n > 1 ? 's' : '')) + (contains ? ', contient l’écran affiché' : '') + '">' +
+      icon(d.icon) + '<span class="lbl">' + esc(d.short) + '</span><span class="dot" aria-hidden="true"></span><span class="cnt">' + n + '</span>' +
+      icon('chevron', 'chev') + '</button>');
+    if (!visible) { grp.hidden = true; head.hidden = true; }
+    head.addEventListener('click', function () {
+      if (state.query) { /* en recherche, tout ce qui a un résultat est déplié : le clic ne persiste rien */
+        grp.classList.toggle('ouvert'); head.setAttribute('aria-expanded', grp.classList.contains('ouvert')); return;
+      }
+      state.expanded[d.id] = !state.expanded[d.id];
+      grp.classList.toggle('ouvert', state.expanded[d.id]);
+      head.setAttribute('aria-expanded', String(!!state.expanded[d.id]));
+      rovingTabIndex();
+    });
+    var ecrans = h('<div class="ecrans"></div>');
+    buildRows(d, q).forEach(function (r) {
+      if (r.type === 'section') ecrans.appendChild(h('<div class="sb-section" role="heading" aria-level="3">' + esc(r.label) + '</div>'));
+      else ecrans.appendChild(screenButton(d, r.module, r.screen, strate));
+    });
+    grp.appendChild(head); grp.appendChild(ecrans);
+    return grp;
+  }
+
+  var sb = document.getElementById('sb');
+  var list = document.getElementById('sb-list');
+  var foot = document.getElementById('sb-foot');
+  var footGroupe = document.getElementById('sb-foot-groupe');
+  var footSep = document.getElementById('sb-foot-sep');
+  var homeEcrans = document.getElementById('sb-home-ecrans');
+  var homeBtn = document.getElementById('sb-home');
+  var empty = document.getElementById('sb-empty');
+  var live = document.getElementById('sb-live');
+  var q = document.getElementById('sb-q');
+
+  function isShown(el) {
+    if (el.hidden) return false;
+    var g = el.closest('.sb-groupe');
+    if (g && g.hidden) return false;
+    if (el.classList.contains('sb-screen') && g && !g.classList.contains('ouvert')) return false;
+    return true;
+  }
+  function navRows() { return Array.prototype.filter.call(sb.querySelectorAll('[data-nav-row]'), isShown); }
+
+  /* Tabindex tournant (KeyboardNavigation.TabNavigation=Once) : dans la strate « liste » et dans la strate « pied »,
+     une seule rangée est tabulable — la rangée active si elle y est, sinon la première visible. Les strates
+     « Mon Espace » et « ses écrans » restent un arrêt chacune. */
+  function rovingTabIndex(focused) {
+    ['home', 'list', 'foot'].forEach(function (strate) {
+      var rows = navRows().filter(function (r) { return r.dataset.strate === strate; });
+      if (strate === 'home') { rows.forEach(function (r) { r.tabIndex = 0; }); return; }
+      rows.forEach(function (r) { r.tabIndex = -1; });
+      if (!rows.length) return;
+      var pick = (focused && rows.indexOf(focused) !== -1) ? focused : null;
+      if (!pick) pick = rows.filter(function (r) { return r.classList.contains('active'); })[0] || null;
+      if (!pick) pick = rows[0];
+      pick.tabIndex = 0;
+    });
+  }
+
+  function renderSidebar() {
+    var query = norm(state.query.trim());
+    sb.classList.toggle('recherche', !!query);
+
+    /* Strate A : Mon Espace + ses écrans réels */
+    homeBtn.classList.toggle('active', state.activeTab === 0);
+    homeBtn.setAttribute('aria-label', 'Mon Espace, accueil' + (state.activeTab === 0 ? ', écran affiché' : ''));
+    homeEcrans.innerHTML = '';
+    var nHome = 0;
+    if (TREE.home) {
+      TREE.home.modules.forEach(function (m) { m.screens.forEach(function (s) {
+        if (screenMatches(TREE.home, m, s, query)) { nHome++; homeEcrans.appendChild(screenButton(TREE.home, m, s, 'home')); }
+      }); });
+    }
+
+    /* Strate C : domaines 02 → 21 */
+    list.innerHTML = '';
+    var total = 0, domainsWith = 0;
+    TREE.list.forEach(function (d) {
+      var n = countMatches(d, query); total += n; if (n) domainsWith++;
+      list.appendChild(domainGroup(d, query, 'list'));
+    });
+
+    /* Strate D : Administration Système épinglée — seulement si le profil y a un écran (IsPinned + HasMatches) */
+    footGroupe.innerHTML = '';
+    if (TREE.admin) {
+      foot.hidden = false;
+      var nAdmin = countMatches(TREE.admin, query);
+      footGroupe.appendChild(domainGroup(TREE.admin, query, 'foot'));
+      footSep.hidden = !!query && nAdmin === 0;
+      if (nAdmin) { total += nAdmin; domainsWith++; }
+    } else {
+      foot.hidden = true;
+    }
+    if (query && nHome) { total += nHome; domainsWith++; }
+
+    empty.classList.toggle('on', !!query && total === 0);
+    live.textContent = query ? (total === 0 ? 'Aucun écran ne correspond' : total + ' écran' + (total > 1 ? 's' : '') + ' dans ' + domainsWith + ' domaine' + (domainsWith > 1 ? 's' : '')) : '';
+    rovingTabIndex();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Navigation : chemin unique (NavigateToModule) + SyncSidebarToTab     */
+  /* ------------------------------------------------------------------ */
+  function setActive(tab) {
+    state.activeTab = tab;
+    var d = domainOfTab(tab);
+    /* Owns → IsExpanded, sans replier les autres ; le domaine 22 épinglé se déplie comme les autres */
+    if (d && d !== TREE.home && !state.query) state.expanded[d.id] = true;
+    renderAll();
+  }
+
+  var fil = document.getElementById('ap-fil');
+  var content = document.getElementById('ap-content');
+
+  function breadcrumbParts(e) {
+    var parts = ['<b>' + e.domain.id + ' ' + esc(e.domain.label) + '</b>', esc(e.module.label)];
+    if (e.module.sub) parts.push(esc(e.module.sub));
+    parts.push(esc(e.screen.label));
+    return parts;
+  }
+  function renderBreadcrumb(el, mode) {
+    if (state.activeTab === 0) { el.classList.add('cache'); el.innerHTML = ''; el.removeAttribute('aria-label'); return; }
+    el.classList.remove('cache');
+    var parts = breadcrumbParts(screensByTab[state.activeTab]);
+    el.innerHTML = parts.join('<span class="sep">' + (mode === 'avant' ? '→' : '›') + '</span>');
+    el.setAttribute('aria-label', 'Vous êtes dans ' + parts.map(function (p) { return p.replace(/<[^>]+>/g, ''); }).join(', '));
+  }
+
+  function renderContentInto(container, mode) {
+    container.innerHTML = '';
+    if (state.activeTab === 0) { container.appendChild(homeView(mode)); return; }
+    var e = screensByTab[state.activeTab];
+    if (!e) { container.appendChild(h('<div class="carte"><h2>Écran non autorisé</h2><p class="sous">MainTabs_SelectionChanged replie vers Mon Espace.</p></div>')); return; }
+    if (state.activeTab === 8) { container.appendChild(facturesCard()); return; }
+    container.appendChild(h('<div class="carte"><h2>' + esc(e.screen.label) + '</h2><p class="sous">' + esc(e.screen.desc || '') + ' — écran fictif de la maquette.</p>' +
+      '<div class="squelette"><div></div><div></div><div></div><div></div></div></div>'));
+  }
+
+  function facturesCard() {
+    var rows = FACTURES.map(function (f) {
+      return '<tr><td>' + f[0] + '</td><td>' + f[1] + '</td><td>' + f[2] + '</td><td class="num">' + f[3] + '</td><td class="num">' + f[4] + '</td><td><span class="statut ' + f[5] + '">' + f[6] + '</span></td></tr>';
+    }).join('');
+    return h('<div class="carte"><div class="toolbar"><div><h2>Factures</h2><p class="sous">Registre des ventes · 6 documents</p></div><button class="btn-primaire" type="button">+ Nouvelle facture</button></div>' +
+      '<div class="filtres"><span class="filtre">Unité ▾</span><span class="filtre">Période : septembre 2026 ▾</span><span class="filtre">Statut : tous ▾</span></div>' +
+      '<div style="overflow:auto"><table><thead><tr><th>N°</th><th>Client</th><th>Date</th><th class="num">HT (DA)</th><th class="num">TTC (DA)</th><th>Statut</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>');
+  }
+
+  function fileCard(f) {
+    return '<div class="file-carte" data-tab="' + f[3] + '" role="button" tabindex="0"><div class="n">' + f[0] + '</div><div class="t">' + esc(f[1]) + '</div><div class="s">' + esc(f[2]) + '</div></div>';
+  }
+  function bande(cls, titre, files) {
+    if (!files.length) return '';
+    return '<div class="bande-titre ' + cls + '">' + titre + ' <span class="n">· ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '</span></div><div class="bande">' + files.map(fileCard).join('') + '</div>';
+  }
+
+  function homeView(mode) {
+    var p = profil(), F = FILES[state.profil];
+    var card = h('<div class="carte"></div>');
+    var tabs = h('<div class="onglets" role="tablist"><button role="tab" data-sec="travail">Mon travail</button><button role="tab" data-sec="catalogue">Catalogue des modules</button></div>');
+    tabs.querySelectorAll('button').forEach(function (b) {
+      b.setAttribute('aria-selected', String(b.dataset.sec === state.homeSection));
+      b.addEventListener('click', function () { state.homeSection = b.dataset.sec; renderAll(); });
+    });
+    card.appendChild(tabs);
+    var defile = h('<div class="accueil-defile"></div>');
+    card.appendChild(defile);
+    if (state.homeSection === 'travail') {
+      var largeur = mode === 'avant' ? 1232 : 972; /* contenu utile : 1280 − 48, ou 1280 − 260 − 48 */
+      var parRangee = Math.floor((largeur - 40 + 12) / (222 + 12)); /* 40 = padding de la carte, 222 + 12 = carte + écart */
+      defile.appendChild(h('<div class="bienvenue"><div><h3>Bonjour, ' + esc(p.nom) + '</h3><div class="date">lundi 7 septembre 2026 · Groupe Riadh Hôtels</div></div>' +
+        (state.profil === 'um'
+          ? '<dl><dt>Unité du poste</dt><dd>ALG-CEN · Hôtel Riadh</dd><dt>Date métier</dt><dd>06/09/2026 · à jour</dd></dl>'
+          : '<dl><dt>Unité du poste</dt><dd>— non définie (siège)</dd><dt>Date métier</dt><dd>—</dd></dl>') + '</div>'));
+      defile.appendChild(h('<div class="rangees-note">Grille des files : ' + largeur + ' px utiles → ' + parRangee + ' cartes de 222 px par rangée' + (parRangee < 5 && F.retard.length >= 5 ? ' ; la bande « En retard » (' + F.retard.length + ' files) prend deux rangées' : '') + '.</div>'));
+      defile.appendChild(h('<div>' + bande('retard', 'En retard', F.retard) + bande('jour', 'Aujourd’hui', F.jour) + bande('veille', 'À surveiller', F.surveiller) + '</div>'));
+      defile.appendChild(h('<div class="bande-titre" style="margin-top:4px">Derniers écrans ouverts (ce poste)</div>'));
+      defile.appendChild(h('<div class="chips">' + F.recents.map(function (r) { return '<span class="chip">' + esc(r) + '</span>'; }).join('') + '</div>'));
+      defile.querySelectorAll('.file-carte[data-tab]').forEach(function (c) {
+        c.style.cursor = 'pointer';
+        c.addEventListener('click', function () { setActive(Number(c.dataset.tab)); });
+        c.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); setActive(Number(c.dataset.tab)); } });
+      });
+    } else {
+      var domaines = TREE.list.slice(); if (TREE.admin) domaines.push(TREE.admin);
+      defile.appendChild(h('<p class="sous" style="margin-bottom:10px">22 domaines métier · 78 modules · 50 modules documentés. Les puces reprennent le libellé court du catalogue, source unique partagée avec la barre.</p>'));
+      var chips = h('<div class="chips" style="margin-bottom:16px"><span class="chip on">Tous</span></div>');
+      domaines.forEach(function (d) { chips.appendChild(h('<span class="chip" title="' + d.id + ' · ' + esc(d.label) + '">' + esc(d.short) + '</span>')); });
+      defile.appendChild(chips);
+      var grille = h('<div class="bande"></div>');
+      domaines.forEach(function (d) {
+        var n = countMatches(d, '');
+        grille.appendChild(h('<div class="file-carte" style="width:222px"><div style="display:flex;align-items:center;gap:8px;color:var(--text-secondary)">' + icon(d.icon) + '<span style="font-size:11px;font-weight:600;letter-spacing:.05em">' + d.id + '</span></div><div class="t">' + esc(d.label) + '</div><div class="s">' + n + ' écran' + (n > 1 ? 's' : '') + ' · Fonctionnel</div></div>'));
+      });
+      defile.appendChild(grille);
+    }
+    return card;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* AVANT — réplique (SidebarGroupTemplate, MainWindow.xaml 60-110)     */
+  /* Domaine → libellé de module (toujours) → écrans ; 01 dans la liste ; */
+  /* colonnes à 0 sur Mon Espace (SyncSidebarToTab)                       */
+  /* ------------------------------------------------------------------ */
+  var avCorps = document.getElementById('corps-avant');
+  var avCard = document.getElementById('card-av');
+  var avList = document.getElementById('av-list');
+  var avFoot = document.getElementById('av-foot');
+  var avFil = document.getElementById('av-fil');
+  var avContent = document.getElementById('av-content');
+  var avExpanded = { '05': true };
+
+  function avGroup(d) {
+    var n = countMatches(d, '');
+    var open = !!avExpanded[d.id];
+    var grp = h('<div class="av-groupe' + (open ? ' ouvert' : '') + '"></div>');
+    var head = h('<button class="av-head" type="button" aria-expanded="' + open + '">' + icon(d.icon) + '<span class="lbl">' + esc(d.label) + '</span><span class="badge">' + n + '</span>' + icon('chevron', 'chev') + '</button>');
+    head.addEventListener('click', function () { avExpanded[d.id] = !avExpanded[d.id]; grp.classList.toggle('ouvert', avExpanded[d.id]); head.setAttribute('aria-expanded', String(!!avExpanded[d.id])); });
+    var corps = h('<div class="av-corps"></div>');
+    d.modules.forEach(function (m) {
+      corps.appendChild(h('<div class="av-mod">' + esc(m.label) + '</div>'));
+      m.screens.forEach(function (s) {
+        var locked = isLocked(s);
+        var b = h('<button class="av-sub' + (s.tab === state.activeTab ? ' active' : '') + '" type="button" title="' + esc(locked ? ACCESS_DENIED : s.desc) + '"' + (locked ? ' aria-disabled="true"' : '') + '><span>' + esc(s.label) + '</span></button>');
+        b.addEventListener('click', function () { if (!locked) setActive(s.tab); });
+        corps.appendChild(b);
+      });
+    });
+    grp.appendChild(head); grp.appendChild(corps);
+    return grp;
+  }
+
+  function renderAvant() {
+    var accueil = state.activeTab === 0;
+    avCorps.classList.toggle('accueil', accueil);
+    avCard.hidden = accueil;
+    if (!accueil) {
+      avList.innerHTML = '';
+      ([TREE.home].concat(TREE.list)).forEach(function (d) { if (d) avList.appendChild(avGroup(d)); });
+      avFoot.innerHTML = '';
+      avFoot.hidden = !TREE.admin;
+      if (TREE.admin) avFoot.appendChild(avGroup(TREE.admin));
+    }
+    renderBreadcrumb(avFil, 'avant');
+    renderContentInto(avContent, 'avant');
+  }
+  document.getElementById('av-home').addEventListener('click', function () { state.homeSection = 'travail'; setActive(0); });
+
+  /* ------------------------------------------------------------------ */
+  /* Rendu global                                                         */
+  /* ------------------------------------------------------------------ */
+  function renderEntete() {
+    var p = profil();
+    ['av', 'ap'].forEach(function (k) {
+      document.getElementById(k + '-entete-unite').innerHTML = p.unite;
+      document.getElementById(k + '-entete-nom').textContent = p.court;
+      document.getElementById(k + '-session').textContent = p.bandeau;
+    });
+    document.getElementById('note-profil').textContent = '1280 × 800 · ' + p.libelle + ' (' + p.role + ') · Manrope';
+  }
+  function renderAll() {
+    renderEntete();
+    renderSidebar();
+    renderBreadcrumb(fil, 'apres');
+    renderContentInto(content, 'apres');
+    renderAvant();
+    document.getElementById('btn-fact').setAttribute('aria-pressed', String(state.activeTab === 8));
+    document.getElementById('btn-home').setAttribute('aria-pressed', String(state.activeTab === 0));
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Recherche                                                            */
+  /* ------------------------------------------------------------------ */
+  q.addEventListener('input', function () { state.query = q.value; renderSidebar(); });
+  q.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') { ev.preventDefault(); if (q.value) { q.value = ''; state.query = ''; renderSidebar(); } return; }
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      if (!state.query) return;
+      var first = navRows().filter(function (r) { return r.classList.contains('sb-screen') && r.getAttribute('aria-disabled') !== 'true'; })[0];
+      if (first) setActive(Number(first.dataset.tab));
+      return;
+    }
+    if (ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      var rows = navRows();
+      var first = rows.filter(function (r) { return r.dataset.strate !== 'home'; })[0] || rows[0];
+      if (first) first.focus();
+    }
+  });
+  document.getElementById('sb-clear').addEventListener('click', function () { q.value = ''; state.query = ''; renderSidebar(); q.focus(); });
+  document.getElementById('sb-ouvrir-catalogue').addEventListener('click', function () {
+    q.value = ''; state.query = ''; state.homeSection = 'catalogue'; setActive(0);
+  });
+  homeBtn.addEventListener('click', function () { state.homeSection = 'travail'; setActive(0); });
+
+  /* ------------------------------------------------------------------ */
+  /* Clavier dans le panneau : ↑ ↓ Origine Fin → ← Échap                 */
+  /* ------------------------------------------------------------------ */
+  sb.addEventListener('keydown', function (ev) {
+    var t = ev.target;
+    if (!t.hasAttribute || !t.hasAttribute('data-nav-row')) return;
+    var rows = navRows(), i = rows.indexOf(t);
+    switch (ev.key) {
+      case 'ArrowDown': ev.preventDefault(); if (i < rows.length - 1) rows[i + 1].focus(); break;
+      case 'ArrowUp': ev.preventDefault(); if (i > 0) rows[i - 1].focus(); else q.focus(); break;
+      case 'Home': ev.preventDefault(); rows[0].focus(); break;
+      case 'End': ev.preventDefault(); rows[rows.length - 1].focus(); break;
+      case 'ArrowRight':
+        if (t.classList.contains('sb-row')) { ev.preventDefault(); if (t.getAttribute('aria-expanded') === 'false') t.click(); else { var r2 = navRows(); if (r2[i + 1] && r2[i + 1].classList.contains('sb-screen')) r2[i + 1].focus(); } }
+        break;
+      case 'ArrowLeft':
+        if (t.classList.contains('sb-row') && t.getAttribute('aria-expanded') === 'true') { ev.preventDefault(); t.click(); t.focus(); }
+        else if (t.classList.contains('sb-screen')) { ev.preventDefault(); var head = t.closest('.sb-groupe') && t.closest('.sb-groupe').querySelector('.sb-row'); if (head) head.focus(); else homeBtn.focus(); }
+        break;
+      case 'Escape': ev.preventDefault(); q.focus(); break;
+      default: return;
+    }
+  });
+  /* La rangée qui reçoit le focus devient la seule tabulable de sa strate ; après un re-rendu, on remet le focus sur la rangée équivalente */
+  var lastFocusKey = null;
+  sb.addEventListener('focusin', function (ev) {
+    var t = ev.target;
+    if (!t.hasAttribute || !t.hasAttribute('data-nav-row')) return;
+    lastFocusKey = t.dataset.tab || t.dataset.domain || null;
+    rovingTabIndex(t);
+  });
+  var origRender = renderSidebar;
+  renderSidebar = function () {
+    var focusedInside = sb.contains(document.activeElement) && document.activeElement !== q;
+    origRender();
+    if (focusedInside && lastFocusKey !== null) {
+      var el = sb.querySelector('[data-nav-row][data-tab="' + lastFocusKey + '"], [data-nav-row][data-domain="' + lastFocusKey + '"]');
+      if (el && isShown(el)) { el.focus(); rovingTabIndex(el); }
+    }
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* Commandes de la maquette                                             */
+  /* ------------------------------------------------------------------ */
+  var tabAvant = document.getElementById('tab-avant'), tabApres = document.getElementById('tab-apres');
+  var pAvant = document.getElementById('avant'), pApres = document.getElementById('apres'), ctl = document.getElementById('ctl-apres');
+  function showPanel(which) {
+    var apres = which === 'apres';
+    tabAvant.setAttribute('aria-pressed', String(!apres)); tabApres.setAttribute('aria-pressed', String(apres));
+    pAvant.hidden = apres; pApres.hidden = !apres; ctl.hidden = !apres;
+  }
+  tabAvant.addEventListener('click', function () { showPanel('avant'); });
+  tabApres.addEventListener('click', function () { showPanel('apres'); });
+  function setProfil(id) {
+    state.profil = id;
+    document.getElementById('btn-prof-um').setAttribute('aria-pressed', String(id === 'um'));
+    document.getElementById('btn-prof-adm').setAttribute('aria-pressed', String(id === 'adm'));
+    TREE = pruned(); indexTree();
+    /* Repli de sécurité (MainTabs_SelectionChanged) : un onglet qui n'est plus autorisé renvoie à Mon Espace */
+    if (state.activeTab !== 0 && !screensByTab[state.activeTab]) state.activeTab = 0;
+    renderAll();
+  }
+  document.getElementById('btn-prof-um').addEventListener('click', function () { setProfil('um'); });
+  document.getElementById('btn-prof-adm').addEventListener('click', function () { setProfil('adm'); });
+  document.getElementById('btn-fact').addEventListener('click', function () { setActive(8); });
+  document.getElementById('btn-home').addEventListener('click', function () { state.homeSection = 'travail'; setActive(0); });
+  document.getElementById('chk-compacte').addEventListener('change', function (ev) { document.getElementById('fenetre-apres').classList.toggle('compacte', ev.target.checked); });
+  document.getElementById('chk-lock').addEventListener('change', function (ev) {
+    state.simulLock = ev.target.checked;
+    if (state.simulLock) state.expanded['03'] = true; /* pour que la rangée désactivée soit visible tout de suite */
+    renderAll();
+  });
+  document.getElementById('chk-sombre').addEventListener('change', function (ev) {
+    /* Sur l'élément racine : les alias Sidebar* y sont déclarés et doivent résoudre les jetons sombres au même niveau (comme ThemePalette remplace les ressources de l'application) */
+    if (ev.target.checked) document.documentElement.setAttribute('data-theme', 'dark'); else document.documentElement.removeAttribute('data-theme');
+  });
+
+  /* Rendu initial */
+  renderAll();
+})();
+</script>
+</body>
+</html>
