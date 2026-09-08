@@ -75,9 +75,16 @@ public partial class MainWindow : Window
     {
         // Construits AVANT InitializeComponent : le TabControl choisit son premier
         // onglet pendant l'analyse du XAML, ce qui declenche MainTabs_SelectionChanged,
-        // qui lit deja ces collections (voir MainWindow.Navigation.cs).
-        sidebarGroups = ModuleNavigationGroup.Build(FunctionalArchitectureCatalog.Tree);
+        // qui lit deja ces collections (voir MainWindow.Navigation.cs). Les groupes sont
+        // batis sur l'arbre que le profil le plus large peut ouvrir (toutes les cles,
+        // filtre de la barre) : ce que le profil connecte en voit est rejoue ensuite.
+        sidebarGroups = ModuleNavigationGroup.Build(
+            NavigationTreeBuilder.Build(FunctionalArchitectureCatalog.Tree, AllPermissionKeys, NavigationFilter.Sidebar));
         tilesByTab = BuildTilesByTab(moduleTiles);
+
+        // L'etat deplie memorise sur ce poste, restaure des que les groupes existent, et
+        // l'abonnement qui l'ecrira (en differe) a chaque changement.
+        LoadSidebarExpandedDomains();
 
         InitializeComponent();
 

@@ -165,6 +165,11 @@ internal static class ThemeManager
             // Compact retire de l'air autour du chiffre, jamais une taille de police.
             dictionnaire["WorkCardPadding"] = compact ? new Thickness(12, 10, 12, 10) : new Thickness(16, 14, 16, 14);
             dictionnaire["WorkCardMinHeight"] = compact ? 88d : 104d;
+
+            // Rangees de la barre laterale : un domaine sur 36 px, un ecran sur 34 px, les
+            // deux a 32 px en compact - jamais moins, c'est le minimum de cible de la charte.
+            dictionnaire["SidebarDomainRowHeight"] = compact ? 32d : 36d;
+            dictionnaire["SidebarScreenRowHeight"] = compact ? 32d : 34d;
         }
 
         DensiteAppliquee = densite;
@@ -246,6 +251,29 @@ internal static class ThemeManager
         {
             Debug.WriteLine("[Theme] clefs de ThemePalette absentes du dictionnaire : "
                 + string.Join(", ", introuvables));
+        }
+
+        // Les alias de la barre laterale ne possedent aucune couleur : en clair, chacun doit
+        // rendre exactement la couleur du jeton que ThemePalette lui assigne. Un alias qui
+        // pointerait ailleurs dans le XAML que dans la table serait une divergence muette
+        // entre les deux themes.
+        // Une clef est relevee une fois par dictionnaire qui la voit (la racine voit celles de
+        // ses fusions) : on garde la premiere couleur, ce sont les memes.
+        var claires = Couleurs
+            .GroupBy(entree => entree.Clef, StringComparer.Ordinal)
+            .ToDictionary(groupe => groupe.Key, groupe => groupe.First().Claire, StringComparer.Ordinal);
+
+        var divergents = ThemePalette.AliasBarreLaterale
+            .Where(alias => !claires.TryGetValue(alias.Alias, out var couleurAlias)
+                || !claires.TryGetValue(alias.CibleClaire, out var couleurCible)
+                || couleurAlias != couleurCible)
+            .Select(alias => $"{alias.Alias} → {alias.CibleClaire}")
+            .ToList();
+
+        if (divergents.Count > 0)
+        {
+            Debug.WriteLine("[Theme] alias de la barre laterale qui ne suivent pas leur jeton clair : "
+                + string.Join(", ", divergents));
         }
     }
 }

@@ -60,11 +60,40 @@ public enum ApparenceDensite
 internal static class ThemePalette
 {
     /// <summary>
+    /// Les alias semantiques de la barre laterale : (alias, jeton clair, jeton sombre).
+    ///
+    /// La barre ne possede aucune couleur a elle : chaque alias designe un jeton existant,
+    /// dans le theme (<c>RaqmiTheme.xaml</c>, ou l'alias est un <c>StaticResource</c> vers le
+    /// jeton clair) comme ici (la valeur sombre est LUE dans cette meme palette, jamais
+    /// recopiee en hexadecimal). Un seul alias diverge entre les deux themes :
+    /// <c>SidebarActiveForegroundBrush</c>, parce que <c>PrimaryBrush</c> sombre ne pese que
+    /// 4,25:1 sur <c>AccentSoftBrush</c> sombre, la ou <c>TextPrimaryBrush</c> monte a 10,44:1.
+    /// <see cref="ThemeManager"/> verifie au demarrage que le theme clair suit bien cette table.
+    /// </summary>
+    public static readonly IReadOnlyList<(string Alias, string CibleClaire, string CibleSombre)> AliasBarreLaterale =
+    [
+        ("SidebarBackgroundBrush", "SurfaceBrush", "SurfaceBrush"),
+        ("SidebarBorderBrush", "BorderStrongBrush", "BorderStrongBrush"),
+        ("SidebarTextBrush", "TextPrimaryBrush", "TextPrimaryBrush"),
+        ("SidebarScreenTextBrush", "TextSecondaryBrush", "TextSecondaryBrush"),
+        ("SidebarSectionLabelBrush", "TextLabelBrush", "TextLabelBrush"),
+        ("SidebarIconBrush", "TextSecondaryBrush", "TextSecondaryBrush"),
+        ("SidebarHoverBrush", "SurfaceHoverBrush", "SurfaceHoverBrush"),
+        ("SidebarActiveBackgroundBrush", "AccentSoftBrush", "AccentSoftBrush"),
+        ("SidebarActiveIndicatorBrush", "AccentActionBrush", "AccentActionBrush"),
+        ("SidebarActiveForegroundBrush", "PrimaryBrush", "TextPrimaryBrush"),
+        ("SidebarFocusRingBrush", "FocusRingBrush", "FocusRingBrush"),
+        ("SidebarDisabledForegroundBrush", "DisabledForegroundBrush", "DisabledForegroundBrush"),
+        ("SidebarCountBadgeBackgroundBrush", "SurfaceSubtleBrush", "SurfaceSubtleBrush"),
+        ("SidebarCountBadgeForegroundBrush", "TextSecondaryBrush", "TextSecondaryBrush"),
+    ];
+
+    /// <summary>
     /// Palette sombre. Toute clef absente d'ici garde sa valeur claire, ce qui se verrait
     /// immediatement a l'ecran : <see cref="ThemeManager"/> verifie donc au demarrage que
     /// cette table couvre exactement les brushes du dictionnaire de ressources.
     /// </summary>
-    public static readonly IReadOnlyDictionary<string, string> Sombre = new Dictionary<string, string>(StringComparer.Ordinal)
+    public static readonly IReadOnlyDictionary<string, string> Sombre = AvecAliasBarreLaterale(new Dictionary<string, string>(StringComparer.Ordinal)
     {
         // ---- Structure et marque : l'en-tete reste la scene sombre de la marque ----
         ["StructureBrush"] = "#050F1C",
@@ -176,5 +205,18 @@ internal static class ThemePalette
         ["MaturityProductionReadyBackgroundBrush"] = "#11321F",
         ["MaturityProductionReadyForegroundBrush"] = "#68D397",
         ["MaturityProductionReadyAccentBrush"] = "#3FBF74",
-    };
+    });
+
+    // Les alias de la barre laterale prennent la valeur sombre de leur jeton cible, lue dans
+    // la palette elle-meme : aucune couleur nouvelle, et aucune copie qui pourrait deriver
+    // le jour ou un jeton change.
+    private static IReadOnlyDictionary<string, string> AvecAliasBarreLaterale(Dictionary<string, string> palette)
+    {
+        foreach (var (alias, _, cibleSombre) in AliasBarreLaterale)
+        {
+            palette[alias] = palette[cibleSombre];
+        }
+
+        return palette;
+    }
 }

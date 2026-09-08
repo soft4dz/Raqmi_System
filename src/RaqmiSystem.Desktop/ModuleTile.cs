@@ -12,7 +12,10 @@ namespace RaqmiSystem.Desktop;
 // surfaces disent la meme chose du meme module sans code de synchronisation.
 public sealed class ModuleTile : INotifyPropertyChanged
 {
-    public const string AccessDeniedToolTip = "Accès non autorisé pour votre profil";
+    // Le motif seul, partage avec les cartes de files et les resultats du catalogue. La
+    // phrase complete d'une tuile verrouillee (motif + permission manquante) vient du meme
+    // socle : AccessDeniedMessage.For.
+    public const string AccessDeniedToolTip = AccessDeniedMessage.Text;
 
     private bool isLocked;
     private bool isActive;
@@ -152,20 +155,23 @@ public sealed class ModuleTile : INotifyPropertyChanged
     // que le profil a le droit de le lire.
     public bool IsClickable => Entry.TabIndex.HasValue && !isLocked;
 
-    // Priorite d'information : permission manquante, puis precision de statut
-    // (modules partiels), puis description du module.
+    // Priorite d'information : permission manquante (nommee comme le catalogue des
+    // permissions la nomme, jamais par sa cle technique), puis precision de statut
+    // (modules partiels), puis description du module. Meme texte dans la barre laterale
+    // et sur les cartes du catalogue : un ecran verrouille dit la meme chose des deux cotes.
     public string ToolTipText => isLocked
-        ? AccessDeniedToolTip
+        ? AccessDeniedMessage.For(PermissionKey)
         : Entry.StatusNote ?? Entry.Description;
 
     /// <summary>
     /// Phrase annoncee par le lecteur d'ecran sur la carte du catalogue. Le bouton de
     /// la carte n'a pas de <c>Content</c> (toute la mise en forme vit dans son gabarit) :
     /// sans ce nom, les 50 cartes seraient muettes. Il dit d'abord ce qui empeche
-    /// d'ouvrir, puis seulement le statut.
+    /// d'ouvrir - le meme texte que l'info-bulle, permission manquante comprise -, puis
+    /// seulement le statut.
     /// </summary>
     public string AccessibleName => isLocked
-        ? $"{Entry.Name}, {AccessDeniedToolTip.ToLowerInvariant()}"
+        ? $"{Entry.Name}, {ToolTipText}"
         : Entry.TabIndex is null
             ? $"{Entry.Name}, {StatusLabel.ToLowerInvariant()}, aucun écran"
             : $"Ouvrir {Entry.Name}, {StatusLabel.ToLowerInvariant()}";

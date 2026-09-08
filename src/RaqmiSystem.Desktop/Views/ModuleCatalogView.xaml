@@ -54,9 +54,11 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
+                                <!-- Libelle court du catalogue sur la puce (celui de la barre
+                                     laterale), nom complet et numero dans l'info-bulle. -->
                                 <RadioButton GroupName="FunctionalDomainFilter"
                                              Content="{Binding DisplayLabel}"
-                                             ToolTip="{Binding Name}"
+                                             ToolTip="{Binding FullName}"
                                              Checked="FunctionalDomainFilter_Checked">
                                     <RadioButton.Style>
                                         <Style TargetType="RadioButton"
@@ -334,8 +336,11 @@
                 <ItemsControl x:Name="SearchResultsItemsControl">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
+                            <!-- Meme style que les rangees d'ecran de la barre laterale, sans
+                                 leur retrait de 36 px : ici la ligne porte deja son icone. -->
                             <Button Style="{StaticResource ModuleNavSubButton}"
                                     Margin="0,0,0,2"
+                                    Padding="10,0"
                                     HorizontalAlignment="Left"
                                     IsEnabled="{Binding IsOpenable}"
                                     ToolTip="{Binding ToolTipText}"
