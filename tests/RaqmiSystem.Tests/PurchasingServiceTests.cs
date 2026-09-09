@@ -6,6 +6,7 @@ using RaqmiSystem.Application.Purchasing;
 using RaqmiSystem.Application.Security;
 using RaqmiSystem.Domain.Purchasing;
 using RaqmiSystem.Infrastructure.Audit;
+using RaqmiSystem.Infrastructure.Fiscalite;
 using RaqmiSystem.Infrastructure.Persistence;
 using RaqmiSystem.Infrastructure.Purchasing;
 
@@ -498,7 +499,7 @@ public sealed class PurchasingServiceTests
             connection,
             dbContext,
             stockOperations,
-            new PurchasingService(dbContext, new AuditLogWriter(dbContext), stockOperations, stockCosts));
+            new PurchasingService(dbContext, new AuditLogWriter(dbContext), stockOperations, stockCosts, new VatRegisterService(dbContext, new AuditLogWriter(dbContext))));
     }
 
     private sealed class Harness(

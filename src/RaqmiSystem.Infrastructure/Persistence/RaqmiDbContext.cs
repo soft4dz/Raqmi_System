@@ -10,6 +10,7 @@ using RaqmiSystem.Domain.Housekeeping;
 using RaqmiSystem.Domain.HumanResources;
 using RaqmiSystem.Domain.Identity;
 using RaqmiSystem.Domain.Documents;
+using RaqmiSystem.Domain.Fiscalite;
 using RaqmiSystem.Domain.Inventory;
 using RaqmiSystem.Domain.Kitchen;
 using RaqmiSystem.Domain.Kpi;
@@ -74,6 +75,16 @@ public sealed class RaqmiDbContext(DbContextOptions<RaqmiDbContext> options) : D
     public DbSet<AccountingParty> AccountingParties => Set<AccountingParty>();
     public DbSet<JournalSequence> JournalSequences => Set<JournalSequence>();
     public DbSet<Reconciliation> Reconciliations => Set<Reconciliation>();
+
+    public DbSet<VatSalesRegisterEntry> VatSalesRegisterEntries => Set<VatSalesRegisterEntry>();
+    public DbSet<VatPurchaseRegisterEntry> VatPurchaseRegisterEntries => Set<VatPurchaseRegisterEntry>();
+    public DbSet<VatDeclaration> VatDeclarations => Set<VatDeclaration>();
+    public DbSet<TeleDeclaration> TeleDeclarations => Set<TeleDeclaration>();
+    public DbSet<WithholdingTaxEntry> WithholdingTaxEntries => Set<WithholdingTaxEntry>();
+    public DbSet<FiscalReturn> FiscalReturns => Set<FiscalReturn>();
+    public DbSet<FiscalReturnLine> FiscalReturnLines => Set<FiscalReturnLine>();
+    public DbSet<SifecTransmission> SifecTransmissions => Set<SifecTransmission>();
+    public DbSet<SifecConfig> SifecConfigs => Set<SifecConfig>();
 
     public DbSet<BudgetPlan> BudgetPlans => Set<BudgetPlan>();
 

@@ -39,6 +39,10 @@ public sealed class SecuritySeeder(
             // targets for everyone else, so it stays with the role that answers for them.
             PermissionCatalog.BudgetApprove,
             PermissionCatalog.ReceivablesRead,
+            // Fiscalite : lecture seule, comme les autres modules finance sur ce profil. Declarer
+            // (calculer, exporter le G50, generer la liasse) reste avec le profil qui tient la
+            // comptabilite au quotidien.
+            PermissionCatalog.FinanceFiscalRead,
             PermissionCatalog.TariffsRead,
             PermissionCatalog.LodgingRead,
             // Direction reads the housekeeping board but never runs it: planning a sheet and
@@ -122,6 +126,11 @@ public sealed class SecuritySeeder(
             PermissionCatalog.ReceivablesWrite,
             PermissionCatalog.TariffsRead,
             PermissionCatalog.TariffsWrite,
+            // Fiscalite : ce profil tient la comptabilite au quotidien, donc la declaration TVA
+            // avec elle. SIFEC reste hors de cette liste - restreint a system.administrator,
+            // comme dans l'ancien produit.
+            PermissionCatalog.FinanceFiscalRead,
+            PermissionCatalog.FinanceFiscalDeclare,
             PermissionCatalog.LodgingRead,
             PermissionCatalog.LodgingWrite,
             PermissionCatalog.LodgingCheckin,
@@ -343,6 +352,8 @@ public sealed class SecuritySeeder(
             PermissionCatalog.HousekeepingRead,
             PermissionCatalog.CrmRead,
             PermissionCatalog.ApprovalsRead,
+            // Profil de lecture seule : il porte toutes les cles .read, celle-ci comprise.
+            PermissionCatalog.FinanceFiscalRead,
             // Wave E1 - read-only across the three new operating modules, like every other
             // module on this profile.
             PermissionCatalog.InventoryRead,

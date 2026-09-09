@@ -85,9 +85,9 @@ UPDATE/DELETE` sur toutes les tables, `USAGE/SELECT` sur les séquences, `SELECT
 migrations futures soient couvertes sans re-grant — à condition que ces migrations tournent sous le
 même rôle administrateur que le script.
 
-Les migrations créent aujourd'hui **19 schémas** : `accounting`, `approvals`, `audit`, `budgeting`,
-`crm`, `exploitation`, `finance`, `housekeeping`, `hr`, `inventory`, `kitchen`, `kpi`, `lodging`,
-`organization`, `purchasing`, `reporting`, `security`, `settings`, `tariffs`. Le script doit citer
+Les migrations créent aujourd'hui **20 schémas** : `accounting`, `approvals`, `audit`, `budgeting`,
+`crm`, `exploitation`, `finance`, `fiscalite`, `housekeeping`, `hr`, `inventory`, `kitchen`, `kpi`,
+`lodging`, `organization`, `purchasing`, `reporting`, `security`, `settings`, `tariffs`. Le script doit citer
 **exactement** cet ensemble dans chacun de ses cinq blocs : un schéma migré mais non accordé rend ses
 tables inaccessibles à l'API et **absentes de chaque sauvegarde** (`pg_dump` s'arrête sur la première
 table interdite) ; un schéma accordé mais inexistant fait échouer le script lui-même (`ON_ERROR_STOP`).

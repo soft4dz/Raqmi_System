@@ -131,6 +131,16 @@ public static class PermissionRegistry
             "Consulter la balance agee, les relances et le risque client.", PermissionCatalog.ReceivablesRead),
         Target(PermissionCatalog.FinanceReceivableRemind, DomainFinance, "Enregistrer les relances",
             "Enregistrer la trace d'une relance client deja effectuee.", PermissionCatalog.ReceivablesWrite),
+        // Module neuf, aucune cle historique a couvrir. Lecture ouverte a la comptabilite ;
+        // declarer (calculer une declaration, exporter le G50, saisir une retenue, generer la
+        // liasse) exige une cle distincte ; SIFEC reste a part et restreint - conforme a la
+        // restriction admin-only de l'ancien produit sur tout le module fiscalite.
+        Target(PermissionCatalog.FinanceFiscalRead, DomainFinance, "Lire la fiscalite",
+            "Consulter les registres TVA, les declarations, la liasse fiscale et l'etat SIFEC."),
+        Target(PermissionCatalog.FinanceFiscalDeclare, DomainFinance, "Declarer la fiscalite",
+            "Calculer une declaration TVA, exporter le G50, enregistrer une retenue a la source et generer la liasse fiscale."),
+        Target(PermissionCatalog.FinanceFiscalSifecManage, DomainFinance, "Administrer SIFEC",
+            "Configurer le connecteur SIFEC et transmettre les factures a la DGI."),
 
         // ------------------------------ 04 Commercial, Clients & CRM ------------------------------
         Target(PermissionCatalog.CrmCustomerRead, DomainCrm, "Lire les clients",

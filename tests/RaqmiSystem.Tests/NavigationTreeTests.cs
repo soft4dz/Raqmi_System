@@ -11,7 +11,7 @@ namespace RaqmiSystem.Tests;
 public sealed class NavigationTreeTests
 {
     private const int HomeTab = 0;
-    private const int TabCount = 30;
+    private const int TabCount = 31;
 
     private static readonly Regex IdSegment = new("^[a-z0-9]+(-[a-z0-9]+)*$", RegexOptions.CultureInvariant);
 

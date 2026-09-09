@@ -43,10 +43,10 @@ public static class ModuleCatalog
 {
     // Totaux attendus - garde de coherence verifiee au chargement du type.
     public const int ExpectedTotal = 50;
-    public const int ExpectedAvailable = 31;
+    public const int ExpectedAvailable = 32;
     public const int ExpectedApiReady = 0;
     public const int ExpectedPartial = 0;
-    public const int ExpectedPlanned = 19;
+    public const int ExpectedPlanned = 18;
 
     // Libelles affiches des groupes fonctionnels (ordre d'apparition).
     public static class Groups
@@ -95,6 +95,9 @@ public static class ModuleCatalog
         // passage : il tient un registre des postes, il ne synchronise rien.
         // La bibliotheque KPI (onglet 29) fait passer le 25.4 (Comparatif inter-unites)
         // de Planifie a Disponible : tableau de bord d'indicateurs, comparatif et alertes.
+        // Le module 5.4 (Fiscalite DGI & SIFEC) passe Disponible : registres TVA ventes/achats,
+        // declaration mensuelle, G50, retenue a la source, liasse fiscale et connecteur SIFEC
+        // (mode sandbox uniquement - la production n'a pas d'integration DGI reelle).
         // Le PMS front office (10.1, onglet 30) ajoute la 50e ligne, et c'est la premiere fois
         // que ce catalogue compte plus de modules que le tableau source. C'est assume : le
         // module 10 a desormais DEUX ecrans, le parametrage et la vente d'un cote,
@@ -137,7 +140,7 @@ public static class ModuleCatalog
             "P1", ModuleStatus.Disponible, PermissionCatalog.AccountingRead, 11),
         new ModuleCatalogEntry("5.4", Groups.Finance, "Fiscalité DGI & SIFEC",
             "TVA, déclarations, liasse et lien SIFEC",
-            "P2", ModuleStatus.Planifie),
+            "P2", ModuleStatus.Disponible, PermissionCatalog.FinanceFiscalRead, 31),
         new ModuleCatalogEntry("6", Groups.Finance, "Budget & prévisions",
             "Objectifs, budgets mensuels et écarts",
             "P1", ModuleStatus.Disponible, PermissionCatalog.BudgetRead, 12),

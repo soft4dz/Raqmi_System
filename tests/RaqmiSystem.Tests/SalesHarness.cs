@@ -14,6 +14,7 @@ using RaqmiSystem.Domain.Treasury;
 using RaqmiSystem.Infrastructure.Audit;
 using RaqmiSystem.Infrastructure.Billing;
 using RaqmiSystem.Infrastructure.Catalog;
+using RaqmiSystem.Infrastructure.Fiscalite;
 using RaqmiSystem.Infrastructure.Inventory;
 using RaqmiSystem.Infrastructure.Persistence;
 using RaqmiSystem.Infrastructure.Settings;
@@ -40,7 +41,8 @@ internal static class SalesTestServices
             new ApplicationSettingsService(dbContext, auditWriter),
             new CatalogService(dbContext, auditWriter, inventory),
             inventory,
-            new TreasuryService(dbContext, auditWriter, new AlwaysApprovedGate()));
+            new TreasuryService(dbContext, auditWriter, new AlwaysApprovedGate()),
+            new VatRegisterService(dbContext, auditWriter));
     }
 
     /// <summary>

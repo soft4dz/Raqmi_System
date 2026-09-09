@@ -1,3 +1,5 @@
+using RaqmiSystem.Domain.Billing;
+
 namespace RaqmiSystem.Domain.Purchasing;
 
 /// <summary>
@@ -11,20 +13,34 @@ namespace RaqmiSystem.Domain.Purchasing;
 /// supplier. Same scale rules as InvoiceLine: quantities carry at most 3 decimals, monetary
 /// values at most 2 (the columns are numeric(18,3) / numeric(18,2), and a value with more
 /// precision would be silently truncated at persistence time).
+///
+/// VAT rate/amount reuse <see cref="InvoiceLine"/>'s single source of truth (allowed rates,
+/// rounding) rather than restate it - the VAT purchases register (module Fiscalite) reads
+/// this exactly like the VAT sales register reads InvoiceLine.
 /// </summary>
 public sealed class PurchaseOrderLine
 {
+    /// <summary>Default rate applied when a line is created without an explicit VAT rate.</summary>
+    public const decimal DefaultVatRate = 19m;
+
     private PurchaseOrderLine()
     {
     }
 
-    public PurchaseOrderLine(string itemCode, string designation, decimal quantity, decimal unitPrice)
+    public PurchaseOrderLine(
+        string itemCode,
+        string designation,
+        decimal quantity,
+        decimal unitPrice,
+        decimal? vatRate = null)
     {
         ItemCode = NormalizeItemCode(itemCode);
         Designation = RequireValue(designation, nameof(designation), 300);
         Quantity = RequireMaxScale(RequireStrictlyPositive(quantity, nameof(quantity)), 3, nameof(quantity));
         UnitPrice = RequireMaxScale(RequirePositiveOrZero(unitPrice, nameof(unitPrice)), 2, nameof(unitPrice));
         LineTotalExclVat = RoundMoney(Quantity * UnitPrice);
+        VatRate = InvoiceLine.RequireAllowedVatRate(vatRate ?? DefaultVatRate, nameof(vatRate));
+        VatAmount = InvoiceLine.ComputeVatAmount(LineTotalExclVat, VatRate);
     }
 
     public Guid Id { get; private set; } = Guid.NewGuid();
@@ -43,6 +59,13 @@ public sealed class PurchaseOrderLine
     public decimal UnitPrice { get; private set; }
 
     public decimal LineTotalExclVat { get; private set; }
+
+    public decimal VatRate { get; private set; }
+
+    /// <summary>Stored, computed once at construction - see <see cref="InvoiceLine.VatAmount"/> for why.</summary>
+    public decimal VatAmount { get; private set; }
+
+    public decimal LineTotalInclVat => LineTotalExclVat + VatAmount;
 
     /// <summary>
     /// Cumulative quantity received so far, across every (possibly partial) delivery.

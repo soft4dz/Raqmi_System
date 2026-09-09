@@ -147,6 +147,9 @@ public static class PermissionCatalog
     public const string FinanceBudgetApprove = "finance.budget.approve";
     public const string FinanceReceivableRead = "finance.receivable.read";
     public const string FinanceReceivableRemind = "finance.receivable.remind";
+    public const string FinanceFiscalRead = "finance.fiscal.read";
+    public const string FinanceFiscalDeclare = "finance.fiscal.declare";
+    public const string FinanceFiscalSifecManage = "finance.sifec.manage";
 
     // 04 Commercial, Clients & CRM
     public const string CrmCustomerRead = "crm.customer.read";

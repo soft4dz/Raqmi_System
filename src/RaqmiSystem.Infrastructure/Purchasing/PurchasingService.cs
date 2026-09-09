@@ -2,9 +2,12 @@ using System.Data;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using RaqmiSystem.Application.Common;
+using RaqmiSystem.Application.Fiscalite;
 using RaqmiSystem.Application.Inventory;
 using RaqmiSystem.Application.Purchasing;
 using RaqmiSystem.Application.Security;
+using RaqmiSystem.Domain.Billing;
+using RaqmiSystem.Domain.Fiscalite;
 using RaqmiSystem.Domain.Purchasing;
 using RaqmiSystem.Infrastructure.Persistence;
 
@@ -31,7 +34,8 @@ public sealed class PurchasingService(
     RaqmiDbContext dbContext,
     IAuditLogWriter auditLogWriter,
     IStockOperationService stockOperationService,
-    IStockCostProvider stockCostProvider) : IPurchasingService
+    IStockCostProvider stockCostProvider,
+    IVatRegisterService vatRegisterService) : IPurchasingService
 {
     private const string SuppliersEntity = "purchasing.suppliers";
 
@@ -687,6 +691,31 @@ public sealed class PurchasingService(
 
             order.MarkUpdated(context.UserName, now);
 
+            // Registre TVA achats : une ligne pour CETTE reception, TVA calculee sur la base
+            // recue MAINTENANT (pas sur le total de la commande) - une reception partielle ne
+            // doit declarer que ce qu'elle recoit vraiment.
+            var receivedBaseHt = request.Lines.Sum(line =>
+                Math.Round(linesById[line.LineId].UnitPrice * line.Quantity, 2, MidpointRounding.AwayFromZero));
+            var receivedVatAmount = request.Lines.Sum(line =>
+                InvoiceLine.ComputeVatAmount(
+                    Math.Round(linesById[line.LineId].UnitPrice * line.Quantity, 2, MidpointRounding.AwayFromZero),
+                    linesById[line.LineId].VatRate));
+            var supplier = await dbContext.Set<Supplier>()
+                .AsNoTracking()
+                .SingleOrDefaultAsync(current => current.Code == order.SupplierCode, cancellationToken);
+
+            await vatRegisterService.RegisterPurchaseAsync(
+                new RegisterVatPurchaseRequest(
+                    order.Id,
+                    order.Number!,
+                    DateOnly.FromDateTime(now.UtcDateTime),
+                    supplier?.Name ?? order.SupplierCode,
+                    supplier?.Nif,
+                    receivedBaseHt,
+                    receivedVatAmount),
+                context,
+                cancellationToken);
+
             await WriteAuditAsync(
                 "purchasing.order.received",
                 OrdersEntity,
@@ -860,7 +889,7 @@ public sealed class PurchasingService(
     private static List<PurchaseOrderLine> BuildLines(IReadOnlyCollection<PurchaseOrderLineRequest> requests)
     {
         return requests
-            .Select(line => new PurchaseOrderLine(line.ItemCode, line.Designation, line.Quantity, line.UnitPrice))
+            .Select(line => new PurchaseOrderLine(line.ItemCode, line.Designation, line.Quantity, line.UnitPrice, line.VatRate))
             .ToList();
     }
 

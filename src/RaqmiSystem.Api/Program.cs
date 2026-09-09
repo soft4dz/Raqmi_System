@@ -218,6 +218,7 @@ api.MapKpiEndpoints();
 api.MapHumanResourcesEndpoints();
 api.MapInventoryEndpoints();
 api.MapPurchasingEndpoints();
+api.MapFiscaliteEndpoints();
 api.MapKitchenEndpoints();
 api.MapMiceEndpoints();
 api.MapSyncEndpoints();

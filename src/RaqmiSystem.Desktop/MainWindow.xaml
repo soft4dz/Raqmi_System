@@ -1564,6 +1564,9 @@
                     <TabItem x:Name="PmsTabItem" Header="PMS front office">
                         <views:PmsView x:Name="PmsView" />
                     </TabItem>
+                    <TabItem x:Name="FiscaliteTabItem" Header="Fiscalité DGI &amp; SIFEC">
+                        <views:FiscaliteView x:Name="FiscaliteView" />
+                    </TabItem>
                 </TabControl>
 
                 <!-- ========================= Bandeau de session ========================= -->

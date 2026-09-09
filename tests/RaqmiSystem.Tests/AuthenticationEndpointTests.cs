@@ -198,6 +198,8 @@ public sealed class AuthenticationEndpointTests : IClassFixture<RaqmiApiFactory>
             PermissionCatalog.BudgetRead,
             PermissionCatalog.BudgetApprove,
             PermissionCatalog.ReceivablesRead,
+            // Fiscalite (5.4) : lecture seule, comme les autres modules finance sur ce profil.
+            PermissionCatalog.FinanceFiscalRead,
             PermissionCatalog.TariffsRead,
             PermissionCatalog.LodgingRead,
             // Module 10.2: direction reads the housekeeping board but never runs it - planning a

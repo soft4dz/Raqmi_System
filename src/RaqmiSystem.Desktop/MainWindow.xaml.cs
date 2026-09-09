@@ -399,6 +399,7 @@ public partial class MainWindow : Window
         GroupDashboardView.Initialize(context);
         KpiView.Initialize(context);
         PmsView.Initialize(context);
+        FiscaliteView.Initialize(context);
         DecCockpitView.Initialize(context);
         HousekeepingView.Initialize(context);
         HumanResourcesView.Initialize(context);
@@ -491,6 +492,7 @@ public partial class MainWindow : Window
         SyncView.ResetState();
         MiceView.ResetState();
         PmsView.ResetState();
+        FiscaliteView.ResetState();
 
         // Remis a zero pour que la prochaine session batte immediatement : le registre doit
         // refleter le NOUVEL utilisateur du poste sans attendre cinq minutes.

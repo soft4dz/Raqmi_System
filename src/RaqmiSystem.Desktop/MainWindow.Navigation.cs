@@ -38,7 +38,8 @@ public partial class MainWindow
     // 16=Validations, 17=Rapports, 18=Sauvegarde,
     // 19=Tableau de bord PDG, 20=Cockpit DEC, 21=Housekeeping & chambres,
     // 22=RH & paie, 23=CRM & expérience client, 24=Stocks, 25=Achats, 26=Cuisine,
-    // 27=Postes & erreurs, 28=Groupes & MICE, 29=Bibliothèque KPI, 30=PMS front office.
+    // 27=Postes & erreurs, 28=Groupes & MICE, 29=Bibliothèque KPI, 30=PMS front office,
+    // 31=Fiscalité DGI & SIFEC.
     //
     // Cet ordre est celui des TabItem, pas celui de la barre latérale : l'index d'un
     // onglet est l'identité d'un module dans tout le code (ModuleCatalog.TabIndex y
@@ -396,6 +397,9 @@ public partial class MainWindow
             case 30:
                 await PmsView.LoadAsync();
                 break;
+            case 31:
+                await FiscaliteView.LoadAsync();
+                break;
             default:
                 // Les onglets 0 a 4 vivent dans MainWindow et sont charges a la
                 // connexion : rien a faire, et rien a retenir non plus.
@@ -517,6 +521,7 @@ public partial class MainWindow
         ApplyModuleAccess(PermissionCatalog.HrRead, HumanResourcesTabItem);
         ApplyModuleAccess(PermissionCatalog.SyncRead, SyncTabItem);
         ApplyModuleAccess(PermissionCatalog.MiceRead, MiceTabItem);
+        ApplyModuleAccess(PermissionCatalog.FinanceFiscalRead, FiscaliteTabItem);
 
         ApplyWriteActionStates();
         RefreshSidebar();

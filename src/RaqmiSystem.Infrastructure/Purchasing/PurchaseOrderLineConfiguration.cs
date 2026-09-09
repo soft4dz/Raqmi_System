@@ -68,6 +68,16 @@ public sealed class PurchaseOrderLineConfiguration : IEntityTypeConfiguration<Pu
             .HasColumnName("line_total_excl_vat")
             .HasPrecision(18, 2);
 
+        builder.Property(line => line.VatRate)
+            .HasColumnName("vat_rate")
+            .HasPrecision(5, 2);
+
+        builder.Property(line => line.VatAmount)
+            .HasColumnName("vat_amount")
+            .HasPrecision(18, 2);
+
+        builder.Ignore(line => line.LineTotalInclVat);
+
         builder.Property(line => line.QuantityReceived)
             .HasColumnName("quantity_received")
             .HasPrecision(18, 3);

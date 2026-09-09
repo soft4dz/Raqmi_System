@@ -85,8 +85,8 @@ public sealed class NavigationTreeBuilderTests
     {
         var tree = NavigationTreeBuilder.Build(Tree, AllPermissions, NavigationFilter.Sidebar);
 
-        Assert.Equal(30, tree.OpenableTabOrder.Count);
-        Assert.Equal(Enumerable.Range(1, 30).OrderBy(tab => tab), tree.OpenableTabOrder.OrderBy(tab => tab));
+        Assert.Equal(31, tree.OpenableTabOrder.Count);
+        Assert.Equal(Enumerable.Range(1, 31).OrderBy(tab => tab), tree.OpenableTabOrder.OrderBy(tab => tab));
         Assert.Equal(
             FunctionalArchitectureCatalog.PrimaryPaths.Select(path => path.Screen.LegacyTabIndex!.Value),
             tree.OpenableTabOrder);
@@ -108,7 +108,7 @@ public sealed class NavigationTreeBuilderTests
         Assert.NotNull(withAliases.FindDomain("15"));
 
         // Même avec les alias, l'ordre clavier ne compte chaque onglet qu'une fois.
-        Assert.Equal(30, withAliases.OpenableTabOrder.Count);
+        Assert.Equal(31, withAliases.OpenableTabOrder.Count);
     }
 
     // ---------------------------------------------------------------- recherche
@@ -169,7 +169,7 @@ public sealed class NavigationTreeBuilderTests
     public void Empty_search_is_no_filter()
     {
         var tree = NavigationTreeBuilder.Build(Tree, AllPermissions, NavigationFilter.Sidebar with { SearchText = "   " });
-        Assert.Equal(30, tree.OpenableTabOrder.Count);
+        Assert.Equal(31, tree.OpenableTabOrder.Count);
     }
 
     // ------------------------------------------------------------------ filtres
@@ -181,7 +181,7 @@ public sealed class NavigationTreeBuilderTests
 
         var domain = Assert.Single(tree.Domains);
         Assert.Equal("03", domain.Id);
-        Assert.Equal([11, 6, 13, 12, 2], tree.OpenableTabOrder);
+        Assert.Equal([11, 6, 13, 12, 31, 2], tree.OpenableTabOrder);
     }
 
     [Fact]
@@ -200,7 +200,7 @@ public sealed class NavigationTreeBuilderTests
             AllPermissions,
             NavigationFilter.Home with { Maturities = new HashSet<FunctionalMaturity> { FunctionalMaturity.Functional } });
 
-        Assert.Equal(30, functionalOnly.OpenableTabOrder.Count);
+        Assert.Equal(31, functionalOnly.OpenableTabOrder.Count);
         Assert.All(
             functionalOnly.Domains.SelectMany(domain => domain.Modules).SelectMany(module => module.Submodules),
             submodule => Assert.NotEmpty(submodule.Screens));

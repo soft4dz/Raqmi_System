@@ -1,0 +1,662 @@
+<UserControl x:Class="RaqmiSystem.Desktop.Views.FiscaliteView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignWidth="1200"
+             d:DesignHeight="760"
+             FontFamily="{StaticResource AppFontFamily}">
+
+    <UserControl.Resources>
+        <Style x:Key="BusinessRuleText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </UserControl.Resources>
+
+    <!-- ============================================================================
+         Module 5.4 - Fiscalité DGI & SIFEC. SIFEC ne fonctionne qu'en mode sandbox
+         (simulation d'acceptation à des fins de test/certification) : le mode
+         production n'a aucune intégration DGI réelle dans ce dépôt et échoue
+         toujours explicitement - voir Configuration SIFEC.
+         ============================================================================ -->
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+                <TextBlock Text="Fiscalité DGI &amp; SIFEC" Style="{StaticResource PageTitleText}" />
+                <TextBlock Text="TVA, déclarations, liasse et lien SIFEC"
+                           Style="{StaticResource SubtitleText}"
+                           Margin="0,4,0,0" />
+            </StackPanel>
+        </Border>
+
+        <TabControl Grid.Row="2" Style="{StaticResource SectionTabControl}">
+
+            <!-- ============================== Registre TVA ventes ============================== -->
+            <TabItem Header="Registre TVA ventes">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Période" Style="{StaticResource LabelText}" />
+                                <DatePicker x:Name="SalesRegisterPeriodDatePicker" />
+                            </StackPanel>
+
+                            <TextBlock Grid.Column="2"
+                                       Style="{StaticResource BusinessRuleText}"
+                                       VerticalAlignment="Bottom"
+                                       Margin="0,0,0,6"
+                                       Text="Alimenté automatiquement à l'émission de chaque facture (module Facturation)." />
+
+                            <Button Grid.Column="4"
+                                    x:Name="RefreshSalesRegisterButton"
+                                    Content="Actualiser"
+                                    Style="{StaticResource PrimaryButton}"
+                                    VerticalAlignment="Bottom"
+                                    Click="RefreshSalesRegisterButton_Click" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <DataGrid x:Name="SalesRegisterDataGrid" IsReadOnly="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Pièce" Binding="{Binding PieceNumber}" Width="160" />
+                                <DataGridTextColumn Header="Date" Binding="{Binding PieceDate, StringFormat=dd/MM/yyyy}" Width="110" />
+                                <DataGridTextColumn Header="Client" Binding="{Binding CustomerName}" Width="*" MinWidth="200" />
+                                <DataGridTextColumn Header="Type" Binding="{Binding TypeLabel}" Width="90" />
+                                <DataGridTextColumn Header="Base HT" Binding="{Binding BaseHt, StringFormat={}{0:N2}}" Width="130" ElementStyle="{StaticResource AmountCellText}" HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="TVA" Binding="{Binding VatAmount, StringFormat={}{0:N2}}" Width="120" ElementStyle="{StaticResource AmountCellText}" HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="TTC" Binding="{Binding Ttc, StringFormat={}{0:N2}}" Width="130" ElementStyle="{StaticResource TotalCellText}" HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ============================== Registre TVA achats ============================== -->
+            <TabItem Header="Registre TVA achats">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Période" Style="{StaticResource LabelText}" />
+                                <DatePicker x:Name="PurchaseRegisterPeriodDatePicker" />
+                            </StackPanel>
+
+                            <TextBlock Grid.Column="2"
+                                       Style="{StaticResource BusinessRuleText}"
+                                       VerticalAlignment="Bottom"
+                                       Margin="0,0,0,6"
+                                       Text="Alimenté à la réception d'un bon de commande, ou par import des bons déjà reçus de la période." />
+
+                            <Button Grid.Column="4"
+                                    x:Name="ImportPurchaseOrdersButton"
+                                    Content="Importer bons reçus"
+                                    Style="{StaticResource SecondaryButton}"
+                                    VerticalAlignment="Bottom"
+                                    Click="ImportPurchaseOrdersButton_Click" />
+
+                            <Button Grid.Column="6"
+                                    x:Name="RefreshPurchaseRegisterButton"
+                                    Content="Actualiser"
+                                    Style="{StaticResource PrimaryButton}"
+                                    VerticalAlignment="Bottom"
+                                    Click="RefreshPurchaseRegisterButton_Click" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="160" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="140" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Fournisseur (écriture manuelle)" Style="{StaticResource LabelText}" />
+                                <TextBox x:Name="NewPurchaseEntrySupplierTextBox" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="NIF" Style="{StaticResource LabelText}" />
+                                <TextBox x:Name="NewPurchaseEntrySupplierNifTextBox" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="Date" Style="{StaticResource LabelText}" />
+                                <DatePicker x:Name="NewPurchaseEntryDateDatePicker" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="6">
+                                <TextBlock Text="Base HT" Style="{StaticResource LabelText}" />
+                                <TextBox x:Name="NewPurchaseEntryBaseHtTextBox" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="8">
+                                <TextBlock Text="TVA" Style="{StaticResource LabelText}" />
+                                <TextBox x:Name="NewPurchaseEntryVatAmountTextBox" />
+                            </StackPanel>
+                            <Button Grid.Column="10"
+                                    x:Name="AddPurchaseEntryButton"
+                                    Content="Ajouter"
+                                    Style="{StaticResource SecondaryButton}"
+                                    VerticalAlignment="Bottom"
+                                    Click="AddPurchaseEntryButton_Click" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="4" Style="{StaticResource CardBorder}">
+                        <DataGrid x:Name="PurchaseRegisterDataGrid" IsReadOnly="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Pièce" Binding="{Binding PieceNumber}" Width="160" />
+                                <DataGridTextColumn Header="Date" Binding="{Binding PieceDate, StringFormat=dd/MM/yyyy}" Width="110" />
+                                <DataGridTextColumn Header="Fournisseur" Binding="{Binding SupplierName}" Width="*" MinWidth="200" />
+                                <DataGridTextColumn Header="Base HT" Binding="{Binding BaseHt, StringFormat={}{0:N2}}" Width="130" ElementStyle="{StaticResource AmountCellText}" HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="TVA" Binding="{Binding VatAmount, StringFormat={}{0:N2}}" Width="120" ElementStyle="{StaticResource AmountCellText}" HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="TTC" Binding="{Binding Ttc, StringFormat={}{0:N2}}" Width="130" ElementStyle="{StaticResource TotalCellText}" HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="Source" Binding="{Binding SourceLabel}" Width="100" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ============================== Déclaration TVA ============================== -->
+            <TabItem Header="Déclaration TVA">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Période" Style="{StaticResource LabelText}" />
+                                <DatePicker x:Name="DeclarationPeriodDatePicker" />
+                            </StackPanel>
+
+                            <TextBlock Grid.Column="2"
+                                       Style="{StaticResource BusinessRuleText}"
+                                       VerticalAlignment="Bottom"
+                                       Margin="0,0,0,6"
+                                       Text="Solde = TVA collectée − TVA déductible − crédit antérieur. Une déclaration déjà déclarée ne peut plus être recalculée." />
+
+                            <Button Grid.Column="4"
+                                    x:Name="CalculateDeclarationButton"
+                                    Content="Calculer la déclaration"
+                                    Style="{StaticResource PrimaryButton}"
+                                    VerticalAlignment="Bottom"
+                                    Click="CalculateDeclarationButton_Click" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource SubtleCardBorder}" Padding="16" x:Name="DeclarationSummaryPanel" Visibility="Collapsed">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="BASE HT VENTES" Style="{StaticResource MetricLabelText}" />
+                                <TextBlock x:Name="DeclarationBaseHtVentesTextBlock" Text="—" Style="{StaticResource MetricValueText}" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="TVA COLLECTÉE" Style="{StaticResource MetricLabelText}" />
+                                <TextBlock x:Name="DeclarationTvaCollecteeTextBlock" Text="—" Style="{StaticResource MetricValueText}" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="TVA DÉDUCTIBLE" Style="{StaticResource MetricLabelText}" />
+                                <TextBlock x:Name="DeclarationTvaDeductibleTextBlock" Text="—" Style="{StaticResource MetricValueText}" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="3">
+                                <TextBlock Text="CRÉDIT ANTÉRIEUR" Style="{StaticResource MetricLabelText}" />
+                                <TextBlock x:Name="DeclarationCreditAnterieurTextBlock" Text="—" Style="{StaticResource MetricValueText}" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="SOLDE" Style="{StaticResource MetricLabelText}" />
+                                <TextBlock x:Name="DeclarationSoldeTextBlock" Text="—" Style="{StaticResource MetricValueText}" Margin="0,4,0,0" />
+                                <TextBlock x:Name="DeclarationStatusTextBlock" Text="" Style="{StaticResource CaptionText}" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="4" Style="{StaticResource CardBorder}">
+                        <DataGrid x:Name="DeclarationHistoryDataGrid" IsReadOnly="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Période" Binding="{Binding Period}" Width="100" />
+                                <DataGridTextColumn Header="Base HT ventes" Binding="{Binding BaseHtVentes, StringFormat={}{0:N2}}" Width="140" ElementStyle="{StaticResource AmountCellText}" HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="TVA collectée" Binding="{Binding TvaCollectee, StringFormat={}{0:N2}}" Width="130" ElementStyle="{StaticResource AmountCellText}" HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="TVA déductible" Binding="{Binding TvaDeductible, StringFormat={}{0:N2}}" Width="130" ElementStyle="{StaticResource AmountCellText}" HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="Crédit antérieur" Binding="{Binding CreditAnterieur, StringFormat={}{0:N2}}" Width="140" ElementStyle="{StaticResource AmountCellText}" HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="Solde" Binding="{Binding Solde, StringFormat={}{0:N2}}" Width="130" ElementStyle="{StaticResource TotalCellText}" HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="Statut" Binding="{Binding StatusLabel}" Width="110" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ============================== Télédéclarations ============================== -->
+            <TabItem Header="Télédéclarations">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Période" Style="{StaticResource LabelText}" />
+                                <DatePicker x:Name="TeleDeclarationPeriodDatePicker" />
+                            </StackPanel>
+
+                            <TextBlock Grid.Column="2"
+                                       Style="{StaticResource BusinessRuleText}"
+                                       VerticalAlignment="Bottom"
+                                       Margin="0,0,0,6"
+                                       Text="Recalcule la déclaration puis exporte le G50 (préparation du dépôt, pas un dépôt électronique direct)." />
+
+                            <Button Grid.Column="4"
+                                    x:Name="ExportG50Button"
+                                    Content="Exporter G50 TVA"
+                                    Style="{StaticResource PrimaryButton}"
+                                    VerticalAlignment="Bottom"
+                                    Click="ExportG50Button_Click" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Référence DGI (après dépôt sur le portail)" Style="{StaticResource LabelText}" />
+                                <TextBox x:Name="DgiReferenceTextBox" />
+                            </StackPanel>
+
+                            <Button Grid.Column="2"
+                                    x:Name="MarkTeleDeclarationDeclaredButton"
+                                    Content="Marquer déclarée"
+                                    Style="{StaticResource SecondaryButton}"
+                                    VerticalAlignment="Bottom"
+                                    ToolTip="Sélectionnez une ligne dans le tableau ci-dessous"
+                                    Click="MarkTeleDeclarationDeclaredButton_Click" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="4" Style="{StaticResource CardBorder}">
+                        <DataGrid x:Name="TeleDeclarationsDataGrid" IsReadOnly="True" SelectionMode="Single">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Période" Binding="{Binding Period}" Width="100" />
+                                <DataGridTextColumn Header="Montant" Binding="{Binding Amount, StringFormat={}{0:N2}}" Width="130" ElementStyle="{StaticResource AmountCellText}" HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="Statut" Binding="{Binding StatusLabel}" Width="110" />
+                                <DataGridTextColumn Header="Réf. DGI" Binding="{Binding DgiReference}" Width="160" />
+                                <DataGridTextColumn Header="Exportée le" Binding="{Binding ExportedLabel}" Width="160" ElementStyle="{StaticResource MutedCellText}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ============================== Retenue à la source ============================== -->
+            <TabItem Header="Retenue à la source">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="150" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="120" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Fournisseur" Style="{StaticResource LabelText}" />
+                                <TextBox x:Name="WithholdingSupplierTextBox" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Base HT" Style="{StaticResource LabelText}" />
+                                <TextBox x:Name="WithholdingBaseHtTextBox" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="Taux (%)" Style="{StaticResource LabelText}" />
+                                <TextBox x:Name="WithholdingRateTextBox" Text="15" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="6">
+                                <TextBlock Text="Date" Style="{StaticResource LabelText}" />
+                                <DatePicker x:Name="WithholdingDateDatePicker" />
+                            </StackPanel>
+                            <Button Grid.Column="8"
+                                    x:Name="AddWithholdingButton"
+                                    Content="Enregistrer"
+                                    Style="{StaticResource PrimaryButton}"
+                                    VerticalAlignment="Bottom"
+                                    Click="AddWithholdingButton_Click" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <DataGrid x:Name="WithholdingDataGrid" IsReadOnly="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Fournisseur" Binding="{Binding SupplierName}" Width="*" MinWidth="200" />
+                                <DataGridTextColumn Header="Date" Binding="{Binding Date, StringFormat=dd/MM/yyyy}" Width="110" />
+                                <DataGridTextColumn Header="Base HT" Binding="{Binding BaseHt, StringFormat={}{0:N2}}" Width="130" ElementStyle="{StaticResource AmountCellText}" HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="Taux (%)" Binding="{Binding Rate, StringFormat={}{0:N2}}" Width="100" ElementStyle="{StaticResource AmountCellText}" HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                                <DataGridTextColumn Header="Montant retenu" Binding="{Binding MontantRetenu, StringFormat={}{0:N2}}" Width="140" ElementStyle="{StaticResource TotalCellText}" HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ============================== Liasse fiscale ============================== -->
+            <TabItem Header="Liasse fiscale">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Exercice" Style="{StaticResource LabelText}" />
+                                <TextBox x:Name="FiscalReturnYearTextBox" />
+                            </StackPanel>
+
+                            <TextBlock Grid.Column="2"
+                                       Style="{StaticResource BusinessRuleText}"
+                                       VerticalAlignment="Bottom"
+                                       Margin="0,0,0,6"
+                                       Text="La liasse avancée inclut une estimation simplifiée de l'IBS (26%) — jamais une liquidation officielle." />
+
+                            <Button Grid.Column="4"
+                                    x:Name="RefreshFiscalReturnButton"
+                                    Content="Actualiser"
+                                    Style="{StaticResource SecondaryButton}"
+                                    VerticalAlignment="Bottom"
+                                    Click="RefreshFiscalReturnButton_Click" />
+
+                            <Button Grid.Column="6"
+                                    x:Name="GenerateSimpleFiscalReturnButton"
+                                    Content="Générer (simple)"
+                                    Style="{StaticResource SecondaryButton}"
+                                    VerticalAlignment="Bottom"
+                                    Click="GenerateSimpleFiscalReturnButton_Click" />
+
+                            <Button Grid.Column="8"
+                                    x:Name="GenerateAdvancedFiscalReturnButton"
+                                    Content="Liasse avancée"
+                                    Style="{StaticResource PrimaryButton}"
+                                    VerticalAlignment="Bottom"
+                                    Click="GenerateAdvancedFiscalReturnButton_Click" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <DataGrid x:Name="FiscalReturnDataGrid" IsReadOnly="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Liasse" Binding="{Binding KindLabel}" Width="100" />
+                                <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="100" />
+                                <DataGridTextColumn Header="Libellé" Binding="{Binding Label}" Width="*" MinWidth="220" />
+                                <DataGridTextColumn Header="Montant" Binding="{Binding Amount, StringFormat={}{0:N2}}" Width="150" ElementStyle="{StaticResource TotalCellText}" HeaderStyle="{StaticResource RightAlignedColumnHeader}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ============================== SIFEC ============================== -->
+            <TabItem Header="SIFEC">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource SubtleCardBorder}" Padding="16">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="EN ATTENTE" Style="{StaticResource MetricLabelText}" />
+                                <TextBlock x:Name="SifecHubEnAttenteTextBlock" Text="—" Style="{StaticResource MetricValueText}" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="SOUMIS" Style="{StaticResource MetricLabelText}" />
+                                <TextBlock x:Name="SifecHubSoumisTextBlock" Text="—" Style="{StaticResource MetricValueText}" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="ACCEPTÉS" Style="{StaticResource MetricLabelText}" />
+                                <TextBlock x:Name="SifecHubAcceptesTextBlock" Text="—" Style="{StaticResource MetricValueText}" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="3">
+                                <TextBlock Text="REJETÉS" Style="{StaticResource MetricLabelText}" />
+                                <TextBlock x:Name="SifecHubRejetesTextBlock" Text="—" Style="{StaticResource MetricValueText}" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="ERREURS" Style="{StaticResource MetricLabelText}" />
+                                <TextBlock x:Name="SifecHubErreursTextBlock" Text="—" Style="{StaticResource MetricValueText}" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="5">
+                                <TextBlock Text="MODE CONNECTEUR" Style="{StaticResource MetricLabelText}" />
+                                <TextBlock x:Name="SifecHubModeTextBlock" Text="—" Style="{StaticResource MetricValueText}" Margin="0,4,0,0" />
+                            </StackPanel>
+
+                            <Button Grid.Column="6"
+                                    x:Name="RefreshSifecButton"
+                                    Content="Actualiser"
+                                    Style="{StaticResource SecondaryButton}"
+                                    VerticalAlignment="Bottom"
+                                    Click="RefreshSifecButton_Click" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource CardBorder}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Identifiant de facture (GUID)" Style="{StaticResource LabelText}" />
+                                <TextBox x:Name="SifecInvoiceIdTextBox" />
+                            </StackPanel>
+
+                            <Button Grid.Column="2"
+                                    x:Name="SendSifecInvoiceButton"
+                                    Content="Envoyer"
+                                    Style="{StaticResource SecondaryButton}"
+                                    VerticalAlignment="Bottom"
+                                    Click="SendSifecInvoiceButton_Click" />
+
+                            <Button Grid.Column="4"
+                                    x:Name="SubmitSifecBatchButton"
+                                    Content="Transmettre le lot"
+                                    Style="{StaticResource PrimaryButton}"
+                                    VerticalAlignment="Bottom"
+                                    ToolTip="Prépare et transmet toutes les factures émises non encore acceptées"
+                                    Click="SubmitSifecBatchButton_Click" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="4" Style="{StaticResource CardBorder}">
+                        <DataGrid x:Name="SifecTransmissionsDataGrid" IsReadOnly="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Facture" Binding="{Binding InvoiceId}" Width="260" ElementStyle="{StaticResource MutedCellText}" />
+                                <DataGridTextColumn Header="Statut" Binding="{Binding StatusLabel}" Width="110" />
+                                <DataGridTextColumn Header="UID" Binding="{Binding Uid}" Width="180" ElementStyle="{StaticResource MutedCellText}" />
+                                <DataGridTextColumn Header="Mode" Binding="{Binding ModeLabel}" Width="100" />
+                                <DataGridTextColumn Header="Soumise le" Binding="{Binding SubmittedLabel}" Width="150" ElementStyle="{StaticResource MutedCellText}" />
+                                <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" MinWidth="200" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ============================== Configuration SIFEC ============================== -->
+            <TabItem Header="Configuration SIFEC">
+                <Border Style="{StaticResource CardBorder}" VerticalAlignment="Top">
+                    <StackPanel MaxWidth="560">
+                        <TextBlock Text="Configuration du connecteur SIFEC" Style="{StaticResource SectionTitleText}" />
+                        <TextBlock Style="{StaticResource BusinessRuleText}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,6,0,16"
+                                   Text="Le mode Sandbox simule systématiquement une acceptation, à des fins de test et de certification. Le mode Production n'a aucune intégration DGI réelle dans cette version : toute transmission ou test de connexion y échoue explicitement." />
+
+                        <TextBlock Text="Mode" Style="{StaticResource LabelText}" />
+                        <ComboBox x:Name="SifecModeComboBox" Margin="0,0,0,12">
+                            <ComboBoxItem Content="Sandbox" />
+                            <ComboBoxItem Content="Production" />
+                        </ComboBox>
+
+                        <TextBlock Text="URL API DGI" Style="{StaticResource LabelText}" />
+                        <TextBox x:Name="SifecApiUrlTextBox" Margin="0,0,0,12" />
+
+                        <TextBlock Text="Référence de la clé API (coffre de secrets)" Style="{StaticResource LabelText}" />
+                        <TextBox x:Name="SifecApiKeyReferenceTextBox" Margin="0,0,0,12" />
+
+                        <TextBlock Text="NIF déclarant" Style="{StaticResource LabelText}" />
+                        <TextBox x:Name="SifecDeclarantNifTextBox" Margin="0,0,0,12" />
+
+                        <CheckBox x:Name="SifecIsActiveCheckBox" Content="Connecteur actif" Margin="0,0,0,16" />
+
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="SaveSifecConfigButton"
+                                    Content="Enregistrer"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Margin="0,0,10,0"
+                                    Click="SaveSifecConfigButton_Click" />
+                            <Button x:Name="TestSifecConnectionButton"
+                                    Content="Tester la connexion"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Click="TestSifecConnectionButton_Click" />
+                        </StackPanel>
+
+                        <TextBlock x:Name="SifecConfigLastTestTextBlock"
+                                   Text=""
+                                   Style="{StaticResource CaptionText}"
+                                   Margin="0,10,0,0" />
+                    </StackPanel>
+                </Border>
+            </TabItem>
+
+        </TabControl>
+    </Grid>
+</UserControl>

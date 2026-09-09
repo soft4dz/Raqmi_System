@@ -3,10 +3,12 @@ using RaqmiSystem.Application.Billing;
 using RaqmiSystem.Application.Common;
 using RaqmiSystem.Application.Security;
 using RaqmiSystem.Application.Catalog;
+using RaqmiSystem.Application.Fiscalite;
 using RaqmiSystem.Application.Inventory;
 using RaqmiSystem.Application.Settings;
 using RaqmiSystem.Application.Treasury;
 using RaqmiSystem.Domain.Billing;
+using RaqmiSystem.Domain.Fiscalite;
 using RaqmiSystem.Domain.Organization;
 using RaqmiSystem.Infrastructure.Persistence;
 using System.Data;
@@ -20,7 +22,8 @@ namespace RaqmiSystem.Infrastructure.Billing;
 /// depuis un code article (prix et TVA repris de l'article) et savoir, a l'emission, quelles
 /// lignes sortent du stock ; <see cref="IStockOperationService"/> pour la sortie elle-meme, qui
 /// est ecrite dans la MEME transaction que l'emission ; <see cref="ITreasuryService"/> pour
-/// l'encaissement reel qu'un reglement cree, dans la meme transaction que le passage a Payee.
+/// l'encaissement reel qu'un reglement cree, dans la meme transaction que le passage a Payee ;
+/// <see cref="IVatRegisterService"/> pour la ligne du registre TVA ventes qu'une emission cree.
 /// </summary>
 public sealed class BillingService(
     RaqmiDbContext dbContext,
@@ -28,7 +31,8 @@ public sealed class BillingService(
     IApplicationSettingsService applicationSettingsService,
     ICatalogService catalogService,
     IStockOperationService stockOperations,
-    ITreasuryService treasuryService) : IBillingService
+    ITreasuryService treasuryService,
+    IVatRegisterService vatRegisterService) : IBillingService
 {
     /// <summary>
     /// Ce que repond un reglement sans mode de paiement : la facture est payee aux yeux de la
@@ -618,6 +622,22 @@ public sealed class BillingService(
                 }
             }
         }
+
+        // Registre TVA ventes : ecrit une fois le numero definitif de la facture connu (les deux
+        // branches ci-dessus l'ont deja committe), pour ne jamais figer un numero qui serait
+        // ensuite reassigne par la reprise sur collision.
+        await vatRegisterService.RegisterSaleAsync(
+            new RegisterVatSaleRequest(
+                invoice.Id,
+                invoice.Number!,
+                DateOnly.FromDateTime(now.UtcDateTime),
+                VatMovementType.Vente,
+                invoice.CustomerNameSnapshot ?? invoice.CustomerCode,
+                invoice.CustomerNifSnapshot,
+                invoice.TotalExclVat,
+                invoice.TotalVat),
+            context,
+            cancellationToken);
 
         await WriteAuditAsync(
             "finance.invoice.issued",
