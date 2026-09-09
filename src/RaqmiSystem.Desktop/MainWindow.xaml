@@ -54,15 +54,94 @@
              UTC renvoye par l'API est affiche en heure du poste (charte, regle 3.8). -->
         <views:UtcToLocalTimeConverter x:Key="UtcToLocalTimeConverter" />
 
-        <!-- Masquage des sections de modules sans resultat de recherche. -->
-        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <!-- Rangee d'ecran de la barre laterale (ModuleNavigationScreen), gabarit implicite
+             par type : le meme sous Mon Espace, dans la liste des domaines et dans le pied.
+             Declare ici et non dans le theme : le bouton appelle un handler de cette
+             fenetre, qu'un dictionnaire de ressources sans code-behind ne peut pas nommer.
+             Meme handler que les cartes de l'accueil : un seul chemin de navigation, jamais
+             desynchronise. L'etat vivant (ecran courant, verrouillage) est celui de la
+             tuile de l'accueil, partagee. -->
+        <DataTemplate DataType="{x:Type desktop:ModuleNavigationScreen}">
+            <Button Tag="{Binding Tile.NavTag}"
+                    IsEnabled="{Binding Tile.IsClickable}"
+                    AutomationProperties.Name="{Binding Label}"
+                    Click="ModuleTileNavigate_Click">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource ModuleNavSubButton}">
+                        <!-- Le contenu prend toute la largeur : le cadenas se cale au bord
+                             droit de la rangee, pas contre le texte. -->
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <!-- Au clavier, l'info-bulle (motif de verrouillage ou libelle tronque)
+                             s'ouvre avec le focus : declare ici, sur la seule rangee qui n'a
+                             d'info-bulle que dans ces deux cas, et non dans le style de base,
+                             que « Mon Espace » et les resultats du catalogue partagent avec
+                             une info-bulle permanente. -->
+                        <Setter Property="desktop:KeyboardFocusToolTip.IsEnabled" Value="True" />
+                        <Style.Triggers>
+                            <!-- Info-bulle et aide UIA seulement sur une rangee verrouillee :
+                                 le motif, permission manquante comprise. Une rangee ouvrable
+                                 n'en a pas - la description vit sur la carte du catalogue. -->
+                            <DataTrigger Binding="{Binding Tile.IsClickable}" Value="False">
+                                <Setter Property="ToolTip" Value="{Binding Tile.ToolTipText}" />
+                                <Setter Property="AutomationProperties.HelpText" Value="{Binding Tile.ToolTipText}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Tile.IsActive}" Value="True">
+                                <Setter Property="AutomationProperties.ItemStatus" Value="écran affiché" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <!-- Deux lignes plutot qu'une ellipse ; le libelle complet n'est en
+                         info-bulle que s'il a quand meme du etre tronque. -->
+                    <TextBlock Text="{Binding Label}"
+                               TextWrapping="Wrap"
+                               LineHeight="17"
+                               LineStackingStrategy="BlockLineHeight"
+                               MaxHeight="34"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center"
+                               desktop:TrimmedTextToolTip.Text="{Binding Label}" />
+                    <!-- Cadenas d'un ecran verrouille : le texte grise ne le dit jamais seul.
+                         Porte par la rangee de la barre, pas par le style du bouton : les
+                         resultats du catalogue ont deja leur pastille « Accès refusé ». -->
+                    <Path Grid.Column="1"
+                          Stroke="{StaticResource SidebarDisabledForegroundBrush}"
+                          Margin="8,0,0,0"
+                          VerticalAlignment="Center">
+                        <Path.Style>
+                            <Style TargetType="Path" BasedOn="{StaticResource ModuleCardLockIcon}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Tile.IsClickable}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Path.Style>
+                    </Path>
+                </Grid>
+            </Button>
+        </DataTemplate>
 
-        <!-- Gabarit d'un domaine de la barre laterale (ModuleNavigationGroup) :
-             Domaine (repliable) -> Module -> Écran. Declare ici et non dans le theme :
-             ses boutons appellent un handler de cette fenetre, qu'un dictionnaire de
-             ressources sans code-behind ne peut pas nommer. Partage par la liste
-             defilante et par la section epinglee en pied de panneau, pour qu'elles ne
-             divergent jamais. -->
+        <!-- Libelle de section (ModuleNavigationSectionLabel) : le nom d'un module qui
+             regroupe au moins deux ecrans. Un intertitre pour l'oeil et pour le lecteur
+             d'ecran, jamais une cible. -->
+        <DataTemplate DataType="{x:Type desktop:ModuleNavigationSectionLabel}">
+            <TextBlock Text="{Binding DisplayText}"
+                       Style="{StaticResource ModuleNavSectionLabel}"
+                       AutomationProperties.Name="{Binding Label}"
+                       AutomationProperties.HeadingLevel="Level3" />
+        </DataTemplate>
+
+        <!-- Gabarit d'un domaine de la barre laterale (ModuleNavigationGroup) : un en-tete
+             repliable, puis ses rangees a plat (ecrans, libelles de section) choisies par
+             les deux gabarits implicites ci-dessus. Partage par la liste defilante et par
+             le pied epingle, pour qu'ils ne divergent jamais. -->
         <DataTemplate x:Key="SidebarGroupTemplate">
             <!-- Un domaine sans ecran ouvrable (ou sans resultat de recherche) disparait
                  entierement plutot que de laisser un en-tete vide. -->
@@ -71,38 +150,10 @@
                       HeaderTemplate="{StaticResource ModuleNavGroupHeaderTemplate}"
                       IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
                       Visibility="{Binding HasMatches, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <ItemsControl ItemsSource="{Binding VisibleSections}">
-                    <ItemsControl.ItemTemplate>
-                        <!-- Un module : son libelle en petites capitales, puis ses ecrans. -->
-                        <DataTemplate>
-                            <StackPanel>
-                                <TextBlock Text="{Binding Label}"
-                                           Style="{StaticResource MetricLabelText}"
-                                           TextTrimming="CharacterEllipsis"
-                                           Margin="18,6,0,3" />
-                                <ItemsControl ItemsSource="{Binding Screens}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <!-- Meme handler que les cartes de l'accueil : un seul
-                                                 chemin de navigation, jamais desynchronise. L'etat
-                                                 vivant (module courant, verrouillage) est celui de
-                                                 la tuile de l'accueil, partagee. -->
-                                            <Button Style="{StaticResource ModuleNavSubButton}"
-                                                    Tag="{Binding Tile.NavTag}"
-                                                    IsEnabled="{Binding Tile.IsClickable}"
-                                                    ToolTip="{Binding Tile.ToolTipText}"
-                                                    Click="ModuleTileNavigate_Click">
-                                                <TextBlock Text="{Binding Label}"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           VerticalAlignment="Center" />
-                                            </Button>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <!-- IsTabStop=False : un ItemsControl est un arret de tabulation par defaut
+                     en WPF, et Tab s'arreterait sur le conteneur vide avant la premiere
+                     rangee. -->
+                <ItemsControl ItemsSource="{Binding Rows}" IsTabStop="False" />
             </Expander>
         </DataTemplate>
     </Window.Resources>
@@ -418,54 +469,61 @@
             </Border>
 
             <!-- ===================== Application connectée ===================== -->
-            <Grid x:Name="MainContentGrid" Margin="24" Visibility="Collapsed">
+            <Grid x:Name="MainContentGrid" Visibility="Collapsed">
                 <Grid.RowDefinitions>
-                    <!-- Fil d'Ariane de l'ecran actif, puis le contenu, puis le bandeau
-                         de session. La barre laterale s'etend sur les deux premieres
-                         lignes : le fil d'Ariane appartient a l'ecran, pas au panneau. -->
+                    <!-- Fil d'Ariane de l'ecran actif (ligne de 24 px toujours reservee),
+                         puis le contenu, puis le bandeau de session. La barre laterale
+                         s'etend sur les trois lignes : c'est du chrome, pleine hauteur. -->
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                    <!-- Largeurs pilotees par SyncSidebarToTab : sur l'accueil, la barre
-                         laterale est repliee a zero et l'ecran est plein - le sommaire
-                         des modules EST l'accueil, une barre laterale y ferait doublon
-                         et volerait la largeur des cartes. -->
-                    <ColumnDefinition x:Name="SidebarColumn" Width="248" />
-                    <ColumnDefinition x:Name="SidebarGapColumn" Width="20" />
+                    <!-- Deux colonnes, fixees une fois pour toutes : la barre laterale de
+                         260 px et le contenu. La barre est presente sur TOUS les ecrans,
+                         Mon Espace compris : l'accueil s'ouvre sur « Mon travail », pas sur
+                         le catalogue, et un chrome que l'application repliait toute seule
+                         faisait sauter l'ecran de 268 px dix fois par jour. Rien ne touche
+                         a ces largeurs apres le chargement. La marge de 24 px est portee par
+                         la colonne de contenu, pas par la grille. -->
+                    <ColumnDefinition x:Name="SidebarColumn" Width="260" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
                 <!-- ========================= Panneau latéral ========================= -->
-                <!-- Navigation des modules : retour a l'accueil, recherche, les domaines
-                     de l'arbre fonctionnel (Domaine -> Module -> Écran) dans l'ordre du
-                     catalogue cible, et l'administration systeme epinglee en pied de
-                     panneau. Le contenu vient de FunctionalArchitectureCatalog.Tree elague
-                     par NavigationTreeBuilder (ModuleNavigationGroup) : aucun bouton de
-                     module n'est ecrit en dur ici, seuls les ecrans que le profil peut
-                     ouvrir y figurent, et les libelles sont ceux des cartes de l'accueil,
-                     donc un seul vocabulaire dans toute l'application. -->
+                <!-- Navigation des modules, deux niveaux : Domaine › Écran. En tete, Mon
+                     Espace (domaine 01) et ses ecrans ; puis la recherche ; au centre la
+                     liste defilante des domaines 02 → 21 ; en pied, l'administration
+                     systeme epinglee, pour les profils qui y ont un ecran. Le contenu vient
+                     de FunctionalArchitectureCatalog.Tree elague par NavigationTreeBuilder
+                     et aplati par SidebarProjection (ModuleNavigationGroup) : aucun bouton
+                     de module n'est ecrit en dur ici, seuls les ecrans que le profil peut
+                     ouvrir y figurent, et les libelles sont ceux des cartes de l'accueil
+                     (libelle court du catalogue pour les domaines), donc un seul
+                     vocabulaire dans toute l'application. -->
                 <Border x:Name="SidebarBorder"
-                        Grid.RowSpan="2"
-                        Style="{StaticResource CardBorder}"
-                        Padding="14,18">
-                    <Grid>
+                        Grid.RowSpan="3"
+                        Style="{StaticResource SidebarPanel}"
+                        AutomationProperties.Name="Navigation des modules">
+                    <!-- Le clavier est traite au niveau du panneau entier : fleches entre
+                         rangees, → / ← pour deplier et replier, Origine / Fin, Echap vers la
+                         recherche (SidebarList_PreviewKeyDown). -->
+                    <Grid PreviewKeyDown="SidebarList_PreviewKeyDown">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
+                        <!-- Strates fixes : Mon Espace et ses ecrans, puis la recherche. -->
                         <StackPanel>
-                            <TextBlock Text="Modules"
-                                       Style="{StaticResource MetricLabelText}"
-                                       Margin="14,0,0,10" />
-
                             <!-- Premiere ligne de la barre laterale : le domaine 01 de la
                                  cartographie cible, sous son nom definitif. L'onglet 0
                                  EST la page de la personne connectee - ses files, son
-                                 unite de poste, ses derniers ecrans. -->
+                                 unite de poste, ses derniers ecrans. Pas de chevron : ses
+                                 ecrans sont toujours visibles juste dessous. Sur l'onglet 0
+                                 la rangee prend l'etat actif (Tag="Active"), avec le meme
+                                 langage qu'une rangee d'ecran : filet, fond, icone en accent. -->
                             <Button x:Name="ShowHomeButton"
                                     Style="{StaticResource ModuleNavButton}"
                                     ToolTip="Mon Espace (Alt+Origine)"
@@ -479,27 +537,49 @@
                                           StrokeStartLineCap="Round"
                                           StrokeEndLineCap="Round"
                                           StrokeLineJoin="Round"
-                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                                           Data="M2,8.2 L8,2.5 L14,8.2 M3.8,7 V14 H6.8 V10.2 H9.2 V14 H12.2 V7"
                                           VerticalAlignment="Center"
-                                          Margin="0,0,10,0" />
+                                          Margin="0,0,10,0">
+                                        <Path.Style>
+                                            <Style TargetType="Path">
+                                                <Setter Property="Stroke" Value="{StaticResource SidebarIconBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=Button}}" Value="Active">
+                                                        <Setter Property="Stroke" Value="{StaticResource SidebarActiveIndicatorBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Path.Style>
+                                    </Path>
                                     <TextBlock Text="Mon Espace" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
 
-                            <!-- Recherche : filtre les modules sur leur nom, leur
-                                 description, leur famille et leur numero d'ordre, sans
-                                 accent ni casse. Echap efface la saisie. -->
-                            <Grid Margin="0,12,0,0">
+                            <!-- Les ecrans du domaine 01 (« Workflows & validations » si le
+                                 profil peut les ouvrir), rendus comme toute rangee d'ecran.
+                                 Alimente par InitializeNavigation depuis le groupe IsHome. -->
+                            <ItemsControl x:Name="SidebarHomeScreensItemsControl"
+                                          IsTabStop="False"
+                                          AutomationProperties.Name="Écrans de Mon Espace" />
+
+                            <Border BorderBrush="{StaticResource PanelBorderBrush}"
+                                    BorderThickness="0,1,0,0"
+                                    Margin="4,8" />
+
+                            <!-- Recherche : filtre les ecrans sur leur nom, leur description,
+                                 leur domaine (nom complet et libelle court) et leur numero
+                                 d'ordre, sans accent ni casse. Echap efface la saisie, Entree
+                                 ouvre le premier resultat, Fleche bas descend dans la liste. -->
+                            <Grid Margin="4,0,4,10">
                                 <TextBox x:Name="ModuleSearchTextBox"
-                                         Tag="Rechercher un module…"
+                                         Tag="Rechercher un écran…"
                                          MinHeight="34"
-                                         Padding="32,0,32,0"
+                                         Padding="30,0,26,0"
                                          TextChanged="ModuleSearchTextBox_TextChanged"
                                          PreviewKeyDown="ModuleSearchTextBox_PreviewKeyDown" />
-                                <Path Width="16"
-                                      Height="16"
-                                      Stretch="None"
+                                <Path Width="14"
+                                      Height="14"
+                                      Stretch="Uniform"
                                       Data="M6.5,2.6 A3.9,3.9 0 1 0 6.51,2.6 M9.3,9.3 L13.4,13.4"
                                       Stroke="{StaticResource TextPlaceholderBrush}"
                                       StrokeThickness="1.5"
@@ -507,7 +587,7 @@
                                       StrokeEndLineCap="Round"
                                       HorizontalAlignment="Left"
                                       VerticalAlignment="Center"
-                                      Margin="10,0,0,0"
+                                      Margin="9,0,0,0"
                                       IsHitTestVisible="False" />
                                 <Button x:Name="ClearModuleSearchButton"
                                         Style="{StaticResource SearchClearButton}"
@@ -515,42 +595,83 @@
                                         ToolTip="Effacer la recherche"
                                         Click="ClearModuleSearchButton_Click" />
                             </Grid>
+
+                            <!-- Ce que la recherche a retenu (« 3 écrans dans 2 domaines »),
+                                 annonce au lecteur d'ecran a chaque frappe. Vide hors recherche :
+                                 le compteur n'existe qu'en recherche. -->
+                            <TextBlock x:Name="SidebarSearchLiveTextBlock"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       TextWrapping="Wrap"
+                                       Margin="10,0,6,6"
+                                       Visibility="Collapsed"
+                                       AutomationProperties.LiveSetting="Polite" />
+
+                            <Border BorderBrush="{StaticResource PanelBorderBrush}"
+                                    BorderThickness="0,1,0,0"
+                                    Margin="4,0,4,8" />
                         </StackPanel>
 
-                        <ScrollViewer Grid.Row="1"
+                        <!-- Seule strate qui defile : les domaines 02 → 21. Un seul arret de
+                             tabulation pour toute la liste (TabNavigation=Once) ; les fleches
+                             font le reste. Le ScrollViewer et l'ItemsControl sont eux-memes
+                             des arrets de tabulation par defaut en WPF : sans Focusable=False
+                             et IsTabStop=False, Tab depuis la recherche s'arreterait deux fois
+                             sur des conteneurs invisibles avant le premier en-tete, et les
+                             fleches n'y feraient rien. -->
+                        <ScrollViewer x:Name="SidebarListScrollViewer"
+                                      Grid.Row="1"
                                       VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled"
-                                      Margin="0,14,0,0"
+                                      Focusable="False"
                                       Padding="0,0,4,0">
                             <StackPanel>
                                 <ItemsControl x:Name="SidebarGroupsItemsControl"
-                                              ItemTemplate="{StaticResource SidebarGroupTemplate}" />
+                                              ItemTemplate="{StaticResource SidebarGroupTemplate}"
+                                              IsTabStop="False"
+                                              KeyboardNavigation.TabNavigation="Once"
+                                              KeyboardNavigation.DirectionalNavigation="Contained"
+                                              AutomationProperties.Name="Domaines" />
 
                                 <!-- La barre laterale ne liste que les ecrans ouvrables :
                                      le message renvoie au catalogue complet plutot que de
-                                     laisser croire que le module n'existe pas. -->
-                                <TextBlock x:Name="SidebarSearchEmptyTextBlock"
-                                           Text="Aucun écran ne correspond. L'accueil liste les 50 modules du catalogue."
-                                           FontSize="12"
-                                           Foreground="{StaticResource TextMutedBrush}"
-                                           TextWrapping="Wrap"
-                                           Margin="10,8,6,0"
-                                           Visibility="Collapsed" />
+                                     laisser croire que le module n'existe pas, et le bouton
+                                     y mene, recherche du catalogue focalisee. -->
+                                <StackPanel x:Name="SidebarSearchEmptyPanel"
+                                            Margin="10,8,6,0"
+                                            Visibility="Collapsed">
+                                    <TextBlock x:Name="SidebarSearchEmptyTextBlock"
+                                               Text="Aucun écran ne correspond. L'accueil liste les 50 modules du catalogue."
+                                               FontSize="12"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               TextWrapping="Wrap" />
+                                    <Button x:Name="OpenCatalogFromSidebarButton"
+                                            Style="{StaticResource GhostButton}"
+                                            Content="Ouvrir le catalogue"
+                                            HorizontalAlignment="Left"
+                                            Margin="0,8,0,0"
+                                            Click="OpenCatalogFromSidebarButton_Click" />
+                                </StackPanel>
                             </StackPanel>
                         </ScrollViewer>
 
-                        <!-- Parametrage epingle en pied, separe des sections de travail :
-                             on l'ouvre rarement et jamais dans le flux de la journee, mais
-                             il doit rester atteignable en un clic depuis n'importe quel
-                             ecran, sans faire defiler la navigation. -->
+                        <!-- Administration systeme epinglee en pied, separee des domaines de
+                             travail : on l'ouvre rarement et jamais dans le flux de la
+                             journee, mais elle doit rester atteignable en un clic depuis
+                             n'importe quel ecran, Mon Espace compris, sans faire defiler la
+                             navigation. Absente pour les profils qui n'y ont aucun ecran. -->
                         <StackPanel x:Name="SidebarPinnedPanel"
                                     Grid.Row="2"
-                                    Margin="0,10,4,0">
+                                    Margin="0,8,0,0">
                             <Border BorderBrush="{StaticResource PanelBorderBrush}"
                                     BorderThickness="0,1,0,0"
-                                    Margin="0,0,0,8" />
+                                    Margin="4,0,4,8" />
+                            <!-- Le pied compte pour un arret de tabulation, comme la liste. -->
                             <ItemsControl x:Name="SidebarPinnedGroupsItemsControl"
-                                          ItemTemplate="{StaticResource SidebarGroupTemplate}" />
+                                          ItemTemplate="{StaticResource SidebarGroupTemplate}"
+                                          IsTabStop="False"
+                                          KeyboardNavigation.TabNavigation="Once"
+                                          AutomationProperties.Name="Administration système" />
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -559,23 +680,28 @@
                 <!-- « Domaine -> Module -> Sous-module -> Écran » de l'ecran actif, par le
                      chemin primaire de l'arbre (MainWindow.UpdateBreadcrumb). Mis a jour a
                      chaque changement d'onglet, quel que soit le chemin : carte, barre
-                     laterale, raccourci clavier, demande d'une vue. Masque sur l'accueil,
-                     qui a son propre en-tete. -->
+                     laterale, raccourci clavier, demande d'une vue. Sur l'accueil, qui a
+                     son propre en-tete, il est masque (Hidden) sans rendre sa ligne de
+                     24 px : le contenu ne saute jamais verticalement. C'est lui qui porte
+                     le niveau module, que la barre n'affiche plus que comme separateur. -->
                 <Border x:Name="BreadcrumbBorder"
-                        Grid.Column="2"
-                        Margin="2,0,0,10"
-                        Visibility="Collapsed">
+                        Grid.Column="1"
+                        Height="24"
+                        Margin="26,24,24,0"
+                        Visibility="Hidden">
                     <TextBlock x:Name="BreadcrumbTextBlock"
                                FontSize="12"
                                Foreground="{StaticResource TextSecondaryBrush}"
                                TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center"
                                AutomationProperties.LiveSetting="Polite" />
                 </Border>
 
                 <!-- Contenu des modules -->
                 <TabControl x:Name="MainTabs"
                             Grid.Row="1"
-                            Grid.Column="2"
+                            Grid.Column="1"
+                            Margin="24,10,24,0"
                             SelectionChanged="MainTabs_SelectionChanged">
 
                     <!-- ====================== Mon Espace (onglet 0) ======================
@@ -583,8 +709,10 @@
                          l'ordre des 31 onglets est fige, et aucune balise d'onglet n'est
                          ajoutee ici (les deux sections de Mon Espace vivent dans le
                          CONTENU, a l'interieur de HomeView).
-                         Barre laterale repliee et fil d'Ariane masque sur cet onglet :
-                         SyncSidebarToTab et UpdateBreadcrumb s'en chargent, inchanges. -->
+                         La barre laterale reste en place sur cet onglet - seule sa rangee
+                         « Mon Espace » prend l'etat actif - et le fil d'Ariane est masque
+                         sans rendre sa ligne : SyncSidebarToTab et UpdateBreadcrumb s'en
+                         chargent. -->
                     <TabItem Header="Accueil">
                         <views:HomeView x:Name="HomeView" Margin="6,4,0,0" />
                     </TabItem>
@@ -1570,11 +1698,12 @@
                 </TabControl>
 
                 <!-- ========================= Bandeau de session ========================= -->
-                <!-- Sorti de la barre laterale, qui est repliee sur l'accueil : le
-                     resultat d'un appel ("Données chargées.", une erreur) doit rester
-                     lisible sur TOUS les ecrans, y compris celui d'ouverture. Une seule
-                     surface, donc un seul StatusTextBlock alimente par SetStatus. -->
-                <Grid Grid.Row="2" Grid.ColumnSpan="3" Margin="0,14,0,0">
+                <!-- Dans la colonne de contenu, sous l'ecran affiche, jamais sous la barre
+                     laterale (qui occupe les trois lignes de sa colonne) : le resultat d'un
+                     appel ("Données chargées.", une erreur) doit rester lisible sur TOUS
+                     les ecrans, y compris Mon Espace. Une seule surface, donc un seul
+                     StatusTextBlock alimente par SetStatus. -->
+                <Grid Grid.Row="2" Grid.Column="1" Margin="24,14,24,24">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />

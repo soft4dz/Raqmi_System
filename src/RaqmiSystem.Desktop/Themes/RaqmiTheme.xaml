@@ -19,6 +19,15 @@
     <sys:Double x:Key="GridRowHeight">40</sys:Double>
     <sys:Double x:Key="GridHeaderHeight">40</sys:Double>
 
+    <!-- Rangees de la barre laterale : domaine 36 px, ecran 34 px, separateur de module
+         24 px (32 / 32 / 22 en compact, jamais moins pour les deux cibles cliquables :
+         c'est le minimum de la charte). Memes raisons que ci-dessus, posees par
+         ThemeManager.AppliquerDensite. Les rangees les lisent en MinHeight : un libelle
+         sur deux lignes les depasse au lieu d'etre coupe. -->
+    <sys:Double x:Key="SidebarDomainRowHeight">36</sys:Double>
+    <sys:Double x:Key="SidebarScreenRowHeight">34</sys:Double>
+    <sys:Double x:Key="SidebarSectionRowHeight">24</sys:Double>
+
     <!-- Cartes de file de travail de l'accueil (Mon Espace, Mon travail) : meme
          mecanique et memes raisons. Compact retire de l'air autour du chiffre,
          jamais une taille de police. -->
@@ -32,10 +41,33 @@
          TextBox, PasswordBox, ComboBox et DatePicker, plus bas. -->
     <desktop:AccessibleNameConverter x:Key="AccessibleNameConverter" />
 
+    <!-- Cadenas de 12 px : sur une carte du catalogue verrouillee (ModuleCardLockIcon) et
+         sur une rangee desactivee de la barre laterale (ModuleNavButton). Une seule
+         geometrie, declaree avant le premier style qui la lit. -->
+    <Geometry x:Key="LockIconGeometry">M3.4,5.4 V4 A2.6,2.6 0 0 1 8.6,4 V5.4 M2.2,5.4 H9.8 V10.6 H2.2 Z</Geometry>
+
     <!-- ================================ Typographie ============================= -->
     <FontFamily x:Key="AppFontFamily">Manrope, Noto Kufi Arabic, Segoe UI</FontFamily>
 
     <!-- ================================= Palette ================================ -->
+    <!-- Douze couleurs sont declarees a part, comme ressources Color : celles que la barre
+         laterale reprend sous un alias semantique (Sidebar*, plus bas). Le jeton et son
+         alias lisent la MEME ressource Color, donc aucun hexadecimal n'est ecrit deux
+         fois et ils ne peuvent pas deriver. (Un StaticResource pose directement en entree
+         de dictionnaire n'est pas resolu par le chargeur BAML : d'ou ce detour.) -->
+    <Color x:Key="PrimaryColor">#073B78</Color>
+    <Color x:Key="AccentActionColor">#07767D</Color>
+    <Color x:Key="AccentSoftColor">#E1F4F5</Color>
+    <Color x:Key="SurfaceColor">#FFFFFF</Color>
+    <Color x:Key="SurfaceSubtleColor">#EEF4F8</Color>
+    <Color x:Key="SurfaceHoverColor">#E4EDF4</Color>
+    <Color x:Key="BorderStrongColor">#B9CCDD</Color>
+    <Color x:Key="TextPrimaryColor">#0F2337</Color>
+    <Color x:Key="TextSecondaryColor">#4A6A87</Color>
+    <Color x:Key="TextLabelColor">#475569</Color>
+    <Color x:Key="FocusRingColor">#073B78</Color>
+    <Color x:Key="DisabledForegroundColor">#576C82</Color>
+
     <!-- Structure (fonds sombres de marque) -->
     <SolidColorBrush x:Key="StructureBrush" Color="#071525" />
     <!-- Couleur d'ombre portee (DropShadowEffect.Color attend une Color, pas un Brush) -->
@@ -50,7 +82,7 @@
     </LinearGradientBrush>
 
     <!-- Primaire (navy) -->
-    <SolidColorBrush x:Key="PrimaryBrush" Color="#073B78" />
+    <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
     <SolidColorBrush x:Key="PrimaryHoverBrush" Color="#0A4C97" />
     <SolidColorBrush x:Key="PrimaryPressedBrush" Color="#052B57" />
 
@@ -73,14 +105,14 @@
          l'accent de marque ne faisait a aucun (3,06 / 2,71 / 3,89).
          Le survol s'eclaircit comme partout ailleurs dans le theme, mais depuis
          un palier assez bas pour rester au-dessus de 4,5:1. -->
-    <SolidColorBrush x:Key="AccentActionBrush" Color="#07767D" />
+    <SolidColorBrush x:Key="AccentActionBrush" Color="{StaticResource AccentActionColor}" />
     <!-- Texte porte par une surface d'action. Un token plutot que « White » en dur :
          en theme sombre la surface d'action s'eclaircit, et c'est le texte qui doit
          alors s'assombrir. Sans ce token, le bouton principal serait illisible. -->
     <SolidColorBrush x:Key="AccentActionForegroundBrush" Color="#FFFFFF" />
     <SolidColorBrush x:Key="AccentActionHoverBrush" Color="#08838B" />
     <SolidColorBrush x:Key="AccentActionPressedBrush" Color="#066A70" />
-    <SolidColorBrush x:Key="AccentSoftBrush" Color="#E1F4F5" />
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="{StaticResource AccentSoftColor}" />
     <!-- Selection translucide dans les grilles (18% accent) -->
     <SolidColorBrush x:Key="AccentSelectionBrush" Color="#2E0AA3AD" />
 
@@ -93,9 +125,9 @@
 
     <!-- Surfaces -->
     <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F4F7FA" />
-    <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" />
-    <SolidColorBrush x:Key="SurfaceSubtleBrush" Color="#EEF4F8" />
-    <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#E4EDF4" />
+    <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
+    <SolidColorBrush x:Key="SurfaceSubtleBrush" Color="{StaticResource SurfaceSubtleColor}" />
+    <SolidColorBrush x:Key="SurfaceHoverBrush" Color="{StaticResource SurfaceHoverColor}" />
 
     <!-- Bordures.
          PanelBorder delimite une carte : filet decoratif, la carte est deja identifiee
@@ -108,13 +140,13 @@
          que bleue - le seuil est atteint sans que 412 champs virent au souligne. -->
     <SolidColorBrush x:Key="PanelBorderBrush" Color="#DCE6EF" />
     <SolidColorBrush x:Key="FieldBorderBrush" Color="#7A8FA3" />
-    <SolidColorBrush x:Key="BorderStrongBrush" Color="#B9CCDD" />
+    <SolidColorBrush x:Key="BorderStrongBrush" Color="{StaticResource BorderStrongColor}" />
 
     <!-- Textes -->
-    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#0F2337" />
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#4A6A87" />
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}" />
     <SolidColorBrush x:Key="TextMutedBrush" Color="#5B6C7E" />
-    <SolidColorBrush x:Key="TextLabelBrush" Color="#475569" />
+    <SolidColorBrush x:Key="TextLabelBrush" Color="{StaticResource TextLabelColor}" />
     <SolidColorBrush x:Key="TextPlaceholderBrush" Color="#5C7188" />
     <SolidColorBrush x:Key="MutedBrush" Color="#4A6A87" />
     <SolidColorBrush x:Key="HeaderMutedBrush" Color="#9FC3DC" />
@@ -126,7 +158,7 @@
            5,4:1 sur l'accent d'action, 11,0 sur le primaire, 5,4 sur le danger.
          L'ancien anneau (AccentBrush sur fond clair) pesait 3,06:1 sur 1 px, et
          serait tombe a 2,04:1 une fois l'accent d'action assombri. -->
-    <SolidColorBrush x:Key="FocusRingBrush" Color="#073B78" />
+    <SolidColorBrush x:Key="FocusRingBrush" Color="{StaticResource FocusRingColor}" />
     <SolidColorBrush x:Key="FocusRingOnFilledBrush" Color="#FFFFFF" />
     <!-- Anneau sur le fond structure de l'en-tete. Distinct du precedent : en theme
          clair les deux valent blanc, mais en theme sombre la surface d'action devient
@@ -136,12 +168,34 @@
 
     <!-- Etats desactives -->
     <SolidColorBrush x:Key="DisabledBackgroundBrush" Color="#E5EBF1" />
-    <SolidColorBrush x:Key="DisabledForegroundBrush" Color="#576C82" />
+    <SolidColorBrush x:Key="DisabledForegroundBrush" Color="{StaticResource DisabledForegroundColor}" />
     <SolidColorBrush x:Key="DisabledBorderBrush" Color="#DDE5EC" />
 
     <!-- Navigation laterale -->
     <SolidColorBrush x:Key="ModuleInactiveBackgroundBrush" Color="#EEF4F8" />
     <SolidColorBrush x:Key="ModuleActiveBackgroundBrush" Color="#1A0AA3AD" />
+
+    <!-- Barre laterale : quatorze alias semantiques, AUCUNE couleur nouvelle. Chaque alias
+         lit la ressource Color de son jeton (voir le haut de la palette), pour que la
+         barre se decrive par role (fond, texte d'ecran, indicateur actif...) et qu'un
+         futur ajustement ne touche qu'une ligne. La table clair/sombre de reference est
+         ThemePalette.AliasBarreLaterale : ThemeManager verifie au demarrage que les deux
+         concordent, et remplace ces entrees comme les autres en theme sombre. Un seul
+         alias diverge en sombre, SidebarActiveForegroundBrush (voir ThemePalette). -->
+    <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="{StaticResource SurfaceColor}" />
+    <SolidColorBrush x:Key="SidebarBorderBrush" Color="{StaticResource BorderStrongColor}" />
+    <SolidColorBrush x:Key="SidebarTextBrush" Color="{StaticResource TextPrimaryColor}" />
+    <SolidColorBrush x:Key="SidebarScreenTextBrush" Color="{StaticResource TextSecondaryColor}" />
+    <SolidColorBrush x:Key="SidebarSectionLabelBrush" Color="{StaticResource TextLabelColor}" />
+    <SolidColorBrush x:Key="SidebarIconBrush" Color="{StaticResource TextSecondaryColor}" />
+    <SolidColorBrush x:Key="SidebarHoverBrush" Color="{StaticResource SurfaceHoverColor}" />
+    <SolidColorBrush x:Key="SidebarActiveBackgroundBrush" Color="{StaticResource AccentSoftColor}" />
+    <SolidColorBrush x:Key="SidebarActiveIndicatorBrush" Color="{StaticResource AccentActionColor}" />
+    <SolidColorBrush x:Key="SidebarActiveForegroundBrush" Color="{StaticResource PrimaryColor}" />
+    <SolidColorBrush x:Key="SidebarFocusRingBrush" Color="{StaticResource FocusRingColor}" />
+    <SolidColorBrush x:Key="SidebarDisabledForegroundBrush" Color="{StaticResource DisabledForegroundColor}" />
+    <SolidColorBrush x:Key="SidebarCountBadgeBackgroundBrush" Color="{StaticResource SurfaceSubtleColor}" />
+    <SolidColorBrush x:Key="SidebarCountBadgeForegroundBrush" Color="{StaticResource TextSecondaryColor}" />
 
     <!-- Grilles -->
     <SolidColorBrush x:Key="RowHoverBrush" Color="#F0F6FA" />
@@ -271,6 +325,17 @@
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="8" />
         <Setter Property="Padding" Value="16,12" />
+    </Style>
+
+    <!-- Panneau de la barre laterale : du chrome, pas une carte de contenu. Colle au bord
+         gauche, pleine hauteur, sans arrondi ni ombre, separe du corps par un seul filet
+         a droite. Padding 8 + 8 sur 260 px : 243 px utiles pour les rangees (avec le filet). -->
+    <Style x:Key="SidebarPanel" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource SidebarBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource SidebarBorderBrush}" />
+        <Setter Property="BorderThickness" Value="0,0,1,0" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="Padding" Value="8,12,8,12" />
     </Style>
 
     <!-- ================================= Boutons ================================ -->
@@ -544,17 +609,31 @@
         <Setter Property="Width" Value="34" />
         <Setter Property="Height" Value="34" />
     </Style>
-    <!-- Bouton de navigation du panneau Modules : etat actif signale par une barre
-         accent de 3px + teinte douce, pilote depuis le code-behind via Tag="Active". -->
+    <!-- Rangee de la barre laterale : « Mon Espace » directement, les ecrans par
+         ModuleNavSubButton. Etat actif = filet accent de 3 px + fond doux + texte semi-gras,
+         pilote depuis le code-behind via Tag="Active" (triple signal, jamais la couleur
+         seule). Le focus clavier dessine un anneau de 2 px et ne touche PAS au fond : il ne
+         se confond jamais avec le survol. Hauteur en MinHeight, texte sur deux lignes au
+         plus : un libelle long s'etale, il n'est pas coupe. Les couleurs passent par les
+         alias Sidebar* (voir la palette). -->
     <Style x:Key="ModuleNavButton" TargetType="Button">
-        <Setter Property="Height" Value="40" />
-        <Setter Property="Margin" Value="0,0,0,4" />
+        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="Padding" Value="10,0" />
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource SidebarTextBrush}" />
         <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="HorizontalContentAlignment" Value="Left" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <!-- 600 ms avant une info-bulle : elle ne surgit pas au simple passage de la souris.
+             L'ouverture au focus clavier (KeyboardFocusToolTip) n'est pas posee ici mais sur
+             les seuls gabarits de la barre qui n'ont d'info-bulle que verrouilles ou
+             tronques : « Mon Espace » et les resultats du catalogue, qui partagent ce style,
+             en ont une permanente. Le cadenas d'un ecran verrouille est lui aussi porte par
+             la rangee de la barre (MainWindow.xaml), pas par ce gabarit : les resultats du
+             catalogue ont deja leur pastille « Accès refusé ». -->
+        <Setter Property="ToolTipService.InitialShowDelay" Value="600" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -562,32 +641,44 @@
                         <Border x:Name="bg"
                                 Background="{TemplateBinding Background}"
                                 CornerRadius="6" />
+                        <!-- Filet actif : hauteur de la rangee moins 12, colle au bord gauche. -->
                         <Rectangle x:Name="indicator"
                                    Width="3"
                                    RadiusX="1.5"
                                    RadiusY="1.5"
-                                   Margin="0,9"
+                                   Margin="0,6"
                                    HorizontalAlignment="Left"
-                                   Fill="{StaticResource AccentBrush}"
+                                   Fill="{StaticResource SidebarActiveIndicatorBrush}"
                                    Opacity="0" />
-                        <ContentPresenter Margin="14,0,10,0"
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
                                           HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                           VerticalAlignment="Center"
                                           RecognizesAccessKey="True" />
+                        <!-- Anneau de focus : 2 px, inset 1 px, par-dessus tout, jamais un fond. -->
+                        <Border x:Name="focusRing"
+                                BorderBrush="Transparent"
+                                BorderThickness="2"
+                                CornerRadius="6"
+                                Margin="1"
+                                IsHitTestVisible="False" />
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bg" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            <Setter TargetName="bg" Property="Background" Value="{StaticResource SidebarHoverBrush}" />
                         </Trigger>
+                        <!-- Appui : meme fond que le survol, aucune translation. -->
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="bg" Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                            <Setter TargetName="bg" Property="Background" Value="{StaticResource SidebarHoverBrush}" />
                         </Trigger>
                         <Trigger Property="Tag" Value="Active">
-                            <Setter TargetName="bg" Property="Background" Value="{StaticResource ModuleActiveBackgroundBrush}" />
+                            <Setter TargetName="bg" Property="Background" Value="{StaticResource SidebarActiveBackgroundBrush}" />
                             <Setter TargetName="indicator" Property="Opacity" Value="1" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="bg" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            <Setter TargetName="focusRing" Property="BorderBrush" Value="{StaticResource SidebarFocusRingBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="bg" Property="Background" Value="Transparent" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -595,14 +686,14 @@
         </Setter>
         <Style.Triggers>
             <Trigger Property="Tag" Value="Active">
-                <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource SidebarActiveForegroundBrush}" />
                 <Setter Property="FontWeight" Value="SemiBold" />
             </Trigger>
-            <!-- Module inaccessible au profil courant : bouton grise, non cliquable. -->
+            <!-- Ecran inaccessible au profil courant : grise, non cliquable ; le motif reste
+                 lisible par l'info-bulle (ShowOnDisabled sur ModuleNavSubButton). -->
             <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Foreground" Value="{StaticResource DisabledForegroundBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource SidebarDisabledForegroundBrush}" />
                 <Setter Property="Cursor" Value="Arrow" />
-                <Setter Property="Opacity" Value="0.65" />
             </Trigger>
         </Style.Triggers>
     </Style>
@@ -1286,6 +1377,11 @@
     <desktop:ModuleGroupIconConverter x:Key="ModuleGroupIconConverter" />
     <desktop:ModuleCountLabelConverter x:Key="ModuleCountLabelConverter" />
 
+    <!-- Convertisseurs de la barre laterale : nom d'automatisation d'un en-tete de domaine,
+         et visibilite du compteur de recherche. -->
+    <desktop:DomainAutomationNameConverter x:Key="DomainAutomationNameConverter" />
+    <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+
     <!-- Icones vectorielles par groupe fonctionnel : une seule icone par famille,
          dessinee dans une boite de 16x16, tracee au trait comme le reste de l'UI.
          La cle est resolue par ModuleGroupIconConverter ("ModuleGroupIcon.<cle>"). -->
@@ -1394,39 +1490,71 @@
          barre laterale les presente par famille, repliees, avec une recherche - une
          liste plate de vingt boutons ne tient ni a l'ecran ni dans la tete. -->
 
-    <!-- Module a l'interieur d'une famille : meme comportement que ModuleNavButton
-         (surbrillance Tag="Active", etat desactive), en retrait et un cran plus
-         discret pour marquer la subordination a l'en-tete de famille. -->
+    <!-- Rangee d'ecran sous un domaine : meme comportement que ModuleNavButton
+         (surbrillance Tag="Active", anneau de focus, etat desactive), en retrait de 36 px
+         et en graisse normale pour marquer la subordination a l'en-tete. Le filet actif
+         reste colle au bord gauche de la rangee, pas du texte. Utilise aussi par les
+         resultats de recherche du catalogue, qui annulent le retrait. -->
     <Style x:Key="ModuleNavSubButton" TargetType="Button" BasedOn="{StaticResource ModuleNavButton}">
-        <Setter Property="Height" Value="34" />
-        <Setter Property="Margin" Value="8,0,0,2" />
-        <Setter Property="FontSize" Value="12.5" />
-        <!-- Un module verrouille est desactive : sans cela, l'info-bulle qui dit
+        <Setter Property="MinHeight" Value="{DynamicResource SidebarScreenRowHeight}" />
+        <Setter Property="Margin" Value="0,2,0,0" />
+        <Setter Property="Padding" Value="36,0,10,0" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Foreground" Value="{StaticResource SidebarScreenTextBrush}" />
+        <!-- Un ecran verrouille est desactive : sans cela, l'info-bulle qui dit
              POURQUOI (permission manquante) ne s'afficherait jamais. -->
         <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
-        <Setter Property="ToolTipService.InitialShowDelay" Value="350" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            </Trigger>
+            <Trigger Property="Tag" Value="Active">
+                <Setter Property="Foreground" Value="{StaticResource SidebarActiveForegroundBrush}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="{StaticResource SidebarDisabledForegroundBrush}" />
+                <Setter Property="Cursor" Value="Arrow" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
-    <!-- En-tete d'une famille : icone, libelle, compteur et chevron. C'est un
-         ToggleButton pour que la ligne entiere ouvre et ferme la famille, a la
-         souris comme au clavier (barre d'espace). -->
+    <!-- Libelle de section : le nom d'un module qui regroupe au moins deux ecrans, en
+         majuscules de 11 px, aligne sur les ecrans. Ni cliquable ni focalisable : il
+         separe, il n'ouvre rien ; le fil d'Ariane, lui, montre toujours le module. -->
+    <Style x:Key="ModuleNavSectionLabel" TargetType="TextBlock">
+        <Setter Property="MinHeight" Value="{DynamicResource SidebarSectionRowHeight}" />
+        <Setter Property="Padding" Value="36,6,10,0" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource SidebarSectionLabelBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Focusable" Value="False" />
+    </Style>
+
+    <!-- En-tete d'un domaine : icone, libelle court, compteur de recherche, point et
+         chevron. C'est un ToggleButton pour que la ligne entiere ouvre et ferme le
+         domaine, a la souris comme au clavier (Espace, Entree, fleches). Il ne navigue
+         jamais : un seul comportement par en-tete. -->
     <Style x:Key="ModuleNavGroupHeader" TargetType="ToggleButton">
-        <Setter Property="Height" Value="36" />
+        <Setter Property="MinHeight" Value="{DynamicResource SidebarDomainRowHeight}" />
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="Foreground" Value="{StaticResource SidebarTextBrush}" />
+        <Setter Property="FontSize" Value="13" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="ToolTipService.InitialShowDelay" Value="600" />
+        <Setter Property="desktop:KeyboardFocusToolTip.IsEnabled" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ToggleButton">
-                    <Border x:Name="bg"
-                            Background="{TemplateBinding Background}"
-                            CornerRadius="6"
-                            Padding="10,0"
-                            SnapsToDevicePixels="True">
-                        <Grid>
+                    <Grid SnapsToDevicePixels="True">
+                        <Border x:Name="bg"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="6" />
+                        <Grid Margin="10,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
@@ -1435,8 +1563,8 @@
                             <ContentPresenter VerticalAlignment="Center" />
 
                             <!-- Chevron ferme = pointe a droite (rotation -90), ouvert =
-                                 pointe en bas : l'etat de la famille se lit sans avoir a
-                                 la comparer avec ses voisines. -->
+                                 pointe en bas : l'etat du domaine se lit sans avoir a
+                                 le comparer avec ses voisins. -->
                             <Path x:Name="chevron"
                                   Grid.Column="1"
                                   Width="9"
@@ -1456,13 +1584,22 @@
                                 </Path.RenderTransform>
                             </Path>
                         </Grid>
-                    </Border>
+                        <Border x:Name="focusRing"
+                                BorderBrush="Transparent"
+                                BorderThickness="2"
+                                CornerRadius="6"
+                                Margin="1"
+                                IsHitTestVisible="False" />
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bg" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            <Setter TargetName="bg" Property="Background" Value="{StaticResource SidebarHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="bg" Property="Background" Value="{StaticResource SidebarHoverBrush}" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="bg" Property="Background" Value="{StaticResource SurfaceSubtleBrush}" />
+                            <Setter TargetName="focusRing" Property="BorderBrush" Value="{StaticResource SidebarFocusRingBrush}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="chevron" Property="RenderTransform">
@@ -1484,47 +1621,92 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
+            <!-- Icone au TRAIT, jamais remplie : les 22 geometries sont des traces ouverts.
+                 En accent quand le domaine contient l'ecran affiche. -->
             <Path Width="16"
                   Height="16"
                   Stretch="None"
                   Data="{Binding IconKey, Converter={StaticResource ModuleGroupIconConverter}}"
-                  Stroke="{StaticResource TextMutedBrush}"
-                  StrokeThickness="1.4"
+                  StrokeThickness="1.5"
                   StrokeStartLineCap="Round"
                   StrokeEndLineCap="Round"
                   StrokeLineJoin="Round"
                   VerticalAlignment="Center"
-                  Margin="0,0,10,0" />
+                  Margin="0,0,10,0">
+                <Path.Style>
+                    <Style TargetType="Path">
+                        <Setter Property="Stroke" Value="{StaticResource SidebarIconBrush}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ContainsActiveScreen}" Value="True">
+                                <Setter Property="Stroke" Value="{StaticResource SidebarActiveIndicatorBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Path.Style>
+            </Path>
 
+            <!-- Libelle court du catalogue, sur deux lignes au plus. Le nom complet et le
+                 numero ne sont a un survol que si le libelle a du etre tronque. -->
             <TextBlock Grid.Column="1"
-                       Text="{Binding Name}"
+                       Text="{Binding ShortLabel}"
+                       TextWrapping="Wrap"
+                       LineHeight="17"
+                       LineStackingStrategy="BlockLineHeight"
+                       MaxHeight="34"
                        TextTrimming="CharacterEllipsis"
-                       VerticalAlignment="Center" />
+                       VerticalAlignment="Center"
+                       desktop:TrimmedTextToolTip.Text="{Binding FullTitle}" />
 
-            <!-- Nombre de modules affiches : pendant une recherche, il devient le
-                 nombre de resultats de la famille. -->
+            <!-- Compteur : seulement pendant une recherche, ou il dit combien d'ecrans du
+                 domaine repondent. Au repos, un chiffre sur chaque ligne n'est que du bruit. -->
             <Border Grid.Column="2"
-                    Background="{StaticResource SurfaceSubtleBrush}"
+                    Background="{StaticResource SidebarCountBadgeBackgroundBrush}"
                     CornerRadius="8"
                     Padding="7,1"
                     Margin="8,0,0,0"
-                    VerticalAlignment="Center">
-                <TextBlock Text="{Binding VisibleModules.Count}"
+                    VerticalAlignment="Center"
+                    Visibility="{Binding ShowResultCount, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock Text="{Binding ScreenCount}"
                            FontSize="10.5"
                            FontWeight="Normal"
-                           Foreground="{StaticResource TextSecondaryBrush}" />
+                           Foreground="{StaticResource SidebarCountBadgeForegroundBrush}" />
             </Border>
+
+            <!-- Point de 6 px : le domaine replie contient l'ecran affiche. -->
+            <Ellipse Grid.Column="3"
+                     Width="6"
+                     Height="6"
+                     Fill="{StaticResource SidebarActiveIndicatorBrush}"
+                     Margin="8,0,0,0"
+                     VerticalAlignment="Center">
+                <Ellipse.Style>
+                    <Style TargetType="Ellipse">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding ContainsActiveScreen}" Value="True" />
+                                    <Condition Binding="{Binding IsExpanded}" Value="False" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible" />
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Ellipse.Style>
+            </Ellipse>
         </Grid>
     </DataTemplate>
 
-    <!-- Famille deroulante. Le gabarit d'origine de l'Expander (fleche ronde,
-         bordure) est entierement remplace : seule la ligne d'en-tete ouvre et ferme
-         la famille, et IsExpanded reste lie au groupe, donc la fenetre peut ouvrir
-         la famille du module qu'elle affiche. -->
+    <!-- Domaine deroulant. Le gabarit d'origine de l'Expander (fleche ronde, bordure)
+         est entierement remplace : seule la ligne d'en-tete ouvre et ferme le domaine,
+         et IsExpanded reste lie au groupe, donc la fenetre peut ouvrir le domaine de
+         l'ecran qu'elle affiche. Le nom d'automatisation dit le nom COMPLET du domaine
+         et son compteur ; l'etat deplie / replie, le ToggleButton l'expose deja. -->
     <Style x:Key="ModuleNavGroup" TargetType="Expander">
-        <Setter Property="Margin" Value="0,0,0,2" />
+        <Setter Property="Margin" Value="0" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Expander">
@@ -1532,10 +1714,19 @@
                         <ToggleButton Style="{StaticResource ModuleNavGroupHeader}"
                                       IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
                                       Content="{TemplateBinding Header}"
-                                      ContentTemplate="{TemplateBinding HeaderTemplate}" />
+                                      ContentTemplate="{TemplateBinding HeaderTemplate}">
+                            <AutomationProperties.Name>
+                                <MultiBinding Converter="{StaticResource DomainAutomationNameConverter}">
+                                    <Binding Path="Id" />
+                                    <Binding Path="Name" />
+                                    <Binding Path="ScreenCount" />
+                                    <Binding Path="ShowResultCount" />
+                                </MultiBinding>
+                            </AutomationProperties.Name>
+                        </ToggleButton>
                         <ContentPresenter x:Name="content"
                                           Visibility="Collapsed"
-                                          Margin="0,2,0,8" />
+                                          Margin="0,0,0,6" />
                     </StackPanel>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsExpanded" Value="True">
@@ -1605,7 +1796,7 @@
         <Setter Property="Width" Value="12" />
         <Setter Property="Height" Value="12" />
         <Setter Property="Stretch" Value="None" />
-        <Setter Property="Data" Value="M3.4,5.4 V4 A2.6,2.6 0 0 1 8.6,4 V5.4 M2.2,5.4 H9.8 V10.6 H2.2 Z" />
+        <Setter Property="Data" Value="{StaticResource LockIconGeometry}" />
         <Setter Property="Stroke" Value="{StaticResource TextMutedBrush}" />
         <Setter Property="StrokeThickness" Value="1.3" />
         <Setter Property="StrokeStartLineCap" Value="Round" />

@@ -239,11 +239,12 @@ public static class NavigationTreeBuilder
     /// <summary>
     /// Ce sur quoi une recherche porte : le chemin complet, la description et le numéro
     /// historique - ce que les cartes de l'accueil cherchent aussi, pour qu'une surface ne
-    /// trouve pas ce que l'autre ignore.
+    /// trouve pas ce que l'autre ignore. Le libellé court du domaine en fait partie : c'est
+    /// lui que la barre latérale affiche, il doit donc répondre à ce que l'utilisateur y lit.
     /// </summary>
     public static string SearchTextOf(DomainNode domain, ModuleNode module, SubmoduleNode submodule, ScreenNode? screen)
     {
-        var parts = new List<string> { domain.Id, domain.Label, module.Label, submodule.Label };
+        var parts = new List<string> { domain.Id, domain.Label, domain.ShortLabel, module.Label, submodule.Label };
 
         if (screen is not null)
         {

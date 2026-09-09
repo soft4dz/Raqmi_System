@@ -48,8 +48,10 @@ elles la complètent :
 | Badge de maturité et icône dans l'en-tête de domaine du catalogue, retiré de la carte ; filtre Maturité ; `AutomationProperties.Name` / `HelpText` sur `ModuleCatalogCard` ; `HeadingLevel` sur les en-têtes | Catalogue vivant (= `navigation-shell.md` § 5.1) | dette de la vague 1, payée dans le lot d'extraction du catalogue quel que soit le concept |
 | `WarningBanner` agrégé « n compteurs n'ont pas répondu (…) · Réessayer (F5) » | Catalogue vivant | un message par source noierait le bandeau de session |
 
-Ce qui a été **écarté**, et pourquoi : la barre latérale déployée sur l'accueil (Cockpit — contredit
-`navigation-shell.md` § 5.2 et retire 268 px) ; les instruments de remplissage (Effectif, Comptes, Journal 24 h,
+Ce qui a été **écarté**, et pourquoi : la barre latérale déployée sur l'accueil (Cockpit — contredisait
+`navigation-shell.md` § 5.2 et retirait 268 px ; **écart renversé le 08/09/2026** par
+`docs/design/navigation/refonte-barre-laterale.md` § 3.7 : la barre est désormais visible partout, à
+260 px, et l'accueil en paie le prix, voir § 1.3 et § 2.1) ; les instruments de remplissage (Effectif, Comptes, Journal 24 h,
 NPS) ; la grille « Unités — santé du jour » et la bande KPI (recouvrement de l'onglet 20, chantier de phase
 suivante sous `dashboard.read`) ; « Mes écrans » (répète la barre latérale) ; « Mon activité » (décoration pour
 trois rôles, paramètre client manquant — candidat de lot suivant) ; les réglages Apparence/Densité dans l'accueil
@@ -75,7 +77,7 @@ dans un seul `RunAsync` avec absorption d'erreur (contraire à § 3.1) ; le rail
 | Libellé de la racine : « Accueil » ou « Mon Espace » | **« Mon Espace »** sur la première ligne de la barre latérale (`ShowHomeButton`), `AutomationProperties.Name` « Mon Espace, accueil », `Alt+Origine` inchangé ; l'attribut `Header="Accueil"` du `TabItem` 0 reste tel quel (jamais affiché : le `TabControl` n'a pas d'en-têtes) | `navigation-shell.md` § 2.1 le prescrit dès la vague 1 « pour que le vocabulaire soit stable avant le contenu » ; l'onglet 0 devient réellement la page de la personne connectée (files composées de **ses** permissions, unité de **son** poste, **ses** derniers écrans) ; trois chaînes à changer, aucune structure |
 | Nom de la première section | **« Mon travail »** | c'est le libellé du module `01 → Mon travail` de l'arbre (`FunctionalArchitectureCatalog.Tree`) : un seul vocabulaire ; « Poste de travail » est déjà `Paramétrage global › Poste de travail` (collision relevée par le jury) |
 | Place du catalogue des 50 cartes | **Seconde section de l'onglet 0**, « Catalogue des modules », dans un `SectionTabControl` (charte § 2.4) ; atteignable par l'onglet de section, par la carte « Où en est le produit ? », par `Ctrl+K` (bascule + focus `HomeSearchTextBox`) ; ouverture de session toujours sur « Mon travail », section non mémorisée | les 50 cartes restent complètes, filtrées, cadenassées, à un clic ; un `Expander` ou une puce `FilterChip` ne sont pas les composants de la charte pour deux sections indépendantes ; une mémorisation par poste ferait ouvrir un catalogue à l'équipe de nuit d'un poste partagé |
-| Barre latérale sur l'accueil | **repliée**, comportement de `SyncSidebarToTab` inchangé ; fil d'Ariane masqué | `navigation-shell.md` § 5.2 : la racine est le sommaire, un second sommaire ferait doublon |
+| Barre latérale sur l'accueil | **visible, 260 px, identique à tous les autres écrans** (décision « repliée » du 03/09 **renversée le 08/09/2026**, `refonte-barre-laterale.md` § 3.7) ; `SyncSidebarToTab` ne touche plus ni colonnes ni `Visibility`, seule la rangée « Mon Espace » prend l'état actif ; fil d'Ariane `Hidden` sur une ligne de 24 px réservée (plus de saut) | l'argument « la racine est le sommaire » ne décrivait plus l'écran réel (ouverture sur « Mon travail », catalogue en seconde section) ; le repli déplaçait le contenu de 268 px sans transition dix fois par jour. Prix accepté par le propriétaire : contenu utile 972 px à 1280 (1058 à 1366), **4 cartes de files par rangée au lieu de 5** |
 | Unité de l'accueil | **l'unité du poste** (`DesktopSettings.StationUnitCode`, réglage par poste dans `Paramétrage global › Poste de travail`, liste si `units.read`, code saisi sinon) ; **aucun sélecteur dans le bandeau** : le bandeau l'affiche en texte avec un bouton fantôme « Changer » vers Paramétrage | un seul endroit écrit le réglage ; un poste de réception appartient à une unité ; piloter plusieurs unités est le rôle des onglets 3, 19 et 20, pas de l'accueil ; supprime le sélecteur inutile chez RH |
 | Densité | deux `Double` en `DynamicResource` (`WorkCardPadding` 16,14 / 12,10 ; `WorkCardMinHeight` 104 / 88) posés par `ThemeManager.AppliquerDensite` à côté de `GridRowHeight` ; espacements de bande 20 / 14 ; Compact retire de l'air, jamais de texte | charte § 3.14 |
 | Badges | maturité : **dans l'en-tête de domaine du catalogue uniquement** (retirée de la carte), jamais sur une file de travail ; pastilles de statut : « Suivi » (`StatusDraft`), « Indisponible » (`StatusRejected`), date métier « à jour » (`StatusValidated`) / « en retard · n j » (`StatusSubmitted`) ; bande « En retard » en **ambre** (`StatusSubmitted*` : attention), « Aujourd'hui » point `AccentBrush`, « À surveiller » point `TextMutedBrush` | `navigation-shell.md` § 6.3 ; `StatusRejected` veut dire « refusé », pas « en retard » (remarque du jury) |
@@ -89,10 +91,19 @@ dans un seul `RunAsync` avec absorption d'erreur (contraire à § 3.1) ; le rail
 
 ## 2. Structure définitive
 
-### 2.1 Wireframe (profil Directeur d'unité, unité du poste ALG-CEN, 1240 × 760, barre latérale repliée)
+### 2.1 Wireframe (profil Directeur d'unité, unité du poste ALG-CEN, 1240 × 760, barre latérale visible)
+
+> **Révision du 08/09/2026.** Le wireframe ci-dessous a été validé avec une barre latérale repliée (1232 px
+> utiles à 1280). La barre est désormais **visible sur l'accueil, à 260 px** (`refonte-barre-laterale.md`
+> § 3.2 pour le wireframe à jour et § 3.7 pour la décision) : le contenu utile passe à **972 px à 1280 × 800
+> et 1058 px à 1366 × 768**, et la grille des files (cartes de 222 px + 12 px d'écart) passe de **5 à 4 cartes
+> par rangée** dans les deux largeurs. La bande « En retard » du Directeur d'unité (5 files) et « Aujourd'hui »
+> gagnent donc une rangée (≈ 168 px) ; la première rangée d'« Aujourd'hui » reste visible sans défiler à
+> 800 px de hauteur. Le contenu, l'ordre des sections et les composants ne changent pas ; le fil d'Ariane
+> reste invisible sur l'accueil (`Hidden`, ligne de 24 px réservée).
 
 ```text
-┌ Onglet 0 « Mon Espace » — barre latérale repliée, fil d'Ariane masqué ─────────────────────────────────────┐
+┌ Onglet 0 « Mon Espace » — barre latérale visible (260 px, hors cadre), fil d'Ariane masqué ────────────────┐
 │  Mon travail ▁▁▁▁▁▁▁▁▁   Catalogue des modules                            ← SectionTabControl (charte § 2.4) │
 │                                                                                                             │
 │ ┌ CardBorder — Bandeau ─────────────────────────────────────────────────────────────────────────────────┐   │
@@ -126,7 +137,9 @@ dans un seul `RunAsync` avec absorption d'erreur (contraire à § 3.1) ; le rail
 Budget vertical mesuré sur la maquette à 1240 × 760 (≈ 600 px sous l'en-tête) : onglets de section 38, bandeau
 ≈ 150, en-tête de bande 22, carte ≈ 168 (légende sur deux lignes), espacements 20. **La bande « En retard » et la
 première rangée d'« Aujourd'hui » sont visibles sans défiler** ; en densité Compact, la seconde rangée apparaît.
-Un profil court (RH : deux cartes) tient entièrement, carte produit comprise.
+Un profil court (RH : deux cartes) tient entièrement, carte produit comprise. Avec la barre visible
+(08/09/2026), la 5e carte d'« En retard » passe sur une seconde rangée : la première rangée d'« Aujourd'hui »
+reste visible sans défiler à 800 px de hauteur, plus à 768 en densité confortable.
 
 ### 2.2 Les six sections de « Mon travail », dans l'ordre
 
@@ -207,7 +220,8 @@ Règles communes :
   `SurfaceSubtleBrush`) ; `Information` si la file n'a pas de clé d'action (bouton « Voir », pas de pastille).
 - **Cible verrouillée** : la permission de lecture de l'onglet cible manque et aucun repli n'est ouvrable →
   bouton `IsEnabled=False`, cadenas `ModuleCardLockIcon`, `ToolTipService.ShowOnDisabled`, info-bulle
-  « Accès non autorisé pour votre profil » (`ModuleTile.AccessDeniedToolTip`) ; **le chiffre reste lisible** — le
+  « Accès non autorisé pour votre profil — permission requise : {libellé} » (`AccessDeniedMessage.For`, la
+  même phrase que la carte du catalogue et la rangée de la barre, 08/09/2026) ; **le chiffre reste lisible** — le
   droit de lire un compteur n'est pas le droit d'ouvrir l'écran.
 - **Bande finale** : celle du registre, ou celle qu'un booléen serveur impose (`IsLate`, `IsOverdue`). Aucun seuil
   côté client. Trois placements sont **éditoriaux et documentés** : « Journées non clôturées » (des journées métier
@@ -384,7 +398,7 @@ première image de l'accueil. `ModuleCatalog.cs`, `ModuleTile` (`IsLocked` posé
 | Points de bande | 8 px : `StatusSubmittedForegroundBrush` (En retard), `AccentBrush` (Aujourd'hui — trait, jamais de texte), `TextMutedBrush` (À surveiller) ; toujours doublés du mot |
 | Mouvement | `HomeRevealStyle` / `HomeRevealDelayedStyle` / `HomeRevealDelayedMoreStyle` sur bandeau, bande En retard, reste ; aucune animation sur les chiffres |
 | Densité | **`WorkCardPadding`** (`Thickness` 16,14 / 12,10) et **`WorkCardMinHeight`** (`Double` 104 / 88), nouvelles, en `DynamicResource`, posées par `ThemeManager.AppliquerDensite` à côté de `GridRowHeight` |
-| Couleur | **aucun brush nouveau** : `ThemePalette.Sombre` reste à 82/82, `VerifierCouverture` inchangé ; les accents se posent sur `SurfaceBrush` (carte), jamais sur `AppBackgroundBrush` |
+| Couleur | **aucun hex nouveau** ; les accents se posent sur `SurfaceBrush` (carte), jamais sur `AppBackgroundBrush`. L'accueil lui-même n'ajoute aucun brush, mais la refonte de la barre latérale (08/09/2026, `refonte-barre-laterale.md` annexe A.3) ajoute **14 clés d'alias `Sidebar*`** (`SidebarBackgroundBrush` … `SidebarCountBadgeForegroundBrush`), chacune résolue vers un jeton existant : `ThemePalette.Sombre` passe de 82 à **96 entrées** et `VerifierCouverture` est mis à jour en conséquence (la parité clair/sombre reste exigée) |
 | Retour d'information | `SetStatus` → bandeau de session + `FlashSessionStrip` ; `BusyProgressBar` pendant chaque appel ; jamais de `MessageBox` |
 
 Contraste : toutes les paires sont celles de la charte (`TextSecondary` 7,1:1, `TextMuted` 4,6:1 sur `SurfaceSubtle`,
@@ -444,14 +458,16 @@ Tests (`tests/RaqmiSystem.Tests`) :
 | `ThemeManager.cs` (**modifier**) | `AppliquerDensite` pose aussi `WorkCardPadding` et `WorkCardMinHeight` |
 | `MainWindow.xaml` (**modifier**) | contenu du `TabItem` 0 (611-944) → `<views:HomeView x:Name="HomeView" NavigateRequested="HomeView_NavigateRequested" ChangePasswordRequested="HomeView_ChangePasswordRequested"/>` — la balise `<TabItem Header="Accueil">` reste la première, sans `x:Name` ; `ShowHomeButton` : libellé « Mon Espace », `ToolTip` « Mon Espace (Alt+Origine) », `AutomationProperties.Name` « Mon Espace, accueil » ; ressources `MaturityBadgeFallback*` supprimées ; info-bulles « 49 modules » |
 | `MainWindow.xaml.cs` (**modifier**) | `HasModulePermission` : `currentUserPermissions is null || PermissionRegistry.AcceptedClaims(permission).Any(claim => currentUserPermissions.Contains(claim, OrdinalIgnoreCase))` ; `LoginButton_Click` 238-242 : `HomeView.OpenSession(login.User)` à la place de `HomeGreetingTextBlock` / `RefreshHomeDate`, puis après `NavigateToModule(HomeTabIndex)` : `await HomeView.LoadAsync()` (le préchargement Units / Revenue / Dashboard des onglets 1-3 est conservé) ; `InitializeModuleViews` : `HomeView.Initialize(context)` + abonnements (désabonnement préalable, comme `DecCockpitView`) ; `LogoutButton_Click` 484-490 : `HomeView.ResetState()` ; `RefreshHomeDate` et `HomeGreetingTextBlock` disparaissent |
-| `MainWindow.Navigation.cs` (**modifier**) | 610-794 (catalogue) déplacés dans `ModuleCatalogView` ; `NavigateToModule` : `+ if (tabIndex != HomeTabIndex) HomeView.RecordVisit(tabIndex)` ; `HomeView_NavigateRequested` = garde `CanOpenModule` + `NavigateToModule` (copie de `DecCockpitView_NavigateRequested`) ; `EnsureModuleTabLoadedAsync` : `case 0 : loadedModuleTabs.Remove(0); await HomeView.RefreshIfStaleAsync(); break;` ; `GrantedPermissionKeys()` étendu par équivalence `AcceptedClaims` (la barre latérale suit le même correctif) ; `EnsureMaturityBadgeStyles` supprimé ; `SyncSidebarToTab` et `UpdateBreadcrumb` **inchangés** |
+| `MainWindow.Navigation.cs` (**modifier**) | 610-794 (catalogue) déplacés dans `ModuleCatalogView` ; `NavigateToModule` : `+ if (tabIndex != HomeTabIndex) HomeView.RecordVisit(tabIndex)` ; `HomeView_NavigateRequested` = garde `CanOpenModule` + `NavigateToModule` (copie de `DecCockpitView_NavigateRequested`) ; `EnsureModuleTabLoadedAsync` : `case 0 : loadedModuleTabs.Remove(0); await HomeView.RefreshIfStaleAsync(); break;` ; `GrantedPermissionKeys()` étendu par équivalence `AcceptedClaims` (la barre latérale suit le même correctif) ; `EnsureMaturityBadgeStyles` supprimé ; `SyncSidebarToTab` et `UpdateBreadcrumb` **inchangés par ce lot** (la refonte de la barre du 08/09/2026 les retouche ensuite : plus de repli, fil d'Ariane `Hidden`) |
 | `MainWindow.Shortcuts.cs` (**modifier**) | `Ctrl+K` sur l'onglet 0 → `HomeView.FocusCatalogSearch()` (sélectionne la section puis focus) ; `Alt+Origine` → `NavigateToModule(0)` + `HomeView.ShowWorkSection()` |
 | `Views/ShortcutsWindow.xaml`, `tools/RaqmiSystem.DocShots/CaptureTarget.cs` (**modifier**) | « Accueil » → « Mon Espace » ; « 49 » → 50 ; cible 0 : « Mon Espace — Mon travail » (contenu stable après `LoadAsync`, aucune modale : DocShots attend déjà l'inactivité du dispatcher) |
 
 Ce qui **ne change pas** : l'ordre des 31 `<TabItem>`, les 30 `x:Name`, les 30 appels littéraux
 `ApplyModuleAccess(PermissionCatalog.X, XTabItem)` (`tools/check-module-readiness.ps1` passe sans modification),
-`ModuleCatalog.cs`, `ModuleTile`, `ModuleNavigationGroup`, la barre latérale (repliée sur l'onglet 0), le fil
-d'Ariane, `CanOpenModule`, `ModuleTileNavigate_Click`, les 50 cartes (mêmes gestionnaires, même onglet 0).
+`ModuleCatalog.cs`, `ModuleTile`, `ModuleNavigationGroup`, la barre latérale, le fil d'Ariane, `CanOpenModule`,
+`ModuleTileNavigate_Click`, les 50 cartes (mêmes gestionnaires, même onglet 0). La barre latérale était alors
+repliée sur l'onglet 0 ; depuis le 08/09/2026 elle y est **visible à 260 px** comme partout ailleurs
+(`refonte-barre-laterale.md`), et `ModuleNavigationGroup` porte la projection aplatie `Rows` et le libellé court.
 
 ### 5.3 Contrat de vue et chargements — `WorkQueuesView.LoadAsync`
 
@@ -558,7 +574,8 @@ Chaque critère est vérifiable par un test automatique, par le garde de readine
     `LiveSetting=Polite` ; ordre de tabulation : onglets de section → boutons du bandeau → Actualiser → cartes bande
     par bande → derniers écrans → Ouvrir le catalogue ; `F5` trouve `RefreshHomeButton`, `Ctrl+F` trouve
     `HomeSearchTextBox` sur la section Catalogue ; la couleur n'est jamais seule (mot, pastille, cadenas).
-18. Thème : aucun hexa dans le XAML ni le code de la vue ; `ThemePalette.Sombre` reste à 82/82 ;
+18. Thème : aucun hexa dans le XAML ni le code de la vue ; l'accueil n'ajoute aucune entrée à
+    `ThemePalette.Sombre` (82 au 03/09, 96 depuis les 14 alias `Sidebar*` du 08/09/2026, § 4) ;
     `VerifierCouverture` ne lève rien ; la maquette rend les deux thèmes.
 19. Densité : changer Compact repeint les cartes déjà affichées (`WorkCardPadding` / `WorkCardMinHeight` en
     `DynamicResource`) sans changer une taille de police.
@@ -592,5 +609,8 @@ Chaque critère est vérifiable par un test automatique, par le garde de readine
   `Planned` (calculée, jamais saisie).
 - `03-cartographie-cible.md` § 3.5 et `navigation-shell.md` § 9 sur-promettent `unit.manager` (`hr.read`,
   `revenue.validate`, trésorerie) et `cashier` (`customers.read`, `invoices.*`) : aligner sur `SecuritySeeder`.
+  Fait pour `navigation-shell.md` § 9 le 08/09/2026 (Directeur d'unité : 12 domaines, pas de pied) ;
+  reste à faire pour `03-cartographie-cible.md` § 3.5 et pour `cashier`.
 - `navigation-shell.md` § 11 : questions 3 (libellé « Mon Espace ») et 6 (numéro de domaine visible sur l'accueil,
-  masqué dans la barre latérale) tranchées par ce document.
+  masqué dans la barre latérale) tranchées par ce document ; la question 6 est consignée comme tranchée dans
+  `navigation-shell.md` depuis le 08/09/2026.

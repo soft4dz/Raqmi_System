@@ -358,4 +358,130 @@ public sealed class NavigationTreeTests
 
         Assert.DoesNotContain(AllNodes(), node => node.Maturity == FunctionalMaturity.ProductionReady);
     }
+
+    // ------------------------------------------------------------ libellés courts
+
+    // Sigles admis dans un libellé court, avec les mots du libellé officiel qu'ils contractent.
+    private static readonly IReadOnlyDictionary<string, string[]> DeclaredAcronyms =
+        new Dictionary<string, string[]>(StringComparer.Ordinal) { ["RH"] = ["Ressources", "Humaines"] };
+
+    private static readonly Regex Word = new(@"[\p{L}\p{N}]+", RegexOptions.CultureInvariant);
+
+    private static string[] WordsOf(string label) => Word.Matches(label).Select(match => match.Value).ToArray();
+
+    [Fact]
+    public void Every_domain_has_a_unique_short_label_that_contracts_its_label()
+    {
+        foreach (var domain in Tree)
+        {
+            Assert.False(string.IsNullOrWhiteSpace(domain.ShortLabel), $"{domain.Id} : libellé court vide.");
+            Assert.True(
+                domain.ShortLabel.Length <= FunctionalArchitectureCatalog.ShortLabelMaxLength,
+                $"{domain.Id} : « {domain.ShortLabel} » dépasse {FunctionalArchitectureCatalog.ShortLabelMaxLength} caractères.");
+            Assert.Equal(domain.ShortLabel, FunctionalArchitectureCatalog.ShortLabelFor(domain.Id));
+
+            var labelWords = WordsOf(domain.Label);
+
+            foreach (var word in WordsOf(domain.ShortLabel))
+            {
+                Assert.True(
+                    IsContractionWord(word, labelWords),
+                    $"{domain.Id} : « {word} » n'est ni un mot de « {domain.Label} », ni un préfixe d'au moins quatre lettres d'un de ses mots, ni un sigle déclaré.");
+            }
+        }
+
+        var shortLabels = Tree.Select(domain => domain.ShortLabel).ToList();
+        Assert.Equal(shortLabels.Count, shortLabels.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+    }
+
+    private static bool IsContractionWord(string word, IReadOnlyList<string> labelWords)
+    {
+        if (labelWords.Contains(word, StringComparer.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (word.Length >= 4 && labelWords.Any(labelWord => labelWord.StartsWith(word, StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return DeclaredAcronyms.TryGetValue(word, out var expansion)
+            && expansion.All(part => labelWords.Contains(part, StringComparer.OrdinalIgnoreCase));
+    }
+
+    [Theory]
+    [InlineData("01", "Mon Espace")]
+    [InlineData("02", "Admin & Socle ERP")]
+    [InlineData("03", "Finance & Comptabilité")]
+    [InlineData("04", "Commercial & CRM")]
+    [InlineData("05", "Facturation & Ventes")]
+    [InlineData("06", "PMS / Hébergement")]
+    [InlineData("07", "Revenue Management")]
+    [InlineData("08", "Housekeeping")]
+    [InlineData("09", "Groupes & MICE")]
+    [InlineData("10", "F&B / Restauration")]
+    [InlineData("11", "Stocks & Économat")]
+    [InlineData("12", "Achats & Fournisseurs")]
+    [InlineData("13", "RH & Paie")]
+    [InlineData("14", "Maintenance")]
+    [InlineData("15", "Qualité & Audit")]
+    [InlineData("16", "Juridique & Conformité")]
+    [InlineData("17", "GED / Documentaire")]
+    [InlineData("18", "PortMaster / Marina")]
+    [InlineData("19", "Parking & Accès")]
+    [InlineData("20", "Pilotage, KPI & BI")]
+    [InlineData("21", "Intégrations")]
+    [InlineData("22", "Administration Système")]
+    public void Short_labels_are_the_approved_wording(string domainId, string shortLabel)
+    {
+        Assert.Equal(shortLabel, Tree.Single(domain => domain.Id == domainId).ShortLabel);
+    }
+
+    [Fact]
+    public void Twelve_domains_keep_their_full_name_and_an_unknown_domain_has_no_short_label()
+    {
+        Assert.Equal(12, Tree.Count(domain => string.Equals(domain.ShortLabel, domain.Label, StringComparison.Ordinal)));
+        Assert.Throws<KeyNotFoundException>(() => FunctionalArchitectureCatalog.ShortLabelFor("99"));
+    }
+
+    [Fact]
+    public void Short_label_defaults_to_the_label_and_survives_pruning()
+    {
+        var source = Tree.Single(domain => domain.Id == "02");
+
+        var undeclared = new DomainNode(
+            source.Id, source.Label, source.Order, source.IconKey, source.ReadPermissionKey,
+            source.Maturity, source.LicenseFeature, source.Scope, source.Modules);
+        Assert.Equal(source.Label, undeclared.ShortLabel);
+
+        // L'élagage recopie le domaine avec moins de modules : le libellé court le suit.
+        Assert.Equal("Admin & Socle ERP", (source with { Modules = [] }).ShortLabel);
+    }
+
+    // ------------------------------------------------------ libellé de permission
+
+    [Fact]
+    public void Access_denied_message_names_the_missing_permission_never_its_key()
+    {
+        var accounting = PermissionCatalog.Find(PermissionCatalog.AccountingRead);
+        Assert.NotNull(accounting);
+        Assert.Equal("Lire la comptabilite", accounting!.Name);
+
+        var message = AccessDeniedMessage.For(PermissionCatalog.AccountingRead);
+        Assert.Equal($"{AccessDeniedMessage.Text} — permission requise : {accounting.Name}", message);
+        Assert.DoesNotContain(PermissionCatalog.AccountingRead, message, StringComparison.OrdinalIgnoreCase);
+
+        // Sans clé, ou clé inconnue : le motif seul, jamais un identifiant technique.
+        Assert.Equal(AccessDeniedMessage.Text, AccessDeniedMessage.For(null));
+        Assert.Equal(AccessDeniedMessage.Text, AccessDeniedMessage.For("inconnue.read"));
+
+        // Sans casse, comme le client compare les clés du jeton.
+        Assert.Same(accounting, PermissionCatalog.Find("ACCOUNTING.READ"));
+
+        // Chaque écran de l'arbre a une permission que l'info-bulle saura nommer.
+        Assert.All(
+            FunctionalArchitectureCatalog.EnumeratePaths(Tree),
+            path => Assert.NotNull(PermissionCatalog.Find(path.Screen.ReadPermissionKey)));
+    }
 }

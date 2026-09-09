@@ -92,6 +92,13 @@ public static partial class FunctionalArchitectureCatalog
             throw new InvalidOperationException($"Le mapping doit couvrir {ExpectedLegacyModuleCount} modules historiques.");
         }
 
+        // Un libellé court manquant est déjà refusé par ShortLabelFor à la construction de
+        // l'arbre ; reste à refuser l'inverse, un libellé orphelin d'un domaine retiré.
+        if (ShortLabels.ById.Count != ExpectedDomainCount)
+        {
+            throw new InvalidOperationException($"La table des libellés courts doit compter {ExpectedDomainCount} domaines.");
+        }
+
         // L'arbre et la liste des domaines sont deux vues d'une même définition : un module qui
         // absorberait une entrée d'un autre domaine, ou une entrée que personne n'absorbe,
         // serait une incohérence d'édition, connue dès la compilation - pas un cas à tolérer.

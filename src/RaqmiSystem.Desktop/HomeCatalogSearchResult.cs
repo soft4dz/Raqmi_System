@@ -24,7 +24,8 @@ public sealed record HomeCatalogSearchResult(
     string MaturityLabel,
     FunctionalMaturity Maturity,
     int? TabIndex,
-    bool IsLocked)
+    bool IsLocked,
+    string? PermissionKey)
 {
     /// <summary>Ouvrable = un ecran existe ET le profil a le droit de le lire.</summary>
     public bool IsOpenable => TabIndex is not null && !IsLocked;
@@ -41,9 +42,13 @@ public sealed record HomeCatalogSearchResult(
     /// </remarks>
     public bool HasScreen => TabIndex is not null;
 
-    /// <summary>Le chemin, ou le refus quand l'ecran n'est pas ouvrable pour ce profil.</summary>
+    /// <summary>
+    /// Le chemin, ou le refus quand l'ecran n'est pas ouvrable pour ce profil : la meme phrase
+    /// que la carte du catalogue et la rangee de la barre (motif + permission manquante), pour
+    /// qu'un ecran verrouille dise la meme chose sur toutes les surfaces de l'accueil.
+    /// </summary>
     public string ToolTipText => IsLocked
-        ? ModuleTile.AccessDeniedToolTip
+        ? AccessDeniedMessage.For(PermissionKey)
         : TabIndex is null
             ? $"{Path} · {MaturityLabel} · aucun écran"
             : Path;
@@ -51,7 +56,7 @@ public sealed record HomeCatalogSearchResult(
     public string AccessibleName => TabIndex is null
         ? $"{Label}, {Path}, {MaturityLabel}, aucun écran"
         : IsLocked
-            ? $"{Label}, {Path}, {ModuleTile.AccessDeniedToolTip.ToLowerInvariant()}"
+            ? $"{Label}, {Path}, {ToolTipText}"
             : $"Ouvrir {Label}, {Path}";
 
     /// <summary>
@@ -85,7 +90,8 @@ public sealed record HomeCatalogSearchResult(
                             FunctionalMaturityMapper.Label(submodule.Maturity),
                             submodule.Maturity,
                             TabIndex: null,
-                            IsLocked: false));
+                            IsLocked: false,
+                            PermissionKey: null));
 
                         continue;
                     }
@@ -99,7 +105,8 @@ public sealed record HomeCatalogSearchResult(
                             FunctionalMaturityMapper.Label(screen.Maturity),
                             screen.Maturity,
                             screen.LegacyTabIndex,
-                            IsLocked: !grantedKeys.Contains(screen.ReadPermissionKey)));
+                            IsLocked: !grantedKeys.Contains(screen.ReadPermissionKey),
+                            screen.ReadPermissionKey));
                     }
                 }
             }

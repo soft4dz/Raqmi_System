@@ -94,6 +94,14 @@ public sealed class DesktopSettings
     public int[]? RecentTabs { get; set; }
 
     /// <summary>
+    /// Identifiants des domaines deplies dans la barre laterale (« 03 », « 06 »). Par poste,
+    /// comme la densite : c'est le travail fait devant l'ecran qui decide de ce qu'on garde
+    /// ouvert, et sur un comptoir partage l'equipe du soir retrouve la barre telle que
+    /// l'equipe du matin l'a laissee. Un identifiant inconnu est ignore au chargement.
+    /// </summary>
+    public string[]? SidebarExpandedDomains { get; set; }
+
+    /// <summary>
     /// The URL forced by <see cref="ApiBaseUrlEnvironmentVariable"/>, or null when the variable is
     /// unset. When it is set, <see cref="Save"/> still writes to the settings file but the stored
     /// value is never used - the settings screen surfaces that instead of letting it surprise the
@@ -189,6 +197,27 @@ public sealed class DesktopSettings
         }
 
         settings.RecentTabs = [.. tabs.Take(MaxRecentTabs)];
+        WriteFile(settings);
+    }
+
+    /// <summary>Domaines deplies dans la barre laterale de ce poste ; vide a defaut.</summary>
+    public static IReadOnlySet<string> LoadSidebarExpandedDomains()
+    {
+        return ReadFile().SidebarExpandedDomains is { } domains
+            ? domains.Where(id => !string.IsNullOrWhiteSpace(id)).ToHashSet(StringComparer.Ordinal)
+            : new HashSet<string>(StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// Enregistre les domaines deplies. Silencieux par construction (<see cref="WriteFile"/>) :
+    /// un disque en lecture seule ne doit pas faire echouer un clic sur un en-tete.
+    /// </summary>
+    public static void SaveSidebarExpandedDomains(IEnumerable<string> domainIds)
+    {
+        // Load-modify-write, comme partout ici : l'etat de la barre ne doit effacer ni
+        // l'URL du serveur, ni les identifiants memorises, ni la clef du poste.
+        var settings = ReadFile();
+        settings.SidebarExpandedDomains = [.. domainIds.Distinct(StringComparer.Ordinal)];
         WriteFile(settings);
     }
 

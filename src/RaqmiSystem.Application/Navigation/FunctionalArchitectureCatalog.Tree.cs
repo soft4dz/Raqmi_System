@@ -487,7 +487,10 @@ public static partial class FunctionalArchitectureCatalog
                 definition.Maturity,
                 LicenseFeature: ModulePackCatalog.LicenseFeatureForDomain(definition.Id),
                 scope,
-                moduleNodes));
+                moduleNodes)
+            {
+                ShortLabel = ShortLabelFor(definition.Id)
+            });
         }
 
         return tree;

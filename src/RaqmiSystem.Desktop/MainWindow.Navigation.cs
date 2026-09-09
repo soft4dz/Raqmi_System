@@ -3,11 +3,13 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Threading;
 using RaqmiSystem.Application.Identity;
 using RaqmiSystem.Application.Navigation;
 using RaqmiSystem.Domain.Identity;
@@ -16,8 +18,8 @@ namespace RaqmiSystem.Desktop;
 
 /// <summary>
 /// Navigation de la fenetre principale : l'accueil (cartes du catalogue regroupees
-/// Domaine → Module), la barre laterale (Domaine → Module → Écran), le fil d'Ariane de
-/// l'ecran actif, et le garde de permission des onglets.
+/// Domaine → Module), la barre laterale (Domaine › Écran, presente sur tous les ecrans),
+/// le fil d'Ariane de l'ecran actif, et le garde de permission des onglets.
 ///
 /// Une seule source pour la structure : <see cref="FunctionalArchitectureCatalog.Tree"/>,
 /// elague par <see cref="NavigationTreeBuilder"/> avec les permissions du JWT. Ce que le
@@ -48,10 +50,9 @@ public partial class MainWindow
     // (ScreenNode.LegacyTabIndex est l'adaptateur entre les deux).
     private const int HomeTabIndex = 0;
 
-    // Largeurs du panneau lateral et de sa gouttiere quand il est affiche - reprises
-    // telles quelles des ColumnDefinition de MainWindow.xaml.
-    private const double SidebarWidth = 248;
-    private const double SidebarGapWidth = 20;
+    // Delai avant d'ecrire l'etat deplie de la barre sur le disque : un clic sur trois
+    // en-tetes de suite ne doit produire qu'une ecriture.
+    private static readonly TimeSpan SidebarExpansionSaveDelay = TimeSpan.FromMilliseconds(500);
 
     // Les 50 modules du catalogue, exposes une seule fois et partages par la barre
     // laterale et le catalogue de l'onglet 0 : une seule collection, donc pas de
@@ -75,6 +76,10 @@ public partial class MainWindow
     // l'utilisateur l'avait laissee, pas la replier arbitrairement.
     private readonly HashSet<ModuleNavigationGroup> groupsExpandedBeforeSearch = [];
     private bool isSidebarSearchActive;
+
+    // Ecriture differee de l'etat deplie (DesktopSettings.SidebarExpandedDomains) : arme a
+    // chaque changement d'IsExpanded hors recherche, ecrit une seule fois apres le delai.
+    private DispatcherTimer? sidebarExpansionSaveTimer;
 
     // L'arbre que le profil peut ouvrir (permissions seules, sans la recherche) : l'ordre
     // des raccourcis module precedent / suivant. Vide tant que rien n'a ete calcule.
@@ -138,9 +143,11 @@ public partial class MainWindow
         HomeView.NavigateRequested -= HomeNavigateRequested;
         HomeView.NavigateRequested += HomeNavigateRequested;
 
-        // Deux zones de lecture : les domaines métier défilent, l'administration
-        // système reste épinglée en pied de panneau.
-        SidebarGroupsItemsControl.ItemsSource = sidebarGroups.Where(group => !group.IsPinned).ToList();
+        // Trois strates : les ecrans de Mon Espace sous la rangee fixe (le domaine 01 n'est
+        // pas dans la liste, il y figurerait deux fois), les domaines metier qui defilent,
+        // l'administration systeme epinglee en pied de panneau.
+        SidebarHomeScreensItemsControl.ItemsSource = sidebarGroups.FirstOrDefault(group => group.IsHome)?.Rows;
+        SidebarGroupsItemsControl.ItemsSource = sidebarGroups.Where(group => !group.IsHome && !group.IsPinned).ToList();
         SidebarPinnedGroupsItemsControl.ItemsSource = sidebarGroups.Where(group => group.IsPinned).ToList();
         ApplyModulePermissions();
 
@@ -168,20 +175,18 @@ public partial class MainWindow
         }
     }
 
-    // Aligne la barre laterale et le fil d'Ariane sur l'onglet affiche : surbrillance du
-    // module courant (le style ModuleNavButton reagit a Tag="Active" : filet accent de
-    // 3px, teinte douce, texte en semi-gras), ouverture de son domaine, et repli complet
-    // du panneau sur l'accueil.
+    // Aligne la barre laterale et le fil d'Ariane sur l'onglet affiche : surbrillance de
+    // l'ecran courant (le style ModuleNavButton reagit a Tag="Active" : filet accent de
+    // 3 px, fond doux, texte en semi-gras), ouverture de son domaine, et marquage de ce
+    // domaine (icone en accent, point s'il est replie).
     //
-    // Mon Espace ne montre PAS la barre laterale : la racine EST le sommaire, un second
-    // sommaire a cote ferait doublon et volerait aux cartes la largeur dont elles ont
-    // besoin. Partout ailleurs elle est la, avec son bouton « Mon Espace » comme chemin
-    // de retour.
+    // La barre est presente sur TOUS les ecrans, Mon Espace compris : sur l'onglet 0, seule
+    // la rangee « Mon Espace » prend l'etat actif. Ni la visibilite du panneau ni les
+    // colonnes de la grille ne sont touchees ici - l'ecran ne bouge pas d'un pixel quand on
+    // revient a l'accueil, ce qu'on fait dix fois par jour.
     private void SyncSidebarToTab(int tabIndex)
     {
-        var isHome = tabIndex == HomeTabIndex;
-
-        ShowHomeButton.Tag = isHome ? "Active" : null;
+        ShowHomeButton.Tag = tabIndex == HomeTabIndex ? "Active" : null;
 
         // Le module courant est marque sur la tuile, que la barre laterale et l'accueil
         // partagent ; les deux entrees d'un ecran partage s'allument ensemble, c'est voulu.
@@ -192,25 +197,25 @@ public partial class MainWindow
 
         foreach (var group in sidebarGroups)
         {
+            var owns = group.Owns(tabIndex);
+            group.ContainsActiveScreen = owns;
+
             // Ouvrir la section du module courant sans replier les autres : la barre
             // laterale suit la navigation, elle ne defait pas ce que l'utilisateur a
-            // ouvert lui-meme.
-            if (group.Owns(tabIndex))
+            // ouvert lui-meme. Le domaine epingle (22) est traite comme les autres.
+            if (owns)
             {
                 group.IsExpanded = true;
             }
         }
 
-        SidebarBorder.Visibility = isHome ? Visibility.Collapsed : Visibility.Visible;
-        SidebarColumn.Width = isHome ? new GridLength(0) : new GridLength(SidebarWidth);
-        SidebarGapColumn.Width = isHome ? new GridLength(0) : new GridLength(SidebarGapWidth);
-
         UpdateBreadcrumb(tabIndex);
     }
 
     // Fil d'Ariane de l'ecran actif : « Domaine → Module → Sous-module → Écran », par le
-    // chemin primaire de l'arbre. Masque sur l'accueil, qui a son propre en-tete. Le
-    // dernier segment est mis en avant : c'est la ou l'on est, le reste dit d'ou l'on vient.
+    // chemin primaire de l'arbre. Masque sur l'accueil, qui a son propre en-tete, mais
+    // sans rendre sa ligne (Hidden, pas Collapsed) : le contenu ne saute pas. Le dernier
+    // segment est mis en avant : c'est la ou l'on est, le reste dit d'ou l'on vient.
     private void UpdateBreadcrumb(int tabIndex)
     {
         BreadcrumbTextBlock.Inlines.Clear();
@@ -219,7 +224,7 @@ public partial class MainWindow
             || !FunctionalArchitectureCatalog.TryGetPrimaryPath(tabIndex, out var path)
             || path is null)
         {
-            BreadcrumbBorder.Visibility = Visibility.Collapsed;
+            BreadcrumbBorder.Visibility = Visibility.Hidden;
             AutomationProperties.SetName(BreadcrumbTextBlock, string.Empty);
             return;
         }
@@ -457,15 +462,35 @@ public partial class MainWindow
             _ => null
         };
 
-        if (tabIndex is not { } target || !CanOpenModule(target))
+        if (tabIndex is { } target)
+        {
+            OpenScreenFromSidebar(target);
+        }
+    }
+
+    // Ouverture d'un ecran depuis la barre laterale, par clic ou par Entree dans la
+    // recherche : meme garde que partout ailleurs, puis la recherche a rempli son office
+    // et la barre revient a son etat normal, ou l'ecran qui vient de s'ouvrir se voit dans
+    // son domaine.
+    private void OpenScreenFromSidebar(int tabIndex)
+    {
+        if (!CanOpenModule(tabIndex))
         {
             return;
         }
 
-        // La recherche a rempli son office : la barre laterale revient a son etat
-        // normal, ou le module qui vient de s'ouvrir se voit dans sa famille.
         ModuleSearchTextBox.Clear();
-        NavigateToModule(target);
+        NavigateToModule(tabIndex);
+    }
+
+    // « Ouvrir le catalogue » de l'etat vide de la recherche : la barre ne liste que les
+    // ecrans ouvrables, le catalogue de l'accueil montre les 50 modules. La recherche de la
+    // barre est effacee, comme apres toute navigation depuis la barre.
+    private void OpenCatalogFromSidebarButton_Click(object sender, RoutedEventArgs e)
+    {
+        ModuleSearchTextBox.Clear();
+        NavigateToModule(HomeTabIndex);
+        HomeView.FocusCatalogSearch();
     }
 
     // ==================== Permissions ====================
@@ -634,16 +659,32 @@ public partial class MainWindow
 
     // Echap efface la recherche sans quitter le champ : le raccourci attendu d'un
     // champ de recherche, et le seul moyen au clavier de retrouver la liste complete.
+    // Entree ouvre le premier resultat ouvrable : taper trois lettres puis Entree, sans
+    // descendre dans la liste. (Fleche bas, elle, est traitee par le panneau entier.)
     private void ModuleSearchTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Escape || ModuleSearchTextBox.Text.Length == 0)
+        switch (e.Key)
         {
-            return;
-        }
+            case Key.Escape when ModuleSearchTextBox.Text.Length > 0:
+                ModuleSearchTextBox.Clear();
+                e.Handled = true;
+                break;
+            case Key.Enter when isSidebarSearchActive:
+                if (FirstOpenableSidebarScreen() is { } first)
+                {
+                    OpenScreenFromSidebar(first.TabIndex);
+                }
 
-        ModuleSearchTextBox.Clear();
-        e.Handled = true;
+                e.Handled = true;
+                break;
+        }
     }
+
+    // Le premier ecran ouvrable dans l'ordre d'affichage : Mon Espace, la liste, le pied.
+    private ModuleNavigationScreen? FirstOpenableSidebarScreen() =>
+        sidebarGroups
+            .SelectMany(group => group.Rows.OfType<ModuleNavigationScreen>())
+            .FirstOrDefault(screen => screen.Tile.IsClickable);
 
     private void ClearModuleSearchButton_Click(object sender, RoutedEventArgs e)
     {
@@ -654,7 +695,8 @@ public partial class MainWindow
     // Rejoue l'arbre elague sur la barre laterale : permissions du profil, puis la
     // recherche. Les sections qui ont un resultat s'ouvrent, les autres disparaissent.
     // Effacer la recherche rend les sections a l'etat ou l'utilisateur les avait
-    // laissees, plus celle du module affiche.
+    // laissees, plus celle du module affiche. Hors recherche (changement de profil), l'etat
+    // deplie n'est pas touche : il est a l'utilisateur, et memorise par poste.
     private void RefreshSidebar()
     {
         var query = ModuleSearchTextBox.Text;
@@ -680,7 +722,9 @@ public partial class MainWindow
                 filter with { SearchText = query })
             : navigableTree;
 
-        if (isSearching && !isSidebarSearchActive)
+        var wasSearching = isSidebarSearchActive;
+
+        if (isSearching && !wasSearching)
         {
             groupsExpandedBeforeSearch.Clear();
 
@@ -688,23 +732,63 @@ public partial class MainWindow
             {
                 groupsExpandedBeforeSearch.Add(group);
             }
+
+            // Le drapeau AVANT la premiere mutation d'IsExpanded : c'est lui que lit
+            // SidebarGroup_PropertyChanged pour ne pas armer l'ecriture sur le disque. Pose
+            // apres la boucle, le depliage force par la premiere frappe serait ecrit comme
+            // un choix de l'utilisateur.
+            isSidebarSearchActive = true;
         }
 
         var matches = 0;
+        var domainsWithMatches = 0;
 
         foreach (var group in sidebarGroups)
         {
-            matches += group.Apply(shown.FindDomain(group.Id), tab => tilesByTab.GetValueOrDefault(tab));
-            group.IsExpanded = isSearching ? group.HasMatches : groupsExpandedBeforeSearch.Contains(group);
+            var count = group.Apply(shown.FindDomain(group.Id), tab => tilesByTab.GetValueOrDefault(tab));
+            matches += count;
+            domainsWithMatches += count > 0 ? 1 : 0;
+            group.ShowResultCount = isSearching && group.HasMatches;
+
+            // Mon Espace n'a pas d'en-tete : ses ecrans sont toujours visibles, il n'est
+            // jamais replie par une recherche ni par sa fin.
+            if (group.IsHome)
+            {
+                continue;
+            }
+
+            if (isSearching)
+            {
+                group.IsExpanded = group.HasMatches;
+            }
+            else if (isSidebarSearchActive)
+            {
+                group.IsExpanded = groupsExpandedBeforeSearch.Contains(group);
+            }
         }
 
         if (!isSearching)
         {
             groupsExpandedBeforeSearch.Clear();
-            SyncSidebarToTab(MainTabs.SelectedIndex);
         }
 
         isSidebarSearchActive = isSearching;
+
+        if (!isSearching)
+        {
+            // Apres la restauration, et le drapeau baisse : l'ouverture du domaine courant
+            // s'ajoute a l'etat rendu.
+            SyncSidebarToTab(MainTabs.SelectedIndex);
+
+            if (wasSearching)
+            {
+                // Une seule ecriture en fin de recherche, explicite : la restauration s'est
+                // faite drapeau leve (rien d'arme), et un clic sur un en-tete juste avant la
+                // premiere frappe a pu etre avale par la coupure. Le disque doit refleter
+                // l'etat rendu, pas celui d'avant ce clic.
+                ScheduleSidebarExpansionSave();
+            }
+        }
 
         // Le filet de separation du pied ne doit pas rester seul quand la recherche ne
         // retient rien dans l'administration systeme.
@@ -713,9 +797,236 @@ public partial class MainWindow
             : Visibility.Collapsed;
 
         ClearModuleSearchButton.Visibility = query.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-        SidebarSearchEmptyTextBlock.Visibility = isSearching && matches == 0
+        SidebarSearchEmptyPanel.Visibility = isSearching && matches == 0
             ? Visibility.Visible
             : Visibility.Collapsed;
+
+        // Annonce du filtrage, au lecteur d'ecran comme a l'oeil ; rien hors recherche. La
+        // visibilite AVANT le texte : un element Collapsed n'a pas de pair UIA, le changement
+        // de texte de la premiere frappe ne serait annonce a personne.
+        SidebarSearchLiveTextBlock.Visibility = isSearching ? Visibility.Visible : Visibility.Collapsed;
+        SidebarSearchLiveTextBlock.Text = isSearching
+            ? matches == 0 ? "Aucun écran ne correspond" : SearchResultSummary(matches, domainsWithMatches)
+            : string.Empty;
+    }
+
+    // « 1 écran dans 1 domaine », « 3 écrans dans 2 domaines ».
+    private static string SearchResultSummary(int screens, int domains) =>
+        $"{screens} écran{(screens > 1 ? "s" : string.Empty)} dans {domains} domaine{(domains > 1 ? "s" : string.Empty)}";
+
+    // ==================== Clavier dans le panneau ====================
+
+    // Fleches, Origine / Fin, → / ← et Echap dans la barre laterale. Un handler explicite
+    // plutot que la navigation directionnelle de WPF : la liste est un ItemsControl
+    // imbrique (domaines, puis rangees) dont les gabarits changent avec la recherche, et le
+    // focus y sautait d'une strate a l'autre. Les rangees visibles sont relues a chaque
+    // touche, dans l'ordre d'affichage : Mon Espace, ses ecrans, la liste, le pied. Une
+    // rangee desactivee n'est pas focalisable en WPF : elle est sautee, son motif reste
+    // lisible par l'info-bulle.
+    private void SidebarList_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is not (Key.Up or Key.Down or Key.Left or Key.Right or Key.Home or Key.End or Key.Escape))
+        {
+            return;
+        }
+
+        var rows = VisibleSidebarRows();
+        var focused = Keyboard.FocusedElement as FrameworkElement;
+
+        // Depuis le champ de recherche : seule Fleche bas descend, sur la premiere rangee de
+        // la liste SOUS le champ - pas sur « Mon Espace », qui est au-dessus. Les autres
+        // touches gardent leur sens dans un champ de texte (Echap y est deja traite).
+        if (ReferenceEquals(focused, ModuleSearchTextBox))
+        {
+            if (e.Key == Key.Down && (FirstSidebarListRow() ?? rows.FirstOrDefault()) is { } first)
+            {
+                FocusSidebarRow(first);
+                e.Handled = true;
+            }
+
+            return;
+        }
+
+        var index = focused is null ? -1 : rows.IndexOf(focused);
+
+        if (index < 0)
+        {
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case Key.Escape:
+                ModuleSearchTextBox.Focus();
+                break;
+            case Key.Up when ReferenceEquals(rows[index], FirstSidebarListRow()):
+                // Symetrique de Fleche bas depuis le champ : remonter de la premiere rangee
+                // de la liste rend le champ, qui est juste au-dessus.
+                ModuleSearchTextBox.Focus();
+                break;
+            case Key.Up:
+                FocusSidebarRow(rows[Math.Max(0, index - 1)]);
+                break;
+            case Key.Down:
+                FocusSidebarRow(rows[Math.Min(rows.Count - 1, index + 1)]);
+                break;
+            case Key.Home:
+                FocusSidebarRow(rows[0]);
+                break;
+            case Key.End:
+                FocusSidebarRow(rows[^1]);
+                break;
+            case Key.Right when rows[index].DataContext is ModuleNavigationGroup { IsHome: false } group:
+                // Convention de l'arborescence Windows : → deplie, un second → descend sur
+                // le premier ecran.
+                if (!group.IsExpanded)
+                {
+                    group.IsExpanded = true;
+                }
+                else if (index + 1 < rows.Count && rows[index + 1].DataContext is ModuleNavigationScreen)
+                {
+                    FocusSidebarRow(rows[index + 1]);
+                }
+
+                break;
+            case Key.Left when rows[index].DataContext is ModuleNavigationGroup { IsHome: false } group:
+                group.IsExpanded = false;
+                break;
+            case Key.Left when rows[index].DataContext is ModuleNavigationScreen:
+                // ← sur un ecran remonte a l'en-tete de son domaine.
+                for (var previous = index - 1; previous >= 0; previous--)
+                {
+                    if (rows[previous].DataContext is ModuleNavigationGroup)
+                    {
+                        FocusSidebarRow(rows[previous]);
+                        break;
+                    }
+                }
+
+                break;
+            default:
+                // → ou ← sur une rangee qui n'a rien a deplier : rien a faire, mais la touche
+                // ne doit pas non plus deplacer le focus hors du panneau.
+                break;
+        }
+
+        e.Handled = true;
+    }
+
+    private static void FocusSidebarRow(FrameworkElement row)
+    {
+        row.BringIntoView();
+        row.Focus();
+    }
+
+    // Les rangees focalisables du panneau, visibles a l'ecran, dans l'ordre d'affichage :
+    // les boutons d'ecran et les en-tetes de domaine (ToggleButton), sous la barre laterale.
+    // Le champ de recherche et sa croix n'en font pas partie.
+    private List<FrameworkElement> VisibleSidebarRows()
+    {
+        var rows = new List<FrameworkElement>();
+        CollectSidebarRows(SidebarBorder, rows);
+        return rows;
+    }
+
+    // La premiere rangee visible sous le champ de recherche : dans la liste des domaines,
+    // sinon dans le pied. Null quand la recherche n'a rien laisse.
+    private FrameworkElement? FirstSidebarListRow()
+    {
+        var rows = new List<FrameworkElement>();
+        CollectSidebarRows(SidebarListScrollViewer, rows);
+
+        if (rows.Count == 0)
+        {
+            CollectSidebarRows(SidebarPinnedPanel, rows);
+        }
+
+        return rows.FirstOrDefault();
+    }
+
+    private void CollectSidebarRows(DependencyObject parent, List<FrameworkElement> rows)
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, index);
+
+            if (child is ButtonBase { IsVisible: true, IsEnabled: true, Focusable: true } row && IsSidebarRow(row))
+            {
+                rows.Add(row);
+                continue;
+            }
+
+            CollectSidebarRows(child, rows);
+        }
+    }
+
+    // Une rangee : la rangee fixe « Mon Espace », un en-tete de domaine ou un ecran. Ni la
+    // croix de la recherche, ni le bouton « Ouvrir le catalogue », qui restent au Tab.
+    private bool IsSidebarRow(ButtonBase candidate) =>
+        ReferenceEquals(candidate, ShowHomeButton)
+        || candidate.DataContext is ModuleNavigationGroup or ModuleNavigationScreen;
+
+    // ==================== Etat deplie, memorise par poste ====================
+
+    // Restaure les domaines deplies au dernier lancement sur ce poste (identifiants
+    // inconnus ignores), puis s'abonne aux changements pour les ecrire, en differe. Appele
+    // une fois, des la construction des groupes ; le domaine de l'ecran courant s'ouvre
+    // ensuite en plus, par SyncSidebarToTab, sans replier les autres.
+    private void LoadSidebarExpandedDomains()
+    {
+        var expanded = DesktopSettings.LoadSidebarExpandedDomains();
+
+        foreach (var group in sidebarGroups.Where(group => !group.IsHome))
+        {
+            group.IsExpanded = expanded.Contains(group.Id);
+            group.PropertyChanged += SidebarGroup_PropertyChanged;
+        }
+    }
+
+    // Une recherche ouvre et referme les domaines toute seule : cet etat-la n'est pas celui
+    // de l'utilisateur, il n'est jamais ecrit. RefreshSidebar leve le drapeau avant de
+    // toucher au premier IsExpanded et le rabaisse apres la restauration ; c'est lui qui
+    // arme une ecriture en fin de recherche (ScheduleSidebarExpansionSave).
+    private void SidebarGroup_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(ModuleNavigationGroup.IsExpanded) || isSidebarSearchActive)
+        {
+            return;
+        }
+
+        ScheduleSidebarExpansionSave();
+    }
+
+    // Relance du delai a chaque changement : une rafale de clics = une ecriture.
+    private void ScheduleSidebarExpansionSave()
+    {
+        if (sidebarExpansionSaveTimer is null)
+        {
+            sidebarExpansionSaveTimer = new DispatcherTimer(DispatcherPriority.Background)
+            {
+                Interval = SidebarExpansionSaveDelay
+            };
+            sidebarExpansionSaveTimer.Tick += SidebarExpansionSaveTimer_Tick;
+        }
+
+        sidebarExpansionSaveTimer.Stop();
+        sidebarExpansionSaveTimer.Start();
+    }
+
+    private void SidebarExpansionSaveTimer_Tick(object? sender, EventArgs e)
+    {
+        sidebarExpansionSaveTimer?.Stop();
+
+        // Un clic sur un en-tete suivi d'une frappe dans les 500 ms : le delai expire en
+        // pleine recherche, avec les domaines deplies par le filtre. Rien n'est ecrit ; la
+        // fin de recherche rearme une ecriture avec l'etat restaure.
+        if (isSidebarSearchActive)
+        {
+            return;
+        }
+
+        DesktopSettings.SaveSidebarExpandedDomains(
+            sidebarGroups.Where(group => !group.IsHome && group.IsExpanded).Select(group => group.Id));
     }
 
 }

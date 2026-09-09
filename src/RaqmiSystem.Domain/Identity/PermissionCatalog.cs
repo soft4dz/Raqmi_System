@@ -345,4 +345,19 @@ public static class PermissionCatalog
 
         return Legacy.Concat(targets).ToArray();
     }
+
+    // Declare APRES AllDefinitions, pour la meme raison d'ordre textuel. Sans casse : c'est
+    // ainsi que le client compare les cles du jeton (HasModulePermission) et que l'elagage de
+    // la navigation les recoit.
+    private static readonly IReadOnlyDictionary<string, PermissionDefinition> ByKey =
+        AllDefinitions.ToDictionary(definition => definition.Key, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// La definition d'une cle, historique ou cible, ou nul si le catalogue ne la connait pas.
+    /// C'est par elle qu'une surface nomme une permission a l'utilisateur
+    /// (<see cref="PermissionDefinition.Name"/>, « Lire la comptabilite ») au lieu de lui
+    /// montrer la cle technique.
+    /// </summary>
+    public static PermissionDefinition? Find(string key) =>
+        ByKey.TryGetValue(key, out var definition) ? definition : null;
 }

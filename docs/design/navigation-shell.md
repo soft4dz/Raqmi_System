@@ -36,10 +36,10 @@ profil ; le sommaire complet, cadenas et modules planifiés compris, reste l'acc
 ┌───────────────────────────────────────────────────────────────────────────────┐
 │ En-tête (76 px, StructureBrush) : marque · session · thème · raccourcis (F1)  │
 ├──────────────┬────────────────────────────────────────────────────────────────┤
-│ Barre        │ Fil d'Ariane (32 px)  Domaine › Module › Sous-module › Écran   │
+│ Barre        │ Fil d'Ariane (24 px)  Domaine › Module › Sous-module › Écran   │
 │ latérale     ├────────────────────────────────────────────────────────────────┤
-│ 248 px       │ Vue du module (UserControl) : en-tête d'écran, sous-onglets,    │
-│ (CardBorder) │ cartes, grilles, états vides — inchangée                        │
+│ 260 px       │ Vue du module (UserControl) : en-tête d'écran, sous-onglets,    │
+│ (panneau)    │ cartes, grilles, états vides — inchangée                        │
 │              │                                                                │
 │ 01 Mon Espace│                                                                │
 │ Recherche    │                                                                │
@@ -56,9 +56,25 @@ profil ; le sommaire complet, cadenas et modules planifiés compris, reste l'acc
 Quatre niveaux, une seule surface de navigation (la barre latérale, charte § 2.4), un seul repère
 de position (le fil d'Ariane), un seul chemin de navigation (`NavigateToModule`, charte § 2.2).
 
+Révision du 08/09/2026 (`docs/design/navigation/refonte-barre-laterale.md`) : la barre n'est plus une
+`CardBorder` de 248 px mais un **panneau de chrome de 260 px**, collé au bord gauche, pleine hauteur sous
+l'en-tête, sans arrondi, séparé du contenu par un seul filet ; la grille principale passe à **deux
+colonnes** (la colonne d'écart disparaît) et le bandeau de session vit dans la colonne de contenu, pas
+sous la barre. Le fil d'Ariane occupe une ligne **réservée** de 24 px, `Hidden` sur Mon Espace.
+
 ---
 
 ## 2. Barre latérale
+
+> **Révision du 08/09/2026** — décision « Panneau plat, présent partout »
+> (`docs/design/navigation/refonte-barre-laterale.md`, maquette `navigation/maquette-barre-laterale.html`).
+> Cinq changements, consignés dans les sections qui suivent : (1) la barre **ne disparaît jamais**, Mon
+> Espace compris (§ 5.2) ; (2) `01 Mon Espace` est une **strate fixe en tête** avec ses écrans réels
+> dessous (« Workflows & validations » si `approvals.read`), et **n'est plus répété** comme domaine
+> repliable dans la liste (§ 2.1) ; (3) **deux niveaux, Domaine › Écran** : le libellé de module ne
+> survit que comme séparateur d'un module qui retient au moins deux écrans (§ 2.3) ; (4) un **libellé
+> court** par domaine porté par le catalogue (`ShortLabel`, § 2.2) ; (5) le **numéro de domaine reste
+> hors de la rangée** (§ 2.2, § 11.6). Rien n'est retiré (annexe A.5 de la refonte).
 
 ### 2.1 Contenu et ordre
 
@@ -78,7 +94,9 @@ de position (le fil d'Ariane), un seul chemin de navigation (`NavigateToModule`,
 - **`01 Mon Espace` occupe la première ligne**, à la place du bouton « Accueil » actuel, avec son
   icône et le même comportement (`ShowHomeButton`, `Alt+Origine`). Aujourd'hui il ouvre l'accueil-
   catalogue ; en phase 4 il ouvre le portail (§ 5). Le libellé change de « Accueil » à « Mon Espace »
-  dès la vague 1 pour que le vocabulaire soit stable avant le contenu.
+  dès la vague 1 pour que le vocabulaire soit stable avant le contenu. Depuis le 08/09/2026, cette
+  rangée est **la seule représentation du domaine 01** : ses écrans ouvrables s'affichent dessous, en
+  strate fixe, et le groupe 01 n'est plus injecté dans la liste défilante des domaines `02`…`21`.
 
 ### 2.2 En-tête de domaine
 
@@ -87,32 +105,44 @@ compteur), enrichi de :
 
 | Élément | Règle |
 |---|---|
-| Icône | `Path` 16 × 16, `ModuleGroupIcon.<IconKey>` du domaine, trait `TextMutedBrush` 1.4 (voir `icones-domaines.md`) |
-| Libellé | nom du domaine **sans son numéro** (« PMS / Hébergement ») : le numéro sert au tri et à la documentation, pas à la lecture. L'info-bulle donne « 06 · PMS / Hébergement » |
-| Compteur | nombre d'écrans ouvrables ; pendant une recherche, nombre de résultats |
+| Icône | `Path` 16 × 16, `ModuleGroupIcon.<IconKey>` du domaine, trait `SidebarIconBrush` 1,5, `SidebarActiveIndicatorBrush` quand le domaine contient l'écran affiché (08/09/2026 ; voir `icones-domaines.md`) |
+| Libellé | nom du domaine **sans son numéro** (« PMS / Hébergement ») : le numéro sert au tri et à la documentation, pas à la lecture. L'info-bulle donne « 06 · PMS / Hébergement ». Depuis le 08/09/2026, la rangée affiche le **libellé court** du catalogue (`DomainNode.ShortLabel`, ≤ 22 caractères, contraction du nom officiel, jamais un synonyme : « Admin & Socle ERP », « Revenue Management », « Groupes & MICE » ; refonte § 3.5) ; le nom complet reste dans l'info-bulle, le nom UIA, le fil d'Ariane et sur les cartes de l'accueil ; un libellé qui déborde encore passe sur deux lignes, jamais en ellipse |
+| Compteur | depuis le 08/09/2026, **seulement pendant une recherche** (nombre de résultats, `ShowResultCount`) ; au repos la rangée ne porte aucun badge |
 | Point de maturité | `MaturityDot.<Niveau>` (7 px) à gauche du compteur, **seulement si le domaine n'est pas Fonctionnel** (Aperçu technique aujourd'hui : 07, 10, 12, 15, 21). Info-bulle : « Aperçu technique — noyau technique ou parcours incomplet ». Un domaine Fonctionnel ne porte rien : le silence est la norme, le point est l'exception |
 
 ### 2.3 Écran (ligne de section)
 
-`ModuleNavSubButton`, inchangé : 34 px, retrait de 8 px, libellé du module historique (celui de la
-carte de l'accueil, un seul vocabulaire). État actif `Tag="Active"` (filet accent 3 px, fond
-`ModuleActiveBackgroundBrush`, texte semi-gras). Info-bulle = description du module.
+`ModuleNavSubButton` : 34 px, retrait de 36 px, libellé du module historique (celui de la
+carte de l'accueil, un seul vocabulaire). État actif `Tag="Active"` (filet 3 px
+`SidebarActiveIndicatorBrush`, fond `SidebarActiveBackgroundBrush`, texte `SidebarActiveForegroundBrush`
+semi-gras). Info-bulle **seulement** si l'écran est verrouillé ou son libellé tronqué (08/09/2026 :
+la description du module ne s'affiche plus au survol de chaque ligne).
+
+**Aplatissement (08/09/2026)** : la barre montre **deux niveaux, Domaine › Écran**. Un module visible à
+un seul écran donne une rangée d'écran sans libellé de module ; un module visible à deux écrans ou plus
+donne un **séparateur** de 24 px (11 px majuscules, non cliquable, non focusable) puis ses écrans. Le
+sous-module n'est jamais affiché : il vit dans le fil d'Ariane, qui garde ses quatre segments. Cette
+projection est calculée dans `Apply` à partir de l'arbre déjà élagué par `NavigationTreeBuilder` —
+aucune règle métier côté WPF.
 
 ### 2.4 Densité
 
 | | Confortable | Compact |
 |---|---|---|
-| En-tête de domaine | 36 px | 32 px |
-| Ligne d'écran | 34 px | 30 px |
+| En-tête de domaine (`SidebarDomainRowHeight`) | 36 px | 32 px |
+| Ligne d'écran (`SidebarScreenRowHeight`) | 34 px | 32 px |
+| Séparateur de module (`SidebarSectionRowHeight`) | 24 px | 22 px |
 | Marge entre sections | 2 px | 2 px |
 
 La densité suit le réglage **Poste de travail → Densité** déjà en place pour les grilles (charte
 § 3.14) : mêmes deux valeurs, même portée (par poste), même mécanique (`{DynamicResource}` pour les
-deux hauteurs, à ajouter à côté de `GridRowHeight`). Compact ne réduit pas le texte (12,5 px) : il
-retire de l'air. Motif : avec 16 domaines ouvrables pour un administrateur aujourd'hui et 22 demain,
-une barre latérale entièrement repliée mesure 16 × 38 = 608 px en confortable, 22 × 34 = 748 px en
-compact — la seconde tient sans défiler sur un écran de 1080 lignes une fois l'en-tête, les marges et
-le bandeau de session retirés, la première non.
+trois hauteurs, posées par `ThemeManager.AppliquerDensite` à côté de `GridRowHeight`). Compact ne
+réduit pas le texte (13 px) : il retire de l'air. Révision du 08/09/2026 : la ligne d'écran compacte
+passe de 30 à **32 px**, minimum de cible imposé par la charte ; les deux hauteurs sont des `MinHeight`
+(un libellé sur deux lignes agrandit la rangée) ; c'est ce lot qui livre enfin la densité compacte de
+la barre, prescrite ici mais jamais câblée. Motif chiffré (refonte § 3.4) : à 1280 × 800, un Directeur
+d'unité (12 domaines dans la liste) ne défile jamais ; un administrateur (13 domaines + pied) ne
+défile qu'un domaine à six écrans déplié, et plus du tout en compact à 1366 × 768.
 
 ### 2.5 État replié et mémorisation
 
@@ -125,18 +155,27 @@ Règles observées aujourd'hui, conservées :
 
 Règle nouvelle :
 
-3. L'ensemble des domaines déroulés est **mémorisé par poste** (`DesktopSettings`, à côté de
-   `Apparence` et `Densite`), écrit à chaque changement, relu à la connexion. Par poste et non par
-   compte, pour la même raison que le thème : une réception de nuit garde sa barre latérale quand
-   l'équipe change. Valeur : la liste des identifiants de domaine (`"06","08"`). Absente ⇒ tout
-   replié sauf le domaine de l'écran affiché.
+3. L'ensemble des domaines déroulés est **mémorisé par poste** (`DesktopSettings.SidebarExpandedDomains`,
+   à côté de `Apparence` et `Densite`), écrit à chaque changement (écriture différée de 500 ms, **jamais
+   pendant une recherche** : le dépliage forcé par le filtre n'est pas un choix de l'utilisateur), relu
+   au démarrage. Par poste et non par compte, pour la même raison que le thème : une réception de nuit
+   garde sa barre latérale quand l'équipe change — et, sur un comptoir partagé, l'état laissé par
+   l'équipe du matin s'applique au soir. Valeur : la liste des identifiants de domaine (`"06","08"`) ;
+   un identifiant inconnu est ignoré ; un domaine sans écran ouvrable pour le profil reste masqué, son
+   état déplié est inerte (il est relu avant que les permissions ne soient connues). La fin d'une
+   recherche écrit une fois l'état restauré plus le domaine courant. Absente ⇒ tout replié sauf
+   le domaine de l'écran affiché. Livré le 08/09/2026 (refonte § 3.6, plan A.6 points 5, 6 et 11).
 4. À la première connexion d'un poste, **rien n'est déroulé** : un profil Réception voit quatre
    en-têtes, pas trente lignes.
 
 ### 2.6 Recherche
 
 - Même champ, même moteur que l'accueil : `ModuleTile.SearchText` normalisé (sans accent ni casse),
-  `Ctrl+K` y amène le focus, `Échap` efface, croix d'effacement `SearchClearButton`.
+  `Ctrl+K` y amène le focus (sur un écran de module ; sur Mon Espace, `Ctrl+K` garde la recherche du
+  catalogue), `Échap` efface, croix d'effacement `SearchClearButton`. Depuis le 08/09/2026 : placeholder
+  « Rechercher un écran… », le libellé court du domaine est indexé, `Entrée` ouvre le premier résultat
+  ouvrable, le message vide propose un bouton « Ouvrir le catalogue », et le compteur de résultats est
+  annoncé (`LiveSetting=Polite`).
 - **Étendue aux sous-modules et aux écrans** dès que le catalogue hiérarchique existe (lot 1.1) :
   « arrivées » doit trouver `06 → Front Office → Arrivées` et ouvrir `PmsView` **sur ce sous-onglet**.
   Tant que la navigation vers un sous-onglet n'existe pas, la ligne de résultat garde le libellé du
@@ -154,9 +193,10 @@ Règle nouvelle :
 
 ### 3.1 Placement et forme
 
-- Une ligne de **32 px** en haut de la colonne de contenu, au-dessus du `UserControl` de la vue,
-  hors de la vue (posée par `MainWindow`, jamais par les vues : elles ignorent leur position dans
-  l'arbre, charte § 2.1). Masquée sur l'accueil / Mon Espace, qui est la racine.
+- Une ligne de **24 px réservée** en haut de la colonne de contenu, au-dessus du `UserControl` de la
+  vue, hors de la vue (posée par `MainWindow`, jamais par les vues : elles ignorent leur position dans
+  l'arbre, charte § 2.1). Sur l'accueil / Mon Espace, qui est la racine, elle est `Hidden` et non
+  `Collapsed` (08/09/2026) : la ligne reste réservée pour que le contenu ne saute pas verticalement.
 - Séquence : `[icône du domaine 16 px] Domaine › Module › Sous-module › Écran`.
   Texte 12,5 px ; ancêtres en `TextSecondaryBrush` SemiBold et cliquables ; **dernier segment en
   `TextPrimaryBrush`**, non cliquable. Séparateur : chevron `M0.6,1.6 L4.5,5.5 L8.4,1.6` (celui de
@@ -364,8 +404,16 @@ n'agrège que des projections autorisées et ne possède aucune donnée métier.
   assumé (§ 7).
 - **Le catalogue ne disparaît pas** : il devient un écran (`Catalogue des modules`) atteignable
   depuis la carte « Où en est le produit ? », depuis le pied de la barre latérale et par `Alt+Origine`
-  suivi de `Ctrl+K`. La barre latérale reste masquée sur le portail comme sur l'accueil actuel
-  (`SyncSidebarToTab`) : le portail est la racine, il n'a pas besoin de sommaire à côté.
+  suivi de `Ctrl+K`.
+- **La barre latérale reste visible sur Mon Espace** — décision **renversée le 08/09/2026**
+  (`refonte-barre-laterale.md` § 3.7). La règle précédente (« le portail est la racine, il n'a pas
+  besoin de sommaire à côté », barre repliée par `SyncSidebarToTab`) reposait sur un accueil-catalogue
+  qui n'existe plus : Mon Espace s'ouvre sur « Mon travail », le catalogue n'est qu'une seconde section,
+  et le repli déplaçait le contenu de 268 px sans transition dix fois par jour. Désormais la barre mesure
+  **260 px partout**, `SyncSidebarToTab` ne touche plus ni colonnes ni `Visibility`, seule la rangée
+  « Mon Espace » prend l'état actif ; le fil d'Ariane passe en `Hidden` (ligne de 24 px réservée) au lieu
+  de `Collapsed`. Prix assumé : l'accueil perd 260 px et la grille des files passe de 5 à **4 cartes par
+  rangée** (`refonte-accueil.md` § 2.1).
 
 ---
 
@@ -469,17 +517,25 @@ Ce que le shell fait déjà et qui doit survivre à l'intégration, puis ce qu'i
 
 | Élément | `AutomationProperties.Name` | Notes |
 |---|---|---|
-| En-tête de domaine | « Domaine PMS / Hébergement, 3 écrans » (compteur inclus) | `HelpText` = maturité quand elle est sous `Functional` |
-| Ligne d'écran | « Ouvrir Arrivées » | l'écran actif ajoute « , écran affiché » |
+| En-tête de domaine | « Domaine 06 PMS / Hébergement, 3 écrans » (nom **complet** avec son numéro, jamais le libellé court ; compteur inclus, « 2 résultats » en recherche — `DomainAutomationNameConverter`, 08/09/2026) | `HelpText` : aucun — le domaine n'a pas de description dans le catalogue (`DomainNode` / `FunctionalDomainDefinition`, seul `ScreenNode` en porte une) ; à poser le jour où il en aura une. État déplié/replié exposé par le pattern ExpandCollapse du `ToggleButton` |
+| Ligne d'écran | libellé complet de l'écran | l'écran actif porte `ItemStatus` « écran affiché » ; une ligne désactivée (permission retirée en cours de session) porte en `HelpText` le texte de son info-bulle |
+| Séparateur de module (08/09/2026) | libellé du module | `AutomationProperties.HeadingLevel=Level3`, non focusable, `IsHitTestVisible=False` |
+| Panneau / liste (08/09/2026) | « Navigation des modules » / « Domaines » | |
 | Segment de fil d'Ariane | « Remonter à Front Office » | le segment courant est un `TextBlock`, pas un bouton |
 | Badge de maturité | libellé du badge | `HelpText` = définition du niveau (`07-plan-migration.md`, modèle de readiness) |
 | Point de maturité | « Aperçu technique » | l'`Ellipse` n'a pas de nom par défaut : le poser |
 | Bouton `01 Mon Espace` | « Mon Espace, accueil » | `AccessKey` inchangée (`Alt+Origine`) |
 
-Ordre de tabulation : en-tête de fenêtre → barre latérale (Mon Espace, recherche, en-têtes et
-écrans dans l'ordre visuel, section épinglée) → fil d'Ariane → vue → bandeau de session. Les
-en-têtes repliés ne donnent pas accès à leurs écrans au clavier (ils sont `Collapsed`), ce qui est
-attendu : `Espace` les déroule.
+Ordre de tabulation (révisé le 08/09/2026) : en-tête de fenêtre → barre latérale, **un arrêt par
+strate** — Mon Espace → ses écrans → recherche → liste des domaines (un seul arrêt,
+`KeyboardNavigation.TabNavigation=Once`) → pied épinglé — → fil d'Ariane → vue → bandeau de session.
+Dans la liste : ↑ / ↓ passent d'une rangée à la suivante en sautant les séparateurs, Origine / Fin vont
+à la première / dernière rangée, → déplie un domaine (puis descend sur son premier écran), ← replie
+ou remonte au domaine, Échap ramène le focus au champ de recherche, Entrée dans le champ ouvre le
+premier résultat ouvrable. Les en-têtes repliés ne donnent pas accès à leurs écrans au clavier (ils
+sont `Collapsed`), ce qui est attendu : `Espace` ou → les déroule. Le focus clavier est un **anneau de
+2 px** `SidebarFocusRingBrush` (11,02:1 en clair), jamais un changement de fond : il ne se confond
+plus avec le survol. L'info-bulle d'un libellé tronqué s'ouvre aussi au focus clavier.
 
 Contraste : toutes les paires nouvelles sont ≥ 4,5:1 pour du texte (badges : 5,0 à 8,0:1) et ≥ 3:1
 pour les points sur `SurfaceBrush` ; les points ne se posent pas directement sur `AppBackgroundBrush`
@@ -496,9 +552,9 @@ planifiés selon le cas.
 | Profil (rôle actuel) | Barre latérale (ordre `01`…`22`) | Écran d'ouverture proposé | Ce que l'accueil montre en plus | Remarques |
 |---|---|---|---|---|
 | **Réception** (aucun rôle système ; `cashier` partiel — à créer en phase 2) | 01 Mon Espace · 04 Commercial, Clients & CRM (Clients, CRM) · 06 PMS / Hébergement (Réservations & folios, Front Office) · 08 Housekeeping (si `housekeeping.read`) · 05 Facturation (si `invoices.read`) | `06 → Front Office → Arrivées` | 03, 20 verrouillés ; 14, 16, 17, 18, 19 planifiés | 06 → Contrôle (clôture) absent sans `closing.read` ; `01` n'a rien à montrer sans `approvals.read` : la ligne reste, c'est l'accueil |
-| **Directeur d'unité** (`unit.manager`) | 01 · 03 Finance (Recettes, Trésorerie, Budget — Comptabilité selon `accounting.read`) · 06 PMS (les trois modules) · 08 · 09 · 10 F&B · 11 Stocks · 12 Achats · 13 RH (lecture) · 15 Qualité (Journal d'audit) · 20 Pilotage (Unité, Exploitation, KPI, Rapports) · 22 (épinglée, si `maintenance.read`) | `20 → Dashboards → Unité` | 14 Maintenance planifié (son domaine, il attend l'écran) | `approvals.decide` alimente 01 → Mes validations |
+| **Directeur d'unité** (`unit.manager`, aligné le 08/09/2026 sur `SecuritySeeder.cs` : `units`, `revenue`, `dashboard`, `closing`, `customers`, `invoices`, `settings`, `budget`, `tariffs`, `lodging`, `housekeeping`, `crm`, `approvals`, `reports`, `inventory`, `purchasing`, `kitchen`, `mice` en lecture) | 01 Mon Espace (strate fixe, avec « Workflows & validations ») puis **12 domaines dans la liste** : 02 Admin & Socle ERP · 03 Finance (Budget, CA journalier — ni Trésorerie ni Comptabilité : pas de `treasury.read` ni d'`accounting.read`) · 04 Commercial & CRM · 05 Facturation & Ventes · 06 PMS · 07 Revenue Management · 08 Housekeeping · 09 Groupes & MICE · 10 F&B · 11 Stocks · 12 Achats · 20 Pilotage. **Ni 13** (pas de `hr.read`), **ni 15**, **ni 22** : aucun pied « Administration Système » (ni `maintenance.read`, ni `audit.read`, ni `sync.read`) | `20 → Dashboards → Unité` | 13, 14, 15, 22 verrouillés ou planifiés | `approvals.decide` alimente 01 → Mes validations ; cette projection est verrouillée par un test de `NavigationTreeBuilderTests` (refonte A.6.1) |
 | **Direction générale** (`direction`) | 01 · 03 Finance (tout, lecture + approbations) · 06 PMS (lecture) · 10 · 11 (lecture) · 13 RH · 15 Qualité · 20 Pilotage (Groupe, Unité, Exploitation, KPI, Rapports) | `20 → Dashboards → Groupe` | 16 Juridique planifié, mis en avant par le filtre de domaine | Pas de 02 ni de 22 : la DG ne paramètre pas |
-| **Administrateur** (`system.administrator`) | tous les domaines ayant un écran : 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 15, 20 · 22 épinglée | `01 Mon Espace` (accueil-catalogue) | 14, 16, 17, 18, 19, 21 planifiés / aperçu technique, aucun cadenas | Seul profil pour qui la barre latérale approche les 22 : la densité compacte (§ 2.4) lui est destinée |
+| **Administrateur** (`system.administrator`) | 01 en strate fixe, 13 domaines dans la liste (02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 15, 20 selon les écrans livrés) · 22 épinglée en pied | `01 Mon Espace` (accueil « Mon travail ») | 14, 16, 17, 18, 19, 21 planifiés / aperçu technique, aucun cadenas | Seul profil pour qui la barre latérale approche les 22, et le seul des quatre à voir le pied : la densité compacte (§ 2.4) lui est destinée |
 
 Le masquage est un confort d'interface, jamais une sécurité (charte § 3.9) : chaque route reste
 protégée par sa politique, et un profil qui perd un droit en cours de session voit la ligne
@@ -543,6 +599,12 @@ Reste à coder (hors périmètre DESIGN) :
    (§ 2.1) — ou garder « Accueil » jusqu'à la livraison du portail ?
 4. **Doublon « Planning »** entre `LodgingView` et `PmsView` (§ 4.2) : lequel disparaît ?
 5. **`02 Administration & Socle ERP` dans la liste, `22` seule épinglée** (§ 2.1) — ou les deux en
-   pied, comme la section « Administration » de l'ancien `SidebarLayout` ?
+   pied, comme la section « Administration » de l'ancien `SidebarLayout` ? **Tranchée le 08/09/2026**
+   (refonte annexe A.2) : `02` reste dans la liste sous le libellé court « Admin & Socle ERP », `22`
+   seule en pied, et ce pied **n'existe que pour les profils qui y détiennent un écran** ; la fusion
+   des deux serait une décision d'arbre (Application), pas de barre. La confusion visuelle entre les
+   deux « Administration » est levée par le libellé court et par la position.
 6. **Numéro de domaine masqué dans la barre latérale** (§ 2.2), visible dans l'info-bulle et sur
-   l'accueil — ou affiché partout ?
+   l'accueil — ou affiché partout ? **Tranchée le 08/09/2026** (refonte § 3.5) : le numéro reste **hors
+   de la rangée** ; il figure dans l'info-bulle (« 06 · PMS / Hébergement »), dans le nom UIA, dans le
+   fil d'Ariane et sur l'accueil.
