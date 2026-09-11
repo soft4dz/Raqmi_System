@@ -15,6 +15,22 @@ Conséquence pratique : les constats de *structure* (ce qui existe, ce qui manqu
 compté) sont fiables ; les constats de *comportement* (« cela fonctionne », « cela plante ») ne
 sont jamais affirmés.
 
+### Ce que la CI a établi depuis, sur la révision auditée
+
+L'audit ne pouvait pas dire si la base était verte. La CI de la PR qui porte ce dossier l'a dit,
+sur le même arbre de code (aucun fichier du produit n'y est modifié) :
+
+| Job | Résultat |
+|---|---|
+| `Build API and tests` — build Release + les 1 092 tests | ✅ succès |
+| `Build WPF desktop` — compilation Release sur `windows-latest` | ✅ succès |
+| `PostgreSQL integration gate` — migrations, contraintes et concurrence contre PostgreSQL 16 réel | ✅ succès |
+| `Module readiness gate` | ❌ **échec** — voir le constat F-10 |
+
+**La solution compile et la totalité des tests passe.** Le seul rouge est le garde de readiness,
+et son motif précède cet audit (constat **F-10**, chantier **A-07**). C'est donc le point de
+départ réel pour l'exécution du plan 04.
+
 ## Les cinq documents
 
 | Document | Contenu |

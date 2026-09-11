@@ -39,8 +39,11 @@ Puis lis la charte UI, qui est la loi du projet pour tout ce qui touche au clien
 AVANT TOUTE MODIFICATION
 1. Lance `dotnet build RaqmiSystem.sln -c Release` et `dotnet test RaqmiSystem.sln`.
    Note le point de départ exact : nombre d'avertissements, tests passants, tests échouants.
-   L'audit n'a PAS pu compiler le projet — tous ses chiffres de volume sont fiables, mais rien
-   dans l'audit ne prouve que la base est verte aujourd'hui. C'est à toi de l'établir.
+   L'audit n'a PAS pu compiler le projet lui-même. En revanche la CI l'a fait sur le même arbre
+   de code : build Release, les 1 092 tests et le gate PostgreSQL réel sont tous VERTS ; seul
+   « Module readiness gate » est rouge, pour le motif du chantier A-07. Confirme-le sur ta
+   machine avant de commencer — et si quelque chose d'autre est rouge chez toi, c'est un écart
+   d'environnement, dis-le avant de coder.
 2. Si quelque chose est déjà cassé, dis-le avant de commencer, et ne l'attribue pas à ton travail.
 3. Crée une branche dédiée. Ne travaille jamais directement sur main.
 
