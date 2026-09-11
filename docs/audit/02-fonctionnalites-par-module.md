@@ -54,6 +54,13 @@ Registre TVA ventes, registre TVA achats (saisie + import), **calcul des déclar
 simple et avancée), **hub SIFEC** : transmission à l'unité ou en lot, configuration, test de
 connexion.
 
+> ⚠️ **Correction de cet audit.** Ce module a d'abord été classé « disponible » ici sans que ses
+> preuves soient vérifiées. Le garde de readiness du dépôt les a réclamées : le module n'a
+> **aucun test dédié**, **aucune fiche `docs/modules/*.md`**, et **aucune entrée dans
+> `tools/readiness/screens.json`**. Les routes existent et la migration aussi, mais le niveau
+> `Functional` n'est pas prouvé au sens du modèle de readiness du projet. Voir le constat **F-10**
+> du document 01 et le chantier **A-07** du plan 04.
+
 ### 6 — Budget & prévisions ✅ *(10 routes)*
 Plans budgétaires, gestion des lignes (remplacement, ajout, suppression), approbation, clôture,
 **analyse d'écart budget / réalisé**. Budget par catégorie de recettes paramétrable.

@@ -157,6 +157,45 @@ document 11 ; il est toujours vrai à `b412b8c`.
   avertissements du compilateur sont la seule relecture automatique disponible.
 - `"AllowedHosts": "*"` en production.
 
+### F-10 — Le module Fiscalité est déclaré disponible sans aucune preuve
+
+**Découvert après coup, par le garde de readiness du dépôt lui-même** — pas par cet audit, qui
+avait classé le module 5.4 « disponible » sans vérifier ses preuves (correction consignée au
+document 02).
+
+Le module **Fiscalité DGI & SIFEC** (`437af45`, 9 septembre) est déclaré `Disponible` dans
+`ModuleCatalog.cs` et sert **21 routes**, dont le calcul des déclarations de TVA et l'**export
+G50**. Or :
+
+| Preuve exigée par le modèle de readiness | État |
+|---|---|
+| Domain / Application / Infrastructure | ✅ présents |
+| API (`FiscaliteEndpoints.cs`) | ✅ 21 routes |
+| Migration PostgreSQL | ✅ `20260905214542_FiscaliteModule.cs` |
+| RBAC (`finance.fiscal.read`, `.declare`, `.sifec.manage`) | ✅ présent |
+| Desktop (`FiscaliteView.xaml`) | ✅ présent |
+| **Tests** | ❌ **aucun fichier de test dédié** — `VatRegisterService` n'apparaît que comme dépendance construite par les tests d'achats et de vente |
+| **Documentation** (`docs/modules/*.md`) | ❌ **aucune fiche** |
+| **Fiche de preuves** (`tools/readiness/screens.json`) | ❌ **absente** |
+
+Le garde `tools/check-module-readiness.ps1` échoue donc sur `main` :
+
+```
+ECHEC: screens.json: l'onglet Disponible 'FiscaliteTabItem' (ordres 5.4) n'a pas de fiche de preuves.
+```
+
+**Pourquoi personne ne l'a vu.** Le workflow `stabilization.yml` ne se déclenche que sur
+`pull_request` et sur les poussées vers `stabilization/**` et `reorg/**`. Le lot Fiscalité a
+rejoint `main` sans passer par une PR : le garde n'a jamais tourné dessus. Il a échoué à la
+première PR ouverte depuis — celle de cet audit.
+
+**Deux conclusions.** D'abord, le garde de readiness fait exactement son travail et mérite d'être
+étendu à `push: main`. Ensuite, un module qui calcule des déclarations fiscales et produit un
+export G50 **sans un seul test** est le risque le plus concret de tout ce document : une erreur y
+est découverte par l'administration, pas par le client. Chantier **A-07** du plan 04.
+
+---
+
 ### F-09 — Code parqué hors solution
 
 `staging/wave-e2/` et `staging/wave-hr/` : ≈ 500 lignes non compilées, non testées, non

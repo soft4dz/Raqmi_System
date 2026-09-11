@@ -71,6 +71,13 @@ Le lot P du plan (P-01 conformité hôtelière, P-02 arabe/i18n, P-03 client web
 planifiés) contient des DÉCISIONS PRODUIT, pas des chantiers techniques. Tu ne les tranches pas.
 Tu les documentes, tu poses la question au propriétaire, et tu attends.
 
+ATTENTION PARTICULIÈRE SUR A-07
+Le garde `Module readiness gate` est DÉJÀ ROUGE sur main, avant toute modification de ta part :
+le module Fiscalité est déclaré disponible sans test, sans documentation et sans fiche de preuves.
+Ne le fais jamais passer au vert en ajoutant l'écran à `documentationGrace` dans
+tools/readiness/screens.json. Les tests d'abord, la fiche de documentation ensuite, la fiche de
+preuves en dernier.
+
 ATTENTION PARTICULIÈRE SUR A-04
 Passer TreatWarningsAsErrors à true va probablement révéler un volume important d'avertissements
 sur 206 000 lignes générées. Corrige-les réellement. Ne mets un NoWarn que fichier par fichier,
@@ -96,7 +103,7 @@ Si l'on préfère une session par lot, remplacer le bloc « ORDRE D'EXÉCUTION �
 
 ```text
 PÉRIMÈTRE DE CETTE SESSION
-Tu ne traites QUE le lot A du plan (chantiers A-01 à A-06). Tu ne commences aucun chantier des
+Tu ne traites QUE le lot A du plan (chantiers A-01 à A-07). Tu ne commences aucun chantier des
 lots B, C ou D, même si tu en as le temps. À la fin, tu rapportes l'état et tu t'arrêtes.
 ```
 
@@ -106,7 +113,7 @@ Les six lots et leurs chantiers :
 
 | Lot | Chantiers | Effort indicatif |
 |---|---|---:|
-| **A** — gardes et fondations | A-01 à A-06 | ≈ 2 j |
+| **A** — gardes et fondations | A-01 à A-07 | ≈ 4 j |
 | **B** — déblocage | B-01 à B-03 | ≈ 3 j |
 | **C** — ergonomie | C-01 à C-03 | ≈ 5 j |
 | **D** — robustesse | D-01, D-02 | ≈ 5 j |

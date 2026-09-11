@@ -4,6 +4,11 @@
 **Nature :** document opérationnel. Chaque chantier porte un identifiant, une priorité, un effort
 indicatif et des **critères d'acceptation vérifiables**.
 
+> **Mise à jour du 11/09/2026 (soir).** Le chantier **A-07** a été ajouté après coup : le garde de
+> readiness du dépôt a révélé, sur la première PR ouverte depuis le lot Fiscalité, que ce module
+> est déclaré disponible sans test, sans fiche de documentation et sans fiche de preuves. Voir le
+> constat F-10 du document 01.
+
 > **Avertissement sur les efforts.** L'audit n'a pas pu compiler le projet (pas de SDK .NET dans
 > l'environnement d'analyse). Les efforts sont des **ordres de grandeur**, pas des engagements.
 > Le premier geste de toute exécution de ce plan est de lancer `dotnet build` et `dotnet test`
@@ -24,7 +29,7 @@ interdit revient à les recorriger dans trois semaines.
 
 ## Lot A — Gardes automatiques et fondations
 
-*Effort total indicatif : ≈ 2 jours. Priorité : immédiate.*
+*Effort total indicatif : ≈ 4 jours. Priorité : immédiate.*
 
 ### A-01 · Déclarer la conscience du DPI *(≈ 30 min)*
 
@@ -126,6 +131,46 @@ configuration), avec une valeur par défaut restrictive et la documentation corr
 
 **Acceptation.** `AllowedHosts` n'est plus `*` dans le fichier de production ; `.env.example`
 documente la variable.
+
+### A-07 · Rendre le garde de readiness vert, et l'empêcher de redevenir rouge *(≈ 2 j)*
+
+**Problème.** `tools/check-module-readiness.ps1` **échoue aujourd'hui sur `main`** :
+
+```
+ECHEC: screens.json: l'onglet Disponible 'FiscaliteTabItem' (ordres 5.4) n'a pas de fiche de preuves.
+```
+
+Le module Fiscalité DGI & SIFEC est déclaré `Disponible` et sert 21 routes — dont le calcul des
+déclarations de TVA et l'export G50 — **sans aucun test dédié, sans fiche de documentation et sans
+entrée dans `tools/readiness/screens.json`**. Détail des preuves manquantes : constat **F-10** du
+document 01.
+
+Personne ne l'a vu parce que `stabilization.yml` ne se déclenche que sur `pull_request` et sur les
+poussées vers `stabilization/**` et `reorg/**` : le lot Fiscalité a rejoint `main` sans PR, donc
+sans garde.
+
+**Travail.**
+1. Écrire les tests du module : calcul d'une déclaration de TVA, export G50, retenue à la source,
+   liasse, et au moins un test d'endpoint par famille de routes. C'est le cœur du chantier — le
+   reste en découle.
+2. Écrire `docs/modules/fiscalite-dgi-sifec.md` sur le modèle des fiches existantes
+   (`docs/modules/comptabilite-scf.md`).
+3. **Alors seulement**, ajouter la fiche `FiscaliteTabItem` dans `tools/readiness/screens.json`,
+   avec les preuves réelles.
+4. Étendre le déclencheur de `.github/workflows/stabilization.yml` à `push: branches: [main]`,
+   pour qu'un lot fusionné sans PR ne puisse plus échapper au garde.
+
+**Ce qu'il ne faut pas faire.** Ajouter `FiscaliteTabItem` à la liste `documentationGrace` pour
+faire passer la CI. Le fichier le dit lui-même : « Prolonger la date exige un commit motivé ». La
+grâce couvre des écrans antérieurs au lot 1.3 dont la fiche n'existe pas encore ; elle n'est pas un
+moyen de déclarer disponible un module livré après. Et elle ne couvrirait pas l'absence de tests,
+qui est le vrai sujet.
+
+**Acceptation.** Le job `Module readiness gate` passe au vert sur une PR **et** sur `main`. Le
+module Fiscalité a des tests qui échouent si son calcul change. Aucun écran n'a été ajouté à
+`documentationGrace`.
+
+---
 
 ---
 
@@ -316,6 +361,7 @@ démonstration. **Options :** les masquer, les dater, ou les afficher en « à v
 | A-04 | `LangVersion` publiée + warnings en erreurs | A | 2 h + | 🔴 |
 | A-05 | Rate limiting sur l'authentification | A | 1 h | 🔴 |
 | A-06 | `AllowedHosts` en production | A | 15 min | 🔴 |
+| A-07 | Garde de readiness vert (tests Fiscalité + doc + déclencheur) | A | 2 j | 🔴 |
 | B-01 | Spécification OpenAPI | B | 1 j | 🟠 |
 | B-02 | Smoke test WPF des 32 onglets | B | 1 j | 🟠 |
 | B-03 | Traiter `staging/` | B | 1 h | 🟠 |
@@ -329,5 +375,5 @@ démonstration. **Options :** les masquer, les dater, ou les afficher en « à v
 | P-03 | Couche cliente web | P | — | 🟠 décision |
 | P-04 | Modules planifiés | P | — | 🟡 décision |
 
-**Effort technique cumulé (lots A à D) : ≈ 15 jours-personne**, hors A-04 dont le volume dépend du
+**Effort technique cumulé (lots A à D) : ≈ 17 jours-personne**, hors A-04 dont le volume dépend du
 nombre réel d'avertissements — inconnu tant que le projet n'a pas été compilé.
