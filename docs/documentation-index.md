@@ -11,6 +11,15 @@
 - [Client Desktop WPF — Mon Espace, barre latérale, raccourcis](desktop-client.md)
 - [Charte UI Desktop](charte-ui-desktop.md)
 
+## Audit externe (11/09/2026)
+
+- [Dossier d'audit — avis technique, fonctionnalités, UI/UX, plan de remédiation](audit/README.md)
+  - [Avis technique global et choix du langage](audit/01-avis-technique-global.md)
+  - [Fonctionnalités par module (extraites des 469 routes)](audit/02-fonctionnalites-par-module.md)
+  - [Avis UI, UX et design](audit/03-avis-ui-ux-design.md)
+  - [Plan de remédiation — 18 chantiers](audit/04-plan-de-remediation.md)
+  - [Prompt de remédiation prêt à l'emploi](audit/PROMPT-REMEDIATION.md)
+
 ## Design
 
 - [Shell de navigation — spécification](design/navigation-shell.md)
